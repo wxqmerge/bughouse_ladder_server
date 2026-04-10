@@ -1,0 +1,25 @@
+:root {
+  --primary-color: #2563eb;
+  --secondary-color: #1e40af;
+  --accent-color: #f59e0b;
+  --bg-color: #f8fafc;
+  --surface-color: #ffffff;
+  --text-color: #1e293b;
+  --border-color: #cbd5e1;
+  --success-color: #10b981;
+  --danger-color: #ef4444;
+  --header-dark: #0f172a;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
+}
+
+#root {
+  min-height: 100vh;
+}
