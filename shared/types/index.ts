@@ -2,27 +2,6 @@
  * VB6 Bughouse Ladder - Shared Types
  */
 
-export const CONSTANTS = {
-  GROWS_MAX: 200,
-  GCOLS: 44,
-  GROUP_FIELD: 0,
-  LAST_NAME_FIELD: 1,
-  FIRST_NAME_FIELD: 2,
-  RATING_FIELD: 3,
-  RANKING_FIELD: 4,
-  N_RATING_FIELD: 5,
-  GRADE_FIELD: 6,
-  GAMES_FIELD: 7,
-  ATTENDANCE_FIELD: 8,
-  PHONE_FIELD: 9,
-  INFO_FIELD: 10,
-  SCHOOL_FIELD: 11,
-  ROOM_FIELD: 12,
-  LAST_PARAM_FIELD: 12,
-} as const;
-
-export const RESULT_STRING = "OLDWXYZ__________" as const;
-
 export interface PlayerData {
   rank: number;
   group: string;
@@ -70,4 +49,32 @@ export interface MatchData {
 export interface PlayerMatchResult {
   playerRank: number;
   resultString: string;
+}
+
+export type ProcessResult = {
+  matches: MatchData[];
+  playerResultsByMatch: Map<string, PlayerMatchResult[]>;
+  hasErrors: boolean;
+  errorCount: number;
+  errors: any[];
+};
+
+export interface UpdatePlayerGameDataResult {
+  isValid: boolean;
+  error?: number;
+  message?: string;
+  parsedPlayersList?: number[];
+  parsedScoreList?: number[];
+  originalString: string;
+  resultString?: string;
+  parsedPlayer1Rank?: number;
+  parsedPlayer2Rank?: number;
+  parsedPlayer3Rank?: number;
+  parsedPlayer4Rank?: number;
+}
+
+export interface ValidationResultResult {
+  isValid: boolean;
+  error?: number;
+  message?: string;
 }
