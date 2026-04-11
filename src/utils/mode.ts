@@ -97,10 +97,11 @@ initializeConnectionState();
 
 /**
  * Gets the version string with mode indicator
- * @returns Version string like "v1.0.0d" for dev mode
+ * @returns Version string like "v1.0.0-local" or "v1.0.0-server"
  */
 export function getVersionString(): string {
   const version = import.meta.env.PACKAGE_VERSION || '1.0.0';
   const mode = getProgramMode();
-  return `v${version}${mode}`;
+  const modeName = mode === 'a' ? 'local' : 'server';
+  return `v${version}-${modeName}`;
 }
