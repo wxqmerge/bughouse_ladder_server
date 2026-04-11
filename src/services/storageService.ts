@@ -223,6 +223,22 @@ export async function updatePlayer(player: PlayerData): Promise<void> {
 // ==================== GAME RESULTS ====================
 
 /**
+ * Clear a single game result cell
+ */
+export async function clearPlayerCell(playerRank: number, roundIndex: number): Promise<void> {
+  // Use getCurrentPlayers to respect batch buffer
+  const players = isInBatch() ? getCurrentPlayers() : await getPlayers();
+  const player = players.find(p => p.rank === playerRank);
+  if (player) {
+    if (!player.gameResults) {
+      player.gameResults = new Array(31).fill(null);
+    }
+    player.gameResults[roundIndex] = null;
+    await savePlayers(players);
+  }
+}
+
+/**
  * Submit a game result for a player
  */
 export async function submitGameResult(

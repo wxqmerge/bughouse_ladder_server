@@ -122,6 +122,58 @@ router.put('/:rank', authenticate, async (req: AuthRequest, res: Response): Prom
   }
 });
 
+// Clear a single game result cell (requires authentication)
+router.delete('/:rank/round/:roundIndex', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const rank = parseInt(req.params.rank);
+    const roundIndex = parseInt(req.params.roundIndex);
+    
+    if (isNaN(rank) || rank < 1 || isNaN(roundIndex) || roundIndex < 0 || roundIndex > 30) {
+      res.status(400).json({
+        success: false,
+        error: { message: 'Invalid rank or round index' },
+      });
+      return;
+    }
+
+    const ladderData = await readLadderFile();
+    const playerIndex = ladderData.players.findIndex(p => p.rank === rank);
+
+    if (playerIndex === -1) {
+      res.status(404).json({
+        success: false,
+        error: { message: 'Player not found' },
+      });
+      return;
+    }
+
+    const player = ladderData.players[playerIndex];
+    
+    // Clear the cell
+    if (!player.gameResults) {
+      player.gameResults = new Array(31).fill(null);
+    }
+    player.gameResults[roundIndex] = null;
+
+    await writeLadderFile(ladderData);
+
+    res.json({
+      success: true,
+      data: { 
+        message: 'Cell cleared',
+        rank,
+        roundIndex 
+      },
+    });
+  } catch (error) {
+    console.error('Error clearing cell:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to clear cell' },
+    });
+  }
+});
+
 // Bulk update players (admin only)
 router.put('/', authenticate, requireAdmin, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
