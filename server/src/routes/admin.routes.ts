@@ -2,13 +2,13 @@ import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
-import { authenticate, AuthRequest, requireAdmin } from '../middleware/auth.middleware.js';
+import { requireAdminKey } from '../middleware/auth.middleware.js';
 import { readLadderFile, writeLadderFile, ensureDataDirectory, PlayerData } from '../services/dataService.js';
 
 const router = Router();
 
-// All admin routes require authentication and admin role
-router.use(authenticate, requireAdmin);
+// All admin routes require admin API key (if configured)
+router.use(requireAdminKey);
 
 // Configure multer for file uploads
 const upload = multer({

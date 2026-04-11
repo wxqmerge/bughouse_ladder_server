@@ -1,5 +1,4 @@
 import { Router, Request, Response } from 'express';
-import { authenticate, AuthRequest } from '../middleware/auth.middleware.js';
 import { readLadderFile, writeLadderFile, PlayerData } from '../services/dataService.js';
 
 const router = Router();
@@ -13,8 +12,8 @@ interface GameResult {
   result: string;
 }
 
-// Submit a single game result (requires authentication)
-router.post('/submit', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+// Submit a single game result (no auth required - local use)
+router.post('/submit', async (req: Request, res: Response): Promise<void> => {
   try {
     const { playerRank, round, result } = req.body as GameResult;
 
@@ -41,20 +40,6 @@ router.post('/submit', authenticate, async (req: AuthRequest, res: Response): Pr
         error: { message: 'Invalid result format' },
       });
       return;
-    }
-
-    // Admins can submit for any player
-    if (req.user?.role !== 'admin') {
-      // Non-admin users must be assigned to a player rank via the 'assignedRank' field
-      // This should be set when creating user accounts or through admin panel
-      const assignedRank = (req.user as any).assignedRank;
-      if (assignedRank !== undefined && assignedRank !== playerRank) {
-        res.status(403).json({
-          success: false,
-          error: { message: 'You can only submit game results for your own rank' },
-        });
-        return;
-      }
     }
 
     const ladderData = await readLadderFile();
@@ -96,8 +81,8 @@ router.post('/submit', authenticate, async (req: AuthRequest, res: Response): Pr
   }
 });
 
-// Submit multiple game results (requires authentication)
-router.post('/batch', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+// Submit multiple game results (no auth required - local use)
+router.post('/batch', async (req: Request, res: Response): Promise<void> => {
   try {
     const { games } = req.body as { games: GameResult[] };
 
@@ -107,21 +92,6 @@ router.post('/batch', authenticate, async (req: AuthRequest, res: Response): Pro
         error: { message: 'Invalid games data' },
       });
       return;
-    }
-
-    // Verify authorization for each game submission
-    if (req.user?.role !== 'admin') {
-      const assignedRank = (req.user as any).assignedRank;
-      if (assignedRank !== undefined) {
-        const unauthorizedGames = games.filter(g => g.playerRank !== assignedRank);
-        if (unauthorizedGames.length > 0) {
-          res.status(403).json({
-            success: false,
-            error: { message: 'You can only submit game results for your own rank' },
-          });
-          return;
-        }
-      }
     }
 
     const ladderData = await readLadderFile();
