@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
-import { authenticate, AuthRequest } from '../middleware/auth.middleware';
-import { readLadderFile, writeLadderFile, PlayerData } from '../services/dataService';
+import { authenticate, AuthRequest } from '../middleware/auth.middleware.js';
+import { readLadderFile, writeLadderFile, PlayerData } from '../services/dataService.js';
 
 const router = Router();
 
@@ -58,7 +58,7 @@ router.post('/submit', authenticate, async (req: AuthRequest, res: Response): Pr
     }
 
     const ladderData = await readLadderFile();
-    const playerIndex = ladderData.players.findIndex(p => p.rank === playerRank);
+    const playerIndex = ladderData.players.findIndex((p: PlayerData) => p.rank === playerRank);
 
     if (playerIndex === -1) {
       res.status(404).json({
@@ -128,7 +128,7 @@ router.post('/batch', authenticate, async (req: AuthRequest, res: Response): Pro
     const results: any[] = [];
 
     for (const game of games) {
-      const playerIndex = ladderData.players.findIndex(p => p.rank === game.playerRank);
+      const playerIndex = ladderData.players.findIndex((p: PlayerData) => p.rank === game.playerRank);
       
       if (playerIndex === -1) {
         results.push({ playerRank: game.playerRank, error: 'Player not found' });
@@ -176,7 +176,7 @@ router.get('/player/:rank', async (req: Request, res: Response): Promise<void> =
     }
 
     const ladderData = await readLadderFile();
-    const player = ladderData.players.find(p => p.rank === rank);
+    const player = ladderData.players.find((p: PlayerData) => p.rank === rank);
 
     if (!player) {
       res.status(404).json({
