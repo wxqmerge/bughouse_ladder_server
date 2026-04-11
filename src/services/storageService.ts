@@ -13,12 +13,12 @@ import { getProgramMode } from '../utils/mode';
 
 /**
  * Get the storage key prefix based on current mode
- * Local mode uses no prefix (backward compatible)
- * Dev/Server mode uses 'dev_' prefix for isolation during testing
+ * Local mode ('a') uses 'ladder_' prefix (backward compatible)
+ * Dev/Server modes ('d', 's') use 'ladder_server_' prefix for isolation during testing
  */
 export function getKeyPrefix(): string {
   const mode = getProgramMode();
-  return mode === 'a' ? '' : 'dev_';
+  return mode === 'a' ? 'ladder_' : 'ladder_server_';
 }
 
 // ==================== PLAYER DATA ====================
@@ -102,7 +102,7 @@ export async function updatePlayer(player: PlayerData): Promise<void> {
       const index = players.findIndex(p => p.rank === player.rank);
       if (index !== -1) {
         players[index] = player;
-        localStorage.setItem('ladder_players', JSON.stringify(players));
+        localStorage.setItem(getKeyPrefix() + 'ladder_players', JSON.stringify(players));
       }
     }
   }
@@ -141,7 +141,7 @@ export async function submitGameResult(
           player.gameResults = new Array(31).fill(null);
         }
         player.gameResults[round] = result;
-        localStorage.setItem('ladder_players', JSON.stringify(players));
+        localStorage.setItem(getKeyPrefix() + 'ladder_players', JSON.stringify(players));
       }
     }
   }
