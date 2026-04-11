@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -14,6 +15,7 @@ import { router as ladderRouter } from './routes/ladder.routes';
 import { router as gameRouter } from './routes/game.routes';
 import { router as adminRouter } from './routes/admin.routes';
 import { errorHandler } from './middleware/errorHandler';
+import { initializeDefaultLadder } from './services/dataService';
 
 const app: Application = express();
 const PORT = process.env.PORT || 3000;
@@ -61,11 +63,21 @@ if (process.env.NODE_ENV === 'production') {
 app.use(errorHandler);
 
 // Start server
+async function startServer() {
+  try {
+    await initializeDefaultLadder();
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+      console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
 if (!module.parent) {
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  });
+  startServer();
 }
 
 export default app;
