@@ -1,0 +1,12 @@
+{
+  "name": "04-paste-results",
+  "inputFilePath": "kings_cross.tab",
+  "expectedOutputFile": "test-cases/paste_results.tab",
+  "actions": [
+    { "type": "clickMenu", "menu": "Settings" },
+    { "type": "clickButtonByText", "text": "Set Sample Data" },
+    { "type": "pasteResults", "results": "5W3\t7L2\t9D4\t11W6\t3L8" }
+  ],
+  "clickMenu": "File",
+  "selectMenuItem": "Export"
+}
