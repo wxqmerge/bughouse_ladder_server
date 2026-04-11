@@ -25,6 +25,14 @@ export {
   updatePlayerGameData
 } from "../../shared/utils/hashUtils";
 
+// Re-export types for backward compatibility
+export type { 
+  PlayerData, 
+  ValidationResult, 
+  MatchData, 
+  PlayerMatchResult 
+} from '../../shared/types';
+
 /**
  * VB6 Line: 133-137 - Get ladder name from current directory
  */

@@ -1,5 +1,5 @@
-import React from 'react';
-import { useSettings, DataServiceMode } from '../contexts/SettingsContext';
+import { useSettings } from '../contexts/SettingsContext';
+import { DataServiceMode } from '../services/dataService';
 
 export function ModeSelector(): JSX.Element {
   const { mode, setMode, serverUrl, setServerUrl } = useSettings();

@@ -1,25 +1,26 @@
 /**
- * VB6 Bughouse Ladder - Shared Utils
+ * VB6 Bughouse Ladder - Shared Utils Re-exports
+ * Provides unified access to types and utilities
  */
 
-import { 
+// Re-export all shared types
+export type { 
   PlayerData, 
   ValidationResult, 
   MatchData, 
   PlayerMatchResult,
-  MatchWithResults,
-  ProcessResult,
   UpdatePlayerGameDataResult,
-  ValidationResultResult
-} from "../types";
-import { 
-  CONSTANTS, 
-  RESULT_STRING, 
-  GROUP_CODES, 
-  SORT_OPTIONS 
-} from "../types";
-import { shouldLog } from "../../src/utils/debug";
-import { getValidationErrorMessage } from "../../src/utils/constants";
+  ValidationResultResult,
+  ProcessResult
+} from '../../shared/types';
 
-// We'll move these to shared/utils next.
-// For now, we just keep the exports for compatibility.
+// Re-export utility functions from hashUtils
+export {
+  processGameResults,
+  calculateRatings,
+  repopulateGameResults,
+  updatePlayerGameData
+} from './hashUtils';
+
+// Re-export constants
+export { MINI_GAMES, getNextTitle, processNewDayTransformations } from './constants';
