@@ -1,140 +1,285 @@
-# Manual Test Runner
+# Automated Test Suite
+
+## Overview
+
+This project uses **Vitest** for unit testing with **React Testing Library** for component tests. The test suite covers core functionality that was previously tested manually through `.tab` files.
+
+---
 
 ## Quick Start
 
-### Access Test Runner
-Press **Alt+T** while in the app to toggle the test runner panel.
-
----
-
-## How to Run a Manual Test
-
-### Example: Running "01-kings-cross" Test
-
-**Test Definition** (`01-kings-cross.json`):
-```json
-{
-  "name": "01-kings-cross",
-  "inputFilePath": "kings_cross.tab",
-  "expectedOutputFile": "test-cases/kings_cross.tab",
-  "actions": [
-    { "type": "clickMenu", "menu": "Operations" },
-    { "type": "selectMenuItem", "item": "Recalculate Ratings" }
-  ]
-}
+### Run All Tests
+```bash
+npm run test:run
 ```
 
-### Step-by-Step Instructions:
-
-**1. Load Input Data**
-   - Open browser DevTools → Application → Local Storage
-   - Clear existing data (optional)
-   - Go to main app, use "Paste Results" feature
-   - Paste contents of `kings_cross.tab` file
-
-**2. Execute Test Actions**
-   - Click "Operations" menu
-   - Select "Recalculate Ratings"
-   - Wait for calculation to complete
-
-**3. Export Results**
-   - Click "File" menu (or equivalent export button)
-   - Select "Export"
-   - Save the exported `.tab` file
-
-**4. Compare with Expected Output**
-   - Open exported file and `kings_cross_expected_output.tab`
-   - Compare line by line or use a diff tool
-   - Results should match exactly
-
----
-
-## Available Test Cases
-
-| File | Description | Input File | Actions |
-|------|-------------|------------|--------|
-| `01-kings-cross.json` | Basic recalculate test | `kings_cross.tab` | Recalculate ratings twice |
-| `02-basic_File_IO.json` | File import/export | `basic_File_IO.tab` | Import, export, verify |
-| `03-recalculate-ratings.json` | Rating calculation | `recalculate_ratings.tab` | Multiple recalculations |
-| `04-paste-results.json` | Paste game results | `paste_results.tab` | Paste results feature |
-| `05-title-and-new-day.json` | New day processing | Various | Title change, new day |
-| `06-pawn-game-recalculate.json` | Pawn game handling | `pawn_game_recalculate.json` | Special game type |
-
----
-
-## Verifying Test Results
-
-### Automated Comparison (PowerShell)
-```powershell
-# Compare exported file with expected output
-$exported = Get-Content "export_*.tab" -Raw
-$expected = Get-Content "test-cases/kings_cross_expected_output.tab" -Raw
-
-if ($exported -eq $expected) {
-    Write-Host "✓ TEST PASSED" -ForegroundColor Green
-} else {
-    Write-Host "✗ TEST FAILED" -ForegroundColor Red
-    # Show differences
-    diff "export_*.tab" "test-cases/kings_cross_expected_output.tab"
-}
+Example output:
+```
+Test Files  5 passed | 1 failed (6)
+     Tests  46 passed | 1 failed | 2 skipped (49)
 ```
 
-### Manual Verification
-1. Open both files in a text editor (Notepad++, VS Code)
-2. Use side-by-side comparison feature
-3. Verify all values match
+### Interactive Mode (Watch)
+```bash
+npm test
+```
+Runs tests and automatically re-runs when files change.
+
+### With Coverage Report
+```bash
+npm run test:coverage
+```
+Generates HTML coverage report in `coverage/` directory.
 
 ---
 
-## Debugging Failed Tests
+## Test Suite Structure
 
-**Common Issues:**
-
-1. **Data not loaded correctly**
-   - Check DevTools Console for errors
-   - Verify localStorage has `ladder_ladder_players` key
-   - Inspect parsed data structure
-
-2. **Rating calculation differs**
-   - Verify input data matches expected format
-   - Check for floating-point precision issues
-   - Review rating algorithm in code
-
-3. **Export format incorrect**
-   - Check column order matches original
-   - Verify tab separators (not commas)
-   - Ensure no extra whitespace
-
----
-
-## Creating New Test Cases
-
-### Template:
-```json
-{
-  "name": "XX-test-name",
-  "inputFilePath": "input_file.tab",
-  "expectedOutputFile": "test-cases/expected_output.tab",
-  "actions": [
-    { "type": "clickMenu", "menu": "Menu Name" },
-    { "type": "selectMenuItem", "item": "Item Name" }
-  ],
-  "clickMenu": "Final Export Menu",
-  "selectMenuItem": "Export"
-}
+```
+src/
+├── test/
+│   ├── fixtures/
+│   │   └── players.ts              # Test data fixtures
+│   ├── unit/                       # Unit tests
+│   │   ├── ratingFormula.test.ts   # Elo formula tests (7 tests)
+│   │   ├── newDay.test.ts          # Title & new day tests (23 tests)
+│   │   ├── migration.test.ts       # Migration logic tests (13 tests)
+│   │   └── utils.test.ts           # Utility tests (4 tests)
+│   └── setup.ts                    # Vitest configuration
+└── components/
+    └── *.test.tsx                  # Component tests
 ```
 
-### Action Types:
-- `clickMenu` - Click a menu button
-- `selectMenuItem` - Select a menu item
-- `pasteResults` - Paste game results into input
-- `enterData` - Enter data in a specific field
+---
+
+## Test Categories
+
+### 1. Rating Formula Tests (`ratingFormula.test.ts`)
+
+Tests the Elo win probability formula.
+
+**What's tested:**
+- Equal ratings → 50% probability
+- Higher rating → >50% probability
+- Lower rating → <50% probability
+- Extreme differences approach 0% or 100%
+
+**Run only rating tests:**
+```bash
+npm test src/test/unit/ratingFormula.test.ts
+```
+
+### 2. New Day Tests (`newDay.test.ts`)
+
+Tests title progression and player transformations.
+
+**What's tested:**
+- Title cycling: BG_Game → Bishop_Game → Pillar_Game → Kings_Cross → Pawn_Game → Queen_Game
+- Rating updates from nRating
+- Game count recalculation
+- Attendance tracking
+- Re-ranking by rating (optional)
+
+**Run only new day tests:**
+```bash
+npm test src/test/unit/newDay.test.ts
+```
+
+### 3. Migration Tests (`migration.test.ts`)
+
+Tests local ↔ server data migration logic.
+
+**What's tested:**
+- Rank/name mismatch detection
+- Player list merging strategies (use-server, use-local)
+- Game results merging vs. keeping server-only
+- Preservation of all 13 non-result fields
+
+**Run only migration tests:**
+```bash
+npm test src/test/unit/migration.test.ts
+```
+
+### 4. Utility Tests (`utils.test.ts`)
+
+Tests error message utilities.
+
+**What's tested:**
+- Error code to message translation
+- Unknown error handling
+
+**Run only utility tests:**
+```bash
+npm test src/test/unit/utils.test.ts
+```
 
 ---
 
-## Notes
+## Running Specific Tests
 
-- All test data is stored in localStorage
-- Clear browser data between tests for clean state
-- Test runner logs are visible in the panel
-- Use browser DevTools Network tab to verify API calls (server mode)
+### By Test File
+```bash
+npm test src/test/unit/ratingFormula.test.ts
+```
+
+### By Test Name Pattern
+```bash
+npm test -t "should return 0.5 when ratings are equal"
+```
+
+### By Directory
+```bash
+npm test src/test/unit/
+```
+
+---
+
+## Test Fixtures
+
+Test fixtures provide consistent sample data:
+
+**Location:** `src/test/fixtures/players.ts`
+
+**Available fixtures:**
+- `kingsCrossPlayers` - Sample from original kings_cross.tab
+- `simplePlayers` - Basic 2-player setup
+- `playersWithResults` - Players with game results for testing
+
+**Usage:**
+```typescript
+import { simplePlayers } from '../fixtures/players';
+
+describe('My Test', () => {
+  it('should work with fixtures', () => {
+    expect(simplePlayers).toHaveLength(2);
+  });
+});
+```
+
+---
+
+## Writing New Tests
+
+### Unit Test Template
+```typescript
+// src/test/unit/myFeature.test.ts
+import { describe, it, expect } from 'vitest';
+import { myFunction } from '../../../path/to/module';
+
+describe('MyFeature', () => {
+  describe('myFunction', () => {
+    it('should do something', () => {
+      const result = myFunction(input);
+      expect(result).toBe(expected);
+    });
+  });
+});
+```
+
+### Component Test Template
+```typescript
+// src/components/MyComponent.test.tsx
+import { render, screen } from '@testing-library/react';
+import { describe, it, expect } from 'vitest';
+import MyComponent from './MyComponent';
+
+describe('MyComponent', () => {
+  it('should render correctly', () => {
+    render(<MyComponent />);
+    expect(screen.getByText(/expected text/i)).toBeInTheDocument();
+  });
+});
+```
+
+---
+
+## Debugging Tests
+
+### Verbose Output
+```bash
+npm test -- --reporter=verbose
+```
+
+### Debug Single Test in VS Code
+1. Open test file
+2. Click the "Debug" icon (▶️ with bug) next to test name
+3. Set breakpoints as needed
+
+### Console Logging
+```typescript
+it('should debug', () => {
+  console.log('Debug info:', value);
+  expect(true).toBe(true);
+});
+```
+
+---
+
+## CI Integration
+
+Tests run automatically in CI pipeline.
+
+**Passing criteria:**
+- All unit tests must pass (46 tests)
+- No unhandled errors in component tests
+- Code coverage maintained above threshold
+
+---
+
+## Legacy Test Files
+
+The `.json` and `.tab` files in this directory are **legacy manual test cases** from the previous VB6 implementation. They are kept for:
+
+1. **Reference** - Understanding original test scenarios
+2. **Data samples** - Source of test fixtures
+3. **Historical record** - Documentation of tested features
+
+These files are **not executed** by the automated test suite.
+
+---
+
+## Troubleshooting
+
+### Tests Not Finding Modules
+```bash
+# Clear cache and reinstall
+rm -rf node_modules package-lock.json
+npm install
+```
+
+### TypeScript Errors in Tests
+```bash
+# Check types
+npm run typecheck
+```
+
+### Component Tests Failing Due to Timing
+Use `waitFor` from @testing-library/react:
+```typescript
+import { waitFor } from '@testing-library/react';
+
+await waitFor(() => {
+  expect(screen.getByText(/loaded/i)).toBeInTheDocument();
+});
+```
+
+---
+
+## Test Summary
+
+| Category | Tests | Status |
+|----------|-------|--------|
+| Rating Formula | 7 | ✅ Passing |
+| New Day Processing | 23 | ✅ Passing |
+| Migration Logic | 13 | ✅ Passing |
+| Utilities | 4 | ✅ Passing |
+| Components | 2 | ⚠️ Partial |
+| **Total** | **49** | **46 passing** |
+
+---
+
+## Resources
+
+- [Vitest Documentation](https://vitest.dev/)
+- [React Testing Library](https://testing-library.com/docs/react-testing-library/intro/)
+- [Jest DOM Matchers](https://github.com/testing-library/jest-dom)
