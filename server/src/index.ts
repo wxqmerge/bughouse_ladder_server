@@ -76,7 +76,8 @@ async function startServer() {
   }
 }
 
-if (!module.parent) {
+// ES module equivalent of !module.parent
+if (import.meta.url === `file://${process.argv[1]}`) {
   startServer();
 }
 
