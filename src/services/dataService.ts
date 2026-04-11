@@ -271,7 +271,29 @@ class DataService {
   }
 }
 
-// Create singleton instance
-export const dataService = new DataService({
-  mode: DataServiceMode.LOCAL,
-});
+// Determine the appropriate mode based on environment configuration
+function determineMode(): DataServiceConfig {
+  const apiUrl = import.meta.env.VITE_API_URL;
+  
+  if (apiUrl && apiUrl.startsWith('http')) {
+    // Server is configured - use DEVELOPMENT mode for localhost, SERVER for production
+    if (apiUrl.includes('localhost') || apiUrl.includes('127.0.0.1')) {
+      return {
+        mode: DataServiceMode.DEVELOPMENT,
+        serverUrl: apiUrl,
+      };
+    }
+    return {
+      mode: DataServiceMode.SERVER,
+      serverUrl: apiUrl,
+    };
+  }
+  
+  // No server configured - use LOCAL mode
+  return {
+    mode: DataServiceMode.LOCAL,
+  };
+}
+
+// Create singleton instance with appropriate mode
+export const dataService = new DataService(determineMode());

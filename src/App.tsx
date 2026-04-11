@@ -1,9 +1,10 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import LadderForm from "./components/LadderForm";
 import Settings from "./components/Settings";
 import { loadSampleData } from "./components/LadderForm";
 import type { PlayerData } from "./utils/hashUtils";
 import { getNextTitle, processNewDayTransformations } from "./utils/constants";
+import { updateConnectionState } from "./utils/mode";
 import {
   savePlayers,
   getPlayers,
@@ -16,6 +17,20 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [triggerWalkthrough, setTriggerWalkthrough] = useState(false);
   const recalculateRef = useRef<(() => void) | undefined>(undefined);
+
+  // Test server connectivity on mount and periodically
+  useEffect(() => {
+    // Initial test
+    updateConnectionState().catch(console.error);
+    
+    // Poll every 30 seconds to detect server coming back online
+    const pollInterval = setInterval(
+      () => updateConnectionState().catch(console.error),
+      30000,
+    );
+    
+    return () => clearInterval(pollInterval);
+  }, []);
 
   const handleReset = async () => {
     const samplePlayers = loadSampleData();
