@@ -19,7 +19,7 @@ import MobileMenu from "./MobileMenu";
 import { Menu as MenuIcon } from "lucide-react";
 import { shouldLog } from "../utils/debug";
 import { getVersionString } from "../utils/mode";
-import { getKeyPrefix } from "../services/storageService";
+import { getKeyPrefix, startBatch, endBatch } from "../services/storageService";
 import {
   getPlayers,
   savePlayers,
@@ -495,6 +495,9 @@ export default function LadderForm({
       );
     }
 
+    // Start batch mode - defer server sync until all operations complete
+    startBatch();
+
     // Always build fresh matches from current UI state (no caching)
     const result = checkGameErrors();
 
@@ -612,6 +615,9 @@ export default function LadderForm({
     if (shouldLog(10)) {
       console.log("Rating calculation complete\n");
     }
+
+    // End batch mode - triggers single server sync with all accumulated changes
+    await endBatch();
   };
 
   useEffect(() => {

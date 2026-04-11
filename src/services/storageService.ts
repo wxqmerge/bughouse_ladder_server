@@ -21,6 +21,74 @@ export function getKeyPrefix(): string {
   return mode === 'a' ? 'ladder_' : 'ladder_server_';
 }
 
+// ==================== BATCH SYNC MANAGEMENT ====================
+
+/**
+ * Tracks whether we're in a multi-operation batch
+ * When > 0, server sync is deferred until batch ends
+ */
+let batchOperationCount = 0;
+
+/**
+ * Start a batch operation - disables server sync until endBatch() is called
+ * Can be nested - use counter to track depth
+ */
+export function startBatch(): void {
+  batchOperationCount++;
+}
+
+/**
+ * End a batch operation - triggers single server sync if this was the outermost batch
+ * Should be called for every startBatch() call
+ */
+export async function endBatch(): Promise<void> {
+  batchOperationCount--;
+  
+  // Only sync when we exit the outermost batch
+  if (batchOperationCount === 0) {
+    await performDeferredSync();
+  }
+}
+
+/**
+ * Check if currently in a batch operation
+ */
+export function isInBatch(): boolean {
+  return batchOperationCount > 0;
+}
+
+/**
+ * Perform the deferred server sync (called at end of batch)
+ */
+async function performDeferredSync(): Promise<void> {
+  // Read current data from localStorage
+  const localData = localStorage.getItem('ladder_ladder_players');
+  if (!localData) return;
+  
+  try {
+    const players: PlayerData[] = JSON.parse(localData);
+    
+    // Only sync if in server mode and server is reachable
+    if (dataService.getMode() !== DataServiceMode.LOCAL) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 sec timeout for batch sync
+      
+      try {
+        await dataService.savePlayers(players);
+        clearTimeout(timeoutId);
+        console.log('[Batch Sync] Successfully synced with server');
+      } catch (error: any) {
+        clearTimeout(timeoutId);
+        if (error.name !== 'AbortError') {
+          console.error('[Batch Sync] Failed to sync with server:', error);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('[Batch Sync] Error reading player data:', error);
+  }
+}
+
 // ==================== PLAYER DATA ====================
 
 /**
@@ -50,6 +118,7 @@ export async function getPlayers(): Promise<PlayerData[]> {
 /**
  * Save all players to storage
  * In server mode, saves to BOTH ladder_* and ladder_server_* keys
+ * Skips server sync if in batch mode - sync happens at endBatch()
  */
 export async function savePlayers(players: PlayerData[]): Promise<void> {
   const playerJson = JSON.stringify(players);
@@ -62,12 +131,22 @@ export async function savePlayers(players: PlayerData[]): Promise<void> {
     localStorage.setItem('ladder_ladder_players', playerJson);
     localStorage.setItem('ladder_server_ladder_players', playerJson);
     
-    // Also try to sync with server
-    try {
-      await dataService.savePlayers(players);
-    } catch (error) {
-      console.error('Failed to save players to server:', error);
-      // Data already saved locally above
+    // Skip server sync if in batch mode - will sync at end of batch
+    if (!isInBatch()) {
+      // Fire-and-forget background sync with 2-second timeout
+      (async () => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+        try {
+          await dataService.savePlayers(players);
+          clearTimeout(timeoutId);
+        } catch (error: any) {
+          clearTimeout(timeoutId);
+          if (error.name !== 'AbortError') {
+            console.error('Failed to save players to server:', error);
+          }
+        }
+      })().catch(() => {});
     }
   }
 }
