@@ -3,10 +3,17 @@ import LadderForm from "./components/LadderForm";
 import Settings from "./components/Settings";
 import { MigrationDialog } from "./components/MigrationDialog";
 import { ManualTestRunner } from "./components/ManualTestRunner";
+import { ReconnectDialog } from "./components/ReconnectDialog";
 import { loadSampleData } from "./components/LadderForm";
 import type { PlayerData } from "./utils/hashUtils";
 import { getNextTitle, processNewDayTransformations } from "./utils/constants";
-import { updateConnectionState } from "./utils/mode";
+import {
+  updateConnectionState,
+  startPeriodicChecks,
+  stopPeriodicChecks,
+  onModeChange,
+  getProgramMode,
+} from "./utils/mode";
 import { checkMigrationNeeded, storeCurrentMode } from "./utils/migrationUtils";
 import {
   savePlayers,
@@ -24,6 +31,8 @@ function App() {
   const [triggerWalkthrough, setTriggerWalkthrough] = useState(false);
   const [showMigrationDialog, setShowMigrationDialog] = useState(false);
   const [showTestRunner, setShowTestRunner] = useState(false);
+  const [showReconnectDialog, setShowReconnectDialog] = useState(false);
+  const [wasServerMode, setWasServerMode] = useState(true); // Assume server mode initially
   const recalculateRef = useRef<(() => void) | undefined>(undefined);
 
   // Test server connectivity and check for migration on mount
@@ -31,11 +40,22 @@ function App() {
     // Initial connectivity test
     updateConnectionState().catch(console.error);
     
-    // Poll every 30 seconds to detect server coming back online
-    const pollInterval = setInterval(
-      () => updateConnectionState().catch(console.error),
-      30000,
-    );
+    // Set up mode change callback
+    onModeChange((newMode: string, oldMode: string) => {
+      console.log(`[MODE CHANGE] ${oldMode} -> ${newMode}`);
+      const wasServer = oldMode !== 'a';
+      const isNowServer = newMode !== 'a';
+      
+      setWasServerMode(wasServer);
+      
+      // Show reconnect dialog on mode transition
+      if (wasServer !== isNowServer) {
+        setShowReconnectDialog(true);
+      }
+    });
+    
+    // Start periodic checks (every 60 seconds)
+    startPeriodicChecks();
     
     // Check for migration needs
     const migrationCheck = checkMigrationNeeded();
@@ -56,7 +76,7 @@ function App() {
     
     window.addEventListener('keydown', handleKeyDown);
     return () => {
-      clearInterval(pollInterval);
+      stopPeriodicChecks();
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, []);
@@ -145,6 +165,14 @@ function App() {
       )}
       
       {showTestRunner && <ManualTestRunner />}
+      
+      {showReconnectDialog && (
+        <ReconnectDialog
+          wasServerMode={wasServerMode}
+          isNowConnected={getProgramMode() !== 'a'}
+          onDismiss={() => setShowReconnectDialog(false)}
+        />
+      )}
       
       <LadderForm
         setShowSettings={setShowSettings}

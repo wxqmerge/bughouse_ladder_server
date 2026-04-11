@@ -30,23 +30,36 @@ export function getKeyPrefix(): string {
 let batchOperationCount = 0;
 
 /**
- * Start a batch operation - disables server sync until endBatch() is called
+ * Buffer for holding player data during batch operations
+ * During batch mode, changes are held here instead of writing to localStorage
+ * At endBatch(), we write once to localStorage AND sync once to server
+ */
+let batchBuffer: PlayerData[] | null = null;
+
+/**
+ * Start a batch operation - disables localStorage writes until endBatch() is called
  * Can be nested - use counter to track depth
  */
 export function startBatch(): void {
+  if (batchOperationCount === 0) {
+    // First level of nesting - load current data into buffer
+    const localData = localStorage.getItem('ladder_ladder_players');
+    batchBuffer = localData ? JSON.parse(localData) : [];
+  }
   batchOperationCount++;
 }
 
 /**
- * End a batch operation - triggers single server sync if this was the outermost batch
+ * End a batch operation - commits buffer to localStorage and triggers server sync
  * Should be called for every startBatch() call
  */
 export async function endBatch(): Promise<void> {
   batchOperationCount--;
   
-  // Only sync when we exit the outermost batch
-  if (batchOperationCount === 0) {
-    await performDeferredSync();
+  // Only commit when we exit the outermost batch
+  if (batchOperationCount === 0 && batchBuffer !== null) {
+    await commitBatchBuffer();
+    batchBuffer = null;
   }
 }
 
@@ -58,34 +71,43 @@ export function isInBatch(): boolean {
 }
 
 /**
- * Perform the deferred server sync (called at end of batch)
+ * Get current player data (from buffer during batch, from storage otherwise)
+ * This ensures operations always work with the latest data
  */
-async function performDeferredSync(): Promise<void> {
-  // Read current data from localStorage
+function getCurrentPlayers(): PlayerData[] {
+  if (batchBuffer !== null) {
+    return batchBuffer;
+  }
   const localData = localStorage.getItem('ladder_ladder_players');
-  if (!localData) return;
+  return localData ? JSON.parse(localData) : [];
+}
+
+/**
+ * Commit the batch buffer to localStorage and sync to server
+ */
+async function commitBatchBuffer(): Promise<void> {
+  if (!batchBuffer) return;
   
-  try {
-    const players: PlayerData[] = JSON.parse(localData);
+  const playerJson = JSON.stringify(batchBuffer);
+  
+  // Write to localStorage (both keys in server mode)
+  localStorage.setItem('ladder_ladder_players', playerJson);
+  if (dataService.getMode() !== DataServiceMode.LOCAL) {
+    localStorage.setItem('ladder_server_ladder_players', playerJson);
+  }
+  
+  // Sync to server (fire-and-forget)
+  if (dataService.getMode() !== DataServiceMode.LOCAL) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 sec timeout
     
-    // Only sync if in server mode and server is reachable
-    if (dataService.getMode() !== DataServiceMode.LOCAL) {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 sec timeout for batch sync
-      
-      try {
-        await dataService.savePlayers(players);
-        clearTimeout(timeoutId);
-        console.log('[Batch Sync] Successfully synced with server');
-      } catch (error: any) {
-        clearTimeout(timeoutId);
-        if (error.name !== 'AbortError') {
-          console.error('[Batch Sync] Failed to sync with server:', error);
-        }
-      }
+    try {
+      await dataService.savePlayers(batchBuffer);
+      clearTimeout(timeoutId);
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      // Silently ignore - this is fire-and-forget, data saved locally
     }
-  } catch (error) {
-    console.error('[Batch Sync] Error reading player data:', error);
   }
 }
 
@@ -93,8 +115,14 @@ async function performDeferredSync(): Promise<void> {
 
 /**
  * Get all players from storage
+ * During batch mode, returns from buffer to ensure latest data
  */
 export async function getPlayers(): Promise<PlayerData[]> {
+  // During batch mode, return from buffer if available
+  if (isInBatch() && batchBuffer !== null) {
+    return batchBuffer;
+  }
+  
   if (dataService.getMode() === DataServiceMode.LOCAL) {
     // Local mode: use localStorage directly
     const data = localStorage.getItem('ladder_ladder_players');
@@ -118,9 +146,15 @@ export async function getPlayers(): Promise<PlayerData[]> {
 /**
  * Save all players to storage
  * In server mode, saves to BOTH ladder_* and ladder_server_* keys
- * Skips server sync if in batch mode - sync happens at endBatch()
+ * During batch mode, holds data in memory - commits at endBatch()
  */
 export async function savePlayers(players: PlayerData[]): Promise<void> {
+  // During batch mode, update the buffer instead of writing to localStorage
+  if (isInBatch()) {
+    batchBuffer = players;
+    return;
+  }
+  
   const playerJson = JSON.stringify(players);
   
   if (dataService.getMode() === DataServiceMode.LOCAL) {
@@ -131,23 +165,18 @@ export async function savePlayers(players: PlayerData[]): Promise<void> {
     localStorage.setItem('ladder_ladder_players', playerJson);
     localStorage.setItem('ladder_server_ladder_players', playerJson);
     
-    // Skip server sync if in batch mode - will sync at end of batch
-    if (!isInBatch()) {
-      // Fire-and-forget background sync with 2-second timeout
-      (async () => {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 2000);
-        try {
-          await dataService.savePlayers(players);
-          clearTimeout(timeoutId);
-        } catch (error: any) {
-          clearTimeout(timeoutId);
-          if (error.name !== 'AbortError') {
-            console.error('Failed to save players to server:', error);
-          }
-        }
-      })().catch(() => {});
-    }
+    // Fire-and-forget background sync with 2-second timeout
+    (async () => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
+      try {
+        await dataService.savePlayers(players);
+        clearTimeout(timeoutId);
+      } catch (error: any) {
+        clearTimeout(timeoutId);
+        // Silently ignore - this is fire-and-forget, data saved locally
+      }
+    })().catch(() => {});
   }
 }
 
@@ -181,19 +210,12 @@ export async function updatePlayer(player: PlayerData): Promise<void> {
       await savePlayers(players);
     }
   } else {
-    try {
-      await dataService.updatePlayer(player);
-    } catch (error) {
-      console.error('Failed to update player:', error);
-      // Fallback: update locally in both locations
-      const players = await getPlayers();
-      const index = players.findIndex(p => p.rank === player.rank);
-      if (index !== -1) {
-        players[index] = player;
-        const playerJson = JSON.stringify(players);
-        localStorage.setItem('ladder_ladder_players', playerJson);
-        localStorage.setItem('ladder_server_ladder_players', playerJson);
-      }
+    // Use getCurrentPlayers to respect batch buffer
+    const players = isInBatch() ? getCurrentPlayers() : await getPlayers();
+    const index = players.findIndex(p => p.rank === player.rank);
+    if (index !== -1) {
+      players[index] = player;
+      await savePlayers(players);
     }
   }
 }
@@ -219,22 +241,15 @@ export async function submitGameResult(
       await savePlayers(players);
     }
   } else {
-    try {
-      await dataService.submitGameResult(playerRank, round, result);
-    } catch (error) {
-      console.error('Failed to submit game:', error);
-      // Fallback: update locally in both locations
-      const players = await getPlayers();
-      const player = players.find(p => p.rank === playerRank);
-      if (player) {
-        if (!player.gameResults) {
-          player.gameResults = new Array(31).fill(null);
-        }
-        player.gameResults[round] = result;
-        const playerJson = JSON.stringify(players);
-        localStorage.setItem('ladder_ladder_players', playerJson);
-        localStorage.setItem('ladder_server_ladder_players', playerJson);
+    // Use getCurrentPlayers to respect batch buffer
+    const players = isInBatch() ? getCurrentPlayers() : await getPlayers();
+    const player = players.find(p => p.rank === playerRank);
+    if (player) {
+      if (!player.gameResults) {
+        player.gameResults = new Array(31).fill(null);
       }
+      player.gameResults[round] = result;
+      await savePlayers(players);
     }
   }
 }
