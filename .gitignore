@@ -33,3 +33,5 @@ dist-ssr
 
 # Test automation downloads
 scripts/test-downloads/
+stderr.txt
+stdout.txt
