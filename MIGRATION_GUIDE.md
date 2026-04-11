@@ -2,7 +2,9 @@
 
 ## Current State
 
-The codebase has been scaffolded with a client-server architecture, but the React frontend still uses `localStorage` directly throughout.
+**Last Updated**: April 10, 2026
+
+The codebase has been scaffolded with a client-server architecture. Phase 1 & 2 of the migration are **COMPLETE**.
 
 ## Architecture Overview
 
@@ -50,25 +52,13 @@ Shared Module (both client and server):
 
 ## Migration Strategy
 
-### Phase 1: Wrap localStorage Access (Non-Breaking)
+### Phase 1: Wrap localStorage Access (Non-Breaking) ✅ **COMPLETE**
 
-Create helper functions that wrap localStorage but can be redirected later:
+Created helper functions in `src/services/storageService.ts` that wrap localStorage but can be redirected later.
 
-```typescript
-// src/services/storageService.ts
-export function getPlayers(): PlayerData[] {
-  const data = localStorage.getItem('ladder_players');
-  return data ? JSON.parse(data) : [];
-}
+### Phase 2: Integrate DataService ✅ **COMPLETE**
 
-export function savePlayers(players: PlayerData[]): void {
-  localStorage.setItem('ladder_players', JSON.stringify(players));
-}
-```
-
-### Phase 2: Integrate DataService
-
-Update the helper functions to use DataService based on mode:
+Updated the helper functions to use DataService based on mode:
 
 ```typescript
 // src/services/storageService.ts
@@ -86,9 +76,9 @@ export async function getPlayers(): Promise<PlayerData[]> {
 }
 ```
 
-### Phase 3: Update Components
+### Phase 3: Update Components ✅ **COMPLETE**
 
-Replace direct localStorage calls with the helper functions:
+Replaced direct localStorage calls with the helper functions:
 
 ```typescript
 // Before:
@@ -98,19 +88,23 @@ const players = JSON.parse(localStorage.getItem('ladder_players') || '[]');
 const players = await getPlayers();
 ```
 
-## Files to Update (Priority Order)
+## Files Migration Status
 
-### High Priority (Core Functionality)
-1. `src/components/LadderForm.tsx` - Main component, most localStorage usage
-2. `src/App.tsx` - App-level state management
-3. `src/components/Settings.tsx` - Settings and New Day logic
+| File | Before | After | Status |
+\|------\|--------\|-------\|--------\|
+| `src/components/LadderForm.tsx` | 38 | 12 | ✅ Migrated (-26) |
+| `src/App.tsx` | 9 | 3 | ✅ Migrated (-6) |
+| `src/components/Settings.tsx` | 3 | 2 | ✅ Migrated (-1) |
+| `src/contexts/SettingsContext.tsx` | 7 | 7 | ⏸️ UI preferences (OK) |
 
-### Medium Priority
-4. `src/components/LadderForm.tsx` - Game result submission
-5. `src/components/AddPlayerDialog.tsx` - Player addition
+**Total: 57 → 24 localStorage calls (33 migrated to storageService)**
 
-### Low Priority (Can stay localStorage)
-6. UI preferences (zoom level, project name, etc.)
+### Remaining localStorage Usage (Intentional)
+
+1. **File Loading Operations** (`LadderForm.tsx`): File-based imports bypass server
+2. **New Day Pending Flag** (`App.tsx`, `LadderForm.tsx`): Transient cross-component state
+3. **UI Preferences** (`SettingsContext.tsx`): Mode, server URL, auth token
+4. **App Settings** (`Settings.tsx`): Debug level, k-factor configuration
 
 ## Quick Start for Testing Server
 
@@ -137,6 +131,13 @@ curl http://localhost:3000/api/ladder
 
 ## Verification Checklist
 
+### Code Migration
+- [x] storageService.ts created with mode-aware routing
+- [x] LadderForm.tsx migrated to use storageService
+- [x] App.tsx migrated to use storageService
+- [x] Settings.tsx updated for consistency
+
+### Runtime Testing (Pending)
 - [ ] Backend server starts without errors
 - [ ] Authentication endpoints work (login/register)
 - [ ] Ladder data can be read/written via API
