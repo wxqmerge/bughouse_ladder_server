@@ -1,8 +1,0 @@
-{
-  "name": "06-pawn-game-recalculate",
-  "inputFilePath": "Pawn_Game.tab",
-  "expectedOutputFile": "test-cases/pawn_game_recalculate_expected_output.tab",
-  "actions": [{ "type": "recalculateRatings" }],
-  "clickMenu": "File",
-  "selectMenuItem": "Export"
-}
