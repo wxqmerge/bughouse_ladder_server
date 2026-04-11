@@ -165,18 +165,23 @@ export async function savePlayers(players: PlayerData[]): Promise<void> {
     localStorage.setItem('ladder_ladder_players', playerJson);
     localStorage.setItem('ladder_server_ladder_players', playerJson);
     
-    // Fire-and-forget background sync with 2-second timeout
+    // Background sync to server
     (async () => {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2000);
       try {
-        await dataService.savePlayers(players);
-        clearTimeout(timeoutId);
+        const response = await fetch(`${dataService.config.serverUrl}/api/ladder`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ players }),
+        });
+        if (response.ok) {
+          console.log('[SYNC] ✓ Saved to server');
+        } else {
+          console.error(`[SYNC] ✗ Server returned ${response.status}`);
+        }
       } catch (error: any) {
-        clearTimeout(timeoutId);
-        // Silently ignore - this is fire-and-forget, data saved locally
+        console.error('[SYNC] ✗ Failed:', error.message);
       }
-    })().catch(() => {});
+    })();
   }
 }
 
@@ -393,4 +398,32 @@ export async function clearAllData(): Promise<void> {
   localStorage.removeItem('ladder_server_ladder_zoom');
   
   // In server modes, you might want to call an API endpoint here
+}
+
+/**
+ * Explicit save to server - blocks until complete or fails
+ * Use this for the Save command that users explicitly invoke
+ */
+export async function saveToServer(): Promise<{ success: boolean; error?: string }> {
+  const players = await getPlayers();
+  
+  if (dataService.getMode() === DataServiceMode.LOCAL) {
+    return { success: true };
+  }
+  
+  try {
+    const response = await fetch(`${dataService.config.serverUrl}/api/ladder`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ players }),
+    });
+    
+    if (!response.ok) {
+      return { success: false, error: `Server returned ${response.status}` };
+    }
+    
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
 }

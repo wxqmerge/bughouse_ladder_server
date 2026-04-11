@@ -29,6 +29,12 @@ const PORT = process.env.PORT || 3000;
 // Trust proxy for proper IP handling behind reverse proxy
 app.set('trust proxy', 1);
 
+// Log all API requests
+app.use('/api/*', (req, res, next) => {
+  console.log(`[API] ${req.method} ${req.path}`);
+  next();
+});
+
 // Rate limiting for authentication endpoints
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes

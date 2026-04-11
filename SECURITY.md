@@ -1,5 +1,27 @@
 # Security Configuration Summary
 
+## Architecture Overview
+
+### Storage Model
+
+**LOCAL Mode (no VITE_API_URL set):**
+- All data stored in browser localStorage only
+- No server communication
+- Data persists only in current browser
+- **Cannot write to local ladder.tab** (browser security limitation)
+
+**DEVELOPMENT/SERVER Mode (VITE_API_URL set):**
+- Frontend stores data in localStorage (immediate, fast)
+- Background sync sends PUT requests to server
+- Server writes to `server/data/ladder.tab` (source of truth)
+- Multiple clients can share the same ladder data
+
+### Files
+- `data/ladder.tab` - **DELETED** - Useless (browser cannot write to local filesystem)
+- `server/data/ladder.tab` - **ACTIVE** - Server writes here, shared across all clients
+
+---
+
 ## Changes Applied
 
 ### 1. 🔴 CRITICAL: Hardcoded Credentials Fixed
