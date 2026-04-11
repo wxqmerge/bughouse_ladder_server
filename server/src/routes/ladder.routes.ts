@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { authenticate, AuthRequest, requireAdmin } from '../middleware/auth.middleware.js';
+import { AuthRequest } from '../middleware/auth.middleware.js';
 import {
   readLadderFile,
   writeLadderFile,
@@ -66,8 +66,8 @@ router.get('/:rank', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-// Update player data (requires authentication and admin role for bulk operations)
-router.put('/:rank', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+// Update player data (no auth required - local use)
+router.put('/:rank', async (req: Request, res: Response): Promise<void> => {
   try {
     const rank = parseInt(req.params.rank);
     if (isNaN(rank) || rank < 1) {
@@ -89,22 +89,13 @@ router.put('/:rank', authenticate, async (req: AuthRequest, res: Response): Prom
       return;
     }
 
-    // Update player fields (non-admin users can only update their own game results)
+    // Update player fields (full access for local use)
     const updatedPlayer = { ...ladderData.players[playerIndex] };
-    
-    if (req.user?.role === 'admin') {
-      // Admin can update all fields
-      Object.keys(req.body).forEach(key => {
-        if (key !== 'rank' && key !== 'gameResults') {
-          (updatedPlayer as any)[key] = req.body[key];
-        }
-      });
-    }
-
-    // Everyone can update game results (validation happens in game routes)
-    if (req.body.gameResults) {
-      updatedPlayer.gameResults = req.body.gameResults;
-    }
+    Object.keys(req.body).forEach(key => {
+      if (key !== 'rank') {
+        (updatedPlayer as any)[key] = req.body[key];
+      }
+    });
 
     ladderData.players[playerIndex] = updatedPlayer;
     await writeLadderFile(ladderData);
@@ -122,8 +113,8 @@ router.put('/:rank', authenticate, async (req: AuthRequest, res: Response): Prom
   }
 });
 
-// Clear a single game result cell (requires authentication)
-router.delete('/:rank/round/:roundIndex', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+// Clear a single game result cell (no auth required - local use)
+router.delete('/:rank/round/:roundIndex', async (req: Request, res: Response): Promise<void> => {
   try {
     const rank = parseInt(req.params.rank);
     const roundIndex = parseInt(req.params.roundIndex);
@@ -174,8 +165,8 @@ router.delete('/:rank/round/:roundIndex', authenticate, async (req: AuthRequest,
   }
 });
 
-// Bulk update players (requires authentication - admin can update all, users can update game results)
-router.put('/', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+// Bulk update players (no auth required - full access for local use)
+router.put('/', async (req: Request, res: Response): Promise<void> => {
   try {
     const { players } = req.body as { players: PlayerData[] };
     
@@ -188,26 +179,13 @@ router.put('/', authenticate, async (req: AuthRequest, res: Response): Promise<v
     }
 
     const ladderData: LadderData = await readLadderFile();
+    ladderData.players = players;
     
-    // Merge incoming player data with existing data based on permissions
-    for (const incomingPlayer of players) {
-      const existingIndex = ladderData.players.findIndex(p => p.rank === incomingPlayer.rank);
-      if (existingIndex !== -1) {
-        const existingPlayer = ladderData.players[existingIndex];
-        
-        if (req.user?.role === 'admin') {
-          // Admin can update all fields except rank
-          ladderData.players[existingIndex] = {
-            ...incomingPlayer,
-            rank: existingPlayer.rank, // Preserve original rank
-          };
-        } else {
-          // Non-admin users can only update gameResults
-          existingPlayer.gameResults = incomingPlayer.gameResults;
-          ladderData.players[existingIndex] = existingPlayer;
-        }
-      }
-    }
+    // Re-index ranks
+    ladderData.players = ladderData.players.map((player: PlayerData, index: number) => ({
+      ...player,
+      rank: index + 1,
+    }));
 
     await writeLadderFile(ladderData);
 

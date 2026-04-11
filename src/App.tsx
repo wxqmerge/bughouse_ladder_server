@@ -3,7 +3,6 @@ import LadderForm from "./components/LadderForm";
 import Settings from "./components/Settings";
 import { MigrationDialog } from "./components/MigrationDialog";
 import { ReconnectDialog } from "./components/ReconnectDialog";
-import { LoginForm } from "./components/LoginForm";
 import { loadSampleData } from "./components/LadderForm";
 import type { PlayerData } from "./utils/hashUtils";
 import { getNextTitle, processNewDayTransformations } from "./utils/constants";
@@ -23,9 +22,6 @@ import {
   getKeyPrefix,
   startBatch,
   endBatch,
-  setAuthRequiredCallback,
-  isAuthRequired,
-  clearAuthRequired,
 } from "./services/storageService";
 import "./css/index.css";
 
@@ -34,20 +30,11 @@ function App() {
   const [triggerWalkthrough, setTriggerWalkthrough] = useState(false);
   const [showMigrationDialog, setShowMigrationDialog] = useState(false);
   const [showReconnectDialog, setShowReconnectDialog] = useState(false);
-  const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [wasServerMode, setWasServerMode] = useState(true); // Assume server mode initially
   const recalculateRef = useRef<(() => void) | undefined>(undefined);
 
   // Test server connectivity and check for migration on mount
   useEffect(() => {
-    // Set up auth required callback
-    setAuthRequiredCallback(() => setShowLoginDialog(true));
-    
-    // Check if there's a pending 401 from a previous operation
-    if (isAuthRequired()) {
-      setShowLoginDialog(true);
-    }
-    
     // Initial connectivity test
     updateConnectionState().catch(console.error);
     
@@ -158,16 +145,6 @@ function App() {
 
   return (
     <>
-      {showLoginDialog && (
-        <LoginForm
-          isOpen={showLoginDialog}
-          onClose={() => {
-            setShowLoginDialog(false);
-            clearAuthRequired();
-          }}
-        />
-      )}
-      
       {showMigrationDialog && (
         <MigrationDialog 
           isAdmin={false}

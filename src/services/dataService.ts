@@ -13,7 +13,6 @@ import {
   getPlayers as storageGetPlayers,
   savePlayers as storageSavePlayers,
 } from './storageService';
-import { authService } from './authService';
 
 export enum DataServiceMode {
   LOCAL = 'LOCAL',
@@ -24,7 +23,6 @@ export enum DataServiceMode {
 export interface DataServiceConfig {
   mode: DataServiceMode;
   serverUrl?: string;
-  authToken?: string;
 }
 
 class DataService {
@@ -318,8 +316,8 @@ class DataService {
   }
 
   private getAuthHeaders(): Record<string, string> {
-    // Use auth token from authService (auto-managed)
-    return authService.getAuthHeaders();
+    // No authentication required for ladder/game endpoints
+    return {};
   }
 }
 

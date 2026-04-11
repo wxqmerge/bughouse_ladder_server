@@ -4,38 +4,6 @@ import dotenv from 'dotenv';
 dotenv.config({ path: '.env' });
 dotenv.config({ path: '../.env' });
 
-// Validate required environment variables BEFORE any other imports
-function validateEnvironment(): void {
-  const errors: string[] = [];
-  
-  if (!process.env.JWT_SECRET) {
-    errors.push('JWT_SECRET - Generate with: node -e "console.log(require(\'crypto\').randomBytes(64).toString(\'hex\'))"');
-  }
-  
-  if (!process.env.CORS_ORIGIN) {
-    errors.push('CORS_ORIGIN - Set to your frontend domain (e.g., http://localhost:5173 or https://your-domain.com)');
-  }
-  
-  if (!process.env.ADMIN_USERNAME) {
-    errors.push('ADMIN_USERNAME');
-  }
-  
-  if (!process.env.ADMIN_PASSWORD) {
-    errors.push('ADMIN_PASSWORD');
-  }
-  
-  if (errors.length > 0) {
-    console.error('\n========================================');
-    console.error('  MISSING REQUIRED ENVIRONMENT VARIABLES');
-    console.error('=========================================\n');
-    errors.forEach(err => console.error(`  ✗ ${err}`));
-    console.error('\nPlease set these variables in your .env file and restart the server.\n');
-    process.exit(1);
-  }
-}
-
-validateEnvironment();
-
 import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -153,26 +121,14 @@ async function startServer() {
       console.log('========================================\n');
       console.log(`✓ Server running on port ${PORT}`);
       console.log(`✓ Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`✓ CORS Origin: ${process.env.CORS_ORIGIN}`);
-      console.log(`✓ Admin Username: ${process.env.ADMIN_USERNAME}`);
+      console.log(`✓ CORS Origin: ${process.env.CORS_ORIGIN || '*'}`);
+      console.log(`✓ Admin API Key: ${process.env.ADMIN_API_KEY ? 'Enabled (protected)' : 'Disabled (local mode)'}`);
       console.log('');
       
-      // Security warnings for development defaults
       if (process.env.NODE_ENV !== 'production') {
-        console.log('⚠️  DEVELOPMENT MODE - Security Settings:');
-        if (process.env.JWT_SECRET?.includes('dev-secret')) {
-          console.log('   ⚠️  Using development JWT secret');
-        }
-        if (process.env.ADMIN_PASSWORD === 'ChangeMe123!' || process.env.ADMIN_PASSWORD === 'admin123') {
-          console.log('   ⚠️  Default admin password not changed!');
-        }
-        console.log('');
-      } else {
-        console.log('✓ Security Features Enabled:');
-        console.log('  - Content Security Policy');
-        console.log('  - Rate Limiting');
-        console.log('  - CORS Restrictions');
-        console.log('');
+        console.log('⚠️  DEVELOPMENT MODE');
+        console.log('  - Admin endpoints are unprotected');
+        console.log('  - Set ADMIN_API_KEY to protect them\n');
       }
       
       console.log('========================================\n');
