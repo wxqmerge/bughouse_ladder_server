@@ -77,7 +77,8 @@ async function startServer() {
 }
 
 // ES module equivalent of !module.parent
-if (import.meta.url === `file://${process.argv[1]}`) {
+const isMainModule = process.argv[1] && path.basename(process.argv[1]) === 'index.ts';
+if (isMainModule) {
   startServer();
 }
 
