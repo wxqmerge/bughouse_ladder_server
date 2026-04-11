@@ -68,7 +68,6 @@ export default function Settings({
         "Are you sure you want to reset all data to sample data? This will clear all loaded players and game results.",
       )
     ) {
-      localStorage.clear();
       onReset();
       onClose();
     }
