@@ -1,10 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 import LadderForm from "./components/LadderForm";
 import Settings from "./components/Settings";
+import { MigrationDialog } from "./components/MigrationDialog";
 import { loadSampleData } from "./components/LadderForm";
 import type { PlayerData } from "./utils/hashUtils";
 import { getNextTitle, processNewDayTransformations } from "./utils/constants";
 import { updateConnectionState } from "./utils/mode";
+import { checkMigrationNeeded, storeCurrentMode } from "./utils/migrationUtils";
 import {
   savePlayers,
   getPlayers,
@@ -17,11 +19,12 @@ import "./css/index.css";
 function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [triggerWalkthrough, setTriggerWalkthrough] = useState(false);
+  const [showMigrationDialog, setShowMigrationDialog] = useState(false);
   const recalculateRef = useRef<(() => void) | undefined>(undefined);
 
-  // Test server connectivity on mount and periodically
+  // Test server connectivity and check for migration on mount
   useEffect(() => {
-    // Initial test
+    // Initial connectivity test
     updateConnectionState().catch(console.error);
     
     // Poll every 30 seconds to detect server coming back online
@@ -29,6 +32,15 @@ function App() {
       () => updateConnectionState().catch(console.error),
       30000,
     );
+    
+    // Check for migration needs
+    const migrationCheck = checkMigrationNeeded();
+    if (migrationCheck.needed) {
+      setShowMigrationDialog(true);
+    } else {
+      // Store current mode for future comparisons
+      storeCurrentMode(migrationCheck.toMode);
+    }
     
     return () => clearInterval(pollInterval);
   }, []);
@@ -106,6 +118,13 @@ function App() {
 
   return (
     <>
+      {showMigrationDialog && (
+        <MigrationDialog 
+          isAdmin={false}
+          onClose={() => setShowMigrationDialog(false)} 
+        />
+      )}
+      
       <LadderForm
         setShowSettings={setShowSettings}
         triggerWalkthrough={triggerWalkthrough}
