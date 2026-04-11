@@ -18,6 +18,16 @@ import MenuBar from "./MenuBar";
 import MobileMenu from "./MobileMenu";
 import { Menu as MenuIcon } from "lucide-react";
 import { shouldLog } from "../utils/debug";
+import {
+  getPlayers,
+  savePlayers,
+  getSettings,
+  saveSettings,
+  getProjectName,
+  setProjectName as setProjectNameStorage,
+  getZoomLevel,
+  setZoomLevel as setZoomLevelStorage,
+} from "../services/storageService";
 import "../css/index.css";
 
 export const loadSampleData = () => {
@@ -227,30 +237,29 @@ export default function LadderForm({
     }
   }, [triggerWalkthrough, setTriggerWalkthrough]);
 
-  // VB6 Line: 894 - Initialize with localStorage data or sample data
+  // VB6 Line: 894 - Initialize with storage data or sample data
   useEffect(() => {
-    const savedProjectName = localStorage.getItem("ladder_project_name");
-    if (savedProjectName) {
-      setProjectName(savedProjectName);
-    }
-
-    const savedZoom = localStorage.getItem("ladder_zoom") as
-      | "50%"
-      | "70%"
-      | "100%"
-      | "140%"
-      | "200%"
-      | null;
-    if (savedZoom) {
-      setZoomLevel(savedZoom);
-    }
-
-    const savedPlayers = localStorage.getItem("ladder_players");
-    if (savedPlayers) {
+    const initializeData = async () => {
       try {
-        const parsed = JSON.parse(savedPlayers);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const playersWithResults = parsed.map((player) => ({
+        const projectName = getProjectName();
+        if (projectName) {
+          setProjectName(projectName);
+        }
+
+        const zoomLevel = getZoomLevel();
+        if (zoomLevel) {
+          const zoomPercent = `${zoomLevel}%` as
+            | "50%"
+            | "70%"
+            | "100%"
+            | "140%"
+            | "200%";
+          setZoomLevel(zoomPercent);
+        }
+
+        const players = await getPlayers();
+        if (players && players.length > 0) {
+          const playersWithResults = players.map((player) => ({
             ...player,
             gameResults: player.gameResults || new Array(31).fill(null),
           }));
@@ -258,48 +267,42 @@ export default function LadderForm({
           setSortBy(null);
           if (shouldLog(10)) {
             console.log(
-              `[LadderForm] Loaded ${playersWithResults.length} players from localStorage`,
+              `[LadderForm] Loaded ${playersWithResults.length} players from storage`,
             );
           }
 
-          // Load settings from localStorage
-          const savedSettings = localStorage.getItem("ladder_settings");
-          if (savedSettings) {
-            try {
-              const parsedSettings = JSON.parse(savedSettings);
-              console.log(
-                `[LadderForm] Loaded settings from localStorage:`,
-                parsedSettings,
-              );
-            } catch (err) {
-              console.error("Failed to parse settings:", err);
-            }
+          // Load settings
+          const settings = getSettings();
+          if (settings) {
+            console.log(`[LadderForm] Loaded settings from storage:`, settings);
           }
 
           return;
         }
       } catch (err) {
-        console.error("Failed to parse players:", err);
+        console.error("Failed to load from storage:", err);
       }
-    }
 
-    // No localStorage data - use sample data
-    const samplePlayers = loadSampleData();
-    if (shouldLog(10)) {
-      console.log(
-        `[LadderForm] No localStorage data found. Loaded ${samplePlayers.length} players from sample data`,
-      );
-    }
-    samplePlayers.forEach((player) => {
-      if (shouldLog(3)) {
+      // No storage data - use sample data
+      const samplePlayers = loadSampleData();
+      if (shouldLog(10)) {
         console.log(
-          `[LadderForm] Sample player: Rank=${player.rank}, Name=${player.firstName} ${player.lastName}, Rating=${player.rating}, Games=${player.num_games}`,
+          `[LadderForm] No storage data found. Loaded ${samplePlayers.length} players from sample data`,
         );
       }
-    });
+      samplePlayers.forEach((player) => {
+        if (shouldLog(3)) {
+          console.log(
+            `[LadderForm] Sample player: Rank=${player.rank}, Name=${player.firstName} ${player.lastName}, Rating=${player.rating}, Games=${player.num_games}`,
+          );
+        }
+      });
 
-    setPlayers(samplePlayers);
-    setSortBy(null);
+      setPlayers(samplePlayers);
+      setSortBy(null);
+    };
+
+    initializeData();
   }, []);
 
   const loadPlayers = (file?: File) => {
@@ -477,7 +480,7 @@ export default function LadderForm({
     return { hasErrors, matches, errors, errorCount, playerResultsByMatch };
   };
 
-  const recalculateRatings = () => {
+  const recalculateRatings = async () => {
     if (shouldLog(10)) {
       console.log(
         `>>> [BUTTON PRESSED] Recalculate Ratings - ${players.length} players`,
@@ -545,14 +548,12 @@ export default function LadderForm({
         console.log(`>>> [NEW DAY] Processing with reRank=${reRank}`);
 
         // Get current title and determine next title for mini-games
-        const currentTitle =
-          localStorage.getItem("ladder_project_name") ||
-          "Bughouse Chess Ladder";
+        const currentTitle = getProjectName();
         const normalizedTitle = String(currentTitle || "")
           .toLowerCase()
           .trim();
         console.log(
-          `>>> [NEW DAY] Current title from localStorage: "${currentTitle}" (normalized: "${normalizedTitle}")`,
+          `>>> [NEW DAY] Current title from storage: "${currentTitle}" (normalized: "${normalizedTitle}")`,
         );
         const nextTitle = (() => {
           const index = MINI_GAMES.findIndex(
@@ -574,9 +575,8 @@ export default function LadderForm({
           reRank,
         );
 
-        setPlayers(finalPlayers);
-        localStorage.setItem("ladder_players", JSON.stringify(finalPlayers));
-        localStorage.setItem("ladder_project_name", nextTitle);
+        await savePlayers(finalPlayers);
+        setProjectNameStorage(nextTitle);
         localStorage.removeItem("ladder_pending_newday");
         localStorage.removeItem("ladder_settings");
 
@@ -585,6 +585,8 @@ export default function LadderForm({
             `New Day complete - Title: ${nextTitle}, ReRank: ${reRank}\n`,
           );
         }
+
+        setPlayers(finalPlayers);
 
         // Reload to apply changes
         window.location.reload();
@@ -596,7 +598,7 @@ export default function LadderForm({
     }
 
     setPlayers(calculatedPlayers);
-    localStorage.setItem("ladder_players", JSON.stringify(calculatedPlayers));
+    await savePlayers(calculatedPlayers);
     if (shouldLog(10)) {
       console.log("Rating calculation complete\n");
     }
@@ -826,7 +828,7 @@ export default function LadderForm({
     setTempGameResult(null);
   };
 
-  const completeRatingCalculation = (usePendingPlayers?: PlayerData[]) => {
+  const completeRatingCalculation = async (usePendingPlayers?: PlayerData[]) => {
     const playersToUse = usePendingPlayers || pendingPlayers;
     if (!playersToUse || !pendingMatches) return;
 
@@ -850,9 +852,7 @@ export default function LadderForm({
         console.log(`>>> [NEW DAY] Processing with reRank=${reRank}`);
 
         // Get current title and determine next title for mini-games
-        const currentTitle =
-          localStorage.getItem("ladder_project_name") ||
-          "Bughouse Chess Ladder";
+        const currentTitle = getProjectName();
         const normalizedTitle = String(currentTitle || "")
           .toLowerCase()
           .trim();
@@ -874,8 +874,8 @@ export default function LadderForm({
 
         calculatedPlayers = finalPlayers;
 
-        localStorage.setItem("ladder_players", JSON.stringify(finalPlayers));
-        localStorage.setItem("ladder_project_name", nextTitle);
+        await savePlayers(finalPlayers);
+        setProjectNameStorage(nextTitle);
         localStorage.removeItem("ladder_pending_newday");
         localStorage.removeItem("ladder_settings");
 
@@ -904,7 +904,7 @@ export default function LadderForm({
     }
 
     setPlayers(calculatedPlayers);
-    localStorage.setItem("ladder_players", JSON.stringify(calculatedPlayers));
+    await savePlayers(calculatedPlayers);
 
     setPendingPlayers(null);
     setPendingMatches(null);
@@ -989,7 +989,9 @@ export default function LadderForm({
       return { ...p };
     });
     setPlayers(updatedPlayers);
-    localStorage.setItem("ladder_players", JSON.stringify(updatedPlayers));
+    savePlayers(updatedPlayers).catch((err) => {
+      console.error("Failed to save cleared cell:", err);
+    });
 
     // Remove error from walkthrough if in recalculate mode
     if (walkthroughErrors.length > 0) {
@@ -1044,7 +1046,9 @@ export default function LadderForm({
             : p,
         );
 
-        localStorage.setItem("ladder_players", JSON.stringify(updatedPlayers));
+        savePlayers(updatedPlayers).catch((err) => {
+          console.error("Failed to save game entry:", err);
+        });
         return updatedPlayers;
       });
     }
@@ -1249,50 +1253,49 @@ export default function LadderForm({
     });
 
     setPlayers([...playersWithResults]);
-    localStorage.setItem("ladder_players", JSON.stringify(playersWithResults));
+    savePlayers(playersWithResults).catch((err) => {
+      console.error("Failed to save sorted players:", err);
+    });
   };
-  const saveLocalStorage = () => {
+  const saveLocalStorage = async () => {
     if (players.length === 0) return;
     try {
       // Save players
-      localStorage.setItem("ladder_players", JSON.stringify(players));
+      await savePlayers(players);
 
       // Save project name
       if (projectName) {
-        localStorage.setItem("ladder_project_name", projectName);
+        setProjectNameStorage(projectName);
       }
 
       // Save zoom level
-      localStorage.setItem("ladder_zoom", zoomLevel);
+      const zoomPercent = parseInt(zoomLevel);
+      setZoomLevelStorage(zoomPercent);
 
       // Save settings from state if Settings component is open
-      const savedSettings = localStorage.getItem("ladder_settings");
+      const savedSettings = getSettings();
       if (savedSettings) {
         try {
-          const parsedSettings = JSON.parse(savedSettings);
           // Ensure settings are properly saved
           const updatedSettings = {
-            ...parsedSettings,
-            kFactor: Math.max(1, Math.min(100, parsedSettings.kFactor || 20)),
+            ...savedSettings,
+            kFactor: Math.max(1, Math.min(100, savedSettings.kFactor || 20)),
             debugLevel: Math.max(
               0,
-              Math.min(20, parsedSettings.debugLevel || 5),
+              Math.min(20, savedSettings.debugLevel || 5),
             ),
           };
-          localStorage.setItem(
-            "ladder_settings",
-            JSON.stringify(updatedSettings),
-          );
+          saveSettings(updatedSettings);
         } catch (err) {
           console.error("Failed to parse settings:", err);
         }
       }
 
       console.log(
-        ">>> [SAVE] Saved players, project name, zoom level, and settings to localStorage",
+        ">>> [SAVE] Saved players, project name, zoom level, and settings to storage",
       );
     } catch (err) {
-      console.error("Failed to save to localStorage:", err);
+      console.error("Failed to save to storage:", err);
     }
   };
 
@@ -1318,7 +1321,8 @@ export default function LadderForm({
       console.log(`>>> [MENU ACTION] Set zoom to ${level}`);
     }
     setZoomLevel(level);
-    localStorage.setItem("ladder_zoom", level);
+    const zoomPercent = parseInt(level);
+    setZoomLevelStorage(zoomPercent);
   };
 
   const handleAddPlayer = () => {
@@ -1348,7 +1352,9 @@ export default function LadderForm({
       const updatedPlayers = [...prevPlayers, newPlayer];
       updatedPlayers.sort((a, b) => a.rank - b.rank);
 
-      localStorage.setItem("ladder_players", JSON.stringify(updatedPlayers));
+      savePlayers(updatedPlayers).catch((err) => {
+        console.error("Failed to save added player:", err);
+      });
       return updatedPlayers;
     });
 
@@ -1453,7 +1459,7 @@ export default function LadderForm({
         projectName={projectName}
         onSetTitle={(newTitle) => {
           setProjectName(newTitle);
-          localStorage.setItem("ladder_project_name", newTitle);
+          setProjectNameStorage(newTitle);
         }}
       />
 
@@ -1474,11 +1480,11 @@ export default function LadderForm({
           projectName={projectName}
           onProjectNameChange={(name) => {
             setProjectName(name);
-            localStorage.setItem("ladder_project_name", name);
+            setProjectNameStorage(name);
           }}
           onSetTitle={(newTitle) => {
             setProjectName(newTitle);
-            localStorage.setItem("ladder_project_name", newTitle);
+            setProjectNameStorage(newTitle);
           }}
           playerCount={players.length}
         />
@@ -1845,24 +1851,23 @@ export default function LadderForm({
                                 }
                                 return updatedPlayers;
                               });
-                              localStorage.setItem(
-                                "ladder_players",
-                                JSON.stringify(
-                                  players.map((p) =>
-                                    p.rank === player.rank
-                                      ? ({
-                                          ...p,
-                                          [field]:
-                                            field === "rating" ||
-                                            field === "nRating" ||
-                                            field === "games"
-                                              ? parseInt(e.target.textContent)
-                                              : e.target.textContent,
-                                        } as any)
-                                      : p,
-                                  ),
-                                ),
-                              );
+                              savePlayers(
+                                players.map((p) =>
+                                  p.rank === player.rank
+                                    ? ({
+                                        ...p,
+                                        [field]:
+                                          field === "rating" ||
+                                          field === "nRating" ||
+                                          field === "games"
+                                            ? parseInt(e.target.textContent)
+                                            : e.target.textContent,
+                                      } as any)
+                                    : p,
+                                )
+                              ).catch((err) => {
+                                console.error("Failed to save cell edit:", err);
+                              });
                             }
                           }}
                           style={{

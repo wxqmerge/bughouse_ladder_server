@@ -4,6 +4,12 @@ import Settings from "./components/Settings";
 import { loadSampleData } from "./components/LadderForm";
 import type { PlayerData } from "./utils/hashUtils";
 import { getNextTitle, processNewDayTransformations } from "./utils/constants";
+import {
+  savePlayers,
+  getPlayers,
+  getProjectName,
+  setProjectName as setProjectNameStorage,
+} from "./services/storageService";
 import "./css/index.css";
 
 function App() {
@@ -11,39 +17,34 @@ function App() {
   const [triggerWalkthrough, setTriggerWalkthrough] = useState(false);
   const recalculateRef = useRef<(() => void) | undefined>(undefined);
 
-  const handleReset = () => {
+  const handleReset = async () => {
     const samplePlayers = loadSampleData();
-    localStorage.setItem("ladder_players", JSON.stringify(samplePlayers));
+    await savePlayers(samplePlayers);
     window.location.reload();
   };
 
-  const handleClearAll = () => {
-    const emptyPlayers: Record<number, PlayerData> = {};
-    localStorage.setItem("ladder_players", JSON.stringify(emptyPlayers));
+  const handleClearAll = async () => {
+    await savePlayers([]);
     localStorage.removeItem("ladder_settings");
     window.location.reload();
   };
 
-  const processNewDay = (reRank: boolean) => {
-    const playersJson = localStorage.getItem("ladder_players");
-    if (playersJson) {
-      try {
-        const players: Record<number, PlayerData> = JSON.parse(playersJson);
-        const currentTitle =
-          localStorage.getItem("ladder_project_name") ||
-          "Bughouse Chess Ladder";
+  const processNewDay = async (reRank: boolean) => {
+    try {
+      const players = await getPlayers();
+      if (players && players.length > 0) {
+        const currentTitle = getProjectName();
         const nextTitle = getNextTitle(currentTitle);
 
-        const playerArray = Object.values(players) as PlayerData[];
-        const finalPlayers = processNewDayTransformations(playerArray, reRank);
+        const finalPlayers = processNewDayTransformations(players, reRank);
 
-        localStorage.setItem("ladder_players", JSON.stringify(finalPlayers));
-        localStorage.setItem("ladder_project_name", nextTitle);
+        await savePlayers(finalPlayers);
+        setProjectNameStorage(nextTitle);
         localStorage.removeItem("ladder_settings");
         window.location.reload();
-      } catch (err) {
-        console.error("Failed to process new day:", err);
       }
+    } catch (err) {
+      console.error("Failed to process new day:", err);
     }
   };
 
