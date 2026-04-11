@@ -1,3 +1,7 @@
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env' });
+dotenv.config({ path: '../.env' });
+
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -15,9 +19,15 @@ interface User {
 
 const users: Map<string, User> = new Map();
 
-// Initialize default admin user (in production, use environment variables)
-const defaultAdminUsername = process.env.ADMIN_USERNAME || 'admin';
-const defaultAdminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+// Validate required environment variables for admin credentials
+const defaultAdminUsername = process.env.ADMIN_USERNAME;
+const defaultAdminPassword = process.env.ADMIN_PASSWORD;
+
+if (!defaultAdminUsername || !defaultAdminPassword) {
+  console.error('ERROR: ADMIN_USERNAME and ADMIN_PASSWORD environment variables are required');
+  console.error('Please set these in your .env file before starting the server');
+  process.exit(1);
+}
 
 async function initializeDefaultAdmin(): Promise<void> {
   if (!users.has(defaultAdminUsername)) {
