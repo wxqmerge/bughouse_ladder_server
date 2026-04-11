@@ -1505,8 +1505,9 @@ export default function LadderForm({
         }}
       >
         <div>
-          <h1 style={{ margin: 0, fontSize: "1.25rem" }}>
-            {projectName} {getVersionString()}
+          <h1 style={{ margin: 0, fontSize: "1.25rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <span>{projectName}</span>
+            <span style={{ fontSize: "0.875rem", opacity: 0.8 }}>{getVersionString()}</span>
           </h1>
         </div>
         <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>

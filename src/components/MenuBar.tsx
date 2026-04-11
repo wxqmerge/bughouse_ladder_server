@@ -464,7 +464,7 @@ export default function MenuBar({
                   : "transparent",
             }}
           >
-            {projectName} v1.0.0
+            {projectName} {getVersionString()}
           </h1>
         )}
         {playerCount !== undefined && (
