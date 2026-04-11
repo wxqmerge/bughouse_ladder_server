@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { getVersionString } from "../utils/mode";
 import {
   Folder,
   Upload,
