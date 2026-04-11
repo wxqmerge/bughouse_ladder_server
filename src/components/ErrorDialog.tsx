@@ -129,7 +129,7 @@ export default function ErrorDialog({
         setParseStatus({
           isValid: false,
           error: validation.error,
-          message: validation.message || "Invalid format",
+          message: validation.message || getValidationErrorMessage(validation.error),
         });
       }
 
@@ -188,7 +188,7 @@ export default function ErrorDialog({
         setParseStatus({
           isValid: false,
           error: validation.error,
-          message: validation.message || "Invalid format",
+          message: validation.message || getValidationErrorMessage(validation.error),
         });
       }
 
@@ -394,7 +394,7 @@ export default function ErrorDialog({
         setParseStatus({
           isValid: false,
           error: validation.error,
-          message: validation.message || "Invalid format",
+          message: validation.message || getValidationErrorMessage(validation.error),
         });
       }
 
@@ -417,7 +417,7 @@ export default function ErrorDialog({
         setParseStatus({
           isValid: false,
           error: validation.error,
-          message: validation.message || "Invalid format",
+          message: validation.message || getValidationErrorMessage(validation.error),
         });
       } else if (validation.isValid) {
         setParseStatus({ isValid: true });
@@ -836,9 +836,9 @@ export default function ErrorDialog({
                 marginBottom: "1rem",
               }}
             >
-              {parseStatus.isValid
-                ? "✓ Valid format"
-                : `✗ ${parseStatus.message || "Invalid format"}`}
+               {parseStatus.isValid
+                 ? "✓ Valid format"
+                 : `✗ ${parseStatus.message || getValidationErrorMessage(parseStatus.error || 0)}`}
             </p>
           )}
           <div
@@ -905,14 +905,21 @@ export default function ErrorDialog({
             <button
               type="button"
               onClick={handleClearCell}
+              disabled={!currentInputValue.trim() && !existingValue}
               style={{
                 padding: "0.5rem 1rem",
-                background: "#ef4444",
+                background: !currentInputValue.trim() && !existingValue
+                  ? "#e5e7eb"
+                  : "#ef4444",
                 border: "none",
                 borderRadius: "0.25rem",
-                cursor: "pointer",
+                cursor: !currentInputValue.trim() && !existingValue
+                  ? "not-allowed"
+                  : "pointer",
                 fontSize: "0.875rem",
-                color: "white",
+                color: !currentInputValue.trim() && !existingValue
+                  ? "#9ca3af"
+                  : "white",
               }}
             >
               Clear Cell (Ctrl+C)
@@ -934,12 +941,17 @@ export default function ErrorDialog({
             </button>
             <button
               type="submit"
+              disabled={!parseStatus?.isValid && currentInputValue.trim() !== ""}
               style={{
                 padding: "0.5rem 1rem",
-                background: "#3b82f6",
+                background: !parseStatus?.isValid && currentInputValue.trim() !== ""
+                  ? "#9ca3af"
+                  : "#3b82f6",
                 border: "none",
                 borderRadius: "0.25rem",
-                cursor: "pointer",
+                cursor: !parseStatus?.isValid && currentInputValue.trim() !== ""
+                  ? "not-allowed"
+                  : "pointer",
                 fontSize: "0.875rem",
                 color: "white",
               }}
