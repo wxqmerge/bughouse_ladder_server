@@ -48,12 +48,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Import routes
-import { router as authRouter } from './routes/auth.routes';
-import { router as ladderRouter } from './routes/ladder.routes';
-import { router as gameRouter } from './routes/game.routes';
-import { router as adminRouter } from './routes/admin.routes';
-import { errorHandler } from './middleware/errorHandler';
-import { initializeDefaultLadder } from './services/dataService';
+import { router as authRouter } from './routes/auth.routes.js';
+import { router as ladderRouter } from './routes/ladder.routes.js';
+import { router as gameRouter } from './routes/game.routes.js';
+import { router as adminRouter } from './routes/admin.routes.js';
+import { errorHandler } from './middleware/errorHandler.js';
+import { initializeDefaultLadder } from './services/dataService.js';
 
 const app: Application = express();
 const PORT = process.env.PORT || 3000;

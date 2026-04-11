@@ -2,8 +2,8 @@ import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
-import { authenticate, AuthRequest, requireAdmin } from '../middleware/auth.middleware';
-import { readLadderFile, writeLadderFile, ensureDataDirectory } from '../services/dataService';
+import { authenticate, AuthRequest, requireAdmin } from '../middleware/auth.middleware.js';
+import { readLadderFile, writeLadderFile, ensureDataDirectory, PlayerData } from '../services/dataService.js';
 
 const router = Router();
 
@@ -80,7 +80,7 @@ router.get('/export', async (req: Request, res: Response): Promise<void> => {
     // Reconstruct .tab content
     const headerLine = ladderData.header.join('\t');
     
-    const playerLines = ladderData.players.map(player => {
+    const playerLines = ladderData.players.map((player: PlayerData) => {
       const baseFields = [
         player.group,
         player.lastName,
@@ -152,8 +152,8 @@ router.get('/stats', async (req: Request, res: Response): Promise<void> => {
     
     const stats = {
       totalPlayers: ladderData.players.length,
-      totalGames: ladderData.players.reduce((sum, p) => 
-        sum + (p.gameResults || []).filter(r => r && r !== '_').length, 0
+      totalGames: ladderData.players.reduce((sum: number, p: PlayerData) => 
+        sum + (p.gameResults || []).filter((r: string | null) => r && r !== '_').length, 0
       ),
       lastModified: new Date().toISOString(),
     };
