@@ -9,6 +9,17 @@
 
 import { PlayerData } from '../../shared/types';
 import { dataService, DataServiceMode } from './dataService';
+import { getProgramMode } from '../utils/mode';
+
+/**
+ * Get the storage key prefix based on current mode
+ * Local mode uses no prefix (backward compatible)
+ * Dev/Server mode uses 'dev_' prefix for isolation during testing
+ */
+export function getKeyPrefix(): string {
+  const mode = getProgramMode();
+  return mode === 'a' ? '' : 'dev_';
+}
 
 // ==================== PLAYER DATA ====================
 
@@ -18,7 +29,7 @@ import { dataService, DataServiceMode } from './dataService';
 export async function getPlayers(): Promise<PlayerData[]> {
   if (dataService.getMode() === DataServiceMode.LOCAL) {
     // Local mode: use localStorage directly
-    const data = localStorage.getItem('ladder_players');
+    const data = localStorage.getItem(getKeyPrefix() + 'ladder_players');
     return data ? JSON.parse(data) : [];
   } else {
     // Server modes: use DataService
@@ -27,7 +38,7 @@ export async function getPlayers(): Promise<PlayerData[]> {
     } catch (error) {
       console.error('Failed to fetch players:', error);
       // Fallback to localStorage on error
-      const data = localStorage.getItem('ladder_players');
+      const data = localStorage.getItem(getKeyPrefix() + 'ladder_players');
       return data ? JSON.parse(data) : [];
     }
   }
@@ -39,7 +50,7 @@ export async function getPlayers(): Promise<PlayerData[]> {
 export async function savePlayers(players: PlayerData[]): Promise<void> {
   if (dataService.getMode() === DataServiceMode.LOCAL) {
     // Local mode: use localStorage directly
-    localStorage.setItem('ladder_players', JSON.stringify(players));
+    localStorage.setItem(getKeyPrefix() + 'ladder_players', JSON.stringify(players));
   } else {
     // Server modes: use DataService
     try {
@@ -47,7 +58,7 @@ export async function savePlayers(players: PlayerData[]): Promise<void> {
     } catch (error) {
       console.error('Failed to save players:', error);
       // Fallback to localStorage on error
-      localStorage.setItem('ladder_players', JSON.stringify(players));
+      localStorage.setItem(getKeyPrefix() + 'ladder_players', JSON.stringify(players));
     }
   }
 }
@@ -142,7 +153,7 @@ export async function submitGameResult(
  * Get ladder settings from localStorage
  */
 export function getSettings(): any {
-  const data = localStorage.getItem('ladder_settings');
+  const data = localStorage.getItem(getKeyPrefix() + 'ladder_settings');
   return data ? JSON.parse(data) : {};
 }
 
@@ -150,28 +161,28 @@ export function getSettings(): any {
  * Save ladder settings to localStorage
  */
 export function saveSettings(settings: any): void {
-  localStorage.setItem('ladder_settings', JSON.stringify(settings));
+  localStorage.setItem(getKeyPrefix() + 'ladder_settings', JSON.stringify(settings));
 }
 
 /**
  * Get project name
  */
 export function getProjectName(): string {
-  return localStorage.getItem('ladder_project_name') || 'Bughouse Chess Ladder';
+  return localStorage.getItem(getKeyPrefix() + 'ladder_project_name') || 'Bughouse Chess Ladder';
 }
 
 /**
  * Set project name
  */
 export function setProjectName(name: string): void {
-  localStorage.setItem('ladder_project_name', name);
+  localStorage.setItem(getKeyPrefix() + 'ladder_project_name', name);
 }
 
 /**
  * Get zoom level
  */
 export function getZoomLevel(): number {
-  const zoom = localStorage.getItem('ladder_zoom');
+  const zoom = localStorage.getItem(getKeyPrefix() + 'ladder_zoom');
   return zoom ? Number(zoom) : 100;
 }
 
@@ -179,7 +190,7 @@ export function getZoomLevel(): number {
  * Set zoom level
  */
 export function setZoomLevel(level: number): void {
-  localStorage.setItem('ladder_zoom', level.toString());
+  localStorage.setItem(getKeyPrefix() + 'ladder_zoom', level.toString());
 }
 
 // ==================== UTILITY ====================
@@ -188,10 +199,11 @@ export function setZoomLevel(level: number): void {
  * Clear all ladder data
  */
 export async function clearAllData(): Promise<void> {
-  localStorage.removeItem('ladder_players');
-  localStorage.removeItem('ladder_settings');
-  localStorage.removeItem('ladder_project_name');
-  localStorage.removeItem('ladder_zoom');
+  const prefix = getKeyPrefix();
+  localStorage.removeItem(prefix + 'ladder_players');
+  localStorage.removeItem(prefix + 'ladder_settings');
+  localStorage.removeItem(prefix + 'ladder_project_name');
+  localStorage.removeItem(prefix + 'ladder_zoom');
   
   // In server modes, you might want to call an API endpoint here
 }

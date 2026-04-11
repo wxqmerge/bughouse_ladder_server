@@ -19,6 +19,7 @@ import MobileMenu from "./MobileMenu";
 import { Menu as MenuIcon } from "lucide-react";
 import { shouldLog } from "../utils/debug";
 import { getVersionString } from "../utils/mode";
+import { getKeyPrefix } from "../services/storageService";
 import {
   getPlayers,
   savePlayers,
@@ -321,7 +322,10 @@ export default function LadderForm({
       `>>> [LOAD FILE] Setting title from filename: "${projectName}"`,
     );
     setProjectName(projectName);
-    localStorage.setItem("ladder_project_name", projectName);
+    localStorage.setItem(
+      getKeyPrefix() + "ladder_project_name",
+      projectName,
+    );
     setLastFile(fileToLoad);
     setSortBy(null);
 
@@ -434,7 +438,10 @@ export default function LadderForm({
           sortedGameResults[playerIndex] = gameResults;
         });
 
-        localStorage.setItem("ladder_players", JSON.stringify(loadedPlayers));
+        localStorage.setItem(
+          getKeyPrefix() + "ladder_players",
+          JSON.stringify(loadedPlayers),
+        );
         setPlayers(loadedPlayers);
 
         setSortBy(null);
@@ -538,7 +545,9 @@ export default function LadderForm({
     const calculatedPlayers = calculateRatings(processedPlayers, matches);
 
     // Check for pending New Day operation (set by App.tsx before calling recalculate)
-    const pendingNewDayJson = localStorage.getItem("ladder_pending_newday");
+    const pendingNewDayJson = localStorage.getItem(
+      getKeyPrefix() + "ladder_pending_newday",
+    );
     if (pendingNewDayJson) {
       console.log(
         `>>> [RECALC COMPLETE] Pending New Day detected: ${pendingNewDayJson}`,
@@ -578,8 +587,8 @@ export default function LadderForm({
 
         await savePlayers(finalPlayers);
         setProjectNameStorage(nextTitle);
-        localStorage.removeItem("ladder_pending_newday");
-        localStorage.removeItem("ladder_settings");
+        localStorage.removeItem(getKeyPrefix() + "ladder_pending_newday");
+        localStorage.removeItem(getKeyPrefix() + "ladder_settings");
 
         if (shouldLog(10)) {
           console.log(
@@ -594,7 +603,7 @@ export default function LadderForm({
         return;
       } catch (err) {
         console.error("Failed to process pending New Day:", err);
-        localStorage.removeItem("ladder_pending_newday");
+        localStorage.removeItem(getKeyPrefix() + "ladder_pending_newday");
       }
     }
 
@@ -810,7 +819,7 @@ export default function LadderForm({
     }
 
     // Clear pending New Day flag since user is cancelling
-    localStorage.removeItem("ladder_pending_newday");
+    localStorage.removeItem(getKeyPrefix() + "ladder_pending_newday");
 
     // If we have pendingPlayers with corrections, complete the calculation first
     // Use the ref to get the latest updated players (not the stale state)
@@ -877,8 +886,8 @@ export default function LadderForm({
 
         await savePlayers(finalPlayers);
         setProjectNameStorage(nextTitle);
-        localStorage.removeItem("ladder_pending_newday");
-        localStorage.removeItem("ladder_settings");
+        localStorage.removeItem(getKeyPrefix() + "ladder_pending_newday");
+        localStorage.removeItem(getKeyPrefix() + "ladder_settings");
 
         if (shouldLog(10)) {
           console.log(
@@ -900,7 +909,7 @@ export default function LadderForm({
         return;
       } catch (err) {
         console.error("Failed to process pending New Day:", err);
-        localStorage.removeItem("ladder_pending_newday");
+        localStorage.removeItem(getKeyPrefix() + "ladder_pending_newday");
       }
     }
 
