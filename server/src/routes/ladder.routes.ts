@@ -168,6 +168,7 @@ router.delete('/:rank/round/:roundIndex', async (req: Request, res: Response): P
 // Bulk update players (no auth required - full access for local use)
 router.put('/', async (req: Request, res: Response): Promise<void> => {
   try {
+    console.log('[SERVER] Received PUT /api/ladder');
     const { players } = req.body as { players: PlayerData[] };
     
     if (!players || !Array.isArray(players)) {
