@@ -3,6 +3,9 @@ logs/
 *.log
 *.tab#
 
+# Local ladder data (useless - browser can't write to filesystem)
+data/ladder.tab
+
 # Server-specific
 server/node_modules/
 server/dist/

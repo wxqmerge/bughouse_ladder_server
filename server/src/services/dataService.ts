@@ -112,6 +112,7 @@ export async function writeLadderFile(ladderData: LadderData): Promise<void> {
   await acquireLock();
   
   try {
+    console.log(`[SERVER] Writing ${ladderData.players.length} players to ${TAB_FILE_PATH}`);
     // Reconstruct lines from player data
     const headerLine = ladderData.header.join('\t');
     

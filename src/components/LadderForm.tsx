@@ -20,7 +20,7 @@ import MobileMenu from "./MobileMenu";
 import { Menu as MenuIcon } from "lucide-react";
 import { shouldLog } from "../utils/debug";
 import { getVersionString } from "../utils/mode";
-import { getKeyPrefix, startBatch, endBatch } from "../services/storageService";
+import { getKeyPrefix, startBatch, endBatch, saveToServer } from "../services/storageService";
 import {
   getPlayers,
   savePlayers,
@@ -1499,6 +1499,16 @@ export default function LadderForm({
     }
   };
 
+  const handleSave = async () => {
+    console.log("[SAVE] Saving to server...");
+    const result = await saveToServer();
+    if (result.success) {
+      alert("✓ Saved successfully!");
+    } else {
+      alert(`✗ Save failed: ${result.error}`);
+    }
+  };
+
   const handleToggleAdmin = () => {
     if (shouldLog(10)) {
       console.log(">>> [MENU ACTION] Toggle admin mode");
@@ -1594,6 +1604,7 @@ export default function LadderForm({
           onOpenSettings={() => setShowSettings?.(true)}
           onAddPlayer={handleAddPlayer}
           onBulkPaste={handleBulkPaste}
+          onSave={handleSave}
           isAdmin={isAdmin}
           isWide={zoomLevel === "140%"}
           zoomLevel={zoomLevel}
