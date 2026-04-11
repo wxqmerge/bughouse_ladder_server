@@ -10,6 +10,7 @@
 import { PlayerData } from '../../shared/types';
 import { dataService, DataServiceMode } from './dataService';
 import { getProgramMode } from '../utils/mode';
+import { authService } from './authService';
 
 /**
  * Get the storage key prefix based on current mode
@@ -106,7 +107,11 @@ async function commitBatchBuffer(): Promise<void> {
       clearTimeout(timeoutId);
     } catch (error: any) {
       clearTimeout(timeoutId);
-      // Silently ignore - this is fire-and-forget, data saved locally
+      // Check for 401 Unauthorized - trigger login dialog
+      if (error.status === 401 || error.message?.includes('401')) {
+        triggerLoginDialog();
+      }
+      // Other errors silently ignored - this is fire-and-forget, data saved locally
     }
   }
 }
@@ -131,8 +136,12 @@ export async function getPlayers(): Promise<PlayerData[]> {
     // Server modes: try server first, then fall back to local storage
     try {
       return await dataService.getPlayers();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to fetch players:', error);
+      // Check for 401 Unauthorized - trigger login dialog
+      if (error.status === 401 || error.message?.includes('401')) {
+        triggerLoginDialog();
+      }
       // Fallback to localStorage - try server key first, then local
       let data = localStorage.getItem('ladder_server_ladder_players');
       if (!data) {
@@ -174,7 +183,11 @@ export async function savePlayers(players: PlayerData[]): Promise<void> {
         clearTimeout(timeoutId);
       } catch (error: any) {
         clearTimeout(timeoutId);
-        // Silently ignore - this is fire-and-forget, data saved locally
+        // Check for 401 Unauthorized - trigger login dialog
+        if (error.status === 401 || error.message?.includes('401')) {
+          triggerLoginDialog();
+        }
+        // Other errors silently ignored - this is fire-and-forget, data saved locally
       }
     })().catch(() => {});
   }
@@ -393,4 +406,54 @@ export async function clearAllData(): Promise<void> {
   localStorage.removeItem('ladder_server_ladder_zoom');
   
   // In server modes, you might want to call an API endpoint here
+}
+
+// ==================== AUTHENTICATION STATE ====================
+
+/**
+ * Flag indicating that a 401 error occurred and login dialog should be shown
+ */
+let pendingAuthRequired = false;
+
+/**
+ * Callback for showing the login dialog (set by App.tsx)
+ */
+let onAuthRequired: (() => void) | null = null;
+
+/**
+ * Called when a 401 error occurs - triggers login dialog
+ */
+function triggerLoginDialog(): void {
+  pendingAuthRequired = true;
+  if (onAuthRequired) {
+    onAuthRequired();
+  }
+}
+
+/**
+ * Set the callback for auth required events
+ */
+export function setAuthRequiredCallback(callback: () => void): void {
+  onAuthRequired = callback;
+}
+
+/**
+ * Check if auth is required (401 occurred)
+ */
+export function isAuthRequired(): boolean {
+  return pendingAuthRequired;
+}
+
+/**
+ * Clear the pending auth flag (called after login)
+ */
+export function clearAuthRequired(): void {
+  pendingAuthRequired = false;
+}
+
+/**
+ * Check if user is currently authenticated
+ */
+export function isAuthenticated(): boolean {
+  return authService.isAuthenticated();
 }

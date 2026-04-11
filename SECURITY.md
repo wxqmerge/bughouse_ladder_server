@@ -14,8 +14,8 @@ const defaultAdminPassword = process.env.ADMIN_PASSWORD || 'admin123';
 #### After:
 ```typescript
 // auth.routes.ts  
-const defaultAdminUsername = process.env.ADMIN_USERNAME;
-const defaultAdminPassword = process.env.ADMIN_PASSWORD;
+const defaultAdminUsername = process.env.ADMIN_USERNAME!;
+const defaultAdminPassword = process.env.ADMIN_PASSWORD!;
 
 if (!defaultAdminUsername || !defaultAdminPassword) {
   console.error('ERROR: Required environment variables missing');
@@ -156,6 +156,22 @@ if (req.user?.role !== 'admin') {
 
 ---
 
+### 7. 🟢 LOW: Client-Side Authentication Flow
+
+#### New Features:
+- **LoginForm Component**: Modal dialog for user authentication
+- **AuthService**: Manages JWT tokens in sessionStorage
+- **Automatic Login Prompt**: Shows login dialog when 401 errors occur
+- **Token Auto-Refresh**: Tokens automatically attached to all API requests
+
+#### Key Files:
+- `src/services/authService.ts` - Authentication state management
+- `src/components/LoginForm.tsx` - Login UI component
+- Updated `src/App.tsx` - Integrates login dialog
+- Updated `src/services/dataService.ts` - Uses auth tokens automatically
+
+---
+
 ## Environment Variables Required
 
 ### Production Checklist:
@@ -217,17 +233,41 @@ curl -H "Origin: http://evil.com" -v http://localhost:3000/api/ladder
 # Should see Access-Control-Allow-Origin not set or set to configured origin
 ```
 
+### 5. Test Authentication:
+```bash
+# Login and get token
+curl -X POST http://localhost:3000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"your-password"}'
+
+# Use token for protected endpoint
+curl http://localhost:3000/api/ladder \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE"
+```
+
 ---
 
 ## Files Modified
 
+### Server-Side:
 1. `server/src/index.ts` - Environment validation, rate limiting, CSP
 2. `server/src/routes/auth.routes.ts` - Required env vars, dotenv import
 3. `server/src/middleware/auth.middleware.ts` - Removed default JWT secret
 4. `server/src/routes/game.routes.ts` - Authorization checks
-5. `.env.example` - Complete documentation of all variables
-6. `.env` - Development defaults with warnings
-7. `server/.env` - Copy of parent .env for server module
+5. `server/src/routes/ladder.routes.ts` - Auth required for updates
+6. `server/src/middleware/errorHandler.ts` - Type safety fixes
+
+### Client-Side:
+1. `src/services/authService.ts` - **NEW** Authentication state management
+2. `src/components/LoginForm.tsx` - **NEW** Login UI component
+3. `src/App.tsx` - Integrated login dialog, auth callbacks
+4. `src/services/dataService.ts` - Auto-attaches auth tokens
+5. `src/services/storageService.ts` - Detects 401 errors, triggers login
+
+### Configuration:
+1. `.env.example` - Complete documentation of all variables
+2. `.env` - Development defaults with warnings
+3. `server/.env` - Copy of parent .env for server module
 
 ---
 
@@ -239,3 +279,5 @@ curl -H "Origin: http://evil.com" -v http://localhost:3000/api/ladder
 - [ ] Add HTTPS certificate configuration
 - [ ] Configure secure cookie settings
 - [ ] Add request logging/monitoring
+- [ ] Implement refresh token rotation
+- [ ] Add multi-factor authentication

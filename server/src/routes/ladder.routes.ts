@@ -66,7 +66,7 @@ router.get('/:rank', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-// Update player data (requires authentication)
+// Update player data (requires authentication and admin role for bulk operations)
 router.put('/:rank', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const rank = parseInt(req.params.rank);
@@ -174,8 +174,8 @@ router.delete('/:rank/round/:roundIndex', authenticate, async (req: AuthRequest,
   }
 });
 
-// Bulk update players (admin only)
-router.put('/', authenticate, requireAdmin, async (req: AuthRequest, res: Response): Promise<void> => {
+// Bulk update players (requires authentication - admin can update all, users can update game results)
+router.put('/', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { players } = req.body as { players: PlayerData[] };
     
@@ -188,13 +188,26 @@ router.put('/', authenticate, requireAdmin, async (req: AuthRequest, res: Respon
     }
 
     const ladderData: LadderData = await readLadderFile();
-    ladderData.players = players;
     
-    // Re-index ranks
-    ladderData.players = ladderData.players.map((player: PlayerData, index: number) => ({
-      ...player,
-      rank: index + 1,
-    }));
+    // Merge incoming player data with existing data based on permissions
+    for (const incomingPlayer of players) {
+      const existingIndex = ladderData.players.findIndex(p => p.rank === incomingPlayer.rank);
+      if (existingIndex !== -1) {
+        const existingPlayer = ladderData.players[existingIndex];
+        
+        if (req.user?.role === 'admin') {
+          // Admin can update all fields except rank
+          ladderData.players[existingIndex] = {
+            ...incomingPlayer,
+            rank: existingPlayer.rank, // Preserve original rank
+          };
+        } else {
+          // Non-admin users can only update gameResults
+          existingPlayer.gameResults = incomingPlayer.gameResults;
+          ladderData.players[existingIndex] = existingPlayer;
+        }
+      }
+    }
 
     await writeLadderFile(ladderData);
 

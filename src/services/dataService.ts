@@ -13,6 +13,7 @@ import {
   getPlayers as storageGetPlayers,
   savePlayers as storageSavePlayers,
 } from './storageService';
+import { authService } from './authService';
 
 export enum DataServiceMode {
   LOCAL = 'LOCAL',
@@ -197,7 +198,9 @@ class DataService {
     });
     
     if (!response.ok) {
-      throw new Error('Failed to fetch players');
+      const error = new Error(`Failed to fetch players: ${response.status}`);
+      (error as any).status = response.status;
+      throw error;
     }
 
     const data = await response.json();
@@ -228,7 +231,9 @@ class DataService {
     });
 
     if (!response.ok) {
-      throw new Error('Failed to update players');
+      const error = new Error(`Failed to update players: ${response.status}`);
+      (error as any).status = response.status;
+      throw error;
     }
 
     // Update localStorage cache via storageService
@@ -313,11 +318,8 @@ class DataService {
   }
 
   private getAuthHeaders(): Record<string, string> {
-    const headers: Record<string, string> = {};
-    if (this.config.authToken) {
-      headers['Authorization'] = `Bearer ${this.config.authToken}`;
-    }
-    return headers;
+    // Use auth token from authService (auto-managed)
+    return authService.getAuthHeaders();
   }
 }
 
