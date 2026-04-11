@@ -5,6 +5,10 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Define TAB_FILE_PATH before any function that uses it
+const TAB_FILE_PATH = process.env.TAB_FILE_PATH 
+  || path.join(__dirname, '../../../data/ladder.tab');
+
 // Initialize on module load
 initializeDefaultLadder().catch(err => 
   console.error('Failed to initialize default ladder:', err)
@@ -32,9 +36,6 @@ export interface LadderData {
   players: PlayerData[];
   rawLines: string[];
 }
-
-const TAB_FILE_PATH = process.env.TAB_FILE_PATH 
-  || path.join(__dirname, '../../../data/ladder.tab');
 
 // File lock mechanism
 let fileLock: { locked: boolean; release: () => void } | null = null;
