@@ -8,7 +8,11 @@
  */
 
 import { PlayerData } from '../../shared/types';
-import { getKeyPrefix } from './storageService';
+import {
+  getKeyPrefix,
+  getPlayers as storageGetPlayers,
+  savePlayers as storageSavePlayers,
+} from './storageService';
 
 export enum DataServiceMode {
   LOCAL = 'LOCAL',
@@ -138,12 +142,13 @@ class DataService {
   // ==================== LOCAL STORAGE IMPLEMENTATIONS ====================
 
   private async getLocalPlayers(): Promise<PlayerData[]> {
-    const data = localStorage.getItem(getKeyPrefix() + 'ladder_players');
-    return data ? JSON.parse(data) : [];
+    // Delegate to storageService for localStorage access
+    return storageGetPlayers();
   }
 
   private saveLocalPlayers(players: PlayerData[]): void {
-    localStorage.setItem(getKeyPrefix() + 'ladder_players', JSON.stringify(players));
+    // Delegate to storageService for localStorage access
+    storageSavePlayers(players);
     this.notifySubscribers();
   }
 
@@ -196,7 +201,8 @@ class DataService {
     }
 
     const data = await response.json();
-    localStorage.setItem(getKeyPrefix() + 'ladder_players', JSON.stringify(data.data.players));
+    // Cache in localStorage via storageService
+    storageSavePlayers(data.data.players);
     return data.data.players;
   }
 
@@ -225,7 +231,8 @@ class DataService {
       throw new Error('Failed to update players');
     }
 
-    localStorage.setItem(getKeyPrefix() + 'ladder_players', JSON.stringify(players));
+    // Update localStorage cache via storageService
+    storageSavePlayers(players);
     this.notifySubscribers();
   }
 
