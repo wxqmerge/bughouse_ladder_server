@@ -1005,27 +1005,64 @@ export default function LadderForm({
   const clearCurrentCell = () => {
     if (!entryCell) return;
 
-    const updatedPlayers = players.map((p) => {
-      if (p.rank === entryCell.playerRank) {
-        const newGameResults = [...(p.gameResults || [])];
-        newGameResults[entryCell.round] = "";
-        return { ...p, gameResults: newGameResults };
+    // Get the value of the cell being cleared (strip trailing underscore for comparison)
+    const playerToClear = players.find((p) => p.rank === entryCell.playerRank);
+    const rawCellValue = playerToClear?.gameResults?.[entryCell.round] || "";
+    const cellValue = rawCellValue.replace(/_+$/, ""); // Strip trailing underscores
+
+    console.log(`>>> [CLEAR CELL DEBUG] Cell: ${entryCell.playerRank}:${entryCell.round}, Raw: "${rawCellValue}", Value: "${cellValue}"`);
+
+    // Find all cells with the same value across all players (ignoring trailing underscores)
+    const cellsToClear: { playerRank: number; round: number }[] = [];
+    
+    for (const player of players) {
+      if (!player.gameResults) continue;
+      
+      for (let r = 0; r < player.gameResults.length; r++) {
+        const cellValueNormalized = player.gameResults[r]?.replace(/_+$/, "") || "";
+        if (cellValueNormalized === cellValue && cellValue !== "") {
+          cellsToClear.push({ playerRank: player.rank, round: r });
+        }
       }
-      return { ...p };
+    }
+
+    console.log(`>>> [CLEAR CELL DEBUG] Found ${cellsToClear.length} matching cells to clear`);
+
+    // Clear all matching cells
+    const updatedPlayers = players.map((p) => {
+      const newGameResults = [...(p.gameResults || [])];
+      let modified = false;
+      
+      for (const cell of cellsToClear) {
+        if (cell.playerRank === p.rank) {
+          const currentValue = newGameResults[cell.round] || "";
+          const currentValueNormalized = currentValue.replace(/_+$/, "");
+          if (currentValueNormalized === cellValue) {
+            newGameResults[cell.round] = "";
+            modified = true;
+          }
+        }
+      }
+      
+      return modified ? { ...p, gameResults: newGameResults } : p;
     });
+    
     setPlayers(updatedPlayers);
     savePlayers(updatedPlayers).catch((err) => {
       console.error("Failed to save cleared cell:", err);
     });
 
-    // Remove error from walkthrough if in recalculate mode
+    // Log how many cells were cleared
+    if (cellsToClear.length > 1) {
+      console.log(`>>> [CLEAR CELL] Cleared ${cellsToClear.length} matching cells with value "${cellValue}"`);
+    }
+
+    // Remove all errors for cleared cells from walkthrough
     if (walkthroughErrors.length > 0) {
       const newWalkthroughErrors = walkthroughErrors.filter(
-        (error) =>
-          !(
-            error.playerRank === entryCell.playerRank &&
-            error.resultIndex === entryCell.round
-          ),
+        (error) => !cellsToClear.some((cell) => 
+          error.playerRank === cell.playerRank && error.resultIndex === cell.round
+        ),
       );
       setWalkthroughErrors(newWalkthroughErrors);
 
