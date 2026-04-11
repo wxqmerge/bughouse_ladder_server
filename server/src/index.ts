@@ -127,8 +127,15 @@ async function startServer() {
       
       if (process.env.NODE_ENV !== 'production') {
         console.log('⚠️  DEVELOPMENT MODE');
-        console.log('  - Admin endpoints are unprotected');
-        console.log('  - Set ADMIN_API_KEY to protect them\n');
+        if (process.env.ADMIN_API_KEY) {
+          console.log(`  - Admin endpoints protected with API key`);
+          if (process.env.ADMIN_API_KEY.includes('dev-admin-key')) {
+            console.log('  ⚠️  Using DEFAULT admin key - CHANGE IN PRODUCTION!');
+          }
+        } else {
+          console.log('  - Admin endpoints are unprotected');
+        }
+        console.log('');
       }
       
       console.log('========================================\n');
