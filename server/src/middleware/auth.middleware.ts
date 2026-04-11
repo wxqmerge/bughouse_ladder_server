@@ -9,7 +9,8 @@ export interface AuthRequest extends Request {
   };
 }
 
-export const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+// JWT Secret - will be validated at server startup
+export const JWT_SECRET = process.env.JWT_SECRET || '';
 
 // Middleware to verify JWT token
 export function authenticate(
