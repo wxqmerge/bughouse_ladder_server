@@ -43,11 +43,18 @@ router.post('/submit', authenticate, async (req: AuthRequest, res: Response): Pr
       return;
     }
 
-    // Check if user is submitting for themselves (non-admin)
+    // Admins can submit for any player
     if (req.user?.role !== 'admin') {
-      // In a real app, you'd map username to player rank
-      // For now, we'll allow any submission but log it
-      console.log(`User ${req.user?.username} submitting game for player ${playerRank}`);
+      // Non-admin users must be assigned to a player rank via the 'assignedRank' field
+      // This should be set when creating user accounts or through admin panel
+      const assignedRank = (req.user as any).assignedRank;
+      if (assignedRank !== undefined && assignedRank !== playerRank) {
+        res.status(403).json({
+          success: false,
+          error: { message: 'You can only submit game results for your own rank' },
+        });
+        return;
+      }
     }
 
     const ladderData = await readLadderFile();
@@ -100,6 +107,21 @@ router.post('/batch', authenticate, async (req: AuthRequest, res: Response): Pro
         error: { message: 'Invalid games data' },
       });
       return;
+    }
+
+    // Verify authorization for each game submission
+    if (req.user?.role !== 'admin') {
+      const assignedRank = (req.user as any).assignedRank;
+      if (assignedRank !== undefined) {
+        const unauthorizedGames = games.filter(g => g.playerRank !== assignedRank);
+        if (unauthorizedGames.length > 0) {
+          res.status(403).json({
+            success: false,
+            error: { message: 'You can only submit game results for your own rank' },
+          });
+          return;
+        }
+      }
     }
 
     const ladderData = await readLadderFile();
