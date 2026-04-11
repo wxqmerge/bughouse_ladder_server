@@ -5,6 +5,11 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Initialize on module load
+initializeDefaultLadder().catch(err => 
+  console.error('Failed to initialize default ladder:', err)
+);
+
 export interface PlayerData {
   rank: number;
   group: string;
