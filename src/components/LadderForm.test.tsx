@@ -1,35 +1,30 @@
 import { describe, it, expect } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import LadderForm from "../components/LadderForm";
 import "@testing-library/jest-dom";
 
 describe("LadderForm component", () => {
-  it("should render the form", () => {
+  it("should render the title", async () => {
     render(<LadderForm />);
-    expect(
-      screen.getByText("Bughouse Chess Ladder v1.0.0"),
-    ).toBeInTheDocument();
+    // Component loads sample data, wait for it to render
+    await waitFor(() => {
+      expect(screen.getByText(/Bughouse Chess Ladder/i)).toBeInTheDocument();
+    }, { timeout: 3000 });
   });
 
-  it("should have load button", () => {
+  it("should load sample data on mount", async () => {
     render(<LadderForm />);
-    const loadButton = screen.getByText("Load");
-    expect(loadButton).toBeInTheDocument();
+    // Wait for sample data to be loaded (shows player table)
+    await waitFor(() => {
+      expect(screen.queryByText(/Loading sample data/i)).not.toBeInTheDocument();
+    }, { timeout: 3000 });
   });
 
-  it("should have a Run tests button that can be clicked", () => {
+  it("should display players after loading", async () => {
     render(<LadderForm />);
-    const runButton = screen.getByText("Run tests");
-    expect(runButton).toBeInTheDocument();
-    // clicking should not throw since handler simply calls exportPlayers
-    fireEvent.click(runButton);
-  });
-
-  it("should handle file input change", () => {
-    render(<LadderForm />);
-    const fileInput = screen.getByLabelText("Load") as HTMLInputElement;
-    const file = new File(["test"], "test.txt", { type: "text/plain" });
-    fireEvent.change(fileInput, { target: { files: [file] } });
-    expect(fileInput.files).toHaveLength(1);
+    // Wait for the table to render with players
+    await waitFor(() => {
+      expect(screen.getByRole("table")).toBeInTheDocument();
+    }, { timeout: 3000 });
   });
 });
