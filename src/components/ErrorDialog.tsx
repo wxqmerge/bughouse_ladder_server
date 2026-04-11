@@ -285,13 +285,22 @@ export default function ErrorDialog({
     setDisplayPlayer3(null);
     setDisplayPlayer4(null);
 
-    // Use onClearCell prop if provided (for recalculate mode - don't close dialog)
-    if (mode === "recalculate" && onClearCell) {
+    // Use onClearCell prop if provided (clears all matching cells)
+    if (onClearCell) {
+      console.log(">>> [CLEAR CELL] Calling onClearCell callback");
       onClearCell();
-      // Don't close dialog - let user continue clearing errors
+      
+      // In recalculate/walkthrough mode, don't close dialog - let user continue
+      if (mode === "recalculate" || mode === "walkthrough") {
+        return;
+      }
+      
+      // In other modes, close the dialog after clearing
+      onClose();
       return;
     }
 
+    // Fallback for when onClearCell is not provided
     if (mode === "walkthrough" && entryCell && onUpdatePlayerData) {
       onUpdatePlayerData(entryCell.playerRank, entryCell.round, "");
       onClose();
