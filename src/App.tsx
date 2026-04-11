@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import LadderForm from "./components/LadderForm";
 import Settings from "./components/Settings";
 import { MigrationDialog } from "./components/MigrationDialog";
+import { ManualTestRunner } from "./components/ManualTestRunner";
 import { loadSampleData } from "./components/LadderForm";
 import type { PlayerData } from "./utils/hashUtils";
 import { getNextTitle, processNewDayTransformations } from "./utils/constants";
@@ -20,6 +21,7 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [triggerWalkthrough, setTriggerWalkthrough] = useState(false);
   const [showMigrationDialog, setShowMigrationDialog] = useState(false);
+  const [showTestRunner, setShowTestRunner] = useState(false);
   const recalculateRef = useRef<(() => void) | undefined>(undefined);
 
   // Test server connectivity and check for migration on mount
@@ -42,7 +44,19 @@ function App() {
       storeCurrentMode(migrationCheck.toMode);
     }
     
-    return () => clearInterval(pollInterval);
+    // Keyboard shortcut for test runner (Ctrl+T)
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key === 't') {
+        e.preventDefault();
+        setShowTestRunner(prev => !prev);
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      clearInterval(pollInterval);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, []);
 
   const handleReset = async () => {
@@ -124,6 +138,8 @@ function App() {
           onClose={() => setShowMigrationDialog(false)} 
         />
       )}
+      
+      {showTestRunner && <ManualTestRunner />}
       
       <LadderForm
         setShowSettings={setShowSettings}

@@ -1,0 +1,13 @@
+{
+  "name": "01-kings-cross",
+  "inputFilePath": "kings_cross.tab",
+  "expectedOutputFile": "test-cases/kings_cross.tab",
+  "actions": [
+    { "type": "clickMenu", "menu": "Operations" },
+    { "type": "selectMenuItem", "item": "Recalculate Ratings" },
+    { "type": "clickMenu", "menu": "Operations" },
+    { "type": "selectMenuItem", "item": "Recalculate Ratings" }
+  ],
+  "clickMenu": "File",
+  "selectMenuItem": "Export"
+}
