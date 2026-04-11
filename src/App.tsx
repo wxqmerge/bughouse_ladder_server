@@ -44,9 +44,9 @@ function App() {
       storeCurrentMode(migrationCheck.toMode);
     }
     
-    // Keyboard shortcut for test runner (Ctrl+T)
+    // Keyboard shortcut for test runner (Alt+T)
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.key === 't') {
+      if (e.altKey && e.key === 't') {
         e.preventDefault();
         setShowTestRunner(prev => !prev);
       }

@@ -3,7 +3,7 @@
 ## Quick Start
 
 ### Access Test Runner
-Press **Ctrl+T** while in the app to toggle the test runner panel.
+Press **Alt+T** while in the app to toggle the test runner panel.
 
 ---
 
