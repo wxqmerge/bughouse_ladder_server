@@ -20,6 +20,7 @@ import {
   ZoomIn,
   ChevronDown,
   Check,
+  ClipboardPaste,
 } from "lucide-react";
 
 interface MenuBarProps {
@@ -33,6 +34,7 @@ interface MenuBarProps {
   onSetZoom: (level: "50%" | "70%" | "100%" | "140%" | "200%") => void;
   onOpenSettings: () => void;
   onAddPlayer?: () => void;
+  onBulkPaste?: () => void;
   isAdmin: boolean;
   isWide: boolean;
   zoomLevel: "50%" | "70%" | "100%" | "140%" | "200%";
@@ -59,6 +61,7 @@ export default function MenuBar({
   onSetZoom,
   onOpenSettings,
   onAddPlayer,
+  onBulkPaste,
   isAdmin,
   zoomLevel,
   projectName,
@@ -194,6 +197,15 @@ export default function MenuBar({
         closeAllMenus();
       },
       dataMenuItem: "Check Errors",
+    },
+    {
+      icon: <ClipboardPaste size={16} />,
+      label: "Paste Multiple Results",
+      onClick: () => {
+        onBulkPaste?.();
+        closeAllMenus();
+      },
+      dataMenuItem: "Paste Multiple Results",
     },
     ...(isAdmin && onAddPlayer
       ? [
