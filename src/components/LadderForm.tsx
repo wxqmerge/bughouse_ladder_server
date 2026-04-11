@@ -18,6 +18,7 @@ import MenuBar from "./MenuBar";
 import MobileMenu from "./MobileMenu";
 import { Menu as MenuIcon } from "lucide-react";
 import { shouldLog } from "../utils/debug";
+import { getVersionString } from "../utils/mode";
 import {
   getPlayers,
   savePlayers,
@@ -1505,7 +1506,7 @@ export default function LadderForm({
       >
         <div>
           <h1 style={{ margin: 0, fontSize: "1.25rem" }}>
-            {projectName} v1.0.0
+            {projectName} {getVersionString()}
           </h1>
         </div>
         <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>

@@ -1,9 +1,13 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
-import LadderForm from "../components/LadderForm";
+import LadderForm from "./LadderForm";
 import "@testing-library/jest-dom";
 
 describe("LadderForm component", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
   it("should render the title", async () => {
     render(<LadderForm />);
     // Component loads sample data, wait for it to render
