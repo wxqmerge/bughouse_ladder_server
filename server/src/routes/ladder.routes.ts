@@ -1,0 +1,162 @@
+import { Router, Request, Response } from 'express';
+import { authenticate, AuthRequest, requireAdmin } from '../middleware/auth.middleware';
+import {
+  readLadderFile,
+  writeLadderFile,
+  PlayerData,
+  LadderData,
+} from '../services/dataService';
+
+const router = Router();
+
+// Get all ladder data (public read access)
+router.get('/', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const ladderData = await readLadderFile();
+    res.json({
+      success: true,
+      data: {
+        header: ladderData.header,
+        players: ladderData.players,
+        playerCount: ladderData.players.length,
+      },
+    });
+  } catch (error) {
+    console.error('Error reading ladder:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to read ladder data' },
+    });
+  }
+});
+
+// Get single player by rank
+router.get('/:rank', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const rank = parseInt(req.params.rank);
+    if (isNaN(rank) || rank < 1) {
+      res.status(400).json({
+        success: false,
+        error: { message: 'Invalid rank' },
+      });
+      return;
+    }
+
+    const ladderData = await readLadderFile();
+    const player = ladderData.players.find(p => p.rank === rank);
+
+    if (!player) {
+      res.status(404).json({
+        success: false,
+        error: { message: 'Player not found' },
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: player,
+    });
+  } catch (error) {
+    console.error('Error fetching player:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to fetch player' },
+    });
+  }
+});
+
+// Update player data (requires authentication)
+router.put('/:rank', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const rank = parseInt(req.params.rank);
+    if (isNaN(rank) || rank < 1) {
+      res.status(400).json({
+        success: false,
+        error: { message: 'Invalid rank' },
+      });
+      return;
+    }
+
+    const ladderData = await readLadderFile();
+    const playerIndex = ladderData.players.findIndex(p => p.rank === rank);
+
+    if (playerIndex === -1) {
+      res.status(404).json({
+        success: false,
+        error: { message: 'Player not found' },
+      });
+      return;
+    }
+
+    // Update player fields (non-admin users can only update their own game results)
+    const updatedPlayer = { ...ladderData.players[playerIndex] };
+    
+    if (req.user?.role === 'admin') {
+      // Admin can update all fields
+      Object.keys(req.body).forEach(key => {
+        if (key !== 'rank' && key !== 'gameResults') {
+          (updatedPlayer as any)[key] = req.body[key];
+        }
+      });
+    }
+
+    // Everyone can update game results (validation happens in game routes)
+    if (req.body.gameResults) {
+      updatedPlayer.gameResults = req.body.gameResults;
+    }
+
+    ladderData.players[playerIndex] = updatedPlayer;
+    await writeLadderFile(ladderData);
+
+    res.json({
+      success: true,
+      data: updatedPlayer,
+    });
+  } catch (error) {
+    console.error('Error updating player:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to update player' },
+    });
+  }
+});
+
+// Bulk update players (admin only)
+router.put('/', authenticate, requireAdmin, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { players } = req.body as { players: PlayerData[] };
+    
+    if (!players || !Array.isArray(players)) {
+      res.status(400).json({
+        success: false,
+        error: { message: 'Invalid players data' },
+      });
+      return;
+    }
+
+    const ladderData: LadderData = await readLadderFile();
+    ladderData.players = players;
+    
+    // Re-index ranks
+    ladderData.players = ladderData.players.map((player, index) => ({
+      ...player,
+      rank: index + 1,
+    }));
+
+    await writeLadderFile(ladderData);
+
+    res.json({
+      success: true,
+      data: { message: 'Players updated successfully', count: players.length },
+    });
+  } catch (error) {
+    console.error('Error bulk updating players:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to update players' },
+    });
+  }
+});
+
+export { router };
