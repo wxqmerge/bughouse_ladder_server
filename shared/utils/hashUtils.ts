@@ -1026,9 +1026,16 @@ export function validateGameResult(input: string): ValidationResultResult {
   const hashValue = string2long(input, parsedPlayersList, parsedScoreList);
 
   if (hashValue < 0) {
+    const errorCode = Math.abs(hashValue);
+    console.log('[validateGameResult] Invalid format:', {
+      input,
+      errorCode,
+      parsedPlayers: parsedPlayersList,
+      parsedScores: parsedScoreList,
+    });
     return {
       isValid: false,
-      error: Math.abs(hashValue),
+      error: errorCode,
       message: "", // This will be populated by getValidationErrorMessage in the client
     };
   }
@@ -1072,14 +1079,22 @@ export function updatePlayerGameData(
   const hashValue = string2long(input, parsedPlayersList, parsedScoreList);
 
   if (hashValue < 0) {
+    const errorCode = Math.abs(hashValue);
     const parsedPlayer1Rank = parsedPlayersList[5];
     const parsedPlayer2Rank = parsedPlayersList[6];
     const parsedPlayer3Rank = parsedPlayersList[7];
     const parsedPlayer4Rank = parsedPlayersList[8];
 
+    console.log('[updatePlayerGameData] Invalid format:', {
+      input,
+      errorCode,
+      parsedPlayers: parsedPlayersList,
+      parsedScores: parsedScoreList,
+    });
+
     return {
       isValid: false,
-      error: Math.abs(hashValue),
+      error: errorCode,
       message: "",
       parsedPlayersList: parsedPlayersList,
       parsedScoreList: parsedScoreList,
