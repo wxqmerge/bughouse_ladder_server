@@ -3,11 +3,26 @@ let connectionState: {
   configuredForServer: boolean;
   serverReachable: boolean | null; // null = not yet tested
   lastCheckTime: number;
+  previousMode: string | null; // Track mode changes
 } = {
   configuredForServer: false,
   serverReachable: null,
   lastCheckTime: 0,
+  previousMode: null,
 };
+
+// Callback for mode changes
+let onModeChangeCallback: ((newMode: string, oldMode: string) => void) | null = null;
+
+// Retry interval ID
+let retryIntervalId: number | null = null;
+
+/**
+ * Set callback for mode changes
+ */
+export function onModeChange(callback: (newMode: string, oldMode: string) => void): void {
+  onModeChangeCallback = callback;
+}
 
 /**
  * Initialize connection state based on configuration
@@ -17,6 +32,7 @@ export function initializeConnectionState(): void {
   connectionState.configuredForServer = !!(apiUrl && apiUrl.startsWith('http'));
   connectionState.serverReachable = null; // Reset reachability
   connectionState.lastCheckTime = Date.now();
+  connectionState.previousMode = null;
 }
 
 /**
@@ -65,9 +81,45 @@ export async function updateConnectionState(): Promise<void> {
     return; // Nothing to check
   }
   
+  const oldMode = getProgramMode();
   const isReachable = await testServerConnection();
   connectionState.serverReachable = isReachable;
   connectionState.lastCheckTime = Date.now();
+  
+  const newMode = getProgramMode();
+  
+  // Notify callback if mode changed
+  if (oldMode !== newMode && onModeChangeCallback) {
+    connectionState.previousMode = oldMode;
+    onModeChangeCallback(newMode, oldMode);
+  }
+}
+
+/**
+ * Start periodic server reachability checks (every 60 seconds)
+ * Automatically switches to local mode if server becomes unreachable
+ */
+export function startPeriodicChecks(): void {
+  // Clear existing interval if any
+  if (retryIntervalId !== null) {
+    window.clearInterval(retryIntervalId);
+    retryIntervalId = null;
+  }
+  
+  // Check every 60 seconds
+  retryIntervalId = window.setInterval(async () => {
+    await updateConnectionState();
+  }, 60000); // 60 seconds
+}
+
+/**
+ * Stop periodic server reachability checks
+ */
+export function stopPeriodicChecks(): void {
+  if (retryIntervalId !== null) {
+    window.clearInterval(retryIntervalId);
+    retryIntervalId = null;
+  }
 }
 
 /**

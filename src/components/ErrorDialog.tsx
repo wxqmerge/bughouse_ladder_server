@@ -394,7 +394,7 @@ export default function ErrorDialog({
         setParseStatus({
           isValid: false,
           error: validation.error,
-          message: validation.message || getValidationErrorMessage(validation.error),
+          message: validation.message || getValidationErrorMessage(validation.error || 0),
         });
       }
 

@@ -14,6 +14,7 @@ import {
 import { MINI_GAMES, processNewDayTransformations } from "../utils/constants";
 import ErrorDialog from "./ErrorDialog";
 import AddPlayerDialog from "./AddPlayerDialog";
+import { BulkPasteDialog } from "./BulkPasteDialog";
 import MenuBar from "./MenuBar";
 import MobileMenu from "./MobileMenu";
 import { Menu as MenuIcon } from "lucide-react";
@@ -218,6 +219,7 @@ export default function LadderForm({
     parsedPlayer2Rank: number;
   } | null>(null);
   const [isAddPlayerDialogOpen, setIsAddPlayerDialogOpen] = useState(false);
+  const [showBulkPasteDialog, setShowBulkPasteDialog] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const latestPendingPlayersRef = useRef<PlayerData[] | null>(null);
 
@@ -1348,6 +1350,57 @@ export default function LadderForm({
     setZoomLevelStorage(zoomPercent);
   };
 
+  const handleBulkPaste = () => {
+    if (shouldLog(10)) {
+      console.log(">>> [MENU ACTION] Paste Multiple Results");
+    }
+    setShowBulkPasteDialog(true);
+  };
+
+  const handleApplyBulkResults = async (
+    results: { playerRank: number; roundIndex: number; resultString: string; playerName?: string }[],
+  ) => {
+    if (shouldLog(10)) {
+      console.log(`>>> [BULK PASTE] Applying ${results.length} entries`);
+    }
+
+    setPlayers((prevPlayers) => {
+      const updatedPlayers = prevPlayers.map((p) => ({ ...p }));
+
+      for (const result of results) {
+        const playerIndex = updatedPlayers.findIndex(
+          (p) => p.rank === result.playerRank,
+        );
+        if (playerIndex !== -1) {
+          const player = updatedPlayers[playerIndex];
+          if (!player.gameResults) {
+            player.gameResults = new Array(31).fill(null);
+          }
+          player.gameResults[result.roundIndex] = result.resultString;
+        }
+      }
+
+      return updatedPlayers;
+    });
+
+    // Save after state update
+    const updatedPlayers = players.map((p) => ({ ...p }));
+    for (const result of results) {
+      const playerIndex = updatedPlayers.findIndex((p) => p.rank === result.playerRank);
+      if (playerIndex !== -1) {
+        if (!updatedPlayers[playerIndex].gameResults) {
+          updatedPlayers[playerIndex].gameResults = new Array(31).fill(null);
+        }
+        updatedPlayers[playerIndex].gameResults[result.roundIndex] = result.resultString;
+      }
+    }
+    await savePlayers(updatedPlayers);
+
+    if (shouldLog(10)) {
+      console.log(`>>> [BULK PASTE] Successfully applied ${results.length} entries`);
+    }
+  };
+
   const handleAddPlayer = () => {
     if (shouldLog(10)) {
       console.log(">>> [MENU ACTION] Add Player");
@@ -1497,6 +1550,7 @@ export default function LadderForm({
           onSetZoom={handleSetZoom}
           onOpenSettings={() => setShowSettings?.(true)}
           onAddPlayer={handleAddPlayer}
+          onBulkPaste={handleBulkPaste}
           isAdmin={isAdmin}
           isWide={zoomLevel === "140%"}
           zoomLevel={zoomLevel}
@@ -2155,6 +2209,15 @@ export default function LadderForm({
         onAdd={handleAddPlayerSubmit}
         currentPlayerCount={players.length}
       />
+
+      {/* Bulk Paste Dialog */}
+      {showBulkPasteDialog && (
+        <BulkPasteDialog
+          players={players}
+          onClose={() => setShowBulkPasteDialog(false)}
+          onApplyResults={handleApplyBulkResults}
+        />
+      )}
     </div>
   );
 }
