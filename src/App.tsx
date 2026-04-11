@@ -10,6 +10,7 @@ import {
   getPlayers,
   getProjectName,
   setProjectName as setProjectNameStorage,
+  getKeyPrefix,
 } from "./services/storageService";
 import "./css/index.css";
 
@@ -40,7 +41,7 @@ function App() {
 
   const handleClearAll = async () => {
     await savePlayers([]);
-    localStorage.removeItem("ladder_settings");
+    localStorage.removeItem(getKeyPrefix() + "ladder_settings");
     window.location.reload();
   };
 
@@ -55,7 +56,7 @@ function App() {
 
         await savePlayers(finalPlayers);
         setProjectNameStorage(nextTitle);
-        localStorage.removeItem("ladder_settings");
+        localStorage.removeItem(getKeyPrefix() + "ladder_settings");
         window.location.reload();
       }
     } catch (err) {
@@ -68,7 +69,10 @@ function App() {
     // First, trigger recalculate ratings to check for errors
     if (recalculateRef.current) {
       // Set a flag indicating New Day is pending
-      localStorage.setItem("ladder_pending_newday", JSON.stringify({ reRank }));
+      localStorage.setItem(
+        getKeyPrefix() + "ladder_pending_newday",
+        JSON.stringify({ reRank }),
+      );
       console.log(
         `>>> [NEW DAY] Pending flag set: ${JSON.stringify({ reRank })}`,
       );
