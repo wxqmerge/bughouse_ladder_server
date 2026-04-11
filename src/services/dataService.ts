@@ -113,6 +113,14 @@ class DataService {
     }
   }
 
+  async clearPlayerCell(playerRank: number, roundIndex: number): Promise<void> {
+    if (this.config.mode === DataServiceMode.LOCAL) {
+      await this.clearLocalCell(playerRank, roundIndex);
+    } else {
+      await this.clearCellApi(playerRank, roundIndex);
+    }
+  }
+
   // ==================== GAME OPERATIONS ====================
 
   async submitGameResult(
@@ -160,6 +168,18 @@ class DataService {
         player.gameResults = new Array(31).fill(null);
       }
       player.gameResults[round] = result;
+      this.saveLocalPlayers(players);
+    }
+  }
+
+  private async clearLocalCell(playerRank: number, roundIndex: number): Promise<void> {
+    const players = await this.getLocalPlayers();
+    const player = players.find(p => p.rank === playerRank);
+    if (player) {
+      if (!player.gameResults) {
+        player.gameResults = new Array(31).fill(null);
+      }
+      player.gameResults[roundIndex] = null;
       this.saveLocalPlayers(players);
     }
   }
@@ -248,6 +268,28 @@ class DataService {
     }
 
     this.notifySubscribers();
+  }
+
+  private async clearCellApi(playerRank: number, roundIndex: number): Promise<void> {
+    const response = await fetch(
+      `${this.getServerUrl()}/api/ladder/${playerRank}/round/${roundIndex}`,
+      {
+        method: 'DELETE',
+        headers: this.getAuthHeaders(),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Failed to clear cell');
+    }
+
+    // Also update localStorage cache
+    const players = await this.getLocalPlayers();
+    const player = players.find(p => p.rank === playerRank);
+    if (player && player.gameResults) {
+      player.gameResults[roundIndex] = null;
+      this.saveLocalPlayers(players);
+    }
   }
 
   // ==================== UTILITY METHODS ====================
