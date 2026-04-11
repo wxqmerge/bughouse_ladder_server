@@ -749,7 +749,14 @@ export default function LadderForm({
     const validation = updatePlayerGameData(correctedString, true);
 
     if (!validation.isValid) {
-      alert(`Invalid format. Error code: ${Math.abs(validation.error || 10)}`);
+      const errorCode = Math.abs(validation.error || 10);
+      console.log('[submitCorrection] Invalid format:', {
+        input: correctedString,
+        errorCode,
+        parsedPlayers: validation.parsedPlayersList,
+        parsedScores: validation.parsedScoreList,
+      });
+      alert(`Invalid format. Error code: ${errorCode}`);
       return;
     }
 
