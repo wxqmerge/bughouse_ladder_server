@@ -13,6 +13,7 @@ import {
   Eye,
 } from "lucide-react";
 import "../css/index.css";
+import { getKeyPrefix } from "../services/storageService";
 
 interface SettingsProps {
   onClose: () => void;
@@ -36,7 +37,9 @@ export default function Settings({
   const [kFactor, setKFactor] = useState(20);
 
   useEffect(() => {
-    const savedSettings = localStorage.getItem("ladder_settings");
+    const savedSettings = localStorage.getItem(
+      getKeyPrefix() + "ladder_settings",
+    );
     if (savedSettings) {
       try {
         const parsedSettings = JSON.parse(savedSettings);
@@ -56,7 +59,10 @@ export default function Settings({
       debugLevel: debugLevel,
       kFactor: Math.max(1, Math.min(100, kFactor || 20)),
     };
-    localStorage.setItem("ladder_settings", JSON.stringify(settings));
+    localStorage.setItem(
+      getKeyPrefix() + "ladder_settings",
+      JSON.stringify(settings),
+    );
     onClose();
     alert("Settings saved successfully!");
   };

@@ -8,6 +8,7 @@
  */
 
 import { PlayerData } from '../../shared/types';
+import { getKeyPrefix } from './storageService';
 
 export enum DataServiceMode {
   LOCAL = 'LOCAL',
@@ -129,7 +130,7 @@ class DataService {
   // ==================== LOCAL STORAGE IMPLEMENTATIONS ====================
 
   private async getLocalPlayers(): Promise<PlayerData[]> {
-    const data = localStorage.getItem('ladder_players');
+    const data = localStorage.getItem(getKeyPrefix() + 'ladder_players');
     return data ? JSON.parse(data) : [];
   }
 
