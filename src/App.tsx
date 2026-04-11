@@ -2,8 +2,8 @@ import { useState, useRef, useEffect } from "react";
 import LadderForm from "./components/LadderForm";
 import Settings from "./components/Settings";
 import { MigrationDialog } from "./components/MigrationDialog";
-import { ManualTestRunner } from "./components/ManualTestRunner";
 import { ReconnectDialog } from "./components/ReconnectDialog";
+import { LoginForm } from "./components/LoginForm";
 import { loadSampleData } from "./components/LadderForm";
 import type { PlayerData } from "./utils/hashUtils";
 import { getNextTitle, processNewDayTransformations } from "./utils/constants";
@@ -23,6 +23,9 @@ import {
   getKeyPrefix,
   startBatch,
   endBatch,
+  setAuthRequiredCallback,
+  isAuthRequired,
+  clearAuthRequired,
 } from "./services/storageService";
 import "./css/index.css";
 
@@ -30,13 +33,21 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [triggerWalkthrough, setTriggerWalkthrough] = useState(false);
   const [showMigrationDialog, setShowMigrationDialog] = useState(false);
-  const [showTestRunner, setShowTestRunner] = useState(false);
   const [showReconnectDialog, setShowReconnectDialog] = useState(false);
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [wasServerMode, setWasServerMode] = useState(true); // Assume server mode initially
   const recalculateRef = useRef<(() => void) | undefined>(undefined);
 
   // Test server connectivity and check for migration on mount
   useEffect(() => {
+    // Set up auth required callback
+    setAuthRequiredCallback(() => setShowLoginDialog(true));
+    
+    // Check if there's a pending 401 from a previous operation
+    if (isAuthRequired()) {
+      setShowLoginDialog(true);
+    }
+    
     // Initial connectivity test
     updateConnectionState().catch(console.error);
     
@@ -66,18 +77,8 @@ function App() {
       storeCurrentMode(migrationCheck.toMode);
     }
     
-    // Keyboard shortcut for test runner (Alt+T)
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.altKey && e.key === 't') {
-        e.preventDefault();
-        setShowTestRunner(prev => !prev);
-      }
-    };
-    
-    window.addEventListener('keydown', handleKeyDown);
     return () => {
       stopPeriodicChecks();
-      window.removeEventListener('keydown', handleKeyDown);
     };
   }, []);
 
@@ -157,6 +158,16 @@ function App() {
 
   return (
     <>
+      {showLoginDialog && (
+        <LoginForm
+          isOpen={showLoginDialog}
+          onClose={() => {
+            setShowLoginDialog(false);
+            clearAuthRequired();
+          }}
+        />
+      )}
+      
       {showMigrationDialog && (
         <MigrationDialog 
           isAdmin={false}
@@ -164,7 +175,7 @@ function App() {
         />
       )}
       
-      {showTestRunner && <ManualTestRunner />}
+
       
       {showReconnectDialog && (
         <ReconnectDialog
