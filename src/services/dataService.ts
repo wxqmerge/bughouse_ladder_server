@@ -135,7 +135,7 @@ class DataService {
   }
 
   private saveLocalPlayers(players: PlayerData[]): void {
-    localStorage.setItem('ladder_players', JSON.stringify(players));
+    localStorage.setItem(getKeyPrefix() + 'ladder_players', JSON.stringify(players));
     this.notifySubscribers();
   }
 
@@ -176,7 +176,7 @@ class DataService {
     }
 
     const data = await response.json();
-    localStorage.setItem('ladder_players', JSON.stringify(data.data.players));
+    localStorage.setItem(getKeyPrefix() + 'ladder_players', JSON.stringify(data.data.players));
     return data.data.players;
   }
 
@@ -205,7 +205,7 @@ class DataService {
       throw new Error('Failed to update players');
     }
 
-    localStorage.setItem('ladder_players', JSON.stringify(players));
+    localStorage.setItem(getKeyPrefix() + 'ladder_players', JSON.stringify(players));
     this.notifySubscribers();
   }
 
