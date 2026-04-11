@@ -3,12 +3,6 @@ import { X, ClipboardPaste, CheckCircle, AlertTriangle, Table } from "lucide-rea
 import { updatePlayerGameData } from "../utils/hashUtils";
 import type { PlayerData } from "../utils/hashUtils";
 
-interface ParsedResult {
-  input: string;
-  validated: ReturnType<typeof updatePlayerGameData>;
-  isValid: boolean;
-}
-
 interface AssignmentPreview {
   playerRank: number;
   playerName: string;
@@ -28,72 +22,77 @@ export function BulkPasteDialog({
   onApplyResults,
 }: BulkPasteDialogProps) {
   const [inputText, setInputText] = useState("");
-  const [parsedResults, setParsedResults] = useState<ParsedResult[]>([]);
   const [assignmentPreview, setAssignmentPreview] = useState<AssignmentPreview[]>([]);
 
-  // Parse input and generate assignment preview
+  // Parse input and generate assignment preview - just fill cells sequentially
   useEffect(() => {
     if (!inputText.trim()) {
-      setParsedResults([]);
       setAssignmentPreview([]);
       return;
     }
 
+    // Convert escape sequences to actual characters
+    const processedInput = inputText
+      .replace(/\\t/g, '\t')   // \t → tab
+      .replace(/\\n/g, '\n')   // \n → newline
+      .replace(/\\r/g, '\r');  // \r → carriage return
+
     // Split by any whitespace (tabs, newlines, spaces)
-    const rawResults = inputText
+    const rawEntries = processedInput
       .split(/\s+/)
       .filter((r) => r.trim() !== "")
       .map((r) => r.toUpperCase().replace(/[^0-9WLD:]/g, ""));
 
-    const parsed: ParsedResult[] = rawResults.map((input) => {
-      const validated = updatePlayerGameData(input, true);
-      return {
-        input,
-        validated,
-        isValid: validated.isValid && input !== "",
-      };
-    });
-
-    setParsedResults(parsed);
-
-    // Generate assignment preview - find first empty round for each player in each result
+    // Generate assignment preview - fill cells sequentially across all players
     const preview: AssignmentPreview[] = [];
 
-    for (const result of parsed) {
-      if (!result.isValid) continue;
-
-      // Get player ranks from the validated result
-      const playerRanks = [
-        result.validated.parsedPlayer1Rank || 0,
-        result.validated.parsedPlayer2Rank || 0,
-        result.validated.parsedPlayer3Rank || 0,
-        result.validated.parsedPlayer4Rank || 0,
-      ].filter((r) => r > 0);
-
-      // Find the result string to store (add underscore)
-      const resultString = result.validated.resultString || result.input + "_";
-
-      // For each player in this game, find their first empty round
-      for (const playerRank of playerRanks) {
-        const player = players.find((p) => p.rank === playerRank);
-        if (!player) continue;
-
-        // Find first empty round
-        let roundIndex = -1;
-        for (let r = 0; r < player.gameResults.length; r++) {
-          if (player.gameResults[r] === null || player.gameResults[r] === "") {
-            roundIndex = r;
-            break;
-          }
+    // Track next empty round for each player
+    const nextEmptyRound = new Map<number, number>();
+    
+    // Initialize next empty round for each player
+    for (const player of players) {
+      let firstEmpty = -1;
+      for (let r = 0; r < player.gameResults.length; r++) {
+        if (player.gameResults[r] === null || player.gameResults[r] === "") {
+          firstEmpty = r;
+          break;
         }
+      }
+      nextEmptyRound.set(player.rank, firstEmpty);
+    }
 
-        if (roundIndex >= 0) {
+    // Assign each entry to the next available cell
+    for (const entry of rawEntries) {
+      // Find player with earliest empty round that still has room
+      let targetPlayerRank = -1;
+      let minRoundIndex = Infinity;
+
+      for (const [playerRank, roundIndex] of nextEmptyRound.entries()) {
+        if (roundIndex >= 0 && roundIndex < minRoundIndex) {
+          minRoundIndex = roundIndex;
+          targetPlayerRank = playerRank;
+        }
+      }
+
+      if (targetPlayerRank > 0 && minRoundIndex < Infinity) {
+        const player = players.find((p) => p.rank === targetPlayerRank);
+        if (player) {
           preview.push({
-            playerRank,
+            playerRank: targetPlayerRank,
             playerName: `${player.firstName} ${player.lastName}`,
-            roundIndex,
-            resultString,
+            roundIndex: minRoundIndex,
+            resultString: entry, // No underscore!
           });
+
+          // Update next empty round for this player
+          let nextRound = minRoundIndex + 1;
+          while (nextRound < player.gameResults.length) {
+            if (player.gameResults[nextRound] === null || player.gameResults[nextRound] === "") {
+              break;
+            }
+            nextRound++;
+          }
+          nextEmptyRound.set(targetPlayerRank, nextRound >= player.gameResults.length ? -1 : nextRound);
         }
       }
     }
@@ -101,12 +100,18 @@ export function BulkPasteDialog({
     setAssignmentPreview(preview);
   }, [inputText, players]);
 
-  const validCount = parsedResults.filter((r) => r.isValid).length;
-  const invalidCount = parsedResults.length - validCount;
+  const totalEntries = inputText.trim() ? 
+    inputText
+      .replace(/\\t/g, '\t')
+      .replace(/\\n/g, '\n')
+      .replace(/\\r/g, '\r')
+      .split(/\s+/)
+      .filter((r) => r.trim() !== "")
+      .length : 0;
 
   const handleApply = () => {
-    if (validCount === 0 || assignmentPreview.length === 0) {
-      alert("No valid results to apply or no empty rounds available.");
+    if (assignmentPreview.length === 0) {
+      alert("No entries to paste or no empty cells available.");
       return;
     }
 
@@ -219,14 +224,14 @@ export function BulkPasteDialog({
         </div>
 
         {/* Summary */}
-        {parsedResults.length > 0 && (
+        {totalEntries > 0 && (
           <div
             style={{
               marginBottom: "1rem",
               padding: "0.75rem",
-              backgroundColor: invalidCount > 0 ? "#fef3c7" : "#ecfdf5",
+              backgroundColor: "#ecfdf5",
               borderRadius: "0.25rem",
-              border: invalidCount > 0 ? "1px solid #f59e0b" : "1px solid #10b981",
+              border: "1px solid #10b981",
             }}
           >
             <div
@@ -234,42 +239,29 @@ export function BulkPasteDialog({
                 display: "flex",
                 alignItems: "center",
                 gap: "0.5rem",
-                marginBottom: "0.5rem",
               }}
             >
-              {invalidCount > 0 ? (
-                <AlertTriangle size={16} color="#92400e" />
-              ) : (
-                <CheckCircle size={16} color="#059669" />
-              )}
+              <CheckCircle size={16} color="#059669" />
               <span
                 style={{
                   fontSize: "0.875rem",
                   fontWeight: "600",
-                  color: invalidCount > 0 ? "#92400e" : "#059669",
+                  color: "#059669",
                 }}
               >
-                {validCount} valid, {invalidCount} invalid out of {parsedResults.length} results
+                {totalEntries} entries will be placed in {assignmentPreview.length} cell(s)
               </span>
             </div>
-            {invalidCount > 0 && (
-              <details style={{ fontSize: "0.75rem", color: "#78350f" }}>
-                <summary style={{ cursor: "pointer", marginTop: "0.25rem" }}>
-                  Show invalid results
-                </summary>
-                <div style={{ marginTop: "0.5rem" }}>
-                  {parsedResults
-                    .filter((r) => !r.isValid)
-                    .slice(0, 5)
-                    .map((r, idx) => (
-                      <div key={idx}>{r.input} - Error code: {r.validated.error}</div>
-                    ))}
-                  {parsedResults.filter((r) => !r.isValid).length > 5 && (
-                    <div>...and {parsedResults.filter((r) => !r.isValid).length - 5} more</div>
-                  )}
-                </div>
-              </details>
-            )}
+            <p
+              style={{
+                fontSize: "0.75rem",
+                color: "#6b7280",
+                marginTop: "0.25rem",
+                marginLeft: "1rem",
+              }}
+            >
+              Entries are placed in first available empty cells. Run "Check Errors" after pasting to validate.
+            </p>
           </div>
         )}
 
@@ -288,7 +280,7 @@ export function BulkPasteDialog({
               }}
             >
               <Table size={16} />
-              Results will be placed in first empty rounds:
+              Preview: Entries will be placed in first empty rounds:
             </label>
             <div
               style={{
@@ -419,18 +411,18 @@ export function BulkPasteDialog({
           </button>
           <button
             onClick={handleApply}
-            disabled={validCount === 0 || assignmentPreview.length === 0}
+            disabled={totalEntries === 0 || assignmentPreview.length === 0}
             style={{
               padding: "0.75rem 1.5rem",
-              background: validCount > 0 && assignmentPreview.length > 0 ? "#3b82f6" : "#9ca3af",
+              background: totalEntries > 0 && assignmentPreview.length > 0 ? "#3b82f6" : "#9ca3af",
               border: "none",
               borderRadius: "0.25rem",
-              cursor: validCount > 0 && assignmentPreview.length > 0 ? "pointer" : "not-allowed",
+              cursor: totalEntries > 0 && assignmentPreview.length > 0 ? "pointer" : "not-allowed",
               fontSize: "0.875rem",
               color: "white",
             }}
           >
-            Apply {assignmentPreview.length} Entries
+            Paste {totalEntries} Entry{totalEntries !== 1 ? 'ies' : ''}
           </button>
         </div>
 
@@ -447,15 +439,17 @@ export function BulkPasteDialog({
         >
           <strong>How it works:</strong>
           <br />
-          Each result is entered for ALL players in that game, placed in their first empty round.
+          • Each entry is placed in ONE cell (not distributed to multiple players)
           <br />
-          Example: <code style={{ backgroundColor: "#e0f2fe", padding: "0.125rem 0.25rem", borderRadius: "0.125rem" }}>5W3</code> → enters result for both player 5 AND player 3
+          • Entries fill empty cells sequentially across all players
+          <br />
+          • No validation - run "Check Errors" after pasting
           <br />
           <strong>Examples:</strong>
           <br />
-          • Single line: <code style={{ backgroundColor: "#e0f2fe", padding: "0.125rem 0.25rem", borderRadius: "0.125rem" }}>5W3 7L2 9D4</code>
+          • <code style={{ backgroundColor: "#e0f2fe", padding: "0.125rem 0.25rem", borderRadius: "0.125rem" }}>5W3 7L2 9D4</code> → fills 3 cells
           <br />
-          • Multiple lines: paste from spreadsheet or text file
+          • <code style={{ backgroundColor: "#e0f2fe", padding: "0.125rem 0.25rem", borderRadius: "0.125rem" }}>5W3\t7L2</code> → fills 2 cells
         </div>
       </div>
     </div>
