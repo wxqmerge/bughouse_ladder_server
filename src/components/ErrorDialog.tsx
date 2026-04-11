@@ -922,7 +922,7 @@ export default function ErrorDialog({
                   : "white",
               }}
             >
-              Clear Cell (Ctrl+C)
+              Clear All Matching Cells (Ctrl+C)
             </button>
             <button
               type="button"
