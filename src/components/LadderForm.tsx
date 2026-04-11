@@ -1028,6 +1028,12 @@ export default function LadderForm({
 
     console.log(`>>> [CLEAR CELL DEBUG] Found ${cellsToClear.length} matching cells to clear`);
 
+    // If no matches found but cell has content, debug and force-clear at least the current cell
+    if (cellsToClear.length === 0 && cellValue !== "") {
+      console.log(`>>> [CLEAR CELL DEBUG] No matches found for "${cellValue}", forcing clear of current cell only`);
+      cellsToClear.push({ playerRank: entryCell.playerRank, round: entryCell.round });
+    }
+
     // Clear all matching cells
     const updatedPlayers = players.map((p) => {
       const newGameResults = [...(p.gameResults || [])];
