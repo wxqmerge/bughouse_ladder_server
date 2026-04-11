@@ -1,11 +1,11 @@
 import { Router, Request, Response } from 'express';
-import { authenticate, AuthRequest, requireAdmin } from '../middleware/auth.middleware';
+import { authenticate, AuthRequest, requireAdmin } from '../middleware/auth.middleware.js';
 import {
   readLadderFile,
   writeLadderFile,
   PlayerData,
   LadderData,
-} from '../services/dataService';
+} from '../services/dataService.js';
 
 const router = Router();
 
@@ -43,7 +43,7 @@ router.get('/:rank', async (req: Request, res: Response): Promise<void> => {
     }
 
     const ladderData = await readLadderFile();
-    const player = ladderData.players.find(p => p.rank === rank);
+    const player = ladderData.players.find((p: PlayerData) => p.rank === rank);
 
     if (!player) {
       res.status(404).json({
@@ -79,7 +79,7 @@ router.put('/:rank', authenticate, async (req: AuthRequest, res: Response): Prom
     }
 
     const ladderData = await readLadderFile();
-    const playerIndex = ladderData.players.findIndex(p => p.rank === rank);
+    const playerIndex = ladderData.players.findIndex((p: PlayerData) => p.rank === rank);
 
     if (playerIndex === -1) {
       res.status(404).json({
@@ -137,7 +137,7 @@ router.delete('/:rank/round/:roundIndex', authenticate, async (req: AuthRequest,
     }
 
     const ladderData = await readLadderFile();
-    const playerIndex = ladderData.players.findIndex(p => p.rank === rank);
+    const playerIndex = ladderData.players.findIndex((p: PlayerData) => p.rank === rank);
 
     if (playerIndex === -1) {
       res.status(404).json({
@@ -191,7 +191,7 @@ router.put('/', authenticate, requireAdmin, async (req: AuthRequest, res: Respon
     ladderData.players = players;
     
     // Re-index ranks
-    ladderData.players = ladderData.players.map((player, index) => ({
+    ladderData.players = ladderData.players.map((player: PlayerData, index: number) => ({
       ...player,
       rank: index + 1,
     }));

@@ -5,7 +5,7 @@ dotenv.config({ path: '../.env' });
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { JWT_SECRET } from '../middleware/auth.middleware';
+import { JWT_SECRET } from '../middleware/auth.middleware.js';
 
 const router = Router();
 
@@ -20,8 +20,8 @@ interface User {
 const users: Map<string, User> = new Map();
 
 // Validate required environment variables for admin credentials
-const defaultAdminUsername = process.env.ADMIN_USERNAME;
-const defaultAdminPassword = process.env.ADMIN_PASSWORD;
+const defaultAdminUsername = process.env.ADMIN_USERNAME!;
+const defaultAdminPassword = process.env.ADMIN_PASSWORD!;
 
 if (!defaultAdminUsername || !defaultAdminPassword) {
   console.error('ERROR: ADMIN_USERNAME and ADMIN_PASSWORD environment variables are required');
