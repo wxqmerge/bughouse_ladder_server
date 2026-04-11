@@ -14,6 +14,8 @@ import {
   getProjectName,
   setProjectName as setProjectNameStorage,
   getKeyPrefix,
+  startBatch,
+  endBatch,
 } from "./services/storageService";
 import "./css/index.css";
 
@@ -61,7 +63,10 @@ function App() {
 
   const handleReset = async () => {
     const samplePlayers = loadSampleData();
+    // Use batch mode to defer server sync until done
+    startBatch();
     await savePlayers(samplePlayers);
+    await endBatch(); // Triggers single server sync
     window.location.reload();
   };
 
