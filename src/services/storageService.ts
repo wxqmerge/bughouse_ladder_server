@@ -8,6 +8,7 @@
  */
 
 import { PlayerData } from '../../shared/types';
+import { log } from '../utils/log';
 import { dataService, DataServiceMode } from './dataService';
 import { getProgramMode } from '../utils/mode';
 
@@ -103,7 +104,7 @@ let pendingSyncQueue: PendingSyncEntry[] = [];
 export function markLocalChanges(): void {
   if (!hasLocalChanges) {
     hasLocalChanges = true;
-    console.log('[Storage] Local changes detected');
+    log('[STORAGE]', 'Local changes detected');
   }
 }
 
@@ -119,7 +120,7 @@ export function getHasLocalChanges(): boolean {
  */
 export function clearLocalChangesFlag(): void {
   hasLocalChanges = false;
-  console.log('[Storage] Local changes synced to server');
+  log('[STORAGE]', 'Local changes synced to server');
 }
 
 /**
@@ -127,7 +128,7 @@ export function clearLocalChangesFlag(): void {
  */
 export function setServerDownMode(isDown: boolean): void {
   serverDownMode = isDown;
-  console.log(`[Storage] Server down mode: ${isDown ? 'ON' : 'OFF'}`);
+  log('[STORAGE]', 'Server down mode: ' + (isDown ? 'ON' : 'OFF'));
 }
 
 /**
@@ -147,10 +148,10 @@ function loadPendingSyncQueue(): void {
     const stored = localStorage.getItem(getKeyPrefix() + 'ladder_pending_sync');
     if (stored) {
       pendingSyncQueue = JSON.parse(stored);
-      console.log(`[Storage] Loaded ${pendingSyncQueue.length} pending sync entries`);
+      log('[STORAGE]', 'Loaded ' + pendingSyncQueue.length + ' pending sync entries');
     }
   } catch (err) {
-    console.error('[Storage] Failed to load pending sync queue:', err);
+    log('[STORAGE]', 'Failed to load pending sync queue:', err);
     pendingSyncQueue = [];
   }
 }
@@ -165,7 +166,7 @@ function savePendingSyncQueue(): void {
   try {
     localStorage.setItem(getKeyPrefix() + 'ladder_pending_sync', JSON.stringify(pendingSyncQueue));
   } catch (err) {
-    console.error('[Storage] Failed to save pending sync queue:', err);
+    log('[STORAGE]', 'Failed to save pending sync queue:', err);
   }
 }
 
@@ -197,7 +198,7 @@ export function addPendingSync(playerRank: number, round: number, result: string
   }
   
   savePendingSyncQueue();
-  console.log(`[Storage] Added to pending sync queue (${pendingSyncQueue.length} total)`);
+  log('[STORAGE]', 'Added to pending sync queue (' + pendingSyncQueue.length + ' total)');
 }
 
 /**
@@ -207,7 +208,7 @@ export function clearPendingSyncQueue(): void {
   const count = pendingSyncQueue.length;
   pendingSyncQueue = [];
   savePendingSyncQueue();
-  console.log(`[Storage] Cleared ${count} pending sync entries`);
+  log('[STORAGE]', 'Cleared ' + count + ' pending sync entries');
 }
 
 /**
@@ -348,7 +349,7 @@ export async function getPlayers(): Promise<PlayerData[]> {
       (window as any).__ladder_setStatus?.(null);
       return players;
     } catch (error) {
-      console.error('Failed to fetch players:', error);
+      log('[STORAGE]', 'Failed to fetch players:', error);
       (window as any).__ladder_setStatus?.('Using cached data...');
       // Fallback to localStorage - try server key first, then local
       let data = localStorage.getItem('ladder_server_ladder_players');
@@ -410,7 +411,7 @@ export async function savePlayers(players: PlayerData[], waitForServer = false):
           return { success: true, serverSynced: false, error: 'No server URL configured' };
         }
         
-        console.log(`[savePlayers] Waiting for server save to ${serverUrl}...`);
+        log('[STORAGE]', 'Waiting for server save to ' + serverUrl + '...');
         const response = await fetch(`${serverUrl}/api/ladder`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -418,7 +419,7 @@ export async function savePlayers(players: PlayerData[], waitForServer = false):
         });
         
         if (response.ok) {
-          console.log('[savePlayers] ✓ Saved to server');
+          log('[STORAGE]', '✓ Saved to server');
           // Mark all non-empty cells as saved after successful server sync
           for (const player of players) {
             if (player.gameResults) {
@@ -436,7 +437,7 @@ export async function savePlayers(players: PlayerData[], waitForServer = false):
           return { success: true, serverSynced: false, error: `Server returned ${response.status}` };
         }
       } catch (error: any) {
-        console.error('[savePlayers] ✗ Failed:', error.message);
+        log('[STORAGE]', '✗ Save failed:', error.message);
         return { success: true, serverSynced: false, error: error.message };
       }
     } else {
@@ -452,12 +453,12 @@ export async function savePlayers(players: PlayerData[], waitForServer = false):
             body: JSON.stringify({ players }),
           });
           if (response.ok) {
-            console.log('[SYNC] ✓ Saved to server');
+            log('[STORAGE]', '[SYNC] ✓ Saved to server');
           } else {
-            console.error(`[SYNC] ✗ Server returned ${response.status}`);
+            log('[STORAGE]', '[SYNC] ✗ Server returned ' + response.status);
           }
         } catch (error: any) {
-          console.error('[SYNC] ✗ Failed:', error.message);
+          log('[STORAGE]', '[SYNC] ✗ Failed:', error.message);
         }
       })();
       return { success: true, serverSynced: false };
@@ -476,7 +477,7 @@ export async function getPlayer(rank: number): Promise<PlayerData | undefined> {
     try {
       return await dataService.getPlayer(rank);
     } catch (error) {
-      console.error('Failed to fetch player:', error);
+      log('[STORAGE]', 'Failed to fetch player:', error);
       const players = await getPlayers();
       return players.find(p => p.rank === rank);
     }
