@@ -548,22 +548,26 @@ export default function ErrorDialog({
             style={{
               fontSize: "1.25rem",
               fontWeight: "600",
-              color: isGameEntry
-                ? "#3b82f6"
-                : isRecalculate
-                  ? "#10b981"
-                  : isWalkthrough
-                    ? "#f59e0b"
-                    : "#ef4444",
+              color: isEnterGames
+                ? "#8b5cf6"
+                : isGameEntry
+                  ? "#3b82f6"
+                  : isRecalculate
+                    ? "#10b981"
+                    : isWalkthrough
+                      ? "#f59e0b"
+                      : "#ef4444",
             }}
           >
-            {isGameEntry
-              ? "Edit Game Result"
-              : isRecalculate
-                ? `Recalculate Error ${displayIndex + 1} of ${displayTotal}`
-                : isWalkthrough
-                  ? `Report Walkthrough - Report ${displayIndex + 1} of ${displayTotal}`
-                  : `Correction Required - Round ${displayCell.round + 1} of ${displayTotal}`}
+            {isEnterGames
+              ? "Enter Games"
+              : isGameEntry
+                ? "Edit Game Result"
+                : isRecalculate
+                  ? `Recalculate Error ${displayIndex + 1} of ${displayTotal}`
+                  : isWalkthrough
+                    ? `Report Walkthrough - Report ${displayIndex + 1} of ${displayTotal}`
+                    : `Correction Required - Round ${displayCell.round + 1} of ${displayTotal}`}
           </h2>
           <button
             onClick={onClose}
@@ -582,7 +586,7 @@ export default function ErrorDialog({
         </div>
 
         <div style={{ marginBottom: "1rem" }}>
-          {isGameEntry && (
+          {(isGameEntry || isEnterGames) && (
             <p
               style={{
                 fontSize: "0.875rem",
@@ -590,7 +594,7 @@ export default function ErrorDialog({
                 marginBottom: "0.5rem",
               }}
             >
-              <strong>Editing:</strong> Round {displayCell.round + 1} for Player{" "}
+              <strong>Entering:</strong> Round {displayCell.round + 1} for Player{" "}
               {entryCell && displayPlayer1
                 ? entryCell.playerRank +
                   ": " +
