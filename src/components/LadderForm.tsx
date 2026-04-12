@@ -733,8 +733,7 @@ export default function LadderForm({
     // Clear save status - all cells need to be re-saved after recalculation
     clearAllSaveStatus();
 
-    // Start batch mode - defer server sync until all operations complete
-    startBatch();
+    // Note: Not using batch mode since this is a single atomic operation
 
     // Always build fresh matches from current UI state (no caching)
     const result = checkGameErrors();
@@ -848,7 +847,8 @@ export default function LadderForm({
       }
     }
 
-    setPlayers(calculatedPlayers);
+    // End batch mode FIRST - this saves to localStorage
+    await endBatch();
     
     // Show status while saving to server
     (window as any).__ladder_setStatus?.('Saving to server...');
@@ -867,17 +867,14 @@ export default function LadderForm({
       console.log("[Recalculate_Save] ⚠ Server save issue:", saveResult.error);
     }
     
+    // Update UI with calculated players
+    setPlayers(calculatedPlayers);
+    
     if (shouldLog(10)) {
       console.log("Recalculate_Save complete\n");
     }
-
-    // End batch mode - triggers single server sync with all accumulated changes
-    await endBatch();
     
     (window as any).__ladder_setStatus?.(null);
-    
-    // Trigger a re-render to update the _ suffix display
-    setPlayers([...calculatedPlayers]);
   };
 
   const countNonBlankRounds = (): number => {
