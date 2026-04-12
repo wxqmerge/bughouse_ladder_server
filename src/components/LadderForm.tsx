@@ -580,6 +580,13 @@ export default function LadderForm({
   // Enter Games mode handlers
   const handleEnterGamesMenu = () => {
     console.log(">>> [MENU ACTION] Enter Games");
+    
+    // Exit admin mode if currently in it
+    if (isAdmin) {
+      console.log(">>> [ENTER_GAMES] Exiting admin mode");
+      setIsAdmin(false);
+    }
+    
     setIsEnterGamesMode(true);
     // Find first empty cell
     for (let rank = 1; rank <= players.length; rank++) {
@@ -598,17 +605,54 @@ export default function LadderForm({
     setIsEnterGamesMode(false);
   };
 
+  /**
+   * Find the next empty cell after a given position
+   * @returns { playerRank, round } or null if no more empty cells
+   */
+  const findNextEmptyCell = (startRank: number, startRound: number): { playerRank: number; round: number } | null => {
+    // Search from the cell after the current one
+    for (let rank = startRank; rank <= players.length; rank++) {
+      const player = players.find(p => p.rank === rank);
+      if (!player) continue;
+      
+      // If this is the starting rank, start from next round; otherwise start from round 0
+      const startR = rank === startRank ? startRound + 1 : 0;
+      
+      for (let round = startR; round < 31; round++) {
+        const cellValue = player.gameResults?.[round];
+        if (!cellValue || cellValue.trim() === "") {
+          return { playerRank: rank, round };
+        }
+      }
+    }
+    
+    // If no more cells found from current position, search from beginning
+    for (let rank = 1; rank < startRank; rank++) {
+      const player = players.find(p => p.rank === rank);
+      if (!player) continue;
+      
+      for (let round = 0; round < 31; round++) {
+        const cellValue = player.gameResults?.[round];
+        if (!cellValue || cellValue.trim() === "") {
+          return { playerRank: rank, round };
+        }
+      }
+    }
+    
+    return null; // No empty cells found
+  };
+
   const handleEnterRecalculateSave = async (correctedString: string) => {
     if (!entryCell) return;
 
-    console.log(">>> [ENTER_RECALCULATE_SAVE] Entered:", correctedString);
+    console.log(">>> [ENTER_RECALCULATE_SAVE] Entered:", correctedString, "for cell", entryCell.playerRank, entryCell.round);
 
     // Mark local changes if we're in server down mode
     if (isServerDownMode()) {
       markLocalChanges();
     }
 
-    // Enter the game result
+    // Enter the game result into current cell
     const parsedResult = updatePlayerGameData(
       correctedString.replace(/_$/, ""),
       true,
@@ -636,24 +680,39 @@ export default function LadderForm({
       });
     }
 
-    // Wait for state update, then trigger recalculate_and_save
+    // Store current cell position to find next empty cell after recalc
+    const currentCell = { ...entryCell };
+
+    // Wait for state update, then trigger REUSE of recalculateAndSave
     setTimeout(async () => {
-      console.log(">>> [ENTER_RECALCULATE_SAVE] Triggering recalculate_and_save...");
+      console.log(">>> [ENTER_RECALCULATE_SAVE] Calling recalculateAndSave()...");
       
-      // Call the recalculateAndSave function
+      // REUSE the existing recalculateAndSave function from Operations menu
       await recalculateAndSave();
       
-      // Exit enter-games mode
-      setIsEnterGamesMode(false);
-      setEntryCell(null);
-      setTempGameResult(null);
-      setEnterGamesError(null);
+      // After successful save, find next empty cell
+      const nextCell = findNextEmptyCell(currentCell.playerRank, currentCell.round);
       
+      if (nextCell) {
+        console.log(">>> [ENTER_RECALCULATE_SAVE] Moving to next empty cell:", nextCell.playerRank, nextCell.round);
+        // Keep enter-games mode active and open next cell
+        setEntryCell(nextCell);
+        setTempGameResult(null);
+      } else {
+        console.log(">>> [ENTER_RECALCULATE_SAVE] No more empty cells - exiting Enter Games mode");
+        // No more empty cells - exit enter-games mode
+        setIsEnterGamesMode(false);
+        setEntryCell(null);
+        setTempGameResult(null);
+      }
+      
+      setEnterGamesError(null);
       console.log(">>> [ENTER_RECALCULATE_SAVE] Complete");
     }, 100);
   };
 
   const handleEnterGamesClose = () => {
+    console.log(">>> [ENTER_GAMES_CLOSE] Exiting Enter Games mode");
     setIsEnterGamesMode(false);
     setEntryCell(null);
     setTempGameResult(null);
