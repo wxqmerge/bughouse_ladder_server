@@ -11,7 +11,7 @@ import {
 interface MobileMenuProps {
   isOpen: boolean;
   onClose: () => void;
-  onFileAction: (action: "load" | "save" | "export") => void;
+  onFileAction: (action: "load" | "export") => void;
   onSort: (
     type: "rank" | "byLastName" | "byFirstName" | "nRating" | "rating",
   ) => void;
@@ -60,11 +60,6 @@ export default function MobileMenu({
       label: "Load",
       onClick: () => handleItemClick(() => onFileAction("load")),
       dataMenuItem: "Load",
-    },
-    {
-      label: "Save",
-      onClick: () => handleItemClick(() => onFileAction("save")),
-      dataMenuItem: "Save",
     },
     {
       label: "Export",

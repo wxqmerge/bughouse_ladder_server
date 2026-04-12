@@ -263,7 +263,31 @@ export default function LadderForm({
   useEffect(() => {
     const initializeData = async () => {
       try {
-        (window as any).__ladder_setStatus?.('Loading project settings...');
+        // Get server configuration for status display
+        const userSettingsJson = localStorage.getItem('bughouse-ladder-user-settings');
+        let serverUrl = '';
+        if (userSettingsJson) {
+          const userSettings = JSON.parse(userSettingsJson);
+          serverUrl = userSettings.server?.trim() || '';
+        }
+        
+        // Also check env variable as fallback
+        if (!serverUrl) {
+          const apiUrl = import.meta.env.VITE_API_URL;
+          if (apiUrl && apiUrl.startsWith('http')) {
+            serverUrl = apiUrl;
+          }
+        }
+
+        // Show server configuration status
+        if (serverUrl) {
+          (window as any).__ladder_setStatus?.(`Server configured: ${serverUrl}`);
+        } else {
+          (window as any).__ladder_setStatus?.('Local mode (no server configured)');
+        }
+
+        // Load project settings from localStorage
+        (window as any).__ladder_setStatus?.('Loading localStorage...');
         const projectName = getProjectName();
         if (projectName) {
           setProjectName(projectName);
@@ -280,49 +304,90 @@ export default function LadderForm({
           setZoomLevel(zoomPercent);
         }
 
-        const players = await getPlayers();
-        if (players && players.length > 0) {
-          const playersWithResults = players.map((player) => ({
-            ...player,
-            gameResults: player.gameResults || new Array(31).fill(null),
-          }));
-          setPlayers(playersWithResults);
-          setSortBy(null);
-          if (shouldLog(10)) {
-            console.log(
-              `[LadderForm] Loaded ${playersWithResults.length} players from storage`,
-            );
+        // Check if we have local data
+        const localData = localStorage.getItem('ladder_ladder_players');
+        const serverLocalData = localStorage.getItem('ladder_server_ladder_players');
+        const hasLocalPlayers = !!(localData && JSON.parse(localData).length > 0);
+        const hasServerLocalPlayers = !!(serverLocalData && JSON.parse(serverLocalData).length > 0);
+
+        if (hasLocalPlayers || hasServerLocalPlayers) {
+          (window as any).__ladder_setStatus?.('Loaded localStorage');
+          
+          // If server is configured, fetch from server
+          if (serverUrl) {
+            (window as any).__ladder_setStatus?.(`Waiting for ${serverUrl}...`);
+            try {
+              const response = await fetch(`${serverUrl}/api/ladder`, {
+                headers: {},
+              });
+              
+              if (response.ok) {
+                const data = await response.json();
+                const serverPlayers = data.data?.players || [];
+                
+                if (serverPlayers && serverPlayers.length > 0) {
+                  (window as any).__ladder_setStatus?.(`Loaded ${serverPlayers.length} players from server`);
+                  const playersWithResults = serverPlayers.map((player: PlayerData) => ({
+                    ...player,
+                    gameResults: player.gameResults || new Array(31).fill(null),
+                  }));
+                  setPlayers(playersWithResults);
+                  setSortBy(null);
+                  if (shouldLog(10)) {
+                    console.log(
+                      `[LadderForm] Loaded ${playersWithResults.length} players from server`,
+                    );
+                  }
+                  (window as any).__ladder_setStatus?.(null);
+                  return;
+                }
+              } else {
+                console.warn(`Server returned ${response.status}, using local data`);
+              }
+            } catch (err) {
+              console.warn('Failed to fetch from server, using local data:', err);
+            }
           }
 
-          // Load settings
-          const settings = getSettings();
-          if (settings) {
-            console.log(`[LadderForm] Loaded settings from storage:`, settings);
+          // Use local data as fallback or primary source
+          const playersJson = hasServerLocalPlayers ? serverLocalData : localData;
+          if (playersJson) {
+            const players: PlayerData[] = JSON.parse(playersJson);
+            const playersWithResults = players.map((player) => ({
+              ...player,
+              gameResults: player.gameResults || new Array(31).fill(null),
+            }));
+            setPlayers(playersWithResults);
+            setSortBy(null);
+            if (shouldLog(10)) {
+              console.log(
+                `[LadderForm] Loaded ${playersWithResults.length} players from localStorage`,
+              );
+            }
+            (window as any).__ladder_setStatus?.(null);
+            return;
           }
+        } else {
+          (window as any).__ladder_setStatus?.('No data in localStorage');
+        }
 
-          return;
+        // Load settings
+        const settings = getSettings();
+        if (settings) {
+          console.log(`[LadderForm] Loaded settings from storage:`, settings);
         }
       } catch (err) {
         console.error("Failed to load from storage:", err);
       }
 
-      // No storage data - use sample data
-      const samplePlayers = loadSampleData();
+      // No storage data - start with empty ladder
+      (window as any).__ladder_setStatus?.('Starting with empty ladder...');
       if (shouldLog(10)) {
-        console.log(
-          `[LadderForm] No storage data found. Loaded ${samplePlayers.length} players from sample data`,
-        );
+        console.log(`[LadderForm] No storage data found. Starting with empty ladder.`);
       }
-      samplePlayers.forEach((player) => {
-        if (shouldLog(3)) {
-          console.log(
-            `[LadderForm] Sample player: Rank=${player.rank}, Name=${player.firstName} ${player.lastName}, Rating=${player.rating}, Games=${player.num_games}`,
-          );
-        }
-      });
-
-      setPlayers(samplePlayers);
+      setPlayers([]);
       setSortBy(null);
+      (window as any).__ladder_setStatus?.(null);
     };
 
     initializeData();
@@ -1524,67 +1589,13 @@ export default function LadderForm({
       console.error("Failed to save sorted players:", err);
     });
   };
-  const saveLocalStorage = async () => {
-    if (players.length === 0) return;
-    try {
-      // Save players
-      await savePlayers(players);
-
-      // Save project name
-      if (projectName) {
-        setProjectNameStorage(projectName);
-      }
-
-      // Save zoom level
-      const zoomPercent = parseInt(zoomLevel);
-      setZoomLevelStorage(zoomPercent);
-
-      // Save settings from state if Settings component is open
-      const savedSettings = getSettings();
-      if (savedSettings) {
-        try {
-          // Ensure settings are properly saved
-          const updatedSettings = {
-            ...savedSettings,
-            kFactor: Math.max(1, Math.min(100, savedSettings.kFactor || 20)),
-            debugLevel: Math.max(
-              0,
-              Math.min(20, savedSettings.debugLevel || 5),
-            ),
-          };
-          saveSettings(updatedSettings);
-        } catch (err) {
-          console.error("Failed to parse settings:", err);
-        }
-      }
-
-      console.log(
-        ">>> [SAVE] Saved players, project name, zoom level, and settings to localStorage",
-      );
-
-      // Also push to server if configured
-      const result = await saveToServer();
-      if (result.success) {
-        console.log("[SYNC] ✓ Saved to server");
-      } else if (result.error) {
-        // Silently ignore server errors - data is already saved locally
-        console.log("[SYNC] ✗ Server save skipped:", result.error);
-      }
-    } catch (err) {
-      console.error("Failed to save to storage:", err);
-    }
-  };
-
-  const handleFileAction = (action: "load" | "save" | "export") => {
+  const handleFileAction = (action: "load" | "export") => {
     if (shouldLog(10)) {
       console.log(`>>> [MENU ACTION] ${action}`);
     }
     switch (action) {
       case "load":
         fileInputRef.current?.click();
-        break;
-      case "save":
-        saveLocalStorage();
         break;
       case "export":
         exportPlayers();
@@ -1761,9 +1772,44 @@ export default function LadderForm({
 
   if (!players || players.length === 0) {
     return (
-      <div style={{ padding: "2rem", color: "#64748b" }}>
+      <div style={{ padding: "2rem", textAlign: "center", color: "#64748b" }}>
         <h1>{projectName}</h1>
-        <p>Loading sample data...</p>
+        <p style={{ marginTop: "1rem", fontSize: "1.125rem" }}>No players loaded.</p>
+        <div style={{ marginTop: "2rem" }}>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            style={{
+              padding: "0.75rem 1.5rem",
+              backgroundColor: "#3b82f6",
+              color: "white",
+              border: "none",
+              borderRadius: "0.375rem",
+              fontSize: "1rem",
+              cursor: "pointer",
+              marginRight: "1rem",
+            }}
+          >
+            Load File
+          </button>
+          <button
+            onClick={() => {
+              const samplePlayers = loadSampleData();
+              setPlayers(samplePlayers);
+              setSortBy(null);
+            }}
+            style={{
+              padding: "0.75rem 1.5rem",
+              backgroundColor: "#10b981",
+              color: "white",
+              border: "none",
+              borderRadius: "0.375rem",
+              fontSize: "1rem",
+              cursor: "pointer",
+            }}
+          >
+            Load Sample Data
+          </button>
+        </div>
       </div>
     );
   }
