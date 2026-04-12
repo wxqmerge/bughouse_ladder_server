@@ -34,6 +34,7 @@ interface MenuBarProps {
   onOpenSettings: () => void;
   onAddPlayer?: () => void;
   onBulkPaste?: () => void;
+  onEnterGames?: () => void;
   isAdmin: boolean;
   isWide: boolean;
   zoomLevel: "50%" | "70%" | "100%" | "140%" | "200%";
@@ -61,6 +62,7 @@ export default function MenuBar({
   onOpenSettings,
   onAddPlayer,
   onBulkPaste,
+  onEnterGames,
   isAdmin,
   zoomLevel,
   projectName,
@@ -198,6 +200,15 @@ export default function MenuBar({
         closeAllMenus();
       },
       dataMenuItem: "Check Errors",
+    },
+    {
+      icon: <Type size={16} />,
+      label: "Enter Games",
+      onClick: () => {
+        onEnterGames?.();
+        closeAllMenus();
+      },
+      dataMenuItem: "Enter Games",
     },
     {
       icon: <ClipboardPaste size={16} />,
