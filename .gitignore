@@ -38,3 +38,4 @@ dist-ssr
 scripts/test-downloads/
 stderr.txt
 stdout.txt
+ladder.tab

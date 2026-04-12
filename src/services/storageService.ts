@@ -168,7 +168,10 @@ export async function savePlayers(players: PlayerData[]): Promise<void> {
     // Background sync to server
     (async () => {
       try {
-        const response = await fetch(`${dataService.config.serverUrl}/api/ladder`, {
+        const serverUrl = dataService.getConfigServerUrl();
+        if (!serverUrl) return;
+        
+        const response = await fetch(`${serverUrl}/api/ladder`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ players }),
@@ -412,7 +415,10 @@ export async function saveToServer(): Promise<{ success: boolean; error?: string
   }
   
   try {
-    const response = await fetch(`${dataService.config.serverUrl}/api/ladder`, {
+    const serverUrl = dataService.getConfigServerUrl();
+    if (!serverUrl) return { success: false, error: 'No server URL configured' };
+    
+    const response = await fetch(`${serverUrl}/api/ladder`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ players }),

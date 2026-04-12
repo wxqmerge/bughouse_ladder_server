@@ -11,9 +11,12 @@ import {
   RotateCcw,
   CalendarDays,
   Eye,
+  Server,
+  Key,
 } from "lucide-react";
 import "../css/index.css";
 import { getKeyPrefix } from "../services/storageService";
+import { loadUserSettings, saveUserSettings, type UserSettings } from "../services/userSettingsStorage";
 
 interface SettingsProps {
   onClose: () => void;
@@ -35,6 +38,10 @@ export default function Settings({
   const [showRatings, setShowRatings] = useState(true);
   const [debugLevel, setDebugLevel] = useState(5);
   const [kFactor, setKFactor] = useState(20);
+  
+  // Server settings state
+  const [serverUrl, setServerUrl] = useState('');
+  const [apiKey, setApiKey] = useState('');
 
   useEffect(() => {
     const savedSettings = localStorage.getItem(
@@ -50,6 +57,11 @@ export default function Settings({
         console.error("Failed to parse settings:", err);
       }
     }
+    
+    // Load user server settings
+    const userSettings = loadUserSettings();
+    setServerUrl(userSettings.server || '');
+    setApiKey(userSettings.apiKey || '');
   }, []);
 
   const handleSave = () => {
@@ -63,8 +75,29 @@ export default function Settings({
       getKeyPrefix() + "ladder_settings",
       JSON.stringify(settings),
     );
+    
+    // Save user server settings
+    const userSettings: UserSettings = {
+      server: serverUrl.trim(),
+      apiKey: apiKey.trim(),
+    };
+    saveUserSettings(userSettings);
+    
     onClose();
-    alert("Settings saved successfully!");
+    
+    // Show confirmation with current mode
+    const mode = userSettings.server && userSettings.server.trim()
+      ? `Server mode: ${userSettings.server}`
+      : 'Local mode';
+    alert(`Settings saved successfully!\n\n${mode}`);
+    
+    // Reload if server URL changed
+    if (userSettings.server !== loadUserSettings().server || !userSettings.server.trim()) {
+      setTimeout(() => {
+        console.log('[Settings] Reloading to apply server configuration...');
+        window.location.reload();
+      }, 500);
+    }
   };
 
   const handleClearAll = () => {
@@ -431,6 +464,114 @@ export default function Settings({
                 <Trash2 size={16} />
                 Set Sample Data
               </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Server Connection Section */}
+        <div
+          style={{
+            backgroundColor: '#f8fafc',
+            padding: '1.5rem',
+            borderRadius: '0.5rem',
+            marginTop: '2rem',
+            border: '1px solid #e2e8f0',
+          }}
+        >
+          <h3
+            style={{
+              fontSize: "0.875rem",
+              fontWeight: "600",
+              color: "#374151",
+              marginBottom: "1rem",
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+            }}
+          >
+            <Server size={16} />
+            Server Connection
+          </h3>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+            <div>
+              <label
+                htmlFor="serverUrl"
+                style={{
+                  display: "block",
+                  fontSize: "0.875rem",
+                  fontWeight: "500",
+                  color: "#374151",
+                  marginBottom: "0.5rem",
+                }}
+              >
+                Server URL
+              </label>
+              <input
+                type="text"
+                id="serverUrl"
+                value={serverUrl}
+                onChange={(e) => setServerUrl(e.target.value)}
+                placeholder="omen.com:3000 or http://localhost:3000"
+                style={{
+                  width: "100%",
+                  padding: "0.5rem",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "0.25rem",
+                  fontSize: "0.875rem",
+                  boxSizing: "border-box",
+                }}
+              />
+              <p
+                style={{
+                  fontSize: "0.75rem",
+                  color: "#64748b",
+                  marginTop: "0.25rem",
+                }}
+              >
+                Leave empty for local mode (no server)
+              </p>
+            </div>
+            
+            <div>
+              <label
+                htmlFor="apiKey"
+                style={{
+                  display: "block",
+                  fontSize: "0.875rem",
+                  fontWeight: "500",
+                  color: "#374151",
+                  marginBottom: "0.5rem",
+                }}
+              >
+                API Key
+              </label>
+              <input
+                type="password"
+                id="apiKey"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="Your API key (optional)"
+                style={{
+                  width: "100%",
+                  padding: "0.5rem",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "0.25rem",
+                  fontSize: "0.875rem",
+                  boxSizing: "border-box",
+                }}
+              />
+              <p
+                style={{
+                  fontSize: "0.75rem",
+                  color: "#64748b",
+                  marginTop: "0.25rem",
+                }}
+              >
+                Required if server has admin protection enabled
+              </p>
             </div>
           </div>
         </div>

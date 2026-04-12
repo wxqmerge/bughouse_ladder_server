@@ -1,11 +1,13 @@
 // Connection state tracking
 let connectionState: {
   configuredForServer: boolean;
+  serverUrl: string | null; // Current server URL (for display)
   serverReachable: boolean | null; // null = not yet tested
   lastCheckTime: number;
   previousMode: string | null; // Track mode changes
 } = {
   configuredForServer: false,
+  serverUrl: null,
   serverReachable: null,
   lastCheckTime: 0,
   previousMode: null,
@@ -28,8 +30,29 @@ export function onModeChange(callback: (newMode: string, oldMode: string) => voi
  * Initialize connection state based on configuration
  */
 export function initializeConnectionState(): void {
+  // Check user settings first (from localStorage)
+  try {
+    const userSettingsJson = localStorage.getItem('bughouse-ladder-user-settings');
+    if (userSettingsJson) {
+      const userSettings = JSON.parse(userSettingsJson);
+      if (userSettings.server && userSettings.server.trim()) {
+        connectionState.configuredForServer = true;
+        connectionState.serverUrl = userSettings.server.trim();
+        console.log('[mode.ts] Using USER SETTINGS server:', connectionState.serverUrl);
+        connectionState.serverReachable = null;
+        connectionState.lastCheckTime = Date.now();
+        connectionState.previousMode = null;
+        return;
+      }
+    }
+  } catch (err) {
+    console.error('[mode.ts] Failed to read user settings:', err);
+  }
+  
+  // Fall back to environment variable
   const apiUrl = import.meta.env.VITE_API_URL;
   connectionState.configuredForServer = !!(apiUrl && apiUrl.startsWith('http'));
+  connectionState.serverUrl = apiUrl || null;
   connectionState.serverReachable = null; // Reset reachability
   connectionState.lastCheckTime = Date.now();
   connectionState.previousMode = null;
@@ -39,7 +62,8 @@ export function initializeConnectionState(): void {
  * Test if the server is reachable
  */
 export async function testServerConnection(): Promise<boolean> {
-  const apiUrl = import.meta.env.VITE_API_URL;
+  // Use server URL from connection state (set from user settings or env)
+  const apiUrl = connectionState.serverUrl;
   if (!apiUrl || !apiUrl.startsWith('http')) {
     return false;
   }
@@ -133,7 +157,7 @@ export function getProgramMode(): string {
       return 'a'; // Server unreachable = local mode with fallback
     }
     // Server is reachable or not yet tested - report server mode
-    const apiUrl = import.meta.env.VITE_API_URL || '';
+    const apiUrl = connectionState.serverUrl || '';
     if (apiUrl.includes('localhost') || apiUrl.includes('127.0.0.1')) {
       return 'd'; // Development (local server)
     }

@@ -1360,8 +1360,17 @@ export default function LadderForm({
       }
 
       console.log(
-        ">>> [SAVE] Saved players, project name, zoom level, and settings to storage",
+        ">>> [SAVE] Saved players, project name, zoom level, and settings to localStorage",
       );
+
+      // Also push to server if configured
+      const result = await saveToServer();
+      if (result.success) {
+        console.log("[SYNC] ✓ Saved to server");
+      } else if (result.error) {
+        // Silently ignore server errors - data is already saved locally
+        console.log("[SYNC] ✗ Server save skipped:", result.error);
+      }
     } catch (err) {
       console.error("Failed to save to storage:", err);
     }
@@ -1499,16 +1508,6 @@ export default function LadderForm({
     }
   };
 
-  const handleSave = async () => {
-    console.log("[SAVE] Saving to server...");
-    const result = await saveToServer();
-    if (result.success) {
-      alert("✓ Saved successfully!");
-    } else {
-      alert(`✗ Save failed: ${result.error}`);
-    }
-  };
-
   const handleToggleAdmin = () => {
     if (shouldLog(10)) {
       console.log(">>> [MENU ACTION] Toggle admin mode");
@@ -1604,7 +1603,6 @@ export default function LadderForm({
           onOpenSettings={() => setShowSettings?.(true)}
           onAddPlayer={handleAddPlayer}
           onBulkPaste={handleBulkPaste}
-          onSave={handleSave}
           isAdmin={isAdmin}
           isWide={zoomLevel === "140%"}
           zoomLevel={zoomLevel}
