@@ -7,12 +7,35 @@ import {
   LadderData,
 } from '../services/dataService.js';
 
+// Timestamp utility
+function getTimestamp(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+  const ms = String(now.getMilliseconds()).padStart(3, '0');
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${ms}`;
+}
+
+function log(category: string, message: string, ...args: any[]): void {
+  console.log(`[${getTimestamp()}] ${category}`, message, ...args);
+}
+
+function logError(category: string, message: string, ...args: any[]): void {
+  console.error(`[${getTimestamp()}] ${category}`, message, ...args);
+}
+
 const router = Router();
 
 // Get all ladder data (public read access)
 router.get('/', async (req: Request, res: Response): Promise<void> => {
   try {
+    log('[SERVER]', 'GET /api/ladder - fetching all players');
     const ladderData = await readLadderFile();
+    log('[SERVER]', 'Returning ' + ladderData.players.length + ' players');
     res.json({
       success: true,
       data: {
@@ -22,7 +45,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
       },
     });
   } catch (error) {
-    console.error('Error reading ladder:', error);
+    logError('[SERVER]', 'Error reading ladder:', error);
     res.status(500).json({
       success: false,
       error: { message: 'Failed to read ladder data' },
@@ -34,6 +57,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
 router.get('/:rank', async (req: Request, res: Response): Promise<void> => {
   try {
     const rank = parseInt(req.params.rank);
+    log('[SERVER]', 'GET /api/ladder/' + rank + ' - fetching player');
     if (isNaN(rank) || rank < 1) {
       res.status(400).json({
         success: false,
@@ -58,7 +82,7 @@ router.get('/:rank', async (req: Request, res: Response): Promise<void> => {
       data: player,
     });
   } catch (error) {
-    console.error('Error fetching player:', error);
+    logError('[SERVER]', 'Error fetching player:', error);
     res.status(500).json({
       success: false,
       error: { message: 'Failed to fetch player' },
@@ -70,6 +94,7 @@ router.get('/:rank', async (req: Request, res: Response): Promise<void> => {
 router.put('/:rank', async (req: Request, res: Response): Promise<void> => {
   try {
     const rank = parseInt(req.params.rank);
+    log('[SERVER]', 'PUT /api/ladder/' + rank + ' - updating player');
     if (isNaN(rank) || rank < 1) {
       res.status(400).json({
         success: false,
@@ -105,7 +130,7 @@ router.put('/:rank', async (req: Request, res: Response): Promise<void> => {
       data: updatedPlayer,
     });
   } catch (error) {
-    console.error('Error updating player:', error);
+    logError('[SERVER]', 'Error updating player:', error);
     res.status(500).json({
       success: false,
       error: { message: 'Failed to update player' },
@@ -118,7 +143,8 @@ router.delete('/:rank/round/:roundIndex', async (req: Request, res: Response): P
   try {
     const rank = parseInt(req.params.rank);
     const roundIndex = parseInt(req.params.roundIndex);
-    
+    log('[SERVER]', 'DELETE /api/ladder/' + rank + '/round/' + roundIndex + ' - clearing cell');
+
     if (isNaN(rank) || rank < 1 || isNaN(roundIndex) || roundIndex < 0 || roundIndex > 30) {
       res.status(400).json({
         success: false,
@@ -157,7 +183,7 @@ router.delete('/:rank/round/:roundIndex', async (req: Request, res: Response): P
       },
     });
   } catch (error) {
-    console.error('Error clearing cell:', error);
+    logError('[SERVER]', 'Error clearing cell:', error);
     res.status(500).json({
       success: false,
       error: { message: 'Failed to clear cell' },
@@ -168,7 +194,7 @@ router.delete('/:rank/round/:roundIndex', async (req: Request, res: Response): P
 // Bulk update players (no auth required - full access for local use)
 router.put('/', async (req: Request, res: Response): Promise<void> => {
   try {
-    console.log('[SERVER] Received PUT /api/ladder');
+    log('[SERVER]', 'Received PUT /api/ladder');
     const { players } = req.body as { players: PlayerData[] };
     
     if (!players || !Array.isArray(players)) {
@@ -188,14 +214,16 @@ router.put('/', async (req: Request, res: Response): Promise<void> => {
       rank: index + 1,
     }));
 
+    log('[SERVER]', 'Saving ' + players.length + ' players to file');
     await writeLadderFile(ladderData);
 
+    log('[SERVER]', '✓ Successfully saved ' + players.length + ' players');
     res.json({
       success: true,
       data: { message: 'Players updated successfully', count: players.length },
     });
   } catch (error) {
-    console.error('Error bulk updating players:', error);
+    logError('[SERVER]', 'Error bulk updating players:', error);
     res.status(500).json({
       success: false,
       error: { message: 'Failed to update players' },
