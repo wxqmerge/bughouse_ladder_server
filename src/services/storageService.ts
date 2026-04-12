@@ -13,12 +13,222 @@ import { getProgramMode } from '../utils/mode';
 
 /**
  * Get the storage key prefix based on current mode
- * Local mode ('a') uses 'ladder_' prefix (backward compatible)
- * Dev/Server modes ('d', 's') use 'ladder_server_' prefix for isolation during testing
+ * Local mode uses 'ladder_' prefix (backward compatible)
+ * Dev/Server modes use 'ladder_server_' prefix for isolation during testing
  */
 export function getKeyPrefix(): string {
   const mode = getProgramMode();
-  return mode === 'a' ? 'ladder_' : 'ladder_server_';
+  return mode === 'local' || mode === 'server_down' ? 'ladder_' : 'ladder_server_';
+}
+
+// ==================== SAVE STATUS TRACKING ====================
+
+/**
+ * Tracks save status per cell: "playerRank:round" -> boolean (true = saved)
+ * A cell is considered saved if it has been persisted to localStorage (local mode)
+ * or to server (server mode). The "_" suffix in the UI indicates saved status.
+ */
+const saveStatusMap = new Map<string, boolean>();
+
+/**
+ * Get key for save status map
+ */
+function getSaveStatusKey(playerRank: number, round: number): string {
+  return `${playerRank}:${round}`;
+}
+
+/**
+ * Check if a cell has been saved
+ */
+export function isCellSaved(playerRank: number, round: number): boolean {
+  const key = getSaveStatusKey(playerRank, round);
+  return saveStatusMap.get(key) === true;
+}
+
+/**
+ * Mark a cell as saved
+ */
+export function markCellAsSaved(playerRank: number, round: number): void {
+  const key = getSaveStatusKey(playerRank, round);
+  saveStatusMap.set(key, true);
+}
+
+/**
+ * Mark a cell as unsaved
+ */
+export function markCellAsUnsaved(playerRank: number, round: number): void {
+  const key = getSaveStatusKey(playerRank, round);
+  saveStatusMap.set(key, false);
+}
+
+/**
+ * Clear save status for all cells (called on recalculate)
+ */
+export function clearAllSaveStatus(): void {
+  saveStatusMap.clear();
+}
+
+// ==================== LOCAL CHANGES TRACKING ====================
+
+/**
+ * Tracks whether user has made local changes that haven't been synced to server
+ * Set to true when user enters game results or makes other modifications while offline
+ * Reset to false after successful server sync
+ */
+let hasLocalChanges = false;
+
+/**
+ * Tracks whether we're in server down mode (server configured but unreachable)
+ * In this mode, only game entry is allowed, and changes are pending sync
+ */
+let serverDownMode = false;
+
+/**
+ * Pending sync queue - linked list of game results waiting to be sent to server
+ * Each entry: { playerRank, round, result, timestamp }
+ * Managed as a simple array for now (can be optimized to linked list if needed)
+ */
+interface PendingSyncEntry {
+  playerRank: number;
+  round: number;
+  result: string;
+  timestamp: number;
+}
+
+let pendingSyncQueue: PendingSyncEntry[] = [];
+
+/**
+ * Mark that local changes have been made
+ */
+export function markLocalChanges(): void {
+  if (!hasLocalChanges) {
+    hasLocalChanges = true;
+    console.log('[Storage] Local changes detected');
+  }
+}
+
+/**
+ * Check if there are unsynced local changes
+ */
+export function getHasLocalChanges(): boolean {
+  return hasLocalChanges;
+}
+
+/**
+ * Clear the local changes flag (called after successful server sync)
+ */
+export function clearLocalChangesFlag(): void {
+  hasLocalChanges = false;
+  console.log('[Storage] Local changes synced to server');
+}
+
+/**
+ * Set server down mode status
+ */
+export function setServerDownMode(isDown: boolean): void {
+  serverDownMode = isDown;
+  console.log(`[Storage] Server down mode: ${isDown ? 'ON' : 'OFF'}`);
+}
+
+/**
+ * Check if server is in down mode
+ */
+export function getServerDownMode(): boolean {
+  return serverDownMode;
+}
+
+// ==================== PENDING SYNC QUEUE ====================
+
+/**
+ * Load pending sync queue from localStorage on init
+ */
+function loadPendingSyncQueue(): void {
+  try {
+    const stored = localStorage.getItem(getKeyPrefix() + 'ladder_pending_sync');
+    if (stored) {
+      pendingSyncQueue = JSON.parse(stored);
+      console.log(`[Storage] Loaded ${pendingSyncQueue.length} pending sync entries`);
+    }
+  } catch (err) {
+    console.error('[Storage] Failed to load pending sync queue:', err);
+    pendingSyncQueue = [];
+  }
+}
+
+// Load on module init
+loadPendingSyncQueue();
+
+/**
+ * Save pending sync queue to localStorage
+ */
+function savePendingSyncQueue(): void {
+  try {
+    localStorage.setItem(getKeyPrefix() + 'ladder_pending_sync', JSON.stringify(pendingSyncQueue));
+  } catch (err) {
+    console.error('[Storage] Failed to save pending sync queue:', err);
+  }
+}
+
+/**
+ * Add entry to pending sync queue
+ */
+export function addPendingSync(playerRank: number, round: number, result: string): void {
+  // Check if entry already exists
+  const existingIndex = pendingSyncQueue.findIndex(
+    e => e.playerRank === playerRank && e.round === round
+  );
+  
+  if (existingIndex >= 0) {
+    // Update existing entry
+    pendingSyncQueue[existingIndex] = {
+      playerRank,
+      round,
+      result,
+      timestamp: Date.now()
+    };
+  } else {
+    // Add new entry
+    pendingSyncQueue.push({
+      playerRank,
+      round,
+      result,
+      timestamp: Date.now()
+    });
+  }
+  
+  savePendingSyncQueue();
+  console.log(`[Storage] Added to pending sync queue (${pendingSyncQueue.length} total)`);
+}
+
+/**
+ * Clear pending sync queue (called after successful server sync)
+ */
+export function clearPendingSyncQueue(): void {
+  const count = pendingSyncQueue.length;
+  pendingSyncQueue = [];
+  savePendingSyncQueue();
+  console.log(`[Storage] Cleared ${count} pending sync entries`);
+}
+
+/**
+ * Get pending sync queue
+ */
+export function getPendingSyncQueue(): PendingSyncEntry[] {
+  return [...pendingSyncQueue];
+}
+
+/**
+ * Check if there are pending sync entries
+ */
+export function hasPendingSync(): boolean {
+  return pendingSyncQueue.length > 0;
+}
+
+/**
+ * Get count of pending sync entries
+ */
+export function getPendingSyncCount(): number {
+  return pendingSyncQueue.length;
 }
 
 // ==================== BATCH SYNC MANAGEMENT ====================
@@ -158,8 +368,19 @@ export async function savePlayers(players: PlayerData[]): Promise<void> {
   const playerJson = JSON.stringify(players);
   
   if (dataService.getMode() === DataServiceMode.LOCAL) {
-    // Local mode: use localStorage directly
+    // Local mode: use localStorage directly - mark all cells as saved
     localStorage.setItem('ladder_ladder_players', playerJson);
+    // Mark all non-empty cells as saved in local mode
+    for (const player of players) {
+      if (player.gameResults) {
+        for (let r = 0; r < player.gameResults.length; r++) {
+          const result = player.gameResults[r];
+          if (result != null && typeof result === 'string' && result.trim() !== '') {
+            markCellAsSaved(player.rank, r);
+          }
+        }
+      }
+    }
   } else {
     // Server mode: save to BOTH locations
     localStorage.setItem('ladder_ladder_players', playerJson);
@@ -178,6 +399,17 @@ export async function savePlayers(players: PlayerData[]): Promise<void> {
         });
         if (response.ok) {
           console.log('[SYNC] ✓ Saved to server');
+          // Mark all non-empty cells as saved after successful server sync
+          for (const player of players) {
+            if (player.gameResults) {
+              for (let r = 0; r < player.gameResults.length; r++) {
+                const result = player.gameResults[r];
+                if (result != null && typeof result === 'string' && result.trim() !== '') {
+                  markCellAsSaved(player.rank, r);
+                }
+              }
+            }
+          }
         } else {
           console.error(`[SYNC] ✗ Server returned ${response.status}`);
         }
@@ -243,6 +475,8 @@ export async function clearPlayerCell(playerRank: number, roundIndex: number): P
     }
     player.gameResults[roundIndex] = null;
     await savePlayers(players);
+    // Mark as saved (empty is a valid saved state)
+    markCellAsSaved(playerRank, roundIndex);
   }
 }
 
@@ -263,6 +497,8 @@ export async function submitGameResult(
       }
       player.gameResults[round] = result;
       await savePlayers(players);
+      // In local mode, mark as saved immediately
+      markCellAsSaved(playerRank, round);
     }
   } else {
     // Use getCurrentPlayers to respect batch buffer
@@ -274,6 +510,8 @@ export async function submitGameResult(
       }
       player.gameResults[round] = result;
       await savePlayers(players);
+      // Mark as unsaved initially - will be marked saved after server sync
+      markCellAsUnsaved(playerRank, round);
     }
   }
 }

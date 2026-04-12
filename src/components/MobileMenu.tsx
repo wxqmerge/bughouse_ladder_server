@@ -121,9 +121,9 @@ export default function MobileMenu({
 
   const operationsItems: MenuItem[] = [
     {
-      label: "Recalculate Ratings",
+      label: "Recalculate_Save",
       onClick: () => handleItemClick(onRecalculateRatings),
-      dataMenuItem: "Recalculate Ratings",
+      dataMenuItem: "Recalculate_Save",
     },
     {
       label: "Check Errors",
