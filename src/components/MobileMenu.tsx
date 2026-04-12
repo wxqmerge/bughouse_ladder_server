@@ -21,6 +21,7 @@ interface MobileMenuProps {
   onSetZoom: (level: "50%" | "70%" | "100%" | "140%" | "200%") => void;
   onOpenSettings: () => void;
   onAddPlayer?: () => void;
+  onEnterGames?: () => void;
   isAdmin: boolean;
   projectName?: string;
   onSetTitle?: (title: string) => void;
@@ -44,6 +45,7 @@ export default function MobileMenu({
   onSetZoom,
   onOpenSettings,
   onAddPlayer,
+  onEnterGames,
   isAdmin,
   projectName,
   onSetTitle,
@@ -124,6 +126,11 @@ export default function MobileMenu({
       label: "Check Errors",
       onClick: () => handleItemClick(onCheckErrors),
       dataMenuItem: "Check Errors",
+    },
+    {
+      label: "Enter Games",
+      onClick: () => handleItemClick(onEnterGames || (() => {})),
+      dataMenuItem: "Enter Games",
     },
     {
       label: isAdmin ? "Exit Admin Mode" : "Admin Mode",
