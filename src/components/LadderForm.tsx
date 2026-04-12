@@ -20,6 +20,7 @@ import MobileMenu from "./MobileMenu";
 import { Menu as MenuIcon } from "lucide-react";
 import { shouldLog } from "../utils/debug";
 import { getVersionString, isLocalMode, isServerDownMode, getProgramMode } from "../utils/mode";
+import { log } from "../utils/log";
 import { getKeyPrefix, startBatch, endBatch, saveToServer, clearAllSaveStatus, isCellSaved, markLocalChanges, getHasLocalChanges, clearLocalChangesFlag } from "../services/storageService";
 import {
   getPlayers,
@@ -645,70 +646,119 @@ export default function LadderForm({
   const handleEnterRecalculateSave = async (correctedString: string) => {
     if (!entryCell) return;
 
-    console.log(">>> [ENTER_RECALCULATE_SAVE] Entered:", correctedString, "for cell", entryCell.playerRank, entryCell.round);
+    log('[ENTER_GAMES]', 'Entered "' + correctedString + '" for cell P' + entryCell.playerRank + ' R' + (entryCell.round + 1));
 
     // Mark local changes if we're in server down mode
     if (isServerDownMode()) {
       markLocalChanges();
     }
 
-    // Enter the game result into current cell
+    // Parse the game result to extract opponent ranks
     const parsedResult = updatePlayerGameData(
       correctedString.replace(/_$/, ""),
       true,
     );
 
     if (parsedResult.isValid) {
-      setPlayers((prevPlayers) => {
-        const player = prevPlayers.find((p) => p.rank === entryCell.playerRank);
-        if (!player) return prevPlayers;
+      const valueToSave = (parsedResult.resultString || correctedString).replace(/_$/, "").toUpperCase();
+      const p1Rank = parsedResult.parsedPlayer1Rank || 0;
+      const p2Rank = parsedResult.parsedPlayer2Rank || 0;
+      const p3Rank = parsedResult.parsedPlayer3Rank || 0;
+      const p4Rank = parsedResult.parsedPlayer4Rank || 0;
+      
+      const is4Player = p3Rank > 0 && p4Rank > 0;
+      const currentPlayerRank = entryCell.playerRank;
+      const roundIndex = entryCell.round;
 
-        const valueToSave = (
-          parsedResult.resultString || correctedString
-        ).replace(/_$/, "");
+      // Helper: fill a player's cell if empty (same round for all players in game)
+      const fillCell = (playerRank: number, resultString: string) => {
+        const player = players.find((p) => p.rank === playerRank);
+        if (player && roundIndex >= 0 && roundIndex < 31) {
+          const existingValue = player.gameResults[roundIndex]?.replace(/_+$/, "") || "";
+          if (!existingValue.trim()) {
+            player.gameResults[roundIndex] = resultString;
+            log('[ENTER_GAMES]', 'Filled cell P' + playerRank + ' R' + (roundIndex + 1) + ': "' + resultString + '"');
+          }
+        }
+      };
 
-        const newGameResults = [...player.gameResults];
-        newGameResults[entryCell.round] = valueToSave;
+      if (is4Player) {
+        // 4-player game: format is "A:BWC:D" where C is outcome for pair A:B
+        const outcomeForPair1 = valueToSave[3]; // Character at position 3 (0-indexed): "5:6W7:8"[3] = 'W'
+        
+        // Determine if current player is in pair 1 or pair 2
+        let isCurrentPlayerInPair1 = false;
+        if (currentPlayerRank === p1Rank || currentPlayerRank === p2Rank) {
+          isCurrentPlayerInPair1 = true;
+        } else if (currentPlayerRank === p3Rank || currentPlayerRank === p4Rank) {
+          isCurrentPlayerInPair1 = false;
+        }
+        
+        // Did current player's pair win?
+        const currentPairWon = isCurrentPlayerInPair1 ? (outcomeForPair1 === "W") : (outcomeForPair1 === "L");
+        
+        // Outcome from each pair's perspective
+        const outcomeForPair1TheirView = currentPairWon ? "W" : "L";
+        const outcomeForPair2TheirView = currentPairWon ? "L" : "W";
 
-        const updatedPlayers = prevPlayers.map((p) =>
-          p.rank === entryCell.playerRank
-            ? { ...p, gameResults: newGameResults }
-            : p,
-        );
+        // Build result strings for each pair
+        const resultForPair1 = `${p1Rank}:${p2Rank}${outcomeForPair1TheirView}${p3Rank}:${p4Rank}`;
+        const resultForPair2 = `${p1Rank}:${p2Rank}${outcomeForPair2TheirView}${p3Rank}:${p4Rank}`;
 
-        return updatedPlayers;
-      });
+        // Fill cells for ALL players in the game (including current player)
+        fillCell(p1Rank, resultForPair1);
+        fillCell(p2Rank, resultForPair1);
+        fillCell(p3Rank, resultForPair2);
+        fillCell(p4Rank, resultForPair2);
+      } else {
+        // 2-player game: format is "AWB" where A vs B, outcome is A's result
+        const outcome = valueToSave[1]; // Character at position 1: "5W3"[1] = 'W'
+        
+        // Determine if current player is player 1 or player 2 in the entry
+        const isCurrentPlayerP1 = currentPlayerRank === p1Rank;
+        const currentPlayerWon = isCurrentPlayerP1 ? (outcome === "W") : (outcome === "L");
+        
+        // Outcomes from each player's perspective
+        const outcomeForP1 = currentPlayerWon ? "W" : "L";
+        const outcomeForP2 = currentPlayerWon ? "L" : "W";
+
+        // Build result strings
+        const resultForP1 = `${p1Rank}${outcomeForP1}${p2Rank}`;
+        const resultForP2 = `${p1Rank}${outcomeForP2}${p2Rank}`;
+
+        // Fill cells for BOTH players (including current player)
+        fillCell(p1Rank, resultForP1);
+        fillCell(p2Rank, resultForP2);
+      }
     }
 
     // Store current cell position to find next empty cell after recalc
     const currentCell = { ...entryCell };
 
-    // Wait for state update, then trigger REUSE of recalculateAndSave
-    setTimeout(async () => {
-      console.log(">>> [ENTER_RECALCULATE_SAVE] Calling recalculateAndSave()...");
-      
-      // REUSE the existing recalculateAndSave function from Operations menu
-      await recalculateAndSave();
-      
-      // After successful save, find next empty cell
-      const nextCell = findNextEmptyCell(currentCell.playerRank, currentCell.round);
-      
-      if (nextCell) {
-        console.log(">>> [ENTER_RECALCULATE_SAVE] Moving to next empty cell:", nextCell.playerRank, nextCell.round);
-        // Keep enter-games mode active and open next cell
+    // Call recalculateAndSave immediately with the updated players array
+    log('[ENTER_GAMES]', 'Calling recalculateAndSave()...');
+    
+    // REUSE the existing recalculateAndSave function from Operations menu
+    await recalculateAndSave();
+    
+    // After successful save, find next empty cell
+    const nextCell = findNextEmptyCell(currentCell.playerRank, currentCell.round);
+    
+    if (nextCell) {
+      log('[ENTER_GAMES]', 'Moving to next empty cell: P' + nextCell.playerRank + ' R' + (nextCell.round + 1));
+      // Keep enter-games mode active and open next cell
         setEntryCell(nextCell);
         setTempGameResult(null);
       } else {
-        console.log(">>> [ENTER_RECALCULATE_SAVE] No more empty cells - exiting Enter Games mode");
-        // No more empty cells - exit enter-games mode
-        setIsEnterGamesMode(false);
-        setEntryCell(null);
-        setTempGameResult(null);
-      }
-      
-      setEnterGamesError(null);
-      console.log(">>> [ENTER_RECALCULATE_SAVE] Complete");
-    }, 100);
+        log('[ENTER_GAMES]', 'No more empty cells - exiting Enter Games mode');
+      // No more empty cells - exit enter-games mode
+      setIsEnterGamesMode(false);
+      setEntryCell(null);
+      setTempGameResult(null);
+    }
+    
+    setEnterGamesError(null);
+    console.log(">>> [ENTER_RECALCULATE_SAVE] Complete");
   };
 
   const handleEnterGamesClose = () => {
@@ -869,11 +919,7 @@ export default function LadderForm({
    * This is the primary save operation for users
    */
   const recalculateAndSave = async () => {
-    if (shouldLog(10)) {
-      console.log(
-        `>>> [BUTTON PRESSED] Recalculate_Save - ${players.length} players`,
-      );
-    }
+    log('[RECALC]', 'Starting recalculate_and_save with ' + players.length + ' players');
 
     // Clear save status - all cells need to be re-saved after recalculation
     clearAllSaveStatus();
@@ -995,28 +1041,28 @@ export default function LadderForm({
     // Show status while saving to server
     (window as any).__ladder_setStatus?.('Saving to server...');
     
+    log('[RECALC]', 'Saving to server...');
+    
     // Save with waitForServer=true to wait for server confirmation
     const saveResult = await savePlayers(calculatedPlayers, true);
     
     if (saveResult.success) {
       if (saveResult.serverSynced) {
-        console.log("[Recalculate_Save] ✓ Saved to server");
+        log('[RECALC]', '✓ Saved to server');
         // Clear local changes flag after successful server sync
         clearLocalChangesFlag();
       } else {
-        console.log("[Recalculate_Save] ✓ Saved locally (server sync skipped)");
+        log('[RECALC]', '✓ Saved locally (server sync skipped)');
       }
     }
     if (saveResult.error) {
-      console.log("[Recalculate_Save] ⚠ Server save issue:", saveResult.error);
+      log('[RECALC]', '⚠ Server save issue:', saveResult.error);
     }
     
     // Update UI with calculated players
     setPlayers(calculatedPlayers);
     
-    if (shouldLog(10)) {
-      console.log("Recalculate_Save complete\n");
-    }
+    log('[RECALC]', 'Recalculate_Save complete');
     
     (window as any).__ladder_setStatus?.(null);
   };

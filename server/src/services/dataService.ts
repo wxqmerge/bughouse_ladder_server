@@ -2,6 +2,23 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+// Timestamp utility
+function getTimestamp(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+  const ms = String(now.getMilliseconds()).padStart(3, '0');
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${ms}`;
+}
+
+function log(category: string, message: string, ...args: any[]): void {
+  console.log(`[${getTimestamp()}] ${category}`, message, ...args);
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -11,7 +28,7 @@ const TAB_FILE_PATH = process.env.TAB_FILE_PATH
 
 // Initialize on module load
 initializeDefaultLadder().catch(err => 
-  console.error('Failed to initialize default ladder:', err)
+  log('[SERVER]', 'Failed to initialize default ladder:', err)
 );
 
 export interface PlayerData {
@@ -112,7 +129,7 @@ export async function writeLadderFile(ladderData: LadderData): Promise<void> {
   await acquireLock();
   
   try {
-    console.log(`[SERVER] Writing ${ladderData.players.length} players to ${TAB_FILE_PATH}`);
+    log('[SERVER]', `Writing ${ladderData.players.length} players to ${TAB_FILE_PATH}`);
     // Reconstruct lines from player data
     const headerLine = ladderData.header.join('\t');
     
@@ -176,6 +193,6 @@ export async function initializeDefaultLadder(): Promise<void> {
     // Create header + 31 game result column headers
     const columnHeader = [...defaultHeader, ...Array(31).fill('')].join('\t');
     await fs.writeFile(TAB_FILE_PATH, columnHeader + '\n', 'utf-8');
-    console.log(`Created default ladder file at ${TAB_FILE_PATH}`);
+    log('[SERVER]', `Created default ladder file at ${TAB_FILE_PATH}`);
   }
 }
