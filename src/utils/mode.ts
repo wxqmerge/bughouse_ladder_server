@@ -67,6 +67,9 @@ export async function testServerConnection(): Promise<boolean> {
   if (!apiUrl || !apiUrl.startsWith('http')) {
     return false;
   }
+
+  // Report status for long-running operations
+  (window as any).__ladder_setStatus?.(`Connecting to ${new URL(apiUrl).hostname}...`);
   
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 3000);
