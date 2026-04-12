@@ -20,7 +20,7 @@ import MobileMenu from "./MobileMenu";
 import { Menu as MenuIcon } from "lucide-react";
 import { shouldLog } from "../utils/debug";
 import { getVersionString, isLocalMode, isServerDownMode, getProgramMode } from "../utils/mode";
-import { getKeyPrefix, startBatch, endBatch, saveToServer, clearAllSaveStatus, isCellSaved } from "../services/storageService";
+import { getKeyPrefix, startBatch, endBatch, saveToServer, clearAllSaveStatus, isCellSaved, markLocalChanges, getHasLocalChanges, clearLocalChangesFlag } from "../services/storageService";
 import {
   getPlayers,
   savePlayers,
@@ -221,6 +221,9 @@ export default function LadderForm({
   const [isAddPlayerDialogOpen, setIsAddPlayerDialogOpen] = useState(false);
   const [showBulkPasteDialog, setShowBulkPasteDialog] = useState(false);
   const [currentMode, setCurrentMode] = useState<'local' | 'server_down' | 'server'>('local');
+  // Enter Games mode state
+  const [enterGamesError, setEnterGamesError] = useState<ValidationResult | null>(null);
+  const [isEnterGamesMode, setIsEnterGamesMode] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const latestPendingPlayersRef = useRef<PlayerData[] | null>(null);
 
@@ -574,6 +577,89 @@ export default function LadderForm({
     return { hasErrors, matches, errors, errorCount, playerResultsByMatch };
   };
 
+  // Enter Games mode handlers
+  const handleEnterGamesMenu = () => {
+    console.log(">>> [MENU ACTION] Enter Games");
+    setIsEnterGamesMode(true);
+    // Find first empty cell
+    for (let rank = 1; rank <= players.length; rank++) {
+      const player = players.find(p => p.rank === rank);
+      if (!player) continue;
+      for (let round = 0; round < 31; round++) {
+        const cellValue = player.gameResults?.[round];
+        if (!cellValue || cellValue.trim() === "") {
+          setEntryCell({ playerRank: rank, round });
+          return;
+        }
+      }
+    }
+    // No empty cells found
+    alert("No empty cells available for game entry.");
+    setIsEnterGamesMode(false);
+  };
+
+  const handleEnterRecalculateSave = async (correctedString: string) => {
+    if (!entryCell) return;
+
+    console.log(">>> [ENTER_RECALCULATE_SAVE] Entered:", correctedString);
+
+    // Mark local changes if we're in server down mode
+    if (isServerDownMode()) {
+      markLocalChanges();
+    }
+
+    // Enter the game result
+    const parsedResult = updatePlayerGameData(
+      correctedString.replace(/_$/, ""),
+      true,
+    );
+
+    if (parsedResult.isValid) {
+      setPlayers((prevPlayers) => {
+        const player = prevPlayers.find((p) => p.rank === entryCell.playerRank);
+        if (!player) return prevPlayers;
+
+        const valueToSave = (
+          parsedResult.resultString || correctedString
+        ).replace(/_$/, "");
+
+        const newGameResults = [...player.gameResults];
+        newGameResults[entryCell.round] = valueToSave;
+
+        const updatedPlayers = prevPlayers.map((p) =>
+          p.rank === entryCell.playerRank
+            ? { ...p, gameResults: newGameResults }
+            : p,
+        );
+
+        return updatedPlayers;
+      });
+    }
+
+    // Wait for state update, then trigger recalculate_and_save
+    setTimeout(async () => {
+      console.log(">>> [ENTER_RECALCULATE_SAVE] Triggering recalculate_and_save...");
+      
+      // Call the recalculateAndSave function
+      await recalculateAndSave();
+      
+      // Exit enter-games mode
+      setIsEnterGamesMode(false);
+      setEntryCell(null);
+      setTempGameResult(null);
+      setEnterGamesError(null);
+      
+      console.log(">>> [ENTER_RECALCULATE_SAVE] Complete");
+    }, 100);
+  };
+
+  const handleEnterGamesClose = () => {
+    setIsEnterGamesMode(false);
+    setEntryCell(null);
+    setTempGameResult(null);
+    setEnterGamesError(null);
+  };
+
   const recalculateRatings = async () => {
     if (shouldLog(10)) {
       console.log(
@@ -847,9 +933,6 @@ export default function LadderForm({
       }
     }
 
-    // End batch mode FIRST - this saves to localStorage
-    await endBatch();
-    
     // Show status while saving to server
     (window as any).__ladder_setStatus?.('Saving to server...');
     
@@ -859,6 +942,8 @@ export default function LadderForm({
     if (saveResult.success) {
       if (saveResult.serverSynced) {
         console.log("[Recalculate_Save] ✓ Saved to server");
+        // Clear local changes flag after successful server sync
+        clearLocalChangesFlag();
       } else {
         console.log("[Recalculate_Save] ✓ Saved locally (server sync skipped)");
       }
@@ -914,6 +999,11 @@ export default function LadderForm({
   };
 
   const handleCorrectionSubmit = (correctedString: string) => {
+    // Mark local changes if we're in server down mode
+    if (isServerDownMode()) {
+      markLocalChanges();
+    }
+
     // In walkthrough mode, handle clearing cells without pendingPlayers
     if (isWalkthrough && entryCell) {
       if (!correctedString.trim()) {
@@ -1277,6 +1367,11 @@ export default function LadderForm({
   const clearCurrentCell = () => {
     if (!entryCell) return;
 
+    // Mark local changes if we're in server down mode
+    if (isServerDownMode()) {
+      markLocalChanges();
+    }
+
     // Get the value of the cell being cleared (strip trailing underscore for comparison)
     const playerToClear = players.find((p) => p.rank === entryCell.playerRank);
     const rawCellValue = playerToClear?.gameResults?.[entryCell.round] || "";
@@ -1368,6 +1463,11 @@ export default function LadderForm({
     );
 
     if (parsedResult.isValid) {
+      // Mark local changes if we're in server down mode
+      if (isServerDownMode()) {
+        markLocalChanges();
+      }
+
       setPlayers((prevPlayers) => {
         const player = prevPlayers.find((p) => p.rank === entryCell.playerRank);
         if (!player) return prevPlayers;
@@ -1634,6 +1734,11 @@ export default function LadderForm({
       console.log(`>>> [BULK PASTE] Applying ${results.length} entries`);
     }
 
+    // Mark local changes if we're in server down mode
+    if (isServerDownMode()) {
+      markLocalChanges();
+    }
+
     setPlayers((prevPlayers) => {
       const updatedPlayers = prevPlayers.map((p) => ({ ...p }));
 
@@ -1681,6 +1786,11 @@ export default function LadderForm({
   const handleAddPlayerSubmit = (
     playerData: Omit<PlayerData, "rank" | "nRating" | "gameResults">,
   ) => {
+    // Mark local changes if we're in server down mode
+    if (isServerDownMode()) {
+      markLocalChanges();
+    }
+
     setPlayers((prevPlayers) => {
       const maxRank = prevPlayers.reduce(
         (max, p) => Math.max(max, p.rank || 0),
@@ -1853,6 +1963,7 @@ export default function LadderForm({
         onSetZoom={handleSetZoom}
         onOpenSettings={() => setShowSettings?.(true)}
         onAddPlayer={handleAddPlayer}
+        onEnterGames={handleEnterGamesMenu}
         isAdmin={isAdmin}
         projectName={projectName}
         onSetTitle={(newTitle) => {
@@ -1873,6 +1984,7 @@ export default function LadderForm({
           onOpenSettings={() => setShowSettings?.(true)}
           onAddPlayer={handleAddPlayer}
           onBulkPaste={handleBulkPaste}
+          onEnterGames={handleEnterGamesMenu}
           isAdmin={isAdmin}
           isWide={zoomLevel === "140%"}
           zoomLevel={zoomLevel}
@@ -2479,17 +2591,22 @@ export default function LadderForm({
           <ErrorDialog
             error={null}
             players={players}
-            mode="game-entry"
+            mode={isEnterGamesMode ? "enter-games" : "game-entry"}
             entryCell={entryCell}
             existingValue={
               players.find((p) => p.rank === entryCell.playerRank)
                 ?.gameResults?.[entryCell.round] || undefined
             }
             onClose={() => {
-              setEntryCell(null);
-              setTempGameResult(null);
+              if (isEnterGamesMode) {
+                handleEnterGamesClose();
+              } else {
+                setEntryCell(null);
+                setTempGameResult(null);
+              }
             }}
             onSubmit={handleGameEntrySubmit}
+            onEnterRecalculateSave={handleEnterRecalculateSave}
             onClearCell={clearCurrentCell}
             onUpdatePlayerData={handleUpdatePlayerData}
           />

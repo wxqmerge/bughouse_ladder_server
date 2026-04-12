@@ -10,7 +10,7 @@ interface ErrorDialogProps {
   onClose: () => void;
   onSubmit: (correctedString: string) => void;
   onClearCell?: () => void;
-  mode: "error-correction" | "walkthrough" | "game-entry" | "recalculate";
+  mode: "error-correction" | "walkthrough" | "game-entry" | "recalculate" | "enter-games";
   walkthroughErrors?: ValidationResult[];
   walkthroughIndex?: number;
   onWalkthroughNext?: () => void;
@@ -23,6 +23,7 @@ interface ErrorDialogProps {
     resultString: string,
   ) => void;
   totalRounds?: number;
+  onEnterRecalculateSave?: (correctedString: string) => void;
 }
 
 export default function ErrorDialog({
@@ -40,6 +41,7 @@ export default function ErrorDialog({
   existingValue,
   onUpdatePlayerData,
   totalRounds,
+  onEnterRecalculateSave,
 }: ErrorDialogProps) {
   const [correctedResult, setCorrectedResult] = useState<string>(
     existingValue?.replace(/_$/, "") || "",
@@ -274,6 +276,28 @@ export default function ErrorDialog({
     onSubmit(filteredValue);
   };
 
+  const handleEnterRecalculateSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log(">>> [BUTTON PRESSED] Enter_Recalculate_Save");
+    // Use the latest input value from state
+    const rawValue = currentInputValue || "";
+    const filteredValue = rawValue.toUpperCase().replace(/[^0-9WLD:]/g, "");
+
+    // Final validation before submit
+    const validation = updatePlayerGameData(filteredValue, true);
+    if (validation.isValid) {
+      setParseStatus({ isValid: true });
+    }
+
+    // Call the enter-recalculate-save handler if provided
+    if (onEnterRecalculateSave) {
+      onEnterRecalculateSave(filteredValue);
+    } else {
+      // Fallback to regular submit
+      onSubmit(filteredValue);
+    }
+  };
+
   const handleClearCell = () => {
     console.log(">>> [BUTTON PRESSED] Clear Cell");
     setCorrectedResult("");
@@ -478,6 +502,7 @@ export default function ErrorDialog({
   const isWalkthrough = mode === "walkthrough";
   const isGameEntry = mode === "game-entry";
   const isRecalculate = mode === "recalculate";
+  const isEnterGames = mode === "enter-games";
 
   const displayError = error;
   const displayIndex = walkthroughIndex ?? 0;
@@ -857,116 +882,160 @@ export default function ErrorDialog({
               justifyContent: "flex-end",
             }}
           >
-            {(isWalkthrough || isRecalculate) &&
-              walkthroughIndex !== undefined &&
-              totalRounds &&
-              onWalkthroughPrev &&
-              onWalkthroughNext && (
-                <>
-                  <button
-                    type="button"
-                    onClick={onWalkthroughPrev}
-                    disabled={walkthroughIndex === 0}
-                    style={{
-                      padding: "0.5rem 1rem",
-                      background:
-                        walkthroughIndex === 0 ? "#e5e7eb" : "#f3f4f6",
-                      border: "1px solid #d1d5db",
-                      borderRadius: "0.25rem",
-                      cursor:
-                        walkthroughIndex === 0 ? "not-allowed" : "pointer",
-                      fontSize: "0.875rem",
-                      color: walkthroughIndex === 0 ? "#9ca3af" : "#374151",
-                    }}
-                  >
-                    Previous (Ctrl+P)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={onWalkthroughNext}
-                    disabled={walkthroughIndex === totalRounds - 1}
-                    style={{
-                      padding: "0.5rem 1rem",
-                      background:
-                        walkthroughIndex === totalRounds - 1
-                          ? "#e5e7eb"
-                          : "#f59e0b",
-                      border:
-                        walkthroughIndex === totalRounds - 1
-                          ? "1px solid #d1d5db"
-                          : "none",
-                      borderRadius: "0.25rem",
-                      cursor:
-                        walkthroughIndex === totalRounds - 1
-                          ? "not-allowed"
-                          : "pointer",
-                      fontSize: "0.875rem",
-                      color:
-                        walkthroughIndex === totalRounds - 1
-                          ? "#9ca3af"
-                          : "white",
-                    }}
-                  >
-                    Next (Ctrl+N)
-                  </button>
-                </>
-              )}
-            <button
-              type="button"
-              onClick={handleClearCell}
-              disabled={!currentInputValue.trim() && !existingValue}
-              style={{
-                padding: "0.5rem 1rem",
-                background: !currentInputValue.trim() && !existingValue
-                  ? "#e5e7eb"
-                  : "#ef4444",
-                border: "none",
-                borderRadius: "0.25rem",
-                cursor: !currentInputValue.trim() && !existingValue
-                  ? "not-allowed"
-                  : "pointer",
-                fontSize: "0.875rem",
-                color: !currentInputValue.trim() && !existingValue
-                  ? "#9ca3af"
-                  : "white",
-              }}
-            >
-              Clear All Matching Cells (Ctrl+C)
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              style={{
-                padding: "0.5rem 1rem",
-                background: "#f3f4f6",
-                border: "1px solid #d1d5db",
-                borderRadius: "0.25rem",
-                cursor: "pointer",
-                fontSize: "0.875rem",
-                color: "#374151",
-              }}
-            >
-              Cancel (Ctrl+X)
-            </button>
-            <button
-              type="submit"
-              disabled={!parseStatus?.isValid && currentInputValue.trim() !== ""}
-              style={{
-                padding: "0.5rem 1rem",
-                background: !parseStatus?.isValid && currentInputValue.trim() !== ""
-                  ? "#9ca3af"
-                  : "#3b82f6",
-                border: "none",
-                borderRadius: "0.25rem",
-                cursor: !parseStatus?.isValid && currentInputValue.trim() !== ""
-                  ? "not-allowed"
-                  : "pointer",
-                fontSize: "0.875rem",
-                color: "white",
-              }}
-            >
-              {isGameEntry ? "Save (Ctrl+S)" : "Submit Correction (Ctrl+S)"}
-            </button>
+            {/* Enter-Games mode: Cancel + Enter_Recalculate_Save */}
+            {isEnterGames ? (
+              <>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  style={{
+                    padding: "0.5rem 1rem",
+                    background: "#f3f4f6",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "0.25rem",
+                    cursor: "pointer",
+                    fontSize: "0.875rem",
+                    color: "#374151",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleEnterRecalculateSave}
+                  disabled={!parseStatus?.isValid && currentInputValue.trim() !== ""}
+                  style={{
+                    padding: "0.5rem 1rem",
+                    background: !parseStatus?.isValid && currentInputValue.trim() !== ""
+                      ? "#9ca3af"
+                      : "#10b981",
+                    border: "none",
+                    borderRadius: "0.25rem",
+                    cursor: !parseStatus?.isValid && currentInputValue.trim() !== ""
+                      ? "not-allowed"
+                      : "pointer",
+                    fontSize: "0.875rem",
+                    color: "white",
+                  }}
+                >
+                  Enter_Recalculate_Save
+                </button>
+              </>
+            ) : (
+              /* Existing modes */
+              <>
+                {(isWalkthrough || isRecalculate) &&
+                  walkthroughIndex !== undefined &&
+                  totalRounds &&
+                  onWalkthroughPrev &&
+                  onWalkthroughNext && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={onWalkthroughPrev}
+                        disabled={walkthroughIndex === 0}
+                        style={{
+                          padding: "0.5rem 1rem",
+                          background:
+                            walkthroughIndex === 0 ? "#e5e7eb" : "#f3f4f6",
+                          border: "1px solid #d1d5db",
+                          borderRadius: "0.25rem",
+                          cursor:
+                            walkthroughIndex === 0 ? "not-allowed" : "pointer",
+                          fontSize: "0.875rem",
+                          color: walkthroughIndex === 0 ? "#9ca3af" : "#374151",
+                        }}
+                      >
+                        Previous (Ctrl+P)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={onWalkthroughNext}
+                        disabled={walkthroughIndex === totalRounds - 1}
+                        style={{
+                          padding: "0.5rem 1rem",
+                          background:
+                            walkthroughIndex === totalRounds - 1
+                              ? "#e5e7eb"
+                              : "#f59e0b",
+                          border:
+                            walkthroughIndex === totalRounds - 1
+                              ? "1px solid #d1d5db"
+                              : "none",
+                          borderRadius: "0.25rem",
+                          cursor:
+                            walkthroughIndex === totalRounds - 1
+                              ? "not-allowed"
+                              : "pointer",
+                          fontSize: "0.875rem",
+                          color:
+                            walkthroughIndex === totalRounds - 1
+                              ? "#9ca3af"
+                              : "white",
+                        }}
+                      >
+                        Next (Ctrl+N)
+                      </button>
+                    </>
+                  )}
+                <button
+                  type="button"
+                  onClick={handleClearCell}
+                  disabled={!currentInputValue.trim() && !existingValue}
+                  style={{
+                    padding: "0.5rem 1rem",
+                    background: !currentInputValue.trim() && !existingValue
+                      ? "#e5e7eb"
+                      : "#ef4444",
+                    border: "none",
+                    borderRadius: "0.25rem",
+                    cursor: !currentInputValue.trim() && !existingValue
+                      ? "not-allowed"
+                      : "pointer",
+                    fontSize: "0.875rem",
+                    color: !currentInputValue.trim() && !existingValue
+                      ? "#9ca3af"
+                      : "white",
+                  }}
+                >
+                  Clear All Matching Cells (Ctrl+C)
+                </button>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  style={{
+                    padding: "0.5rem 1rem",
+                    background: "#f3f4f6",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "0.25rem",
+                    cursor: "pointer",
+                    fontSize: "0.875rem",
+                    color: "#374151",
+                  }}
+                >
+                  Cancel (Ctrl+X)
+                </button>
+                <button
+                  type="submit"
+                  disabled={!parseStatus?.isValid && currentInputValue.trim() !== ""}
+                  style={{
+                    padding: "0.5rem 1rem",
+                    background: !parseStatus?.isValid && currentInputValue.trim() !== ""
+                      ? "#9ca3af"
+                      : "#3b82f6",
+                    border: "none",
+                    borderRadius: "0.25rem",
+                    cursor: !parseStatus?.isValid && currentInputValue.trim() !== ""
+                      ? "not-allowed"
+                      : "pointer",
+                    fontSize: "0.875rem",
+                    color: "white",
+                  }}
+                >
+                  {isGameEntry ? "Save (Ctrl+S)" : "Submit Correction (Ctrl+S)"}
+                </button>
+              </>
+            )}
           </div>
         </form>
 
