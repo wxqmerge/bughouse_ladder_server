@@ -849,14 +849,22 @@ export default function LadderForm({
     }
 
     setPlayers(calculatedPlayers);
-    await savePlayers(calculatedPlayers);
     
-    // Explicitly save to server (if configured)
-    const saveResult = await saveToServer();
+    // Show status while saving to server
+    (window as any).__ladder_setStatus?.('Saving to server...');
+    
+    // Save with waitForServer=true to wait for server confirmation
+    const saveResult = await savePlayers(calculatedPlayers, true);
+    
     if (saveResult.success) {
-      console.log("[Recalculate_Save] ✓ Saved to server");
-    } else if (saveResult.error) {
-      console.log("[Recalculate_Save] ✗ Server save skipped:", saveResult.error);
+      if (saveResult.serverSynced) {
+        console.log("[Recalculate_Save] ✓ Saved to server");
+      } else {
+        console.log("[Recalculate_Save] ✓ Saved locally (server sync skipped)");
+      }
+    }
+    if (saveResult.error) {
+      console.log("[Recalculate_Save] ⚠ Server save issue:", saveResult.error);
     }
     
     if (shouldLog(10)) {
@@ -867,6 +875,9 @@ export default function LadderForm({
     await endBatch();
     
     (window as any).__ladder_setStatus?.(null);
+    
+    // Trigger a re-render to update the _ suffix display
+    setPlayers([...calculatedPlayers]);
   };
 
   const countNonBlankRounds = (): number => {

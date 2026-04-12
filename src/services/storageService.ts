@@ -367,11 +367,17 @@ export async function getPlayers(): Promise<PlayerData[]> {
  * In server mode, saves to BOTH ladder_* and ladder_server_* keys
  * During batch mode, holds data in memory - commits at endBatch()
  */
-export async function savePlayers(players: PlayerData[]): Promise<void> {
+export interface SaveResult {
+  success: boolean;
+  serverSynced: boolean;
+  error?: string;
+}
+
+export async function savePlayers(players: PlayerData[], waitForServer = false): Promise<SaveResult> {
   // During batch mode, update the buffer instead of writing to localStorage
   if (isInBatch()) {
     batchBuffer = players;
-    return;
+    return { success: true, serverSynced: false };
   }
   
   const playerJson = JSON.stringify(players);
@@ -390,24 +396,29 @@ export async function savePlayers(players: PlayerData[]): Promise<void> {
         }
       }
     }
+    return { success: true, serverSynced: true };
   } else {
     // Server mode: save to BOTH locations
     localStorage.setItem('ladder_ladder_players', playerJson);
     localStorage.setItem('ladder_server_ladder_players', playerJson);
     
-    // Background sync to server
-    (async () => {
+    if (waitForServer) {
+      // Wait for server confirmation
       try {
         const serverUrl = dataService.getConfigServerUrl();
-        if (!serverUrl) return;
+        if (!serverUrl) {
+          return { success: true, serverSynced: false, error: 'No server URL configured' };
+        }
         
+        console.log(`[savePlayers] Waiting for server save to ${serverUrl}...`);
         const response = await fetch(`${serverUrl}/api/ladder`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ players }),
         });
+        
         if (response.ok) {
-          console.log('[SYNC] ✓ Saved to server');
+          console.log('[savePlayers] ✓ Saved to server');
           // Mark all non-empty cells as saved after successful server sync
           for (const player of players) {
             if (player.gameResults) {
@@ -419,13 +430,38 @@ export async function savePlayers(players: PlayerData[]): Promise<void> {
               }
             }
           }
+          return { success: true, serverSynced: true };
         } else {
-          console.error(`[SYNC] ✗ Server returned ${response.status}`);
+          console.error(`[savePlayers] ✗ Server returned ${response.status}`);
+          return { success: true, serverSynced: false, error: `Server returned ${response.status}` };
         }
       } catch (error: any) {
-        console.error('[SYNC] ✗ Failed:', error.message);
+        console.error('[savePlayers] ✗ Failed:', error.message);
+        return { success: true, serverSynced: false, error: error.message };
       }
-    })();
+    } else {
+      // Background sync to server (don't wait)
+      (async () => {
+        try {
+          const serverUrl = dataService.getConfigServerUrl();
+          if (!serverUrl) return;
+          
+          const response = await fetch(`${serverUrl}/api/ladder`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ players }),
+          });
+          if (response.ok) {
+            console.log('[SYNC] ✓ Saved to server');
+          } else {
+            console.error(`[SYNC] ✗ Server returned ${response.status}`);
+          }
+        } catch (error: any) {
+          console.error('[SYNC] ✗ Failed:', error.message);
+        }
+      })();
+      return { success: true, serverSynced: false };
+    }
   }
 }
 
