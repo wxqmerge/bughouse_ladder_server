@@ -3,7 +3,6 @@ import { getVersionString, isServerDownMode, getProgramMode } from "../utils/mod
 import {
   Folder,
   Upload,
-  Save,
   Download,
   ListFilter,
   Hash,
@@ -24,7 +23,7 @@ import {
 } from "lucide-react";
 
 interface MenuBarProps {
-  onFileAction: (action: "load" | "save" | "export") => void;
+  onFileAction: (action: "load" | "export") => void;
   onSort: (
     type: "rank" | "byLastName" | "byFirstName" | "nRating" | "rating",
   ) => void;
@@ -99,15 +98,6 @@ export default function MenuBar({
         closeAllMenus();
       },
       dataMenuItem: "Load",
-    },
-    {
-      icon: <Save size={16} />,
-      label: "Save",
-      onClick: () => {
-        onFileAction("save");
-        closeAllMenus();
-      },
-      dataMenuItem: "Save",
     },
     {
       icon: <Download size={16} />,
@@ -426,40 +416,42 @@ export default function MenuBar({
             flex: 1,
           }}
         >
-          {renderMenuTrigger(
+          {isAdmin && renderMenuTrigger(
             "File",
             <Folder size={16} />,
             fileMenuItems,
             "title",
           )}
-          {renderMenuTrigger("Sort", <ListFilter size={16} />, sortMenuItems)}
+          {isAdmin && renderMenuTrigger("Sort", <ListFilter size={16} />, sortMenuItems)}
           {renderMenuTrigger(
             "Operations",
             <SettingsIcon size={16} />,
             operationsMenuItems,
           )}
           {renderMenuTrigger("View", <ZoomIn size={16} />, viewMenuItems)}
-          <button
-            data-menu="Settings"
-            onClick={() => {
-              onOpenSettings();
-              closeAllMenus();
-            }}
-            style={{
-              background: "transparent",
-              color: "white",
-              border: "none",
-              padding: "0.5rem 1rem",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              borderRadius: "0.25rem",
-            }}
-          >
-            <SettingsIcon size={16} />
-            <span>Settings</span>
-          </button>
+          {isAdmin && (
+            <button
+              data-menu="Settings"
+              onClick={() => {
+                onOpenSettings();
+                closeAllMenus();
+              }}
+              style={{
+                background: "transparent",
+                color: "white",
+                border: "none",
+                padding: "0.5rem 1rem",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                borderRadius: "0.25rem",
+              }}
+            >
+              <SettingsIcon size={16} />
+              <span>Settings</span>
+            </button>
+          )}
         </div>
 
         {/* Title and player count */}
