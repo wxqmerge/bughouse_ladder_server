@@ -3,6 +3,7 @@ import LadderForm from "./components/LadderForm";
 import Settings from "./components/Settings";
 import { MigrationDialog } from "./components/MigrationDialog";
 import { ReconnectDialog } from "./components/ReconnectDialog";
+import { StatusBanner } from "./components/StatusBanner";
 import { loadSampleData } from "./components/LadderForm";
 import type { PlayerData } from "./utils/hashUtils";
 import { getNextTitle, processNewDayTransformations } from "./utils/constants";
@@ -26,18 +27,41 @@ import {
 } from "./services/storageService";
 import "./css/index.css";
 
+// Global status tracking
+let setStatusCallback: ((status: string | null) => void) | null = null;
+
+export function setAppStatus(status: string | null): void {
+  if (setStatusCallback) {
+    setStatusCallback(status);
+  }
+}
+
 function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [triggerWalkthrough, setTriggerWalkthrough] = useState(false);
   const [showMigrationDialog, setShowMigrationDialog] = useState(false);
   const [showReconnectDialog, setShowReconnectDialog] = useState(false);
   const [wasServerMode, setWasServerMode] = useState(true); // Assume server mode initially
+  const [status, setStatus] = useState<string | null>("Initializing...");
   const recalculateRef = useRef<(() => void) | undefined>(undefined);
+
+  // Set up status callback for child components
+  useEffect(() => {
+    setStatusCallback = setStatus;
+    return () => {
+      setStatusCallback = null;
+    };
+  }, []);
 
   // Test server connectivity and check for migration on mount
   useEffect(() => {
     // Initial connectivity test
-    updateConnectionState().catch(console.error);
+    setStatus("Checking server connection...");
+    updateConnectionState()
+      .then(() => {
+        setStatus(null); // Clear status after connection check
+      })
+      .catch(console.error);
     
     // Set up mode change callback
     onModeChange((newMode: string, oldMode: string) => {
@@ -146,6 +170,8 @@ function App() {
 
   return (
     <>
+      <StatusBanner status={status} />
+      
       {showMigrationDialog && (
         <MigrationDialog 
           isAdmin={false}

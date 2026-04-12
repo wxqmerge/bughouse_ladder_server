@@ -263,6 +263,7 @@ export default function LadderForm({
   useEffect(() => {
     const initializeData = async () => {
       try {
+        (window as any).__ladder_setStatus?.('Loading project settings...');
         const projectName = getProjectName();
         if (projectName) {
           setProjectName(projectName);
@@ -515,6 +516,8 @@ export default function LadderForm({
       );
     }
 
+    (window as any).__ladder_setStatus?.(`Recalculating ratings...`);
+
     // Clear save status - all cells need to be re-saved after recalculation
     clearAllSaveStatus();
 
@@ -641,6 +644,8 @@ export default function LadderForm({
 
     // End batch mode - triggers single server sync with all accumulated changes
     await endBatch();
+    
+    (window as any).__ladder_setStatus?.(null);
   };
 
   useEffect(() => {
@@ -795,6 +800,8 @@ export default function LadderForm({
 
     // End batch mode - triggers single server sync with all accumulated changes
     await endBatch();
+    
+    (window as any).__ladder_setStatus?.(null);
   };
 
   const countNonBlankRounds = (): number => {

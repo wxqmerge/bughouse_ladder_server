@@ -335,20 +335,29 @@ export async function getPlayers(): Promise<PlayerData[]> {
   
   if (dataService.getMode() === DataServiceMode.LOCAL) {
     // Local mode: use localStorage directly
+    (window as any).__ladder_setStatus?.('Reading localStorage...');
     const data = localStorage.getItem('ladder_ladder_players');
-    return data ? JSON.parse(data) : [];
+    const players = data ? JSON.parse(data) : [];
+    (window as any).__ladder_setStatus?.(null);
+    return players;
   } else {
     // Server modes: try server first, then fall back to local storage
+    (window as any).__ladder_setStatus?.('Fetching from server...');
     try {
-      return await dataService.getPlayers();
+      const players = await dataService.getPlayers();
+      (window as any).__ladder_setStatus?.(null);
+      return players;
     } catch (error) {
       console.error('Failed to fetch players:', error);
+      (window as any).__ladder_setStatus?.('Using cached data...');
       // Fallback to localStorage - try server key first, then local
       let data = localStorage.getItem('ladder_server_ladder_players');
       if (!data) {
         data = localStorage.getItem('ladder_ladder_players');
       }
-      return data ? JSON.parse(data) : [];
+      const players = data ? JSON.parse(data) : [];
+      (window as any).__ladder_setStatus?.(null);
+      return players;
     }
   }
 }
