@@ -19,8 +19,8 @@ import MenuBar from "./MenuBar";
 import MobileMenu from "./MobileMenu";
 import { Menu as MenuIcon } from "lucide-react";
 import { shouldLog } from "../utils/debug";
-import { getVersionString } from "../utils/mode";
-import { getKeyPrefix, startBatch, endBatch, saveToServer } from "../services/storageService";
+import { getVersionString, isLocalMode, isServerDownMode, getProgramMode } from "../utils/mode";
+import { getKeyPrefix, startBatch, endBatch, saveToServer, clearAllSaveStatus, isCellSaved } from "../services/storageService";
 import {
   getPlayers,
   savePlayers,
@@ -220,6 +220,7 @@ export default function LadderForm({
   } | null>(null);
   const [isAddPlayerDialogOpen, setIsAddPlayerDialogOpen] = useState(false);
   const [showBulkPasteDialog, setShowBulkPasteDialog] = useState(false);
+  const [currentMode, setCurrentMode] = useState<'local' | 'server_down' | 'server'>('local');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const latestPendingPlayersRef = useRef<PlayerData[] | null>(null);
 
@@ -240,6 +241,23 @@ export default function LadderForm({
       }
     }
   }, [triggerWalkthrough, setTriggerWalkthrough]);
+
+  // Track mode changes for UI updates
+  useEffect(() => {
+    const updateMode = () => {
+      const mode = getProgramMode();
+      if (mode === 'local' || mode === 'server_down') {
+        setCurrentMode(mode);
+      } else {
+        setCurrentMode('server');
+      }
+    };
+    
+    updateMode();
+    const interval = setInterval(updateMode, 10000); // Check every 10 seconds
+    
+    return () => clearInterval(interval);
+  }, []);
 
   // VB6 Line: 894 - Initialize with storage data or sample data
   useEffect(() => {
@@ -497,6 +515,9 @@ export default function LadderForm({
       );
     }
 
+    // Clear save status - all cells need to be re-saved after recalculation
+    clearAllSaveStatus();
+
     // Start batch mode - defer server sync until all operations complete
     startBatch();
 
@@ -628,6 +649,154 @@ export default function LadderForm({
     }
   }, [onSetRecalculateRef, recalculateRatings]);
 
+  /**
+   * Recalculate ratings AND save to server/localStorage in one operation
+   * This is the primary save operation for users
+   */
+  const recalculateAndSave = async () => {
+    if (shouldLog(10)) {
+      console.log(
+        `>>> [BUTTON PRESSED] Recalculate_Save - ${players.length} players`,
+      );
+    }
+
+    // Clear save status - all cells need to be re-saved after recalculation
+    clearAllSaveStatus();
+
+    // Start batch mode - defer server sync until all operations complete
+    startBatch();
+
+    // Always build fresh matches from current UI state (no caching)
+    const result = checkGameErrors();
+
+    // If there are errors, show the error dialog and return early
+    if (result.hasErrors && result.errors.length > 0) {
+      if (shouldLog(5)) {
+        console.log(`\n=== RECALC PAUSED ===`);
+        console.log(
+          `Found ${result.errors.length} errors - showing error dialog`,
+        );
+      }
+      return;
+    }
+
+    let matches: MatchData[] = result.matches;
+    let playerResultsByMatch: Map<string, PlayerMatchResult[]> | undefined =
+      result.playerResultsByMatch;
+
+    if (shouldLog(5)) {
+      console.log(`\n=== RECALC START ===`);
+      console.log(`Matches to process: ${matches.length}`);
+      // Count existing game results before clear
+      let totalExisting = 0;
+      for (const p of players) {
+        const filled = p.gameResults.filter((r) => r !== null && r !== "");
+        totalExisting += filled.length;
+      }
+      console.log(`Total existing game results: ${totalExisting}`);
+    }
+
+    const processedPlayers = repopulateGameResults(
+      players,
+      matches,
+      31,
+      playerResultsByMatch,
+    );
+
+    if (shouldLog(5)) {
+      // Count results after repopulation
+      let totalAfterRepop = 0;
+      for (const p of processedPlayers) {
+        const filled = p.gameResults.filter((r) => r !== null && r !== "");
+        totalAfterRepop += filled.length;
+      }
+      console.log(`Total results after repopulation: ${totalAfterRepop}`);
+    }
+
+    const calculatedPlayers = calculateRatings(processedPlayers, matches);
+
+    // Check for pending New Day operation (set by App.tsx before calling recalculate)
+    const pendingNewDayJson = localStorage.getItem(
+      getKeyPrefix() + "ladder_pending_newday",
+    );
+    if (pendingNewDayJson) {
+      console.log(
+        `>>> [RECALC COMPLETE] Pending New Day detected: ${pendingNewDayJson}`,
+      );
+      try {
+        const pendingNewDay = JSON.parse(pendingNewDayJson);
+        const reRank = pendingNewDay.reRank === true;
+        console.log(`>>> [NEW DAY] Processing with reRank=${reRank}`);
+
+        // Get current title and determine next title for mini-games
+        const currentTitle = getProjectName();
+        const normalizedTitle = String(currentTitle || "")
+          .toLowerCase()
+          .trim();
+        console.log(
+          `>>> [NEW DAY] Current title from storage: "${currentTitle}" (normalized: "${normalizedTitle}")`,
+        );
+        const nextTitle = (() => {
+          const index = MINI_GAMES.findIndex(
+            (game) => game.toLowerCase() === normalizedTitle,
+          );
+          console.log(
+            `>>> [NEW DAY] findIndex result: ${index} for "${currentTitle}" (normalized: "${normalizedTitle}")`,
+          );
+          if (index !== -1) {
+            return MINI_GAMES[(index + 1) % MINI_GAMES.length];
+          }
+          return currentTitle;
+        })();
+        console.log(`>>> [NEW DAY] Next title will be: "${nextTitle}"`);
+
+        // Apply New Day transformations to calculatedPlayers
+        const finalPlayers = processNewDayTransformations(
+          calculatedPlayers,
+          reRank,
+        );
+
+        await savePlayers(finalPlayers);
+        setProjectNameStorage(nextTitle);
+        localStorage.removeItem(getKeyPrefix() + "ladder_pending_newday");
+        localStorage.removeItem(getKeyPrefix() + "ladder_settings");
+
+        if (shouldLog(10)) {
+          console.log(
+            `New Day complete - Title: ${nextTitle}, ReRank: ${reRank}\n`,
+          );
+        }
+
+        setPlayers(finalPlayers);
+
+        // Reload to apply changes
+        window.location.reload();
+        return;
+      } catch (err) {
+        console.error("Failed to process pending New Day:", err);
+        localStorage.removeItem(getKeyPrefix() + "ladder_pending_newday");
+      }
+    }
+
+    setPlayers(calculatedPlayers);
+    await savePlayers(calculatedPlayers);
+    
+    // Explicitly save to server (if configured)
+    const saveResult = await saveToServer();
+    if (saveResult.success) {
+      console.log("[Recalculate_Save] ✓ Saved to server");
+    } else if (saveResult.error) {
+      console.log("[Recalculate_Save] ✗ Server save skipped:", saveResult.error);
+    }
+    
+    if (shouldLog(10)) {
+      console.log("Recalculate_Save complete\n");
+    }
+
+    // End batch mode - triggers single server sync with all accumulated changes
+    await endBatch();
+  };
+
   const countNonBlankRounds = (): number => {
     let count = 0;
     for (const player of players) {
@@ -639,6 +808,29 @@ export default function LadderForm({
       }
     }
     return count;
+  };
+
+  /**
+   * Get display value for a game result cell
+   * Adds "_" suffix if result is valid AND saved
+   */
+  const getCellDisplayValue = (playerRank: number, round: number, result: string | null): string => {
+    if (!result || result.trim() === '') {
+      return '';
+    }
+    
+    // Remove existing underscore for processing
+    const cleanResult = result.replace(/_+$/, '');
+    
+    if (cleanResult.trim() === '') {
+      return '';
+    }
+    
+    // Check if cell is saved
+    const isSaved = isCellSaved(playerRank, round);
+    
+    // Add underscore suffix if saved
+    return isSaved ? cleanResult + '_' : cleanResult;
   };
 
   const handleCorrectionSubmit = (correctedString: string) => {
@@ -1571,6 +1763,23 @@ export default function LadderForm({
 
   return (
     <div style={{ marginTop: "1rem" }}>
+      {/* Server down mode indicator */}
+      {currentMode === 'server_down' && (
+        <div style={{
+          backgroundColor: '#fef3c7',
+          border: '1px solid #f59e0b',
+          borderRadius: '0.375rem',
+          padding: '0.75rem 1rem',
+          marginBottom: '1rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          fontSize: getFontSize(),
+        }}>
+          <span style={{ color: '#92400e', fontWeight: '600' }}>⚠️ Server Down Mode</span>
+          <span style={{ color: '#78350f' }}>Only game entry is available. Use Recalculate_Save when server is back online.</span>
+        </div>
+      )}
       {/* Mobile menu trigger */}
       <MobileMenu
         isOpen={isMobileMenuOpen}
@@ -2093,7 +2302,7 @@ export default function LadderForm({
                                 : "#e2e8f0",
                         }}
                       >
-                        {result ? result : ""}
+                        {getCellDisplayValue(player.rank, gCol, result)}
                         {tempGameResult &&
                         tempGameResult.playerRank === player.rank &&
                         tempGameResult.round === gCol

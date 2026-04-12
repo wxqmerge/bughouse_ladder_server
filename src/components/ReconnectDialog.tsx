@@ -110,8 +110,8 @@ export function ReconnectDialog({
             <RefreshCw size={16} />
             <span>
               {isReconnect
-                ? "Auto-retry is active (every 60 seconds)"
-                : "Will automatically retry connection every 60 seconds"}
+                ? "Auto-retry is active (every 10 seconds)"
+                : "Will automatically retry connection every 10 seconds"}
             </span>
           </div>
         </div>
