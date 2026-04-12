@@ -1010,12 +1010,6 @@ export function repopulateGameResults(
   return playersCopy;
 }
 
-export interface ValidationResultResult {
-  isValid: boolean;
-  error?: number;
-  message?: string;
-}
-
 export function validateGameResult(input: string): ValidationResultResult {
   if (!input.trim()) {
     return { isValid: false, error: 3, message: "Incomplete entry" };
@@ -1041,20 +1035,6 @@ export function validateGameResult(input: string): ValidationResultResult {
   }
 
   return { isValid: true };
-}
-
-export interface UpdatePlayerGameDataResult {
-  isValid: boolean;
-  error?: number;
-  message?: string;
-  parsedPlayersList?: number[];
-  parsedScoreList?: number[];
-  originalString: string;
-  resultString?: string;
-  parsedPlayer1Rank?: number;
-  parsedPlayer2Rank?: number;
-  parsedPlayer3Rank?: number;
-  parsedPlayer4Rank?: number;
 }
 
 export function updatePlayerGameData(

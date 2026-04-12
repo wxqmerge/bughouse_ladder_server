@@ -13,6 +13,7 @@ import {
   getPlayers as storageGetPlayers,
   savePlayers as storageSavePlayers,
 } from './storageService';
+import { loadUserSettings } from './userSettingsStorage';
 
 export enum DataServiceMode {
   LOCAL = 'LOCAL',
@@ -27,7 +28,7 @@ export interface DataServiceConfig {
 
 class DataService {
   private config: DataServiceConfig;
-  private pollInterval: NodeJS.Timeout | null = null;
+  private pollInterval: number | null = null;
   private subscribers: Set<() => void> = new Set();
 
   constructor(config: DataServiceConfig) {
@@ -40,6 +41,16 @@ class DataService {
 
   getMode(): DataServiceMode {
     return this.config.mode;
+  }
+
+  /**
+   * Get server URL - returns undefined if in LOCAL mode
+   */
+  getConfigServerUrl(): string | undefined {
+    if (this.config.mode === DataServiceMode.LOCAL) {
+      return undefined;
+    }
+    return this.config.serverUrl;
   }
 
   // Subscribe to data changes
@@ -191,7 +202,7 @@ class DataService {
   // ==================== API IMPLEMENTATIONS ====================
 
   private async fetchPlayers(): Promise<PlayerData[]> {
-    const response = await fetch(`${this.getServerUrl()}/api/ladder`, {
+    const response = await fetch(`${this.getApiUrl()}/api/ladder`, {
       headers: this.getAuthHeaders(),
     });
     
@@ -209,7 +220,7 @@ class DataService {
 
   private async fetchPlayer(rank: number): Promise<PlayerData | undefined> {
     const response = await fetch(
-      `${this.getServerUrl()}/api/ladder/${rank}`,
+      `${this.getApiUrl()}/api/ladder/${rank}`,
       { headers: this.getAuthHeaders() }
     );
 
@@ -219,7 +230,7 @@ class DataService {
   }
 
   private async updatePlayers(players: PlayerData[]): Promise<void> {
-    const response = await fetch(`${this.getServerUrl()}/api/ladder`, {
+    const response = await fetch(`${this.getApiUrl()}/api/ladder`, {
       method: 'PUT',
       headers: {
         ...this.getAuthHeaders(),
@@ -241,7 +252,7 @@ class DataService {
 
   private async updatePlayerApi(player: PlayerData): Promise<void> {
     const response = await fetch(
-      `${this.getServerUrl()}/api/ladder/${player.rank}`,
+      `${this.getApiUrl()}/api/ladder/${player.rank}`,
       {
         method: 'PUT',
         headers: {
@@ -264,7 +275,7 @@ class DataService {
     round: number,
     result: string
   ): Promise<void> {
-    const response = await fetch(`${this.getServerUrl()}/api/games/submit`, {
+    const response = await fetch(`${this.getApiUrl()}/api/games/submit`, {
       method: 'POST',
       headers: {
         ...this.getAuthHeaders(),
@@ -282,7 +293,7 @@ class DataService {
 
   private async clearCellApi(playerRank: number, roundIndex: number): Promise<void> {
     const response = await fetch(
-      `${this.getServerUrl()}/api/ladder/${playerRank}/round/${roundIndex}`,
+      `${this.getApiUrl()}/api/ladder/${playerRank}/round/${roundIndex}`,
       {
         method: 'DELETE',
         headers: this.getAuthHeaders(),
@@ -304,7 +315,7 @@ class DataService {
 
   // ==================== UTILITY METHODS ====================
 
-  private getServerUrl(): string {
+  private getApiUrl(): string {
     switch (this.config.mode) {
       case DataServiceMode.DEVELOPMENT:
         return this.config.serverUrl || 'http://localhost:3000';
@@ -316,13 +327,40 @@ class DataService {
   }
 
   private getAuthHeaders(): Record<string, string> {
-    // No authentication required for ladder/game endpoints
-    return {};
+    const headers: Record<string, string> = {};
+    
+    // Add API key if user has configured one
+    const userSettings = loadUserSettings();
+    if (userSettings.apiKey && userSettings.apiKey.trim()) {
+      headers['X-API-Key'] = userSettings.apiKey.trim();
+    }
+    
+    return headers;
   }
 }
 
-// Determine the appropriate mode based on environment configuration
+// Determine the appropriate mode based on user settings or environment configuration
 function determineMode(): DataServiceConfig {
+  // Priority 1: User settings (from localStorage) - allows per-user server configuration
+  const userSettings = loadUserSettings();
+  if (userSettings.server && userSettings.server.trim()) {
+    const serverUrl = userSettings.server.trim().replace(/\/$/, '');
+    console.log('[DataService] Using USER SETTINGS server:', serverUrl);
+    
+    // Determine mode based on URL
+    if (serverUrl.includes('localhost') || serverUrl.includes('127.0.0.1')) {
+      return {
+        mode: DataServiceMode.DEVELOPMENT,
+        serverUrl,
+      };
+    }
+    return {
+      mode: DataServiceMode.SERVER,
+      serverUrl,
+    };
+  }
+
+  // Priority 2: Environment variable (build-time configuration)
   const apiUrl = import.meta.env.VITE_API_URL;
   
   if (apiUrl && apiUrl.startsWith('http')) {
@@ -339,7 +377,8 @@ function determineMode(): DataServiceConfig {
     };
   }
   
-  // No server configured - use LOCAL mode
+  // Priority 3: No server configured - use LOCAL mode
+  console.log('[DataService] Using LOCAL mode (no server configured)');
   return {
     mode: DataServiceMode.LOCAL,
   };
