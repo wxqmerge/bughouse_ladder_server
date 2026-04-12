@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { getVersionString } from "../utils/mode";
+import { useState, useEffect } from "react";
+import { getVersionString, isServerDownMode, getProgramMode } from "../utils/mode";
 import {
   Folder,
   Upload,
@@ -70,6 +70,17 @@ export default function MenuBar({
   playerCount,
 }: MenuBarProps) {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [isServerDown, setIsServerDown] = useState(false);
+
+  // Track server down mode
+  useEffect(() => {
+    const checkMode = () => {
+      setIsServerDown(getProgramMode() === 'server_down');
+    };
+    checkMode();
+    const interval = setInterval(checkMode, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   const closeAllMenus = () => {
     setOpenMenu(null);
@@ -182,12 +193,12 @@ export default function MenuBar({
   const operationsMenuItems: MenuItem[] = [
     {
       icon: <RefreshCw size={16} />,
-      label: "Recalculate Ratings",
+      label: "Recalculate_Save",
       onClick: () => {
         onRecalculateRatings();
         closeAllMenus();
       },
-      dataMenuItem: "Recalculate Ratings",
+      dataMenuItem: "Recalculate_Save",
     },
     {
       icon: <AlertTriangle size={16} />,
@@ -477,6 +488,19 @@ export default function MenuBar({
             }}
           >
             {projectName} {getVersionString()}
+            {isServerDown && (
+              <span style={{
+                marginLeft: '0.5rem',
+                padding: '0.25rem 0.5rem',
+                backgroundColor: '#f59e0b',
+                color: '#78350f',
+                borderRadius: '0.25rem',
+                fontSize: '0.75rem',
+                fontWeight: '600',
+              }}>
+                ⚠️ SERVER DOWN
+              </span>
+            )}
           </h1>
         )}
         {playerCount !== undefined && (

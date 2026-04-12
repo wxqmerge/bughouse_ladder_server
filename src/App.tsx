@@ -12,6 +12,7 @@ import {
   stopPeriodicChecks,
   onModeChange,
   getProgramMode,
+  isLocalMode,
 } from "./utils/mode";
 import { checkMigrationNeeded, storeCurrentMode } from "./utils/migrationUtils";
 import {
@@ -52,7 +53,7 @@ function App() {
       }
     });
     
-    // Start periodic checks (every 60 seconds)
+    // Start periodic checks (every 10 seconds)
     startPeriodicChecks();
     
     // Check for migration needs
@@ -157,7 +158,7 @@ function App() {
       {showReconnectDialog && (
         <ReconnectDialog
           wasServerMode={wasServerMode}
-          isNowConnected={getProgramMode() !== 'a'}
+          isNowConnected={!isLocalMode()}
           onDismiss={() => setShowReconnectDialog(false)}
         />
       )}

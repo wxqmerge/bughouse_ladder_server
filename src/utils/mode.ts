@@ -120,7 +120,7 @@ export async function updateConnectionState(): Promise<void> {
 }
 
 /**
- * Start periodic server reachability checks (every 60 seconds)
+ * Start periodic server reachability checks (every 10 seconds)
  * Automatically switches to local mode if server becomes unreachable
  */
 export function startPeriodicChecks(): void {
@@ -130,10 +130,10 @@ export function startPeriodicChecks(): void {
     retryIntervalId = null;
   }
   
-  // Check every 60 seconds
+  // Check every 10 seconds
   retryIntervalId = window.setInterval(async () => {
     await updateConnectionState();
-  }, 60000); // 60 seconds
+  }, 10000); // 10 seconds
 }
 
 /**
@@ -147,25 +147,34 @@ export function stopPeriodicChecks(): void {
 }
 
 /**
- * Detects the current program mode based on ACTUAL behavior
- * @returns 'a' = local mode, 'd' = dev mode, 's' = client/server mode
+ * Program mode enum for type safety
+ * 'local' = no server configured, standalone operation
+ * 'server_down' = server configured but unreachable
+ * 'dev' = development server (localhost)
+ * 'server' = production server
  */
-export function getProgramMode(): string {
-  // If configured for server but it's unreachable, we're effectively in local mode
+export type ProgramMode = 'local' | 'server_down' | 'dev' | 'server';
+
+/**
+ * Detects the current program mode based on ACTUAL behavior
+ * @returns mode string
+ */
+export function getProgramMode(): ProgramMode {
+  // If configured for server but it's unreachable, we're in server down mode
   if (connectionState.configuredForServer) {
     if (connectionState.serverReachable === false) {
-      return 'a'; // Server unreachable = local mode with fallback
+      return 'server_down'; // Server unreachable = limited functionality
     }
     // Server is reachable or not yet tested - report server mode
     const apiUrl = connectionState.serverUrl || '';
     if (apiUrl.includes('localhost') || apiUrl.includes('127.0.0.1')) {
-      return 'd'; // Development (local server)
+      return 'dev'; // Development (local server)
     }
-    return 's'; // Production server
+    return 'server'; // Production server
   }
   
   // No server configured = local mode (standalone with localStorage)
-  return 'a'; // Local mode
+  return 'local'; // Local mode
 }
 
 // Initialize on module load
@@ -178,6 +187,28 @@ initializeConnectionState();
 export function getVersionString(): string {
   const version = import.meta.env.PACKAGE_VERSION || '1.0.0';
   const mode = getProgramMode();
-  const modeName = mode === 'a' ? 'local' : 'server';
+  const modeName = mode === 'local' ? 'local' : mode === 'server_down' ? 'server-down' : 'server';
   return `v${version}-${modeName}`;
+}
+
+/**
+ * Check if currently in local mode (no server configured)
+ */
+export function isLocalMode(): boolean {
+  return getProgramMode() === 'local';
+}
+
+/**
+ * Check if currently in server down mode (server configured but unreachable)
+ */
+export function isServerDownMode(): boolean {
+  return getProgramMode() === 'server_down';
+}
+
+/**
+ * Check if currently in any server mode (dev or server)
+ */
+export function isServerMode(): boolean {
+  const mode = getProgramMode();
+  return mode === 'dev' || mode === 'server';
 }
