@@ -35,7 +35,6 @@ interface MenuBarProps {
   onOpenSettings: () => void;
   onAddPlayer?: () => void;
   onBulkPaste?: () => void;
-  onSave?: () => void;
   isAdmin: boolean;
   isWide: boolean;
   zoomLevel: "50%" | "70%" | "100%" | "140%" | "200%";
@@ -181,15 +180,6 @@ export default function MenuBar({
   ];
 
   const operationsMenuItems: MenuItem[] = [
-    {
-      icon: <Save size={16} />,
-      label: "Save",
-      onClick: () => {
-        onSave?.();
-        closeAllMenus();
-      },
-      dataMenuItem: "Save",
-    },
     {
       icon: <RefreshCw size={16} />,
       label: "Recalculate Ratings",

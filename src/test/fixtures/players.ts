@@ -3,7 +3,7 @@
  * These provide consistent input data for unit tests
  */
 
-import { PlayerData } from '../../shared/types';
+import { PlayerData } from '../../../shared/types/index.ts';
 
 /**
  * Sample player data from kings_cross.tab

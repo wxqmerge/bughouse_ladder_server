@@ -37,7 +37,7 @@ export function SettingsProvider({ children }: { children: ReactNode }): JSX.Ele
     } else {
       localStorage.removeItem('ladder_auth_token');
     }
-    dataService.updateConfig({ authToken: authToken || undefined });
+    // No longer used - auth removed
   }, [authToken]);
 
   const handleSetMode = (newMode: DataServiceMode): void => {
