@@ -62,25 +62,28 @@ export interface LadderData {
   rawLines: string[];
 }
 
-// File lock mechanism
-let fileLock: { locked: boolean; release: () => void } | null = null;
+// File lock mechanism - simple mutex for sequential file access
+let fileLock: { locked: boolean; waiters: (() => void)[] } | null = null;
 
 async function acquireLock(): Promise<void> {
   if (!fileLock || !fileLock.locked) {
-    return new Promise((resolve) => {
-      fileLock = {
-        locked: true,
-        release: resolve,
-      };
-    });
+    fileLock = { locked: true, waiters: [] };
+    return; // Lock acquired immediately
   }
+  return new Promise((resolve) => {
+    fileLock!.waiters.push(resolve);
+  });
 }
 
 function releaseLock(): void {
   if (fileLock && fileLock.locked) {
-    fileLock.locked = false;
-    fileLock.release();
-    fileLock = null;
+    const nextWaiter = fileLock.waiters.shift();
+    if (nextWaiter) {
+      nextWaiter(); // Wake up next waiter
+    } else {
+      fileLock.locked = false;
+      fileLock = null;
+    }
   }
 }
 
@@ -178,25 +181,34 @@ export async function readLadderFile(): Promise<LadderData> {
 }
 
 export function generateTabContent(ladderData: LadderData): string {
-  // Output format matches LadderForm headers:
-  // Rnk|Group|Last Name|First Name|Previous Rating|New Rating|Gr|Gms|Attendance|Phone|Info
+  // Output format matches kings_cross headers:
+  // Group|Last Name|First Name|Rating|Rnk|N Rate|Gr|[blank]|X|Phone|Info|School|Room|[games]|Version
   
-  const headerLine = 'Rnk\tGroup\tLast Name\tFirst Name\tPrevious Rating\tNew Rating\tGr\tGms\tAttendance\tPhone\tInfo';
+  const headerLine = 'Group\tLast Name\tFirst Name\tRating\tRnk\tN Rate\tGr\t\tX\tPhone\tInfo\tSchool\tRoom\t1\t2\t3\t4\t5\t6\t7\t8\t9\t10\t11\t12\t13\t14\t15\t16\t17\t18\t19\t20\t21\t22\t23\t24\t25\t26\t27\t28\t29\t30\t31\tVersion 1.21';
   
   const playerLines = ladderData.players.map(player => {
+    // Base fields in kings_cross order
     const baseFields = [
-      player.rank.toString(), // Rnk
       player.group, // Group
       player.lastName, // Last Name
       player.firstName, // First Name
-      player.rating.toString(), // Previous Rating
-      player.nRating.toString(), // New Rating
+      player.rating.toString(), // Rating
+      player.rank.toString(), // Rnk (PRESERVED from input - NOT recalculated)
+      player.nRating.toString(), // N Rate
       player.grade, // Gr
-      player.num_games.toString(), // Gms
-      player.attendance.toString(), // Attendance
+      '', // blank column
+      'X', // X column
       player.phone, // Phone
       player.info, // Info
+      player.school, // School
+      player.room, // Room
     ];
+    
+    // Add game result columns (1-31)
+    const gameResults = player.gameResults || [];
+    for (let i = 0; i < 31; i++) {
+      baseFields.push(gameResults[i] || '');
+    }
     
     return baseFields.join('\t');
   });
@@ -235,8 +247,17 @@ export async function initializeDefaultLadder(): Promise<void> {
   } catch {
     await ensureDataDirectory();
     
-    // Create empty file (no header, format matches input: rank|group|lastName|firstName|...)
-    await fs.writeFile(TAB_FILE_PATH, '', 'utf-8');
-    log('[SERVER]', `Created default ladder file at ${TAB_FILE_PATH}`);
+    // Try to copy from kings_cross.tab if it exists
+    const kingsCrossPath = path.join(path.dirname(__dirname), '..', 'kings_cross.tab');
+    try {
+      await fs.access(kingsCrossPath);
+      const content = await fs.readFile(kingsCrossPath, 'utf-8');
+      await fs.writeFile(TAB_FILE_PATH, content, 'utf-8');
+      log('[SERVER]', `Copied kings_cross.tab to ${TAB_FILE_PATH}`);
+    } catch {
+      // Create empty file
+      await fs.writeFile(TAB_FILE_PATH, '', 'utf-8');
+      log('[SERVER]', `Created default ladder file at ${TAB_FILE_PATH}`);
+    }
   }
 }

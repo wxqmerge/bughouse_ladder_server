@@ -208,12 +208,6 @@ router.put('/', async (req: Request, res: Response): Promise<void> => {
 
     const ladderData: LadderData = await withTiming(`readLadderFile(bulk)`, readLadderFile);
     ladderData.players = players;
-    
-    // Re-index ranks
-    ladderData.players = ladderData.players.map((player: PlayerData, index: number) => ({
-      ...player,
-      rank: index + 1,
-    }));
 
     log('[SERVER]', 'Saving ' + players.length + ' players to file');
     await withTiming(`writeLadderFile(bulk-${players.length})`, () => writeLadderFile(ladderData));
