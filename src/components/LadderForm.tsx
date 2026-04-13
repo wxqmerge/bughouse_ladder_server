@@ -17,7 +17,7 @@ import AddPlayerDialog from "./AddPlayerDialog";
 import { BulkPasteDialog } from "./BulkPasteDialog";
 import MenuBar from "./MenuBar";
 import MobileMenu from "./MobileMenu";
-import { Menu as MenuIcon } from "lucide-react";
+import { Menu as MenuIcon, Server } from "lucide-react";
 import { shouldLog } from "../utils/debug";
 import { getVersionString, isLocalMode, isServerDownMode, getProgramMode } from "../utils/mode";
 import { log } from "../utils/log";
@@ -225,6 +225,9 @@ export default function LadderForm({
   // Enter Games mode state
   const [enterGamesError, setEnterGamesError] = useState<ValidationResult | null>(null);
   const [isEnterGamesMode, setIsEnterGamesMode] = useState(false);
+  // Splash screen server configuration state
+  const [splashServerUrl, setSplashServerUrl] = useState('');
+  const [splashApiKey, setSplashApiKey] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const latestPendingPlayersRef = useRef<PlayerData[] | null>(null);
 
@@ -245,6 +248,20 @@ export default function LadderForm({
       }
     }
   }, [triggerWalkthrough, setTriggerWalkthrough]);
+
+  // Initialize splash screen server config from user settings
+  useEffect(() => {
+    try {
+      const userSettingsJson = localStorage.getItem('bughouse-ladder-user-settings');
+      if (userSettingsJson) {
+        const userSettings = JSON.parse(userSettingsJson);
+        setSplashServerUrl(userSettings.server || '');
+        setSplashApiKey(userSettings.apiKey || '');
+      }
+    } catch (error) {
+      console.error('Failed to load user settings for splash:', error);
+    }
+  }, []);
 
   // Track mode changes for UI updates
   useEffect(() => {
@@ -1948,6 +1965,19 @@ export default function LadderForm({
     setIsAdmin(!isAdmin);
   };
 
+  const handleSplashConnect = () => {
+    // Save server settings
+    const userSettings = {
+      server: splashServerUrl.trim(),
+      apiKey: splashApiKey.trim(),
+    };
+    localStorage.setItem('bughouse-ladder-user-settings', JSON.stringify(userSettings));
+    
+    // Reload to apply settings and attempt connection
+    console.log('[Splash] Connecting to server:', userSettings.server || '(local mode)');
+    window.location.reload();
+  };
+
   const exportPlayers = () => {
     if (shouldLog(10)) {
       console.log(`>>> [BUTTON PRESSED] Export - ${players.length} players`);
@@ -1998,7 +2028,110 @@ export default function LadderForm({
       <div style={{ padding: "2rem", textAlign: "center", color: "#64748b" }}>
         <h1>{projectName}</h1>
         <p style={{ marginTop: "1rem", fontSize: "1.125rem" }}>No players loaded.</p>
-        <div style={{ marginTop: "2rem" }}>
+        
+        {/* Server Connection Section */}
+        <div
+          style={{
+            marginTop: "2rem",
+            marginBottom: "2rem",
+            padding: "1.5rem",
+            backgroundColor: "#f8fafc",
+            borderRadius: "0.5rem",
+            border: "1px solid #e2e8f0",
+            maxWidth: "500px",
+            marginLeft: "auto",
+            marginRight: "auto",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "0.5rem",
+              marginBottom: "1rem",
+              color: "#374151",
+              fontSize: "0.875rem",
+              fontWeight: "600",
+            }}
+          >
+            <Server size={18} />
+            <span>Connect to Server</span>
+          </div>
+          
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginBottom: "1rem" }}>
+            <input
+              type="text"
+              placeholder="Server URL (e.g., omen.com:3000)"
+              value={splashServerUrl}
+              onChange={(e) => setSplashServerUrl(e.target.value)}
+              style={{
+                padding: "0.5rem",
+                border: "1px solid #d1d5db",
+                borderRadius: "0.25rem",
+                fontSize: "0.875rem",
+              }}
+            />
+            <input
+              type="password"
+              placeholder="API Key (optional)"
+              value={splashApiKey}
+              onChange={(e) => setSplashApiKey(e.target.value)}
+              style={{
+                padding: "0.5rem",
+                border: "1px solid #d1d5db",
+                borderRadius: "0.25rem",
+                fontSize: "0.875rem",
+              }}
+            />
+          </div>
+          
+          <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center" }}>
+            <button
+              onClick={handleSplashConnect}
+              style={{
+                padding: "0.625rem 1.25rem",
+                backgroundColor: "#3b82f6",
+                color: "white",
+                border: "none",
+                borderRadius: "0.25rem",
+                fontSize: "0.875rem",
+                cursor: "pointer",
+                fontWeight: "500",
+              }}
+            >
+              Connect
+            </button>
+            <button
+              onClick={() => setShowSettings?.(true)}
+              style={{
+                padding: "0.625rem 1.25rem",
+                backgroundColor: "white",
+                color: "#374151",
+                border: "1px solid #d1d5db",
+                borderRadius: "0.25rem",
+                fontSize: "0.875rem",
+                cursor: "pointer",
+                fontWeight: "500",
+              }}
+            >
+              Settings
+            </button>
+          </div>
+          
+          <p
+            style={{
+              marginTop: "0.75rem",
+              fontSize: "0.75rem",
+              color: "#64748b",
+            }}
+          >
+            Leave Server URL empty for local mode (no server)
+          </p>
+        </div>
+        
+        {/* Local Options */}
+        <div>
           <button
             onClick={() => fileInputRef.current?.click()}
             style={{
