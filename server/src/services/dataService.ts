@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { withTiming as performanceWithTiming } from '../utils/performance.js';
 
 // Timestamp utility
 function getTimestamp(): string {
@@ -18,6 +19,13 @@ function getTimestamp(): string {
 function log(category: string, message: string, ...args: any[]): void {
   console.log(`[${getTimestamp()}] ${category}`, message, ...args);
 }
+
+import { withTiming as _withTiming } from '../utils/performance.js';
+// Re-export for use in other modules
+export { withTiming } from '../utils/performance.js';
+
+// Use local alias for internal use
+const withTiming = _withTiming;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -77,19 +85,20 @@ function releaseLock(): void {
 }
 
 export async function readLadderFile(): Promise<LadderData> {
-  await acquireLock();
-  
-  try {
-    const content = await fs.readFile(TAB_FILE_PATH, 'utf-8');
-    const lines = content.split('\n').filter(line => line.trim());
+  return withTiming('readLadderFile', async () => {
+    await acquireLock();
+    
+    try {
+      const content = await fs.readFile(TAB_FILE_PATH, 'utf-8');
+      const lines = content.split('\n').filter(line => line.trim());
     
     if (lines.length === 0) {
       return { header: [], players: [], rawLines: [] };
     }
 
-    // Check if first line is header (starts with 'Group') or data
+    // Check if first line is header (starts with 'Rnk' or 'Group') or data
     const firstLine = lines[0];
-    const isFirstLineHeader = firstLine.startsWith('Group\tLast Name');
+    const isFirstLineHeader = firstLine.startsWith('Rnk\tGroup') || firstLine.startsWith('Group\tLast Name');
     
     let header: string[] = [];
     let dataLines: string[];
@@ -101,112 +110,112 @@ export async function readLadderFile(): Promise<LadderData> {
       dataLines = lines;
     }
     
-    // Parse player data (kings_cross.tab format):
-    // Group|Last Name|First Name|Rating|Rnk|N Rate|Gr|[blank]|X|Phone|Info|School|Room|[31 games]|Version
+    // Parse player data - supports both formats:
+    // New format (LadderForm): Rnk|Group|Last Name|First Name|Prev Rating|New Rating|Gr|Gms|Attendance|Phone|Info
+    // Old format (kings_cross): Group|Last Name|First Name|Rating|Rnk|N Rate|Gr|[blank]|X|Phone|Info|School|Room|[games]|Version
     const players: PlayerData[] = [];
     
     for (let i = 0; i < dataLines.length; i++) {
       const line = dataLines[i];
       const fields = line.split('\t');
       
-      // Skip empty rows or footer rows (rows with just numbers at the end)
+      // Skip empty rows or footer rows
       if (fields.length < 4 || (!fields[1] && !fields[2])) {
         continue;
       }
       
-      const group = fields[0] || '';
-      const lastName = fields[1] || '';
-      const firstName = fields[2] || '';
-      const rating = parseInt(fields[3]) || 0;
-      const rankFromInput = parseInt(fields[4]) || 0; // Rnk (rank from input)
-      // Field 5 is N Rate - seems empty in source
-      const grade = fields[6] || '';
-      // Field 7 is blank - skip
-      // Field 8 is X (games indicator) - convert to number if 'X' present
-      const xField = fields[8] || '';
-      const numGames = xField === 'X' ? 1 : 0;
-      const phone = fields[9] || '';
-      const info = fields[10] || '';
-      const school = fields[11] || '';
-      const room = fields[12] || '';
+      // Detect format by checking first field
+      const isNewFormat = !isNaN(parseInt(fields[0])); // First field is a number (rank)
       
-      // Game results start at field 13 (columns 1-31)
-      const gameResultsFields = fields.slice(13, 44);
-      const gameResults = gameResultsFields.map(field => 
-        field === '' || field === '_' ? null : field
-      );
+      let player: PlayerData;
       
-      players.push({
-        rank: rankFromInput, // Preserve rank from input
-        group,
-        lastName,
-        firstName,
-        rating,
-        nRating: 0, // Not stored in this format
-        grade,
-        num_games: numGames,
-        attendance: '',
-        phone,
-        info,
-        school,
-        room,
-        gameResults,
-      });
+      if (isNewFormat) {
+        // New LadderForm format
+        player = {
+          rank: parseInt(fields[0]) || 0,
+          group: fields[1] || '',
+          lastName: fields[2] || '',
+          firstName: fields[3] || '',
+          rating: parseInt(fields[4]) || 0, // Previous Rating
+          nRating: parseInt(fields[5]) || 0, // New Rating
+          grade: fields[6] || '', // Gr
+          num_games: parseInt(fields[7]) || 0, // Gms
+          attendance: fields[8] || '', // Attendance
+          phone: fields[9] || '', // Phone
+          info: fields[10] || '', // Info
+          school: '',
+          room: '',
+          gameResults: [],
+        };
+      } else {
+        // Old kings_cross format
+        player = {
+          rank: parseInt(fields[4]) || 0,
+          group: fields[0] || '',
+          lastName: fields[1] || '',
+          firstName: fields[2] || '',
+          rating: parseInt(fields[3]) || 0,
+          nRating: 0,
+          grade: fields[6] || '',
+          num_games: (fields[8] === 'X') ? 1 : 0,
+          attendance: '',
+          phone: fields[9] || '',
+          info: fields[10] || '',
+          school: fields[11] || '',
+          room: fields[12] || '',
+          gameResults: [],
+        };
+      }
+      
+      players.push(player);
     }
 
     return { header, players, rawLines: dataLines };
   } finally {
     releaseLock();
   }
+  });
 }
 
 export function generateTabContent(ladderData: LadderData): string {
-  // Output format matches kings_cross.tab:
-  // Group|Last Name|First Name|Rating|Rnk|N Rate|Gr|[blank]|X|Phone|Info|School|Room|1-31 (games)|Version
+  // Output format matches LadderForm headers:
+  // Rnk|Group|Last Name|First Name|Previous Rating|New Rating|Gr|Gms|Attendance|Phone|Info
   
-  const headerLine = 'Group\tLast Name\tFirst Name\tRating\tRnk\tN Rate\tGr\t\tX\tPhone\tInfo\tSchool\tRoom\t' +
-    Array.from({ length: 31 }, (_, i) => (i + 1).toString()).join('\t') + '\t1.0.0-server';
+  const headerLine = 'Rnk\tGroup\tLast Name\tFirst Name\tPrevious Rating\tNew Rating\tGr\tGms\tAttendance\tPhone\tInfo';
   
   const playerLines = ladderData.players.map(player => {
     const baseFields = [
-      player.group,
-      player.lastName,
-      player.firstName,
-      player.rating.toString(),
-      player.rank.toString(), // Rnk (from input)
-      '', // N Rate (empty in source)
-      player.grade,
-      '', // blank
-      player.num_games > 0 ? 'X' : '', // X column
-      player.phone,
-      player.info,
-      player.school,
-      player.room,
+      player.rank.toString(), // Rnk
+      player.group, // Group
+      player.lastName, // Last Name
+      player.firstName, // First Name
+      player.rating.toString(), // Previous Rating
+      player.nRating.toString(), // New Rating
+      player.grade, // Gr
+      player.num_games.toString(), // Gms
+      player.attendance.toString(), // Attendance
+      player.phone, // Phone
+      player.info, // Info
     ];
     
-    // Add game results (ensure exactly 31 fields)
-    const gameResults = player.gameResults.slice(0, 31);
-    while (gameResults.length < 31) {
-      gameResults.push('');
-    }
-    
-    const allFields = [...baseFields, ...gameResults, '']; // Empty version field
-    return allFields.join('\t');
+    return baseFields.join('\t');
   });
 
   return [headerLine, ...playerLines].join('\n') + '\n';
 }
 
 export async function writeLadderFile(ladderData: LadderData): Promise<void> {
-  await acquireLock();
-  
-  try {
-    log('[SERVER]', `Writing ${ladderData.players.length} players to ${TAB_FILE_PATH}`);
-    const content = generateTabContent(ladderData);
-    await fs.writeFile(TAB_FILE_PATH, content, 'utf-8');
-  } finally {
-    releaseLock();
-  }
+  return withTiming('writeLadderFile', async () => {
+    await acquireLock();
+    
+    try {
+      log('[SERVER]', `Writing ${ladderData.players.length} players to ${TAB_FILE_PATH}`);
+      const content = generateTabContent(ladderData);
+      await fs.writeFile(TAB_FILE_PATH, content, 'utf-8');
+    } finally {
+      releaseLock();
+    }
+  });
 }
 
 // Ensure data directory exists

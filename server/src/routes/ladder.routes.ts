@@ -5,6 +5,7 @@ import {
   writeLadderFile,
   PlayerData,
   LadderData,
+  withTiming,
 } from '../services/dataService.js';
 
 // Timestamp utility
@@ -205,7 +206,7 @@ router.put('/', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const ladderData: LadderData = await readLadderFile();
+    const ladderData: LadderData = await withTiming(`readLadderFile(bulk)`, readLadderFile);
     ladderData.players = players;
     
     // Re-index ranks
@@ -215,7 +216,7 @@ router.put('/', async (req: Request, res: Response): Promise<void> => {
     }));
 
     log('[SERVER]', 'Saving ' + players.length + ' players to file');
-    await writeLadderFile(ladderData);
+    await withTiming(`writeLadderFile(bulk-${players.length})`, () => writeLadderFile(ladderData));
 
     log('[SERVER]', '✓ Successfully saved ' + players.length + ' players');
     res.json({
