@@ -3,7 +3,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
 import { requireAdminKey } from '../middleware/auth.middleware.js';
-import { readLadderFile, writeLadderFile, ensureDataDirectory, PlayerData } from '../services/dataService.js';
+import { readLadderFile, writeLadderFile, ensureDataDirectory, PlayerData, generateTabContent } from '../services/dataService.js';
 
 const router = Router();
 
@@ -76,36 +76,7 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
 router.get('/export', async (req: Request, res: Response): Promise<void> => {
   try {
     const ladderData = await readLadderFile();
-    
-    // Reconstruct .tab content
-    const headerLine = ladderData.header.join('\t');
-    
-    const playerLines = ladderData.players.map((player: PlayerData) => {
-      const baseFields = [
-        player.group,
-        player.lastName,
-        player.firstName,
-        player.rating.toString(),
-        '', // ranking
-        player.nRating.toString(),
-        player.grade,
-        player.num_games.toString(),
-        player.attendance.toString(),
-        player.phone,
-        player.info,
-        player.school,
-        player.room,
-      ];
-      
-      const gameResults = (player.gameResults || []).slice(0, 31);
-      while (gameResults.length < 31) {
-        gameResults.push('');
-      }
-      
-      return [...baseFields, ...gameResults].join('\t');
-    });
-
-    const content = [headerLine, ...playerLines].join('\n') + '\n';
+    const content = generateTabContent(ladderData);
 
     res.setHeader('Content-Type', 'text/tab-separated-values');
     res.setHeader('Content-Disposition', `attachment; filename="ladder_${new Date().toISOString().split('T')[0]}.tab"`);
@@ -141,6 +112,32 @@ router.post('/process', async (req: Request, res: Response): Promise<void> => {
     res.status(500).json({
       success: false,
       error: { message: 'Failed to process game results' },
+    });
+  }
+});
+
+// Regenerate ladder.tab file from current data
+router.post('/regenerate', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const ladderData = await readLadderFile();
+    const content = generateTabContent(ladderData);
+    
+    const ladderPath = process.env.TAB_FILE_PATH || path.join(__dirname, '../../../data/ladder.tab');
+    await fs.writeFile(ladderPath, content, 'utf-8');
+
+    res.json({
+      success: true,
+      data: {
+        message: 'Ladder file regenerated successfully',
+        players: ladderData.players.length,
+        path: ladderPath,
+      },
+    });
+  } catch (error) {
+    console.error('Regenerate error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to regenerate ladder file' },
     });
   }
 });

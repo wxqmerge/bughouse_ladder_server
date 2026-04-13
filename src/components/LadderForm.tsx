@@ -2694,6 +2694,7 @@ export default function LadderForm({
         !isWalkthrough &&
         walkthroughErrors.length === 0 && (
           <ErrorDialog
+            key={`${entryCell.playerRank}-${entryCell.round}`}
             error={null}
             players={players}
             mode={isEnterGamesMode ? "enter-games" : "game-entry"}
