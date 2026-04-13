@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { readLadderFile, writeLadderFile, PlayerData } from '../services/dataService.js';
+import { readLadderFile, writeLadderFile, PlayerData, withTiming } from '../services/dataService.js';
 
 const router = Router();
 
@@ -94,7 +94,7 @@ router.post('/batch', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const ladderData = await readLadderFile();
+    const ladderData = await withTiming(`readLadderFile(batch)`, readLadderFile);
     const results: any[] = [];
 
     for (const game of games) {
@@ -118,7 +118,7 @@ router.post('/batch', async (req: Request, res: Response): Promise<void> => {
       results.push({ playerRank: game.playerRank, round: game.round, success: true });
     }
 
-    await writeLadderFile(ladderData);
+    await withTiming(`writeLadderFile(batch-${games.length})`, () => writeLadderFile(ladderData));
 
     res.json({
       success: true,
