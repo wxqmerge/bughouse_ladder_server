@@ -4,13 +4,13 @@
 
 ### Storage Model
 
-**LOCAL Mode (no VITE_API_URL set):**
+**LOCAL Mode (no server configured in UI):**
 - All data stored in browser localStorage only
 - No server communication
 - Data persists only in current browser
 - **Cannot write to local ladder.tab** (browser security limitation)
 
-**DEVELOPMENT/SERVER Mode (VITE_API_URL set):**
+**SERVER Mode (server configured via UI settings):**
 - Frontend stores data in localStorage (immediate, fast)
 - Background sync sends PUT requests to server
 - Server writes to `server/data/ladder.tab` (source of truth)

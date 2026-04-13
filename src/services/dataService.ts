@@ -360,24 +360,7 @@ function determineMode(): DataServiceConfig {
     };
   }
 
-  // Priority 2: Environment variable (build-time configuration)
-  const apiUrl = import.meta.env.VITE_API_URL;
-  
-  if (apiUrl && apiUrl.startsWith('http')) {
-    // Server is configured - use DEVELOPMENT mode for localhost, SERVER for production
-    if (apiUrl.includes('localhost') || apiUrl.includes('127.0.0.1')) {
-      return {
-        mode: DataServiceMode.DEVELOPMENT,
-        serverUrl: apiUrl,
-      };
-    }
-    return {
-      mode: DataServiceMode.SERVER,
-      serverUrl: apiUrl,
-    };
-  }
-  
-  // Priority 3: No server configured - use LOCAL mode
+  // No server configured - use LOCAL mode
   console.log('[DataService] Using LOCAL mode (no server configured)');
   return {
     mode: DataServiceMode.LOCAL,
