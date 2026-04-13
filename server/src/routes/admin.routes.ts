@@ -53,7 +53,7 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
     }
 
     // Write to ladder file
-    const ladderPath = process.env.TAB_FILE_PATH || path.join(__dirname, '../../../data/ladder.tab');
+    const ladderPath = process.env.TAB_FILE_PATH || path.join(__dirname, '../../data/ladder.tab');
     await fs.writeFile(ladderPath, content, 'utf-8');
     
     // Clean up uploaded file
@@ -122,7 +122,7 @@ router.post('/regenerate', async (req: Request, res: Response): Promise<void> =>
     const ladderData = await readLadderFile();
     const content = generateTabContent(ladderData);
     
-    const ladderPath = process.env.TAB_FILE_PATH || path.join(__dirname, '../../../data/ladder.tab');
+    const ladderPath = process.env.TAB_FILE_PATH || path.join(__dirname, '../../data/ladder.tab');
     await fs.writeFile(ladderPath, content, 'utf-8');
 
     res.json({

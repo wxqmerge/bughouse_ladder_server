@@ -24,7 +24,7 @@ const __dirname = path.dirname(__filename);
 
 // Define TAB_FILE_PATH before any function that uses it
 const TAB_FILE_PATH = process.env.TAB_FILE_PATH 
-  || path.join(__dirname, '../../../data/ladder.tab');
+  || path.join(__dirname, '../../data/ladder.tab');
 
 // Initialize on module load
 initializeDefaultLadder().catch(err => 
