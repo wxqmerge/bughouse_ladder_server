@@ -19,7 +19,7 @@ import MenuBar from "./MenuBar";
 import MobileMenu from "./MobileMenu";
 import { Menu as MenuIcon, Server } from "lucide-react";
 import { shouldLog } from "../utils/debug";
-import { getVersionString, isLocalMode, isServerDownMode, getProgramMode } from "../utils/mode";
+import { getVersionString, isLocalMode, isServerDownMode, getProgramMode, testServerConnection } from "../utils/mode";
 import { log } from "../utils/log";
 import { getKeyPrefix, startBatch, endBatch, saveToServer, clearAllSaveStatus, isCellSaved, markLocalChanges, getHasLocalChanges, clearLocalChangesFlag } from "../services/storageService";
 import {
@@ -230,6 +230,7 @@ export default function LadderForm({
   const [splashApiKey, setSplashApiKey] = useState('');
   const [hadExistingUserSettings, setHadExistingUserSettings] = useState(false);
   const [hasLocalPlayerData, setHasLocalPlayerData] = useState(false);
+  const [splashWaitingForAction, setSplashWaitingForAction] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const latestPendingPlayersRef = useRef<PlayerData[] | null>(null);
 
@@ -273,6 +274,31 @@ export default function LadderForm({
       console.error('Failed to load localStorage for splash:', error);
     }
   }, []);
+
+  // Check if we should wait for user action on splash (server configured but unreachable, no local data)
+  useEffect(() => {
+    const checkShouldWait = async () => {
+      const userSettingsJson = localStorage.getItem('bughouse-ladder-user-settings');
+      if (!userSettingsJson) return;
+      
+      const userSettings = JSON.parse(userSettingsJson);
+      const serverUrl = userSettings.server?.trim() || '';
+      
+      // Only wait if server is configured
+      if (!serverUrl) return;
+      
+      // Check if server is reachable
+      const isReachable = await testServerConnection();
+      
+      // Wait if server is unreachable AND no local player data
+      if (!isReachable && !hasLocalPlayerData) {
+        console.log('[Splash] Server unreachable and no local data - waiting for user action');
+        setSplashWaitingForAction(true);
+      }
+    };
+    
+    checkShouldWait();
+  }, [hadExistingUserSettings, hasLocalPlayerData]);
 
   // Auto-save splash screen changes to localStorage
   useEffect(() => {
@@ -2037,7 +2063,9 @@ export default function LadderForm({
     return (
       <div style={{ padding: "2rem", textAlign: "center", color: "#64748b" }}>
         <h1>{projectName}</h1>
-        <p style={{ marginTop: "1rem", fontSize: "1.125rem" }}>No players loaded.</p>
+        <p style={{ marginTop: "1rem", fontSize: "1.125rem" }}>
+          {splashWaitingForAction ? 'Startup paused - please take action below' : 'No players loaded.'}
+        </p>
         
         {/* Server Connection Section */}
         <div
@@ -2109,6 +2137,11 @@ export default function LadderForm({
               <p style={{ fontSize: "0.875rem", color: "#92400e", margin: 0 }}>
                 <strong>Server configured but unreachable:</strong> {splashServerUrl}
               </p>
+              {splashWaitingForAction && (
+                <p style={{ fontSize: "0.875rem", color: "#78350f", marginTop: "0.5rem", margin: 0, fontStyle: 'italic' }}>
+                  Startup is paused. Click "Proceed (Server Down)" to continue in local mode.
+                </p>
+              )}
             </div>
           )}
           
@@ -2174,8 +2207,10 @@ export default function LadderForm({
               <button
                 onClick={() => {
                   console.log('[Splash] Proceeding in server down mode');
-                  // Clear players from any cached state and let component load normally
-                  window.location.reload();
+                  setSplashWaitingForAction(false);
+                  // Initialize with empty players to exit splash screen
+                  setPlayers([]);
+                  setSortBy(null);
                 }}
                 style={{
                   padding: "0.625rem 1.25rem",
