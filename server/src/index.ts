@@ -22,6 +22,7 @@ import { router as gameRouter } from './routes/game.routes.js';
 import { router as adminRouter } from './routes/admin.routes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { initializeDefaultLadder } from './services/dataService.js';
+import { generatePerformanceReport, clearSlowOperations } from './utils/performance.js';
 
 const app: Application = express();
 const PORT = process.env.PORT || 3000;
@@ -29,9 +30,33 @@ const PORT = process.env.PORT || 3000;
 // Trust proxy for proper IP handling behind reverse proxy
 app.set('trust proxy', 1);
 
-// Log all API requests
+// Log all API requests with timing for slow requests (>500ms)
 app.use('/api/*', (req, res, next) => {
-  console.log(`[API] ${req.method} ${req.path}`);
+  const startTime = Date.now();
+  const requestInfo = `${req.method} ${req.path}`;
+  console.log(`[API] ${requestInfo}`);
+  
+  // Hook into response finish to log duration
+  const originalEnd = res.end;
+  res.end = function(chunk?: any, encoding?: any, callback?: any) {
+    const duration = Date.now() - startTime;
+    if (duration > 500) {
+      console.log(`\n[SLOW REQUEST] ${requestInfo} took ${duration}ms`);
+      console.log(`[SLOW REQUEST] Query params:`, req.query);
+      console.log(`[SLOW REQUEST] Headers:`, { 
+        'content-type': req.headers['content-type'],
+        'user-agent': req.headers['user-agent']?.substring(0, 100)
+      });
+      // Capture call stack to identify slow endpoint
+      const stack = new Error().stack;
+      if (stack) {
+        console.log(`[SLOW REQUEST] Stack trace:`);
+        console.log(stack.split('\n').slice(0, 10).join('\n'));
+      }
+    }
+    return originalEnd.call(res, chunk, encoding, callback);
+  };
+  
   next();
 });
 

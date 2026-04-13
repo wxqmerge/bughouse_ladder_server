@@ -3,7 +3,8 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
 import { requireAdminKey } from '../middleware/auth.middleware.js';
-import { readLadderFile, writeLadderFile, ensureDataDirectory, PlayerData, generateTabContent } from '../services/dataService.js';
+import { readLadderFile, writeLadderFile, ensureDataDirectory, PlayerData, generateTabContent, withTiming } from '../services/dataService.js';
+import { getSlowOperations, clearSlowOperations, generatePerformanceReport } from '../utils/performance.js';
 
 const router = Router();
 
@@ -36,15 +37,15 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
       return;
     }
 
-    await ensureDataDirectory();
+    await withTiming('ensureDataDirectory', ensureDataDirectory);
     
     // Read uploaded file
-    const content = await fs.readFile(req.file.path, 'utf-8');
+    const content = await withTiming(`readFile(${req.file!.filename})`, () => fs.readFile(req.file!.path, 'utf-8'));
     
     // Parse and validate
     const lines = content.split('\n').filter(line => line.trim());
     if (lines.length === 0) {
-      await fs.unlink(req.file.path);
+      await withTiming('unlink(empty)', () => fs.unlink(req.file!.path));
       res.status(400).json({
         success: false,
         error: { message: 'Empty file' },
@@ -54,10 +55,10 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
 
     // Write to ladder file
     const ladderPath = process.env.TAB_FILE_PATH || path.join(__dirname, '../../data/ladder.tab');
-    await fs.writeFile(ladderPath, content, 'utf-8');
+    await withTiming(`writeFile(${ladderPath})`, () => fs.writeFile(ladderPath, content, 'utf-8'));
     
     // Clean up uploaded file
-    await fs.unlink(req.file.path);
+    await withTiming('unlink(upload)', () => fs.unlink(req.file!.path));
 
     res.json({
       success: true,
@@ -119,11 +120,11 @@ router.post('/process', async (req: Request, res: Response): Promise<void> => {
 // Regenerate ladder.tab file from current data
 router.post('/regenerate', async (req: Request, res: Response): Promise<void> => {
   try {
-    const ladderData = await readLadderFile();
+    const ladderData = await withTiming('readLadderFile(regenerate)', readLadderFile);
     const content = generateTabContent(ladderData);
     
     const ladderPath = process.env.TAB_FILE_PATH || path.join(__dirname, '../../data/ladder.tab');
-    await fs.writeFile(ladderPath, content, 'utf-8');
+    await withTiming(`writeFile(regenerate)`, () => fs.writeFile(ladderPath, content, 'utf-8'));
 
     res.json({
       success: true,
@@ -164,6 +165,45 @@ router.get('/stats', async (req: Request, res: Response): Promise<void> => {
     res.status(500).json({
       success: false,
       error: { message: 'Failed to get statistics' },
+    });
+  }
+});
+
+// Get performance report (slow operations)
+router.get('/performance', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const report = generatePerformanceReport();
+    
+    res.json({
+      success: true,
+      data: {
+        report,
+        operations: getSlowOperations(),
+      },
+    });
+  } catch (error) {
+    console.error('Performance report error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to get performance report' },
+    });
+  }
+});
+
+// Clear performance data
+router.post('/performance/clear', async (req: Request, res: Response): Promise<void> => {
+  try {
+    clearSlowOperations();
+    
+    res.json({
+      success: true,
+      data: { message: 'Performance data cleared' },
+    });
+  } catch (error) {
+    console.error('Clear performance error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to clear performance data' },
     });
   }
 });
