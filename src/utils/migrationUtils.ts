@@ -12,12 +12,19 @@ export interface MigrationOptions {
 }
 
 /**
- * Detect current mode based on configuration and connectivity
+ * Detect current mode based on user settings in localStorage
  */
 export function detectCurrentMode(): ProgramMode {
-  const apiUrl = import.meta.env.VITE_API_URL;
-  if (apiUrl && apiUrl.startsWith('http')) {
-    return 'server';
+  try {
+    const userSettingsJson = localStorage.getItem('bughouse-ladder-user-settings');
+    if (userSettingsJson) {
+      const userSettings = JSON.parse(userSettingsJson);
+      if (userSettings.server && userSettings.server.trim()) {
+        return 'server';
+      }
+    }
+  } catch (err) {
+    console.error('[migrationUtils] Failed to read user settings:', err);
   }
   return 'local';
 }

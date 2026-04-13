@@ -28,9 +28,10 @@ export function onModeChange(callback: (newMode: string, oldMode: string) => voi
 
 /**
  * Initialize connection state based on configuration
+ * Reads ONLY from localStorage user settings - no env fallback
  */
 export function initializeConnectionState(): void {
-  // Check user settings first (from localStorage)
+  // Read from localStorage user settings only
   try {
     const userSettingsJson = localStorage.getItem('bughouse-ladder-user-settings');
     if (userSettingsJson) {
@@ -49,11 +50,10 @@ export function initializeConnectionState(): void {
     console.error('[mode.ts] Failed to read user settings:', err);
   }
   
-  // Fall back to environment variable
-  const apiUrl = import.meta.env.VITE_API_URL;
-  connectionState.configuredForServer = !!(apiUrl && apiUrl.startsWith('http'));
-  connectionState.serverUrl = apiUrl || null;
-  connectionState.serverReachable = null; // Reset reachability
+  // No server configured - local mode
+  connectionState.configuredForServer = false;
+  connectionState.serverUrl = null;
+  connectionState.serverReachable = null;
   connectionState.lastCheckTime = Date.now();
   connectionState.previousMode = null;
 }

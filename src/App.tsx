@@ -15,6 +15,7 @@ import {
   getProgramMode,
   isLocalMode,
 } from "./utils/mode";
+import { loadUserSettings } from "./services/userSettingsStorage";
 import { checkMigrationNeeded, storeCurrentMode } from "./utils/migrationUtils";
 import {
   savePlayers,
@@ -43,7 +44,9 @@ function App() {
   const [triggerWalkthrough, setTriggerWalkthrough] = useState(false);
   const [showMigrationDialog, setShowMigrationDialog] = useState(false);
   const [showReconnectDialog, setShowReconnectDialog] = useState(false);
-  const [wasServerMode, setWasServerMode] = useState(true); // Assume server mode initially
+  // Track mode transitions properly to avoid false positives on initial load
+  const [initialDetectionDone, setInitialDetectionDone] = useState(false);
+  const [lastKnownMode, setLastKnownMode] = useState<'local' | 'server_down' | 'dev' | 'server' | null>(null);
   const [status, setStatus] = useState<string | null>("Initializing...");
   const recalculateRef = useRef<(() => void) | undefined>(undefined);
 
@@ -68,13 +71,22 @@ function App() {
     // Set up mode change callback
     onModeChange((newMode: string, oldMode: string) => {
       console.log(`[MODE CHANGE] ${oldMode} -> ${newMode}`);
-      const wasServer = oldMode === 'server' || oldMode === 'dev';
+      
+      if (!initialDetectionDone) {
+        // First detection - just record, don't show dialog
+        setLastKnownMode(newMode as 'local' | 'server_down' | 'dev' | 'server');
+        setInitialDetectionDone(true);
+        return;
+      }
+      
+      // Now we can detect ACTUAL transitions (not initial state)
+      const wasServer = lastKnownMode === 'server' || lastKnownMode === 'dev';
       const isNowServer = newMode === 'server' || newMode === 'dev';
-      const wasServerDown = oldMode === 'server_down';
+      const wasServerDown = lastKnownMode === 'server_down';
       
-      setWasServerMode(wasServer || wasServerDown);
+      setLastKnownMode(newMode as 'local' | 'server_down' | 'dev' | 'server');
       
-      // Show reconnect dialog when:
+      // Show reconnect dialog on REAL transitions only:
       // 1. Transitioning from server_down to server/dev (reconnection with possible local changes)
       // 2. Transitioning from server/dev to server_down (disconnection notification)
       if ((wasServerDown && isNowServer) || (wasServer && !isNowServer)) {
@@ -178,7 +190,8 @@ function App() {
     console.log("[Reconnect] Pulling from server - discarding local changes");
     try {
       // Fetch fresh data from server
-      const serverUrl = import.meta.env.VITE_API_URL;
+      const userSettings = loadUserSettings();
+      const serverUrl = userSettings.server;
       if (serverUrl) {
         const response = await fetch(`${serverUrl}/api/ladder`);
         if (response.ok) {
@@ -217,7 +230,8 @@ function App() {
       const localPlayers = await getPlayers();
       
       // Save to server with wait for confirmation
-      const serverUrl = import.meta.env.VITE_API_URL;
+      const userSettings = loadUserSettings();
+      const serverUrl = userSettings.server;
       if (serverUrl) {
         const response = await fetch(`${serverUrl}/api/ladder`, {
           method: 'PUT',
@@ -259,7 +273,7 @@ function App() {
       
       {showReconnectDialog && (
         <ReconnectDialog
-          wasServerMode={wasServerMode}
+          wasServerMode={lastKnownMode === 'server' || lastKnownMode === 'dev' || lastKnownMode === 'server_down'}
           isNowConnected={!isLocalMode()}
           hasLocalChanges={getHasLocalChanges()}
           onDismiss={() => setShowReconnectDialog(false)}
