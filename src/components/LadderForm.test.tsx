@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import LadderForm from "./LadderForm";
 import "@testing-library/jest-dom";
 
@@ -26,6 +26,10 @@ describe("LadderForm component", () => {
 
   it("should display players after loading", async () => {
     render(<LadderForm />);
+    // Wait for the "Load Sample Data" button to appear
+    await screen.findByText(/Load Sample Data/i);
+    // Click the button to load sample data
+    fireEvent.click(screen.getByText(/Load Sample Data/i));
     // Wait for the table to render with players
     await waitFor(() => {
       expect(screen.getByRole("table")).toBeInTheDocument();
