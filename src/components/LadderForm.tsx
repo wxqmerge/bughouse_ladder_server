@@ -228,6 +228,8 @@ export default function LadderForm({
   // Splash screen server configuration state
   const [splashServerUrl, setSplashServerUrl] = useState('');
   const [splashApiKey, setSplashApiKey] = useState('');
+  const [hadExistingUserSettings, setHadExistingUserSettings] = useState(false);
+  const [hasLocalPlayerData, setHasLocalPlayerData] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const latestPendingPlayersRef = useRef<PlayerData[] | null>(null);
 
@@ -249,19 +251,38 @@ export default function LadderForm({
     }
   }, [triggerWalkthrough, setTriggerWalkthrough]);
 
-  // Initialize splash screen server config from user settings
+  // Initialize splash screen state from localStorage
   useEffect(() => {
     try {
+      // Check for user settings
       const userSettingsJson = localStorage.getItem('bughouse-ladder-user-settings');
       if (userSettingsJson) {
         const userSettings = JSON.parse(userSettingsJson);
         setSplashServerUrl(userSettings.server || '');
         setSplashApiKey(userSettings.apiKey || '');
+        setHadExistingUserSettings(true);
       }
+      
+      // Check for local player data
+      const localData = localStorage.getItem('ladder_ladder_players');
+      const serverLocalData = localStorage.getItem('ladder_server_ladder_players');
+      const hasLocalPlayers = !!(localData && JSON.parse(localData).length > 0);
+      const hasServerLocalPlayers = !!(serverLocalData && JSON.parse(serverLocalData).length > 0);
+      setHasLocalPlayerData(hasLocalPlayers || hasServerLocalPlayers);
     } catch (error) {
-      console.error('Failed to load user settings for splash:', error);
+      console.error('Failed to load localStorage for splash:', error);
     }
   }, []);
+
+  // Auto-save splash screen changes to localStorage
+  useEffect(() => {
+    const userSettings = {
+      server: splashServerUrl,
+      apiKey: splashApiKey,
+    };
+    localStorage.setItem('bughouse-ladder-user-settings', JSON.stringify(userSettings));
+    console.log('[Splash] Auto-saved settings:', { server: splashServerUrl || '(empty)', apiKey: splashApiKey ? '(set)' : '(empty)' });
+  }, [splashServerUrl, splashApiKey]);
 
   // Track mode changes for UI updates
   useEffect(() => {
@@ -290,14 +311,6 @@ export default function LadderForm({
         if (userSettingsJson) {
           const userSettings = JSON.parse(userSettingsJson);
           serverUrl = userSettings.server?.trim() || '';
-        }
-        
-        // Also check env variable as fallback
-        if (!serverUrl) {
-          const apiUrl = import.meta.env.VITE_API_URL;
-          if (apiUrl && apiUrl.startsWith('http')) {
-            serverUrl = apiUrl;
-          }
         }
 
         // Show server configuration status
@@ -1966,15 +1979,10 @@ export default function LadderForm({
   };
 
   const handleSplashConnect = () => {
-    // Save server settings
-    const userSettings = {
-      server: splashServerUrl.trim(),
-      apiKey: splashApiKey.trim(),
-    };
-    localStorage.setItem('bughouse-ladder-user-settings', JSON.stringify(userSettings));
+    // Settings are already auto-saved via useEffect
+    const trimmedServer = splashServerUrl.trim();
     
-    // Reload to apply settings and attempt connection
-    console.log('[Splash] Connecting to server:', userSettings.server || '(local mode)');
+    console.log('[Splash] Connecting to server:', trimmedServer || '(local mode)');
     window.location.reload();
   };
 
@@ -2024,6 +2032,8 @@ export default function LadderForm({
   };
 
   if (!players || players.length === 0) {
+    const isServerUnreachable = currentMode === 'server_down' && splashServerUrl.trim();
+    
     return (
       <div style={{ padding: "2rem", textAlign: "center", color: "#64748b" }}>
         <h1>{projectName}</h1>
@@ -2035,9 +2045,9 @@ export default function LadderForm({
             marginTop: "2rem",
             marginBottom: "2rem",
             padding: "1.5rem",
-            backgroundColor: "#f8fafc",
+            backgroundColor: isServerUnreachable ? "#fef3c7" : "#f8fafc",
             borderRadius: "0.5rem",
-            border: "1px solid #e2e8f0",
+            border: `1px solid ${isServerUnreachable ? "#f59e0b" : "#e2e8f0"}`,
             maxWidth: "500px",
             marginLeft: "auto",
             marginRight: "auto",
@@ -2050,14 +2060,57 @@ export default function LadderForm({
               justifyContent: "center",
               gap: "0.5rem",
               marginBottom: "1rem",
-              color: "#374151",
+              color: isServerUnreachable ? "#92400e" : "#374151",
               fontSize: "0.875rem",
               fontWeight: "600",
             }}
           >
             <Server size={18} />
-            <span>Connect to Server</span>
+            <span>{isServerUnreachable ? "Server Unavailable" : "Connect to Server"}</span>
           </div>
+          
+          {/* Status messages */}
+          {!hadExistingUserSettings && !isServerUnreachable && (
+            <p
+              style={{
+                marginBottom: "0.5rem",
+                fontSize: "0.875rem",
+                color: "#64748b",
+                fontStyle: "italic",
+              }}
+            >
+              No previous server configuration found.
+            </p>
+          )}
+          {!hasLocalPlayerData && !isServerUnreachable && (
+            <p
+              style={{
+                marginBottom: "1rem",
+                fontSize: "0.875rem",
+                color: "#64748b",
+                fontStyle: "italic",
+              }}
+            >
+              No local player data found. Enter server details to connect, or load a file.
+            </p>
+          )}
+          
+          {isServerUnreachable && (
+            <div
+              style={{
+                marginBottom: "1rem",
+                padding: "0.75rem",
+                backgroundColor: "#fffbeb",
+                borderLeft: "4px solid #f59e0b",
+                borderRadius: "0.25rem",
+                textAlign: "left",
+              }}
+            >
+              <p style={{ fontSize: "0.875rem", color: "#92400e", margin: 0 }}>
+                <strong>Server configured but unreachable:</strong> {splashServerUrl}
+              </p>
+            </div>
+          )}
           
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginBottom: "1rem" }}>
             <input
@@ -2086,7 +2139,7 @@ export default function LadderForm({
             />
           </div>
           
-          <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center" }}>
+          <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center", flexWrap: "wrap" }}>
             <button
               onClick={handleSplashConnect}
               style={{
@@ -2117,6 +2170,27 @@ export default function LadderForm({
             >
               Settings
             </button>
+            {isServerUnreachable && (
+              <button
+                onClick={() => {
+                  console.log('[Splash] Proceeding in server down mode');
+                  // Clear players from any cached state and let component load normally
+                  window.location.reload();
+                }}
+                style={{
+                  padding: "0.625rem 1.25rem",
+                  backgroundColor: "#f59e0b",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "0.25rem",
+                  fontSize: "0.875rem",
+                  cursor: "pointer",
+                  fontWeight: "500",
+                }}
+              >
+                Proceed (Server Down)
+              </button>
+            )}
           </div>
           
           <p
@@ -2126,7 +2200,7 @@ export default function LadderForm({
               color: "#64748b",
             }}
           >
-            Leave Server URL empty for local mode (no server)
+            Leave Server URL empty for local mode (no server). Changes are auto-saved.
           </p>
         </div>
         
