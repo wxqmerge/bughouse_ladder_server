@@ -112,14 +112,12 @@ bughouse_ladder_server/
 
 ### Security Features
 
-- JWT authentication with configurable expiry
-- Admin API key protection for admin endpoints
-- Rate limiting (10 auth / 100 API requests per 15 min)
+- Admin API key protection for admin endpoints (optional)
+- Rate limiting (100 API requests per 15 min)
 - CORS configuration with production warnings
 - Helmet.js security headers
 - Content Security Policy (production only)
 - Timing-safe API key comparison
-- Request size limiting (1MB default)
 
 ### Core Functionality
 
@@ -134,12 +132,6 @@ bughouse_ladder_server/
 ---
 
 ## API Endpoints
-
-### Authentication
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/auth/register` | Register new user |
-| `POST` | `/api/auth/login` | Login and get JWT token |
 
 ### Ladder Data
 | Method | Endpoint | Description |
@@ -184,29 +176,27 @@ bughouse_ladder_server/
 PORT=3000
 NODE_ENV=production
 
-# Security - CHANGE THESE FOR PRODUCTION!
-JWT_SECRET=<generate-with-crypto>
-CORS_ORIGINS=https://yourdomain.com
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=<strong-password>
-ADMIN_API_KEY=<generate-64-char-hex>
+# CORS Origin - Your production domain (required for security)
+CORS_ORIGIN=https://your-domain.com
+
+# Admin API Key - OPTIONAL: Protects admin endpoints (/api/admin/*)
+# Requests must include header: X-API-Key: <this-value>
+# Leave empty for local/development use
+# Generate with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+ADMIN_API_KEY=
 
 # Data
 TAB_FILE_PATH=./data/ladder.tab
-
-# Rate Limiting
-RATE_LIMIT_WINDOW_MS=900000
-RATE_LIMIT_MAX_REQUESTS=100
-REQUEST_SIZE_LIMIT=1mb
 ```
 
 ### Frontend (`.env` in root)
 
 ```env
-VITE_API_URL=http://localhost:3000
+# API URL - Leave empty or use /api for same-origin requests (recommended)
+VITE_API_URL=/api
 ```
 
-**See [SECURITY.md](./SECURITY.md) for detailed security configuration.**
+The frontend uses relative API paths by default, so no configuration is needed for most deployments.
 
 ---
 

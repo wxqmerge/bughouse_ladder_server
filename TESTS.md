@@ -4,8 +4,6 @@
 
 This project uses **Vitest** for unit testing with **React Testing Library** for component tests.
 
-For debugging and running in different modes, see [README_DEBUG.md](./README_DEBUG.md).
-
 ---
 
 ## Running Tests
