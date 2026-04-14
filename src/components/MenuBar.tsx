@@ -241,6 +241,16 @@ export default function MenuBar({
       },
       dataMenuItem: isAdmin ? "Exit Admin Mode" : "Admin Mode",
     },
+    // Settings - always accessible, moved to bottom of Operations
+    {
+      icon: <SettingsIcon size={16} />,
+      label: "Settings",
+      onClick: () => {
+        onOpenSettings();
+        closeAllMenus();
+      },
+      dataMenuItem: "Settings",
+    },
   ];
 
   const viewMenuItems: MenuItem[] = [
@@ -440,29 +450,6 @@ export default function MenuBar({
             operationsMenuItems,
           )}
           {renderMenuTrigger("View", <ZoomIn size={16} />, viewMenuItems)}
-          {isAdmin && (
-            <button
-              data-menu="Settings"
-              onClick={() => {
-                onOpenSettings();
-                closeAllMenus();
-              }}
-              style={{
-                background: "transparent",
-                color: "white",
-                border: "none",
-                padding: "0.5rem 1rem",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                borderRadius: "0.25rem",
-              }}
-            >
-              <SettingsIcon size={16} />
-              <span>Settings</span>
-            </button>
-          )}
         </div>
 
         {/* Title and player count */}
