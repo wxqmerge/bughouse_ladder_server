@@ -2523,6 +2523,8 @@ export default function LadderForm({
             setProjectNameStorage(newTitle);
           }}
           playerCount={players.length}
+          serverUrl={splashServerUrl}
+          hasAdminApiKey={!!splashApiKey && splashApiKey.trim().length > 0}
         />
       </div>
 
@@ -3107,6 +3109,8 @@ export default function LadderForm({
           onSubmit={handleCorrectionSubmit}
           onClearCell={clearCurrentCell}
           onUpdatePlayerData={handleUpdatePlayerData}
+          isAdmin={isAdmin}
+          onAddPlayer={handleAddPlayer}
         />
       )}
       {entryCell &&
@@ -3135,6 +3139,8 @@ export default function LadderForm({
             onEnterRecalculateSave={handleEnterRecalculateSave}
             onClearCell={clearCurrentCell}
             onUpdatePlayerData={handleUpdatePlayerData}
+            isAdmin={isAdmin}
+            onAddPlayer={handleAddPlayer}
           />
         )}
       {currentError && (

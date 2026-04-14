@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { X } from "lucide-react";
+import { X, Plus } from "lucide-react";
 import type { ValidationResult, PlayerData } from "../utils/hashUtils";
 import { updatePlayerGameData } from "../utils/hashUtils";
 import { getValidationErrorMessage } from "../utils/constants";
@@ -24,6 +24,8 @@ interface ErrorDialogProps {
   ) => void;
   totalRounds?: number;
   onEnterRecalculateSave?: (correctedString: string) => void;
+  isAdmin?: boolean;
+  onAddPlayer?: () => void;
 }
 
 export default function ErrorDialog({
@@ -42,6 +44,8 @@ export default function ErrorDialog({
   onUpdatePlayerData,
   totalRounds,
   onEnterRecalculateSave,
+  isAdmin = false,
+  onAddPlayer,
 }: ErrorDialogProps) {
   const [correctedResult, setCorrectedResult] = useState<string>(
     existingValue?.replace(/_$/, "") || "",
@@ -1042,6 +1046,48 @@ export default function ErrorDialog({
             )}
           </div>
         </form>
+
+        {isAdmin && onAddPlayer && (
+          <div
+            style={{
+              marginTop: "1rem",
+              padding: "0.75rem",
+              backgroundColor: "#eff6ff",
+              borderRadius: "0.25rem",
+              border: "1px solid #bfdbfe",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <span style={{ fontSize: "0.875rem", color: "#1e40af", fontWeight: "500" }}>
+              Need to add a new player?
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                onAddPlayer();
+                onClose();
+              }}
+              style={{
+                padding: "0.5rem 1rem",
+                background: "#3b82f6",
+                border: "none",
+                borderRadius: "0.25rem",
+                cursor: "pointer",
+                fontSize: "0.875rem",
+                color: "white",
+                fontWeight: "500",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+              }}
+            >
+              <Plus size={16} />
+              Add Player
+            </button>
+          </div>
+        )}
 
         <div
           style={{
