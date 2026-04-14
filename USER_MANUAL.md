@@ -103,6 +103,8 @@ Game results use a compact notation encoding:
 - **Player ranks** (who played)
 - **Results** (W = Win, L = Loss, D = Draw)
 
+**Important:** 4-player games are TEAM games. One team game is played between two teams of two players each. All teammates share the same result (W, L, or D).
+
 ### 2-Player Games
 
 #### Single Result
@@ -127,32 +129,32 @@ Examples:
   7LL8  → Player 7 LOSES both games to Player 8
 ```
 
-### 4-Player Games (Pairs)
+### 4-Player Games (Team vs Team)
 
 ```
-Format: A:B_R1_R2_C:D
+Format: A:B_R_C:D
 Meaning:
-  - Pair 1: Players A and B (teammates or same board)
-  - Pair 2: Players C and D
-  - _1_ = Result for Pair 1 as a unit
-  - _2_ = Result for Player A specifically
+  - Team 1: Players A and B (partners)
+  - Team 2: Players C and D (partners)
+  - _R_ = Result for Team 1 (W/L/D)
+  - ONE team game is played, not two individual games
 
 Examples:
   5:6W7:8  → 
-    Players 5&6 vs Players 7&8
-    Pair 1 (5&6) WINS overall
-    Player 5 WINS their individual game
-    (Therefore: Player 6 also wins, Players 7&8 both lose)
+    Team of 5 & 6 plays ONE game against Team of 7 & 8
+    Team 5&6 WINS (Team 7&8 loses)
+    All players on winning team get Win, all on losing team get Loss
 
-  1:2W3L4:5  →
-    Players 1&2 vs Players 4&5
-    Pair 1 WINS overall
-    Player 1 LOSES individually
-    (Therefore: Player 2 must have won their game)
+  1:2L4:5  →
+    Team of 1 & 2 plays ONE game against Team of 4 & 5
+    Team 1&2 LOSES (Team 4&5 wins)
 
   9:10D11:12  →
-    All four players DRAW
+    Team of 9 & 10 draws with Team of 11 & 12
+    All four players get Draw
 ```
+
+**Important:** In 4-player team games, there is only ONE result (W/L/D) for the team. Both teammates share the same result.
 
 ### Result Codes Reference
 
@@ -201,7 +203,7 @@ To check for errors without recalculating:
 | **1** | Invalid characters | `ABC` | Use only digits, W, L, D, and colons |
 | **2** | Incomplete 2-player game | `5W` | Add opponent: `5W6` |
 | **3** | Incomplete 4-player game | `1:2W3:` | Complete the format: `1:2W3:4` |
-| **4** | Missing result code | `1:2:3:4` | Add results: `1:2W3:4` |
+| **4** | Missing result code | `1:2:3:4` | Add team result: `1:2W3:4` |
 
 #### Player Reference Errors
 
@@ -214,8 +216,9 @@ To check for errors without recalculating:
 
 | Error | Meaning | Example | Fix |
 |-------|---------|---------|-----|
-| **7** | Mismatched pair results | P1: `1W2`, P2: `2W1` | One must lose if other wins |
+| **7** | Mismatched opponent results | P1: `1W2`, P2: `2W1` | One must lose if other wins |
 | **8** | Invalid double result | `1WW2` when only 1 game played | Check number of games |
+| **9** | Teammates with different results | P5: `5:6W7:8`, P6: `5:6L7:8` | Teammates must have same result |
 
 #### Logic Errors
 
@@ -312,11 +315,13 @@ Enter corrected result string:
 
 1. **Always verify opponent's entry** - After entering your result, check that opponents entered matching results
 
-2. **Use Enter Games mode for batches** - More efficient than cell-by-cell entry
+2. **Team games: all teammates share the same result** - In 4-player team games (format `A:B_W_C:D`), both teammates get W, L, or D together. There is no individual result.
 
-3. **Save frequently** - Changes are auto-saved, but recalculation applies them
+3. **Use Enter Games mode for batches** - More efficient than cell-by-cell entry
 
-4. **Check errors after each round** - Catch mistakes early before they compound
+4. **Save frequently** - Changes are auto-saved, but recalculation applies them
+
+5. **Check errors after each round** - Catch mistakes early before they compound
 
 ### Common Mistakes to Avoid
 
@@ -326,6 +331,7 @@ Enter corrected result string:
 | Wrong player rank | Error or wrong player affected | Verify ranks before entering |
 | Forgetting colon in 4-player | Format error | Remember: `A:B_W_C:D` |
 | Both players entering Win | Consistency error | Results must be opposite |
+| Teammates entering different results | Consistency error | All teammates get same W/L/D |
 
 ### Keyboard Shortcuts
 
@@ -368,19 +374,20 @@ Lose Both:   YourRank LL OpponentRank   Example: 5LL7
 ### 4-Player Format Quick Reference
 
 ```
-Format: P1:P2_Result1_Result2_P3:P4
+Format: P1:P2_Result_P3:P4
 
 Where:
-  P1, P2 = Your pair (you are P1 or P2)
-  P3, P4 = Opponent pair
-  Result1 = Pair result (W/L/D for your pair)
-  Result2 = Your individual result (W/L/D)
+  P1, P2 = Your team (partners)
+  P3, P4 = Opponent team
+  Result = Team result (W/L/D for your team)
+
+ONE team game is played - all teammates share the same result!
 
 Examples:
   You are Player 5, your partner is 6:
-    Both win:        5:6WW7:8
-    Pair wins, you lose:  5:6WL7:8
-    All draw:        5:6DD7:8
+    Your team wins:   5:6W7:8  (Players 5,6 get Win; Players 7,8 get Loss)
+    Your team loses:  5:6L7:8  (Players 5,6 get Loss; Players 7,8 get Win)
+    Teams draw:       5:6D7:8  (All four players get Draw)
 ```
 
 ---
@@ -394,25 +401,29 @@ Examples:
 **Entry for Player 3:** `3W7`
 **Entry for Player 7:** `7L3`
 
-### Example 2: 4-Player Game (You Win Both)
+### Example 2: 4-Player Team Game (Your Team Wins)
 
-**Situation:** Players 1&2 vs Players 5&6. Player 1 beats Player 5, Player 2 beats Player 6
+**Situation:** Team of Players 1&2 plays ONE game against Team of Players 5&6. Team 1&2 wins.
 
-**Entries:**
-- Player 1: `1:2WW5:6`
-- Player 2: `1:2WW5:6`
-- Player 5: `1:2LL5:6`
-- Player 6: `1:2LL5:6`
+**Entries (all players enter the same thing):**
+- Player 1: `1:2W5:6`
+- Player 2: `1:2W5:6`
+- Player 5: `1:2L5:6`
+- Player 6: `1:2L5:6`
 
-### Example 3: 4-Player Game (Split Results)
+**Note:** All teammates share the same result! There is no "split" in team games.
 
-**Situation:** Players 1&2 vs Players 5&6. Player 1 loses to Player 5, but Player 2 beats Player 6
+### Example 3: 4-Player Team Game (Draw)
 
-**Entries:**
-- Player 1: `1:2LW5:6` (Pair loses overall, but you won individually)
-- Player 2: `1:2LW5:6`
-- Player 5: `1:2WL5:6`
-- Player 6: `1:2WL5:6`
+**Situation:** Team of Players 3&4 plays ONE game against Team of Players 7&8. Teams draw.
+
+**Entries (all players enter the same thing):**
+- Player 3: `3:4D7:8`
+- Player 4: `3:4D7:8`
+- Player 7: `3:4D7:8`
+- Player 8: `3:4D7:8`
+
+**Note:** In a draw, all four players get Draw.
 
 ### Example 4: Correction Scenario
 
