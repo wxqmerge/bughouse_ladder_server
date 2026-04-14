@@ -26,6 +26,14 @@ import { generatePerformanceReport, clearSlowOperations } from './utils/performa
 
 const app: Application = express();
 const PORT = process.env.PORT || 3000;
+const isProduction = process.env.NODE_ENV === 'production';
+
+// Debug: Show environment variables at startup
+console.log('Environment variables loaded:');
+console.log('  - NODE_ENV:', process.env.NODE_ENV);
+console.log('  - PORT:', process.env.PORT);
+console.log('  - CORS_ORIGINS:', process.env.CORS_ORIGINS);
+console.log('  - ADMIN_API_KEY:', process.env.ADMIN_API_KEY ? 'Set (' + process.env.ADMIN_API_KEY.length + ' chars)' : 'NOT SET');
 
 // Trust proxy for proper IP handling behind reverse proxy
 app.set('trust proxy', 1);
@@ -60,25 +68,25 @@ app.use('/api/*', (req, res, next) => {
   next();
 });
 
-// Rate limiting for authentication endpoints
+// Rate limiting for authentication endpoints (strict - prevent brute force)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
+  max: 10, // Limit each IP to 10 attempts per window
   message: {
     success: false,
-    error: { message: 'Too many authentication attempts, please try again later' },
+    error: { message: 'Too many authentication attempts. Please try again later.' },
   },
   standardHeaders: true,
   legacyHeaders: false,
 });
 
-// General API rate limiter
+// General API rate limiter (moderate - balance usability and protection)
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1000, // Limit each IP to 1000 requests per windowMs
+  max: isProduction ? 100 : 1000, // 100 in production, 1000 in dev
   message: {
     success: false,
-    error: { message: 'Too many requests, please try again later' },
+    error: { message: 'Too many requests. Please slow down.' },
   },
   standardHeaders: true,
   legacyHeaders: false,
@@ -88,7 +96,6 @@ app.use('/api/auth', authLimiter);
 app.use('/api', apiLimiter);
 
 // Security middleware with Content Security Policy
-const isProduction = process.env.NODE_ENV === 'production';
 app.use(helmet({
   contentSecurityPolicy: isProduction ? {
     directives: {
@@ -110,16 +117,73 @@ app.use(helmet({
 
 // CORS configuration
 // Get allowed origins from environment variable (comma-separated list)
-const corsOrigins = process.env.CORS_ORIGINS?.split(',').map(o => o.trim()) || ['*'];
+const corsOrigins = process.env.CORS_ORIGINS?.split(',').map(o => o.trim()).filter(o => o) || ['*'];
+
+console.log('[CORS] Configuration:');
+console.log('  - CORS_ORIGINS env var:', process.env.CORS_ORIGINS);
+console.log('  - Parsed origins:', corsOrigins);
+console.log('  - Using origin setting:', corsOrigins.includes('*') ? '"*" (all origins)' : corsOrigins.join(', '));
+
+// SECURITY WARNING: In production, never use '*' with credentials: true
+if (isProduction && corsOrigins.includes('*')) {
+  console.warn('⚠️  SECURITY WARNING: CORS Origins set to "*" in production mode!');
+  console.warn('⚠️  This allows ANY website to make authenticated requests to your API.');
+  console.warn('⚠️  Set CORS_ORIGINS to your actual domain in .env file.');
+}
 
 app.use(cors({
-  origin: '*', // Allow all origins for local network access
+  origin: corsOrigins,
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
 }));
 
-// Parse JSON and URL-encoded bodies
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// Fallback CORS headers - ensures headers are always present
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && (corsOrigins.includes('*') || corsOrigins.includes(origin))) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-API-Key');
+  }
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
+// Parse JSON and URL-encoded bodies with size limits
+// Limit to 1mb to prevent DoS attacks via large payloads
+const requestSizeLimit = process.env.REQUEST_SIZE_LIMIT || '1mb';
+app.use(express.json({ limit: requestSizeLimit }));
+app.use(express.urlencoded({ extended: true, limit: requestSizeLimit }));
+
+// HTTP Method validation - reject dangerous methods on static routes
+app.use((req, res, next) => {
+  const dangerousMethods = ['TRACE', 'TRACK', 'CONNECT'];
+  if (dangerousMethods.includes(req.method)) {
+    console.log(`[SECURITY] Blocked dangerous method: ${req.method} from ${req.ip}`);
+    return res.status(405).json({ success: false, error: { message: 'Method not allowed' } });
+  }
+  next();
+});
+
+// Security logging middleware for production
+if (isProduction) {
+  app.use('/api/*', (req, res, next) => {
+    const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
+    const userAgent = req.headers['user-agent']?.substring(0, 50) || 'unknown';
+    
+    // Log suspicious patterns
+    if (req.path.includes('..') || req.path.includes('<script')) {
+      console.log(`[SECURITY] Suspicious request from ${clientIp}: ${req.method} ${req.path}`);
+      console.log(`[SECURITY] User-Agent: ${userAgent}`);
+    }
+    
+    next();
+  });
+}
 
 // Health check endpoint
 app.get('/health', (req: Request, res: Response) => {
@@ -155,8 +219,9 @@ async function startServer() {
       console.log('========================================\n');
       console.log(`✓ Server running on port ${PORT}`);
       console.log(`✓ Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`✓ CORS Origin: ${process.env.CORS_ORIGIN || '*'}`);
-      console.log(`✓ Admin API Key: ${process.env.ADMIN_API_KEY ? 'Enabled (protected)' : 'Disabled (local mode)'}`);
+      console.log(`✓ CORS Origins: ${process.env.CORS_ORIGINS || '*'}`);
+      console.log(`✓ Admin API Key: ${process.env.ADMIN_API_KEY && !process.env.ADMIN_API_KEY.includes('CHANGE') ? 'Enabled (protected)' : '⚠️  Using DEFAULT/weak key!'}`);
+      console.log(`✓ Rate Limit: ${isProduction ? '100' : '1000'} req/15min`);
       console.log('');
       
       if (process.env.NODE_ENV !== 'production') {
