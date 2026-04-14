@@ -554,32 +554,32 @@ export function processGameResults(
       const scoreLetter =
         score === 0 ? "O" : score === 1 ? "L" : score === 2 ? "D" : "W";
 
-      // Return in sorted player order (within pair)
-      const sortedPair = [p1, p2].sort((a, b) => a - b);
-      return `${sortedPair[0]}${scoreLetter}${sortedPair[1]}`;
+      // Return in sorted player order (within team)
+      const sortedTeam = [p1, p2].sort((a, b) => a - b);
+      return `${sortedTeam[0]}${scoreLetter}${sortedTeam[1]}`;
     } else {
-      // For 4-player games: normalize each pair separately, then sort pairs by lowest player
-      const pair1 = [parsedPlayers[0], parsedPlayers[1]].sort((a, b) => a - b);
-      const pair2 = [parsedPlayers[2], parsedPlayers[3]].sort((a, b) => a - b);
+      // For 4-player team games: normalize each team separately, then sort teams by lowest player
+      const team1 = [parsedPlayers[0], parsedPlayers[1]].sort((a, b) => a - b);
+      const team2 = [parsedPlayers[2], parsedPlayers[3]].sort((a, b) => a - b);
 
-      const minPair1 = Math.min(pair1[0], pair1[1]);
-      const minPair2 = Math.min(pair2[0], pair2[1]);
+      const minTeam1 = Math.min(team1[0], team1[1]);
+      const minTeam2 = Math.min(team2[0], team2[1]);
 
       let normPair1: number[],
         normPair2: number[],
         normScore1: number,
         normScore2: number;
 
-      if (minPair1 < minPair2) {
-        // Pair 1 comes first
-        normPair1 = pair1;
-        normPair2 = pair2;
+      if (minTeam1 < minTeam2) {
+        // Team 1 comes first
+        normPair1 = team1;
+        normPair2 = team2;
         normScore1 = scores[0];
         normScore2 = scores[1];
       } else {
-        // Pair 2 comes first, swap perspectives
-        normPair1 = pair2;
-        normPair2 = pair1;
+        // Team 2 comes first, swap perspectives
+        normPair1 = team2;
+        normPair2 = team1;
         normScore1 = swapScore(scores[1]);
         normScore2 = swapScore(scores[0]);
       }
