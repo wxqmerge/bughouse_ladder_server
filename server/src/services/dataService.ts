@@ -152,6 +152,22 @@ export async function readLadderFile(): Promise<LadderData> {
         };
       } else {
         // Old VB6 ladder format
+        // Fields: 0=Group, 1=Last, 2=First, 3=Rating, 4=Rnk, 5=NRate, 6=Gr, 7=blank, 8=X, 9=Phone, 10=Info, 11=School, 12=Room
+        // Fields 13-43: Game results for rounds 1-31
+        const gameResults: (string | null)[] = [];
+        for (let r = 0; r < 31; r++) {
+          const fieldIndex = 13 + r;
+          const value = fields[fieldIndex]?.trim() || '';
+          gameResults.push(value || null);
+        }
+        
+        // Debug: Log game results for players 5 and 6
+        const rank = parseInt(fields[4]) || 0;
+        if (rank === 5 || rank === 6) {
+          const filledCells = gameResults.map((r, i) => r ? `R${i+1}:${r}` : null).filter(Boolean);
+          console.log(`[SERVER READ] Player ${rank} game results:`, filledCells.slice(0, 5));
+        }
+        
         player = {
           rank: parseInt(fields[4]) || 0,
           group: fields[0] || '',
@@ -166,7 +182,7 @@ export async function readLadderFile(): Promise<LadderData> {
           info: fields[10] || '',
           school: fields[11] || '',
           room: fields[12] || '',
-          gameResults: [],
+          gameResults: gameResults,
         };
       }
       

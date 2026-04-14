@@ -66,12 +66,15 @@ function App() {
     // Initial connectivity test
     setStatus("Checking server connection...");
     updateConnectionState()
-      .then(() => {
+      .then(async () => {
         setStatus(null); // Clear status after connection check
         
         // Start polling for data updates in server mode (every 5 seconds)
         const mode = getProgramMode();
         if (mode !== 'local' && mode !== 'server_down') {
+          console.log('[APP] Initializing data sync...');
+          // Initialize hash from current server state
+          await dataService.initializeHash();
           console.log('[APP] Starting data polling (5 second interval)');
           dataService.startPolling(5000);
           
