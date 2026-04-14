@@ -77,12 +77,12 @@ When errors are detected (automatically after recalculation or via Check Errors)
 
 **Best for:** Entering many results quickly from a spreadsheet or text file
 
-1. Prepare your results in a text editor or spreadsheet (e.g., LibreOffice Calc) with tab-separated values
+1. Prepare your results in a text editor or spreadsheet (e.g., LibreOffice Calc) with whitespace-separated values (spaces, tabs, or newlines all work)
 2. Copy the results to clipboard
 3. Go to **Operations → Paste Multiple Results**
 4. Or simply paste directly into any game result cell
 5. The system will:
-   - Detect multiple tab-separated results
+   - Detect multiple whitespace-separated results
    - Apply the first result to current cell
    - Store remaining results for subsequent entries
 
@@ -279,9 +279,15 @@ Enter corrected result string:
 **Use case:** You have results in a spreadsheet (e.g., LibreOffice Calc) or text file
 
 **Steps:**
-1. Format results as tab-separated values:
+1. Format results as whitespace-separated values (spaces, tabs, or newlines all work):
    ```
-   1:2W3:4	5:6W7:8	9:10W11:12
+   1:2W3:4 5:6W7:8 9:10W11:12
+   ```
+   Or on separate lines:
+   ```
+   1:2W3:4
+   5:6W7:8
+   9:10W11:12
    ```
 2. Copy to clipboard
 3. Go to **Operations → Paste Multiple Results**
@@ -317,7 +323,7 @@ Enter corrected result string:
 
 ### Entry Tips
 
-1. **Always verify opponent's entry** - After entering your result, check that opponents entered matching results
+1. **Read the ErrorDialog feedback** - After entering a result, the dialog shows player names and the parsed result (e.g., "Daniel Smith (5) won against Seth Acosta (6)"). Verify this matches what you intended to enter.
 
 2. **Team games: all teammates share the same results** - In 4-player team games (format `A:B_W_C:D` or `A:B_WL_C:D`), both teammates get the same result(s). If you enter `1:2LL3:4`, both players 1 and 2 get two Losses.
 
