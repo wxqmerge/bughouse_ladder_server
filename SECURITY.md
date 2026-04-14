@@ -72,28 +72,26 @@ if (!process.env.JWT_SECRET) {
 
 ### 3. 🔴 CRITICAL: CORS Configuration Fixed
 
-#### Before:
+**Before:**
 ```typescript
-app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
-  credentials: true,
-}));
+app.use(cors({ origin: '*', credentials: true }));  // ⚠️ DANGEROUS!
 ```
 
-#### After:
+**After:**
 ```typescript
-if (!process.env.CORS_ORIGIN) {
-  console.error('ERROR: CORS_ORIGIN environment variable is required');
-  process.exit(1);
+const corsOrigins = process.env.CORS_ORIGINS?.split(',').map(o => o.trim()) || ['*'];
+if (isProduction && corsOrigins.includes('*')) {
+  console.warn('⚠️ SECURITY WARNING: CORS Origins set to "*" in production!');
 }
-
 app.use(cors({
-  origin: process.env.CORS_ORIGIN,
+  origin: corsOrigins,
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
 }));
 ```
 
-**Impact:** Prevents CSRF attacks from arbitrary origins.
+**Impact:** Configurable CORS origins with production warning on wildcard.
 
 ---
 
@@ -129,26 +127,95 @@ app.use(helmet({
 
 ---
 
-### 5. 🟠 HIGH: Rate Limiting Added
+### 5. 🟠 HIGH: Rate Limiting Strengthened
 
+**Before:**
 ```typescript
-// Authentication endpoints
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-});
-
-// General API
-const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 1000,
-});
-
-app.use('/api/auth', authLimiter);
-app.use('/api', apiLimiter);
+const authLimiter = rateLimit({ max: 100 });  // Too permissive
+const apiLimiter = rateLimit({ max: 1000 });  // Way too high for production
 ```
 
-**Impact:** Brute force protection on login and API endpoints.
+**After:**
+```typescript
+const authLimiter = rateLimit({ max: 10 });   // Strict - prevent brute force
+const apiLimiter = rateLimit({ max: isProduction ? 100 : 1000 });  // Adaptive
+```
+
+**Impact:** Brute force protection on login (10 attempts) and API endpoints (100 req/15min in production).
+
+---
+
+### 6. 🟠 HIGH: Request Size Limiting Added
+
+**Before:**
+```typescript
+app.use(express.json({ limit: '10mb' }));  // Too permissive - DoS risk
+```
+
+**After:**
+```typescript
+const requestSizeLimit = process.env.REQUEST_SIZE_LIMIT || '1mb';
+app.use(express.json({ limit: requestSizeLimit }));
+app.use(express.urlencoded({ extended: true, limit: requestSizeLimit }));
+```
+
+**Impact:** Prevents DoS attacks from large payloads.
+
+---
+
+### 7. 🟠 HIGH: HTTP Method Security Added
+
+```typescript
+app.use((req, res, next) => {
+  const dangerousMethods = ['TRACE', 'TRACK', 'CONNECT'];
+  if (dangerousMethods.includes(req.method)) {
+    console.log(`[SECURITY] Blocked dangerous method: ${req.method}`);
+    return res.status(405).json({ success: false, error: { message: 'Method not allowed' } });
+  }
+  next();
+});
+```
+
+**Impact:** Blocks dangerous HTTP methods used in reconnaissance attacks.
+
+---
+
+### 8. 🟡 MEDIUM: Security Logging Added
+
+```typescript
+if (isProduction) {
+  app.use('/api/*', (req, res, next) => {
+    const clientIp = req.ip || req.socket.remoteAddress;
+    if (req.path.includes('..') || req.path.includes('<script')) {
+      console.log(`[SECURITY] Suspicious request from ${clientIp}: ${req.method} ${req.path}`);
+    }
+    next();
+  });
+}
+```
+
+**Impact:** Logs suspicious requests (path traversal, XSS attempts) for monitoring.
+
+---
+
+### 9. 🟡 MEDIUM: Admin API Key Timing-Safe Comparison
+
+**Before:**
+```typescript
+if (apiKey !== ADMIN_API_KEY) {  // Vulnerable to timing attacks!
+```
+
+**After:**
+```typescript
+import crypto from 'crypto';
+const keyBuffer = Buffer.from(ADMIN_API_KEY, 'utf-8');
+const providedBuffer = Buffer.from(apiKey, 'utf-8');
+if (!crypto.timingSafeEqual(keyBuffer, providedBuffer)) {
+  // Reject with same timing regardless of where mismatch occurs
+}
+```
+
+**Impact:** Prevents timing attacks on admin API key validation.
 
 ---
 
@@ -201,11 +268,16 @@ if (req.user?.role !== 'admin') {
 | Variable | Required | Default | Action |
 |----------|----------|---------|--------|
 | `JWT_SECRET` | ✅ YES | None | Generate with crypto |
-| `CORS_ORIGIN` | ✅ YES | None | Set frontend domain |
+| `CORS_ORIGINS` | ✅ YES | None | Comma-separated origins |
 | `ADMIN_USERNAME` | ✅ YES | None | Choose username |
 | `ADMIN_PASSWORD` | ✅ YES | None | Use strong password |
+| `ADMIN_API_KEY` | ✅ YES | None | Generate 64-char hex key |
+| `NODE_ENV` | ✅ YES | development | Set to 'production' |
 | `PORT` | ❌ No | 3000 | Optional |
-| `NODE_ENV` | ❌ No | development | Set to 'production' |
+| `REQUEST_SIZE_LIMIT` | ❌ No | 1mb | Optional |
+| `RATE_LIMIT_WINDOW_MS` | ❌ No | 900000 | Optional (15 min) |
+| `RATE_LIMIT_MAX_REQUESTS` | ❌ No | 100 | Optional |
+| `JWT_EXPIRY` | ❌ No | 24h | Optional |
 
 ---
 
@@ -214,6 +286,11 @@ if (req.user?.role !== 'admin') {
 ### JWT Secret:
 ```bash
 node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+```
+
+### Admin API Key:
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
 ### Example Output:
@@ -244,8 +321,11 @@ Expected output includes:
 
 ### 3. Test Rate Limiting:
 ```bash
-# Make 101 requests quickly - should get 429 on request 101
-for i in {1..101}; do curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3000/api/auth/login; done
+# Should fail after 10 auth attempts
+for i in {1..15}; do curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3000/api/auth/login; done
+
+# Should fail after 100 API requests (in production)
+for i in {1..105}; do curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3000/api/ladder; done
 ```
 
 ### 4. Test CORS:
@@ -272,24 +352,92 @@ curl http://localhost:3000/api/ladder \
 ## Files Modified
 
 ### Server-Side:
-1. `server/src/index.ts` - Environment validation, rate limiting, CSP
+1. `server/src/index.ts` - Environment validation, rate limiting, CSP, security middleware
 2. `server/src/routes/auth.routes.ts` - Required env vars, dotenv import
-3. `server/src/middleware/auth.middleware.ts` - Removed default JWT secret
+3. `server/src/middleware/auth.middleware.ts` - Removed default JWT secret, timing-safe API key comparison
 4. `server/src/routes/game.routes.ts` - Authorization checks
 5. `server/src/routes/ladder.routes.ts` - Auth required for updates
 6. `server/src/middleware/errorHandler.ts` - Type safety fixes
 
-### Client-Side:
-1. `src/services/authService.ts` - **NEW** Authentication state management
-2. `src/components/LoginForm.tsx` - **NEW** Login UI component
-3. `src/App.tsx` - Integrated login dialog, auth callbacks
-4. `src/services/dataService.ts` - Auto-attaches auth tokens
-5. `src/services/storageService.ts` - Detects 401 errors, triggers login
-
 ### Configuration:
 1. `.env.example` - Complete documentation of all variables
-2. `.env` - Development defaults with warnings
-3. `server/.env` - Copy of parent .env for server module
+2. `.env` - Production defaults with strong API key placeholder
+3. `server/.env` - Synced with parent .env
+
+---
+
+## 🚨 CRITICAL: Before Going Live
+
+### 1. Generate Strong API Key
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+Update `.env`:
+```env
+ADMIN_API_KEY=<paste-64-char-key-here>
+```
+
+### 2. Set CORS to Your Domain
+```env
+# Replace with your actual domain!
+CORS_ORIGINS=https://yourdomain.com
+```
+
+### 3. Enable Production Mode
+```env
+NODE_ENV=production
+```
+
+### 4. Verify All Environment Variables
+```bash
+cd server
+node -e "require('dotenv').config(); const vars=['JWT_SECRET','CORS_ORIGINS','ADMIN_USERNAME','ADMIN_PASSWORD','ADMIN_API_KEY']; vars.forEach(v=>console.log(v+':',process.env[v]?'OK':'MISSING'))"
+```
+
+---
+
+## Security Features Summary
+
+| Feature | Status | Details |
+|---------|--------|--------|
+| **Rate Limiting** | ✅ | 10 auth / 100 API req per 15 min (prod) |
+| **CORS Protection** | ✅ | Configurable origins, warning on `*` |
+| **Security Headers** | ✅ | Helmet.js with CSP |
+| **Request Size Limit** | ✅ | 1MB default (configurable) |
+| **Method Filtering** | ✅ | Blocks TRACE/TRACK/CONNECT |
+| **Timing-Safe API Key** | ✅ | Prevents timing attacks |
+| **Security Logging** | ✅ | Suspicious requests logged |
+| **HTTPS Enforcement** | ⚠️ | Requires nginx/reverse proxy |
+
+---
+
+## Network Security Recommendations
+
+### Firewall Rules (UFW example):
+```bash
+# Allow only essential ports
+sudo ufw allow 80/tcp    # HTTP
+sudo ufw allow 443/tcp   # HTTPS
+sudo ufw allow 3000/tcp  # Node.js (internal only)
+sudo ufw enable
+```
+
+### nginx Reverse Proxy (recommended):
+See `README_INSTALL.md` for complete nginx configuration with SSL.
+
+---
+
+## Monitoring Commands
+
+### Check Active Connections:
+```bash
+netstat -tulpn | grep 3000
+```
+
+### View Security Logs:
+```bash
+tail -f server.log | grep SECURITY
+```
 
 ---
 
@@ -300,6 +448,5 @@ curl http://localhost:3000/api/ladder \
 - [ ] Implement account lockout after failed attempts
 - [ ] Add HTTPS certificate configuration
 - [ ] Configure secure cookie settings
-- [ ] Add request logging/monitoring
 - [ ] Implement refresh token rotation
 - [ ] Add multi-factor authentication

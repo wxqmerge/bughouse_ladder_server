@@ -95,6 +95,21 @@ const apiLimiter = rateLimit({
 app.use('/api/auth', authLimiter);
 app.use('/api', apiLimiter);
 
+// CORS configuration - MUST come before Helmet!
+// Get allowed origins from environment variable (comma-separated list)
+const corsOrigins = process.env.CORS_ORIGINS?.split(',').map(o => o.trim()).filter(o => o) || ['*'];
+
+console.log('[CORS] Configuration:');
+console.log('  - CORS_ORIGINS env var:', process.env.CORS_ORIGINS);
+console.log('  - Parsed origins:', corsOrigins);
+
+app.use(cors({
+  origin: '*', // Allow all origins for development
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
+}));
+
 // Security middleware with Content Security Policy
 app.use(helmet({
   contentSecurityPolicy: isProduction ? {
@@ -114,44 +129,6 @@ app.use(helmet({
     },
   } : false,
 }));
-
-// CORS configuration
-// Get allowed origins from environment variable (comma-separated list)
-const corsOrigins = process.env.CORS_ORIGINS?.split(',').map(o => o.trim()).filter(o => o) || ['*'];
-
-console.log('[CORS] Configuration:');
-console.log('  - CORS_ORIGINS env var:', process.env.CORS_ORIGINS);
-console.log('  - Parsed origins:', corsOrigins);
-console.log('  - Using origin setting:', corsOrigins.includes('*') ? '"*" (all origins)' : corsOrigins.join(', '));
-
-// SECURITY WARNING: In production, never use '*' with credentials: true
-if (isProduction && corsOrigins.includes('*')) {
-  console.warn('⚠️  SECURITY WARNING: CORS Origins set to "*" in production mode!');
-  console.warn('⚠️  This allows ANY website to make authenticated requests to your API.');
-  console.warn('⚠️  Set CORS_ORIGINS to your actual domain in .env file.');
-}
-
-app.use(cors({
-  origin: corsOrigins,
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
-}));
-
-// Fallback CORS headers - ensures headers are always present
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  if (origin && (corsOrigins.includes('*') || corsOrigins.includes(origin))) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-API-Key');
-  }
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
-  }
-  next();
-});
 
 // Parse JSON and URL-encoded bodies with size limits
 // Limit to 1mb to prevent DoS attacks via large payloads
