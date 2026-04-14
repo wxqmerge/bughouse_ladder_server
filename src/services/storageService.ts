@@ -517,6 +517,8 @@ export async function savePlayers(players: PlayerData[], waitForServer = false, 
               }
             }
           }
+          // Reset polling hash so we can detect external changes
+          dataService.resetHashPublic();
           return { success: true, serverSynced: true };
         } else {
           console.error(`[savePlayers] ✗ Server returned ${response.status}`);
@@ -544,6 +546,8 @@ export async function savePlayers(players: PlayerData[], waitForServer = false, 
           });
           if (response.ok) {
             log('[STORAGE]', '[SYNC] ✓ Saved to server');
+            // Reset polling hash so we can detect external changes
+            dataService.resetHashPublic();
           } else {
             log('[STORAGE]', '[SYNC] ✗ Server returned ' + response.status);
           }
@@ -806,4 +810,150 @@ export async function saveToServer(): Promise<{ success: boolean; error?: string
   } catch (error: any) {
     return { success: false, error: error.message };
   }
+}
+
+// ==================== ADMIN LOCK MANAGEMENT ====================
+
+/**
+ * Admin lock configuration
+ */
+const ADMIN_LOCK_KEY = 'ladder_admin_lock';
+const ADMIN_LOCK_TIMEOUT = 60000; // 60 seconds before expiration
+export const ADMIN_LOCK_REFRESH_INTERVAL = 30000; // Refresh every 30 seconds
+
+/**
+ * Admin lock data structure
+ */
+export interface AdminLock {
+  clientId: string;
+  timestamp: number;
+  clientName?: string;
+}
+
+/**
+ * Generate unique client ID
+ */
+function generateClientId(): string {
+  return `client_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
+/**
+ * Get current client's ID (stored in sessionStorage for persistence across reloads)
+ */
+export function getClientId(): string {
+  let clientId = sessionStorage.getItem('ladder_client_id');
+  if (!clientId) {
+    clientId = generateClientId();
+    sessionStorage.setItem('ladder_client_id', clientId);
+  }
+  return clientId;
+}
+
+/**
+ * Get current admin lock from localStorage
+ */
+export function getAdminLock(): AdminLock | null {
+  try {
+    const lockData = localStorage.getItem(ADMIN_LOCK_KEY);
+    return lockData ? JSON.parse(lockData) : null;
+  } catch (error) {
+    console.error('[ADMIN_LOCK] Failed to read lock:', error);
+    return null;
+  }
+}
+
+/**
+ * Check if admin mode is currently locked by another client
+ */
+export function isAdminLocked(): boolean {
+  const lock = getAdminLock();
+  if (!lock) return false;
+  
+  const currentTime = Date.now();
+  const timeSinceLastActivity = currentTime - lock.timestamp;
+  
+  // Lock is considered released if it's expired
+  return timeSinceLastActivity < ADMIN_LOCK_TIMEOUT;
+}
+
+/**
+ * Get information about who holds the admin lock
+ */
+export function getAdminLockInfo(): { locked: boolean; holderId?: string; holderName?: string; expiresAt?: number } {
+  const lock = getAdminLock();
+  if (!lock) {
+    return { locked: false };
+  }
+  
+  const currentTime = Date.now();
+  const timeSinceLastActivity = currentTime - lock.timestamp;
+  const isExpired = timeSinceLastActivity >= ADMIN_LOCK_TIMEOUT;
+  
+  return {
+    locked: !isExpired,
+    holderId: lock.clientId,
+    holderName: lock.clientName || `Client ${lock.clientId.substr(-4)}`,
+    expiresAt: isExpired ? undefined : lock.timestamp + ADMIN_LOCK_TIMEOUT
+  };
+}
+
+/**
+ * Attempt to acquire admin lock
+ * @returns true if lock acquired, false if already held by another client
+ */
+export function tryAcquireAdminLock(clientName?: string): boolean {
+  const clientId = getClientId();
+  const currentLock = getAdminLock();
+  
+  // Check if lock is held by us or is expired
+  const canAcquire = !currentLock || 
+    currentLock.clientId === clientId || 
+    (Date.now() - currentLock.timestamp >= ADMIN_LOCK_TIMEOUT);
+  
+  if (canAcquire) {
+    const newLock: AdminLock = {
+      clientId,
+      timestamp: Date.now(),
+      clientName: clientName || `Client ${clientId.substr(-4)}`
+    };
+    localStorage.setItem(ADMIN_LOCK_KEY, JSON.stringify(newLock));
+    log('[ADMIN_LOCK]', `Acquired lock: ${newLock.clientName}`);
+    return true;
+  }
+  
+  log('[ADMIN_LOCK]', `Failed to acquire - held by ${currentLock?.clientName}`);
+  return false;
+}
+
+/**
+ * Refresh admin lock (extend expiration time)
+ */
+export function refreshAdminLock(): void {
+  const clientId = getClientId();
+  const currentLock = getAdminLock();
+  
+  if (currentLock && currentLock.clientId === clientId) {
+    currentLock.timestamp = Date.now();
+    localStorage.setItem(ADMIN_LOCK_KEY, JSON.stringify(currentLock));
+  }
+}
+
+/**
+ * Release admin lock
+ */
+export function releaseAdminLock(): void {
+  const clientId = getClientId();
+  const currentLock = getAdminLock();
+  
+  if (currentLock && currentLock.clientId === clientId) {
+    localStorage.removeItem(ADMIN_LOCK_KEY);
+    log('[ADMIN_LOCK]', `Released lock: ${currentLock.clientName}`);
+  }
+}
+
+/**
+ * Force release admin lock (for cleanup purposes)
+ */
+export function forceReleaseAdminLock(): void {
+  localStorage.removeItem(ADMIN_LOCK_KEY);
 }

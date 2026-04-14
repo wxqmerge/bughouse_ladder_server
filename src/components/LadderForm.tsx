@@ -22,7 +22,7 @@ import { shouldLog } from "../utils/debug";
 import { getVersionString, isLocalMode, isServerDownMode, getProgramMode, testServerConnection } from "../utils/mode";
 import { log } from "../utils/log";
 import { loadUserSettings } from "../services/userSettingsStorage";
-import { getKeyPrefix, startBatch, endBatch, saveToServer, clearAllSaveStatus, isCellSaved, markLocalChanges, getHasLocalChanges, clearLocalChangesFlag, getPendingDeletes, clearPendingDeletes, queueDelete } from "../services/storageService";
+import { getKeyPrefix, startBatch, endBatch, saveToServer, clearAllSaveStatus, isCellSaved, markCellAsSaved, markLocalChanges, getHasLocalChanges, clearLocalChangesFlag, getPendingDeletes, clearPendingDeletes, queueDelete, isAdminLocked, tryAcquireAdminLock, releaseAdminLock, refreshAdminLock, getAdminLockInfo, ADMIN_LOCK_REFRESH_INTERVAL, getClientId } from "../services/storageService";
 import {
   getPlayers,
   savePlayers,
@@ -187,6 +187,9 @@ export default function LadderForm({
     "50%" | "70%" | "100%" | "140%" | "200%"
   >("100%");
   const [isAdmin, setIsAdmin] = useState(false);
+  const [adminLockInfo, setAdminLockInfo] = useState<{ locked: boolean; holderName?: string; expiresAt?: number }>(
+    getAdminLockInfo()
+  );
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [sortBy, setSortBy] = useState<
     "rank" | "nRating" | "rating" | "byLastName" | "byFirstName" | null
@@ -326,11 +329,47 @@ export default function LadderForm({
     return () => clearInterval(interval);
   }, []);
 
+  // Admin lock: Refresh lock periodically while in admin mode
+  useEffect(() => {
+    if (!isAdmin) return;
+    
+    const refreshInterval = setInterval(() => {
+      refreshAdminLock();
+    }, ADMIN_LOCK_REFRESH_INTERVAL);
+    
+    return () => clearInterval(refreshInterval);
+  }, [isAdmin]);
+
+  // Admin lock: Monitor for lock status changes from other clients
+  useEffect(() => {
+    const checkInterval = setInterval(() => {
+      const info = getAdminLockInfo();
+      setAdminLockInfo(info);
+      
+      // If we're in admin mode but lost the lock, exit admin mode
+      if (isAdmin && !info.locked) {
+        log('[ADMIN_LOCK]', 'Lost admin lock - exiting admin mode');
+        setIsAdmin(false);
+      }
+    }, 1000); // Check every second
+    
+    return () => clearInterval(checkInterval);
+  }, [isAdmin]);
+
+  // Admin lock: Release lock on unmount
+  useEffect(() => {
+    return () => {
+      if (isAdmin) {
+        releaseAdminLock();
+      }
+    };
+  }, []);
+
   // VB6 Line: 894 - Initialize with storage data or sample data
   useEffect(() => {
     const initializeData = async () => {
       try {
-        // Get server configuration for status display
+        // Get server configuration
         const userSettingsJson = localStorage.getItem('bughouse-ladder-user-settings');
         let serverUrl = '';
         if (userSettingsJson) {
@@ -338,15 +377,9 @@ export default function LadderForm({
           serverUrl = userSettings.server?.trim() || '';
         }
 
-        // Show server configuration status
-        if (serverUrl) {
-          (window as any).__ladder_setStatus?.(`Server configured: ${serverUrl}`);
-        } else {
-          (window as any).__ladder_setStatus?.('Local mode (no server configured)');
-        }
+        console.log('[INIT]', 'Server URL:', serverUrl || '(none)');
 
         // Load project settings from localStorage
-        (window as any).__ladder_setStatus?.('Loading localStorage...');
         const projectName = getProjectName();
         if (projectName) {
           setProjectName(projectName);
@@ -367,76 +400,10 @@ export default function LadderForm({
         const userSettings = loadUserSettings();
         setDebugMode(userSettings.debugMode || false);
 
-        // Check if we have local data
-        const localData = localStorage.getItem('ladder_ladder_players');
-        const serverLocalData = localStorage.getItem('ladder_server_ladder_players');
-        const hasLocalPlayers = !!(localData && localData !== 'null' && JSON.parse(localData)?.length > 0);
-        const hasServerLocalPlayers = !!(serverLocalData && serverLocalData !== 'null' && JSON.parse(serverLocalData)?.length > 0);
-
-        if (hasLocalPlayers || hasServerLocalPlayers) {
-          (window as any).__ladder_setStatus?.('Loaded localStorage');
-          
-          // If server is configured, fetch from server
-          if (serverUrl) {
-            (window as any).__ladder_setStatus?.(`Waiting for ${serverUrl}...`);
-            try {
-              const response = await fetch(`${serverUrl}/api/ladder`, {
-                headers: {},
-              });
-              
-              if (response.ok) {
-                const data = await response.json();
-                const serverPlayers = data.data?.players || [];
-                
-                if (serverPlayers && serverPlayers.length > 0) {
-                  (window as any).__ladder_setStatus?.(`Loaded ${serverPlayers.length} players from server`);
-                  const playersWithResults = serverPlayers.map((player: PlayerData) => ({
-                    ...player,
-                    gameResults: player.gameResults || new Array(31).fill(null),
-                  }));
-                  setPlayers(playersWithResults);
-                  setSortBy(null);
-                  if (shouldLog(10)) {
-                    console.log(
-                      `[LadderForm] Loaded ${playersWithResults.length} players from server`,
-                    );
-                  }
-                  (window as any).__ladder_setStatus?.(null);
-                  return;
-                }
-              } else {
-                console.warn(`Server returned ${response.status}, using local data`);
-              }
-            } catch (err) {
-              console.warn('Failed to fetch from server, using local data:', err);
-            }
-          }
-
-          // Use local data as fallback or primary source
-          const playersJson = hasServerLocalPlayers ? serverLocalData : localData;
-          if (playersJson) {
-            const players: PlayerData[] = JSON.parse(playersJson);
-            const playersWithResults = players.map((player) => ({
-              ...player,
-              gameResults: player.gameResults || new Array(31).fill(null),
-            }));
-            setPlayers(playersWithResults);
-            setSortBy(null);
-            if (shouldLog(10)) {
-              console.log(
-                `[LadderForm] Loaded ${playersWithResults.length} players from localStorage`,
-              );
-            }
-            (window as any).__ladder_setStatus?.(null);
-            return;
-          }
-        } else {
-          (window as any).__ladder_setStatus?.('No data in localStorage');
-        }
-
-        // If no local data but server is configured, try fetching from server
-        if ((!hasLocalPlayers && !hasServerLocalPlayers) && serverUrl) {
-          (window as any).__ladder_setStatus?.(`Fetching from ${serverUrl}...`);
+        // PRIORITY 1: If server is configured, ALWAYS fetch from server first
+        if (serverUrl) {
+          console.log('[INIT]', 'Fetching from server:', serverUrl);
+          (window as any).__ladder_setStatus?.(`Connecting to ${serverUrl}...`);
           try {
             const response = await fetch(`${serverUrl}/api/ladder`, {
               headers: {},
@@ -446,32 +413,85 @@ export default function LadderForm({
               const data = await response.json();
               const serverPlayers = data.data?.players || [];
               
+              console.log('[INIT]', 'Server returned', serverPlayers.length, 'players');
+              
+              // Debug: Log game results for players 5 and 6
+              const player5 = serverPlayers.find((p: PlayerData) => p.rank === 5);
+              const player6 = serverPlayers.find((p: PlayerData) => p.rank === 6);
+              if (player5) {
+                const filledCells = player5.gameResults?.map((r: string | null, i: number) => r ? `R${i+1}:${r}` : null).filter(Boolean) || [];
+                console.log('[INIT CLIENT]', `Player 5 game results:`, filledCells.slice(0, 5), filledCells.length > 5 ? '...' : '');
+                // Check for underscores
+                const hasUnderscore = filledCells.some((c: string) => c.includes('_'));
+                console.log('[INIT CLIENT]', `Player 5 has underscore:`, hasUnderscore);
+              }
+              if (player6) {
+                const filledCells = player6.gameResults?.map((r: string | null, i: number) => r ? `R${i+1}:${r}` : null).filter(Boolean) || [];
+                console.log('[INIT CLIENT]', `Player 6 game results:`, filledCells.slice(0, 5), filledCells.length > 5 ? '...' : '');
+                const hasUnderscore = filledCells.some((c: string) => c.includes('_'));
+                console.log('[INIT CLIENT]', `Player 6 has underscore:`, hasUnderscore);
+              }
+              
               if (serverPlayers && serverPlayers.length > 0) {
                 (window as any).__ladder_setStatus?.(`Loaded ${serverPlayers.length} players from server`);
                 const playersWithResults = serverPlayers.map((player: PlayerData) => ({
                   ...player,
                   gameResults: player.gameResults || new Array(31).fill(null),
                 }));
+                
+                // Mark cells as saved if they have underscores
+                playersWithResults.forEach((player: PlayerData) => {
+                  player.gameResults?.forEach((result: string | null, round: number) => {
+                    if (result && result.endsWith('_')) {
+                      markCellAsSaved(player.rank, round);
+                    }
+                  });
+                });
+                
                 setPlayers(playersWithResults);
                 setSortBy(null);
-                if (shouldLog(10)) {
-                  console.log(
-                    `[LadderForm] Loaded ${playersWithResults.length} players from server (no local data)`,
-                  );
-                }
+                console.log('[LadderForm]', `Loaded ${playersWithResults.length} players from server`);
                 (window as any).__ladder_setStatus?.(null);
-                // Load settings and finish
-                const settings = getSettings();
-                if (settings) {
-                  console.log(`[LadderForm] Loaded settings from storage:`, settings);
-                }
                 return;
               }
-            } else {
-              console.warn(`Server returned ${response.status}, starting with empty ladder`);
             }
+            
+            // Server returned empty or error - log but continue to localStorage fallback
+            console.warn('[INIT]', 'Server fetch failed or empty, falling back to localStorage');
           } catch (err) {
-            console.warn('Failed to fetch from server, starting with empty ladder:', err);
+            console.warn('[INIT]', 'Failed to fetch from server, falling back to localStorage:', err);
+          }
+        }
+
+        // PRIORITY 2: Fall back to localStorage if no server or server failed
+        const localData = localStorage.getItem('ladder_ladder_players');
+        const serverLocalData = localStorage.getItem('ladder_server_ladder_players');
+        
+        console.log('[INIT]', 'localStorage has data:', !!localData, '| server localStorage has data:', !!serverLocalData);
+
+        // Try server localStorage first (used in server mode), then regular localStorage
+        const playersJson = serverLocalData || localData;
+        if (playersJson) {
+          try {
+            const players: PlayerData[] = JSON.parse(playersJson);
+            console.log('[INIT]', 'Parsed', players.length, 'players from localStorage');
+            
+            if (players.length > 0) {
+              const playersWithResults = players.map((player) => ({
+                ...player,
+                gameResults: player.gameResults || new Array(31).fill(null),
+              }));
+              setPlayers(playersWithResults);
+              setSortBy(null);
+              if (shouldLog(10)) {
+                console.log(
+                  `[LadderForm] Loaded ${playersWithResults.length} players from localStorage`,
+                );
+              }
+              return;
+            }
+          } catch (parseErr) {
+            console.error('[INIT]', 'Failed to parse localStorage:', parseErr);
           }
         }
 
@@ -481,14 +501,12 @@ export default function LadderForm({
           console.log(`[LadderForm] Loaded settings from storage:`, settings);
         }
       } catch (err) {
-        console.error("Failed to load from storage:", err);
+        console.error("[INIT] Failed to load from storage:", err);
       }
 
-      // No storage data - start with empty ladder
+      // No data anywhere - start with empty ladder
+      console.log('[INIT]', 'Starting with empty ladder');
       (window as any).__ladder_setStatus?.('Starting with empty ladder...');
-      if (shouldLog(10)) {
-        console.log(`[LadderForm] No storage data found. Starting with empty ladder.`);
-      }
       setPlayers([]);
       setSortBy(null);
       (window as any).__ladder_setStatus?.(null);
@@ -1267,10 +1285,39 @@ export default function LadderForm({
    */
   const refreshPlayers = async () => {
     try {
-      log('[REFRESH]', 'Refreshing players from server/storage');
+      log('[REFRESH]', 'Refreshing players from server');
       
-      // Fetch fresh data
-      const freshPlayers = await getPlayers();
+      // Force fresh fetch from server (bypass cache)
+      const userSettings = loadUserSettings();
+      const serverUrl = userSettings.server?.trim();
+      
+      if (!serverUrl) {
+        log('[REFRESH]', 'No server configured, using local data');
+        const localPlayers = await getPlayers();
+        if (localPlayers && localPlayers.length > 0) {
+          setPlayers(localPlayers.map((player: PlayerData) => ({
+            ...player,
+            gameResults: player.gameResults || new Array(31).fill(null),
+          })));
+        }
+        return;
+      }
+      
+      const response = await fetch(`${serverUrl}/api/ladder`);
+      if (!response.ok) {
+        log('[REFRESH]', 'Server fetch failed, using local data');
+        const localPlayers = await getPlayers();
+        if (localPlayers && localPlayers.length > 0) {
+          setPlayers(localPlayers.map((player: PlayerData) => ({
+            ...player,
+            gameResults: player.gameResults || new Array(31).fill(null),
+          })));
+        }
+        return;
+      }
+      
+      const data = await response.json();
+      const freshPlayers = data.data?.players || [];
       
       if (freshPlayers && freshPlayers.length > 0) {
         // Add gameResults array if missing
@@ -1282,7 +1329,7 @@ export default function LadderForm({
         // Update state (preserve sort order)
         setPlayers(playersWithResults);
         
-        log('[REFRESH]', '✓ Refreshed ' + playersWithResults.length + ' players');
+        log('[REFRESH]', '✓ Refreshed ' + playersWithResults.length + ' players from server');
       }
     } catch (error) {
       log('[REFRESH]', '✗ Failed to refresh:', error);
@@ -1318,6 +1365,9 @@ export default function LadderForm({
       return '';
     }
     
+    // Check if result already has underscore (from server load)
+    const hasExistingUnderscore = result.endsWith('_');
+    
     // Remove existing underscore for processing
     const cleanResult = result.replace(/_+$/, '');
     
@@ -1325,8 +1375,8 @@ export default function LadderForm({
       return '';
     }
     
-    // Check if cell is saved
-    const isSaved = isCellSaved(playerRank, round);
+    // Check if cell is saved via tracking OR already has underscore in data
+    const isSaved = isCellSaved(playerRank, round) || hasExistingUnderscore;
     
     // Add underscore suffix if saved
     return isSaved ? cleanResult + '_' : cleanResult;
@@ -2174,7 +2224,29 @@ export default function LadderForm({
     if (shouldLog(10)) {
       console.log(">>> [MENU ACTION] Toggle admin mode");
     }
-    setIsAdmin(!isAdmin);
+    
+    const myClientId = getClientId();
+    
+    if (!isAdmin) {
+      // Attempting to enter admin mode
+      const lockInfo = getAdminLockInfo();
+      if (lockInfo.locked && lockInfo.holderId !== myClientId) {
+        // Another client has admin mode
+        alert(`Admin mode is currently held by "${lockInfo.holderName}".\n\nIt will be available in ${Math.ceil((lockInfo.expiresAt! - Date.now()) / 1000)} seconds if they don't refresh.`);
+        return;
+      }
+      
+      // Try to acquire lock
+      if (tryAcquireAdminLock()) {
+        setIsAdmin(true);
+      } else {
+        alert("Admin mode is currently in use by another browser. Please wait for it to become available.");
+      }
+    } else {
+      // Exiting admin mode - release lock
+      releaseAdminLock();
+      setIsAdmin(false);
+    }
   };
 
   const handleSplashConnect = () => {
@@ -2611,6 +2683,35 @@ export default function LadderForm({
         }}>
           <span style={{ color: '#92400e', fontWeight: '600' }}>⚠️ Server Down Mode</span>
           <span style={{ color: '#78350f' }}>Only game entry is available. Use Recalculate_Save when server is back online.</span>
+        </div>
+      )}
+      {/* Admin lock indicator */}
+      {adminLockInfo.locked && (
+        <div style={{
+          backgroundColor: isAdmin ? '#dcfce7' : '#fef3c7',
+          border: `1px solid ${isAdmin ? '#22c55e' : '#f59e0b'}`,
+          borderRadius: '0.375rem',
+          padding: '0.75rem 1rem',
+          marginBottom: '1rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          fontSize: getFontSize(),
+        }}>
+          {isAdmin ? (
+            <>
+              <span style={{ color: '#166534', fontWeight: '600' }}>🔑 Admin Mode Active</span>
+              <span style={{ color: '#15803d' }}>You are currently in admin mode. Cells are editable.</span>
+            </>
+          ) : (
+            <>
+              <span style={{ color: '#92400e', fontWeight: '600' }}>🔒 Admin Mode Locked</span>
+              <span style={{ color: '#78350f' }}>
+                Held by "{adminLockInfo.holderName}". 
+                {adminLockInfo.expiresAt && `Releases in ${Math.ceil((adminLockInfo.expiresAt - Date.now()) / 1000)}s.`}
+              </span>
+            </>
+          )}
         </div>
       )}
       {/* Mobile menu trigger */}
