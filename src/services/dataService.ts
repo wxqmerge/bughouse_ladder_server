@@ -63,8 +63,9 @@ class DataService {
     this.subscribers.forEach(callback => callback());
   }
 
-  // Track last known data hash to detect actual changes
+  // Track last known data hash to detect actual changes (set once on init)
   private lastDataHash: string | null = null;
+  private hashInitialized = false;
 
   // Start polling for updates (in server modes)
   startPolling(intervalMs: number = 15000): void {
@@ -73,10 +74,8 @@ class DataService {
       try {
         const changed = await this.refreshData();
         if (changed) {
-          console.log('[DataService] Data changed - notifying subscribers');
+          console.log('[DataService] Polling detected data change - notifying subscribers');
           this.notifySubscribers();
-        } else {
-          // No change detected
         }
       } catch (error) {
         console.error('Polling error:', error);
@@ -98,6 +97,57 @@ class DataService {
       rank: p.rank,
       gameResults: p.gameResults
     })));
+  }
+
+  // Initialize hash from current server state (call once on app start)
+  async initializeHash(): Promise<void> {
+    if (this.hashInitialized || this.config.mode === DataServiceMode.LOCAL) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`${this.getApiUrl()}/api/ladder`, {
+        headers: this.getAuthHeaders(),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const serverPlayers = data.data?.players || [];
+        this.lastDataHash = this.computeHash(serverPlayers);
+        console.log('[DataService] Initialized hash from server');
+      }
+    } catch (error) {
+      console.error('[DataService] Failed to initialize hash:', error);
+    }
+    
+    this.hashInitialized = true;
+  }
+
+  // Reset hash to current server state (call after successful save)
+  async resetHash(): Promise<void> {
+    if (this.config.mode === DataServiceMode.LOCAL) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`${this.getApiUrl()}/api/ladder`, {
+        headers: this.getAuthHeaders(),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const serverPlayers = data.data?.players || [];
+        this.lastDataHash = this.computeHash(serverPlayers);
+        console.log('[DataService] Reset hash after save');
+      }
+    } catch (error) {
+      console.error('[DataService] Failed to reset hash:', error);
+    }
+  }
+
+  // Expose resetHash publicly
+  public resetHashPublic(): Promise<void> {
+    return this.resetHash();
   }
 
   // Refresh data from source - returns true if data changed
@@ -123,9 +173,8 @@ class DataService {
         // Compute hash of current server data
         const newHash = this.computeHash(serverPlayers);
         
-        // Check if data actually changed
+        // Check if data actually changed (DON'T update lastDataHash - it stays fixed from init)
         if (newHash !== this.lastDataHash) {
-          this.lastDataHash = newHash;
           console.log('[DataService] Polling detected data change');
           return true; // Data changed
         }
