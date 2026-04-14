@@ -4,16 +4,29 @@ This guide provides step-by-step instructions for deploying the Bughouse Chess L
 
 ---
 
+## Architecture Overview
+
+**Minimal server-side code** - The application is primarily a client-side React app. The server is a simple data store:
+
+| Component | What It Does |
+|-----------|---------------|
+| **Frontend** | All game entry, validation, rating calculation in browser |
+| **Server** | Stores/retrieves ladder data via REST API |
+| **No authentication** | Optional API key for admin endpoints only |
+
+Users configure the server URL through the **Settings menu** in the browser - no environment variables needed for most deployments.
+
+---
+
 ## Table of Contents
 
 1. [System Requirements](#system-requirements)
-2. [Quick Deploy Script](#quick-deploy-script)
+2. [Quick Start](#quick-start)
 3. [Manual Installation](#manual-installation)
 4. [Configuration](#configuration)
-5. [Reverse Proxy Setup (Nginx)](#reverse-proxy-setup-nginx)
-6. [Systemd Service (Optional)](#systemd-service-optional)
-7. [Verification](#verification)
-8. [Troubleshooting](#troubleshooting)
+5. [Nginx Setup](#nginx-setup)
+6. [Verification](#verification)
+7. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -28,79 +41,117 @@ This guide provides step-by-step instructions for deploying the Bughouse Chess L
 
 ---
 
-## Quick Deploy Script
+## Quick Start
 
-For automated installation, use the provided deploy script:
+### Install Node.js and Git
 
 ```bash
-# Clone repository
-git clone <your-repository-url> /var/www/bughouse-ladder
-cd /var/www/bughouse-ladder
+# Update system
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs git curl nginx
+```
 
-# Run automated deployment
-chmod +x deploy.sh
-sudo ./deploy.sh
+### Clone Repository
+
+```bash
+sudo mkdir -p /var/www/bughouse-ladder
+cd /var/www/bughouse-ladder
+git clone <your-repository-url> .
+```
+
+### Install Dependencies
+
+```bash
+# Frontend dependencies
+npm install
+
+# Server dependencies
+cd server && npm install && cd ..
+```
+
+### Build Application
+
+```bash
+# Build frontend
+npm run build
+
+# Build server
+cd server && npm run build && cd ..
+
+# Create data directories
+mkdir -p server/data server/uploads
+```
+
+### Configure Server (Minimal)
+
+```bash
+cd server
+cp .env.example .env
+cat > .env << EOF
+PORT=3000
+NODE_ENV=production
+CORS_ORIGIN=https://your-domain.com
+EOF
+cd ..
+```
+
+### Start Server
+
+```bash
+# Development (with auto-restart)
+cd server && npm run dev
+
+# Production (manual start)
+sudo systemctl start bughouse-ladder  # If using systemd service
 ```
 
 ---
 
 ## Manual Installation
 
-### Step 1: Update System and Install Dependencies
+### Step 1: Update System
 
 ```bash
-# Update system packages
 sudo apt update && sudo apt upgrade -y
 
-# Install Node.js (using NodeSource for latest LTS)
+# Install Node.js LTS
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt install -y nodejs
 
-# Install Git, Nginx, and other utilities
-sudo apt install -y git nginx curl
-
-# Verify installations
+# Verify
 node --version  # Should show v20.x.x
 npm --version   # Should show 10.x.x
-git --version
 ```
 
-### Step 2: Create Application Directory and User
+### Step 2: Create Application Directory
 
 ```bash
-# Create application directory
 sudo mkdir -p /var/www/bughouse-ladder
 sudo chown $USER:$USER /var/www/bughouse-ladder
-
-# Navigate to directory
 cd /var/www/bughouse-ladder
 ```
 
 ### Step 3: Clone Repository
 
 ```bash
-# Clone your repository (replace with actual URL)
 git clone <your-repository-url> .
-
-# Or copy files manually if not using Git
-# scp user@source:/path/to/files/* /var/www/bughouse-ladder/
 ```
 
 ### Step 4: Install Dependencies
 
 ```bash
-# Install frontend dependencies
+# Frontend dependencies
 npm install
 
-# Install server dependencies
+# Server dependencies
 cd server
 npm install
 cd ..
 ```
 
-### Step 5: Configure Environment Variables
+### Step 5: Configure Server
 
-**Server Configuration:**
+**Create `.env` file:**
 
 ```bash
 cd server
@@ -108,46 +159,29 @@ cp .env.example .env
 nano .env
 ```
 
-Edit `server/.env` with production values:
+Edit `server/.env`:
 
 ```env
-# Server Configuration
 PORT=3000
 NODE_ENV=production
 
-# JWT Secret - GENERATE A NEW ONE FOR PRODUCTION
-JWT_SECRET=<run: openssl rand -base64 32>
-
-# CORS Origin - Your production domain
+# REQUIRED: Your production domain (for CORS security)
 CORS_ORIGIN=https://your-domain.com
 
-# Admin Credentials - CHANGE THESE IMMEDIATELY
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=<strong-password-here>
-
-# Tab file path
-TAB_FILE_PATH=./data/ladder.tab
-
-# Rate limiting (adjust for production traffic)
-RATE_LIMIT_WINDOW_MS=900000
-RATE_LIMIT_MAX_REQUESTS=100
+# OPTIONAL: Admin API key for protecting /api/admin/* endpoints
+# Leave empty for local/development use
+ADMIN_API_KEY=
 ```
 
-**Frontend Configuration:**
-
-```bash
-cd ..
-cp .env.example .env.production
-cat > .env.production << EOF
-# Frontend Environment Variables
-VITE_API_URL=https://your-domain.com/api
-production
-EOF
-```
+**Key values explained:**
+- `CORS_ORIGIN` - **Required** - Your domain (e.g., `https://omen.com`). Prevents cross-site attacks.
+- `ADMIN_API_KEY` - Optional - Protects admin endpoints. Generate with: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
 
 ### Step 6: Build Application
 
 ```bash
+cd ..
+
 # Build frontend (creates dist/ directory)
 npm run build
 
@@ -156,12 +190,12 @@ cd server
 npm run build
 cd ..
 
-# Create necessary directories
-mkdir -p server/uploads server/data
-chmod 755 server/uploads server/data
+# Create data directories
+mkdir -p server/data server/uploads
+chmod 755 server/data server/uploads
 ```
 
-### Step 7: Configure Nginx (Reverse Proxy)
+### Step 7: Configure Nginx
 
 Create Nginx configuration:
 
@@ -230,7 +264,7 @@ sudo certbot --nginx -d your-domain.com -d www.your-domain.com
 sudo certbot renew --dry-run
 ```
 
-### Step 9: Create Systemd Service (Optional but Recommended)
+### Step 9: Create Systemd Service (Optional)
 
 Create service file:
 
@@ -280,27 +314,36 @@ sudo systemctl status bughouse-ladder
 
 ## Configuration
 
-### Environment Variables Reference
+### Server Environment Variables
 
-| Variable | Description | Default | Production Value |
-|----------|-------------|---------|------------------|
-| `PORT` | Server port | 3000 | 3000 (behind proxy) |
-| `NODE_ENV` | Environment | development | production |
-| `JWT_SECRET` | JWT signing key | - | **MUST CHANGE** |
-| `CORS_ORIGIN` | Allowed origins | * | https://your-domain.com |
-| `ADMIN_USERNAME` | Admin username | admin | Change immediately |
-| `ADMIN_PASSWORD` | Admin password | admin123 | **CHANGE IMMEDIATELY** |
-| `RATE_LIMIT_MAX_REQUESTS` | Max requests per window | 100 | Adjust based on traffic |
+| Variable | Required? | Description |
+|----------|-----------|-------------|
+| `PORT` | No | Server port (default: 3000) |
+| `NODE_ENV` | Yes | Set to `production` |
+| `CORS_ORIGIN` | **Yes** | Your domain (e.g., `https://omen.com`) |
+| `ADMIN_API_KEY` | Optional | API key for admin endpoints |
 
-### Generate Secure JWT Secret
+### Client-Side Server Configuration
+
+Users configure the server URL through the **Settings menu** in the browser:
+
+1. Open the application
+2. Click **Menu → Settings**
+3. Enter server URL (e.g., `omen.com:3000` or `http://localhost:3000`)
+4. Optionally enter API key if server has admin protection enabled
+5. Click **Save** - page reloads with new configuration
+
+This setting is stored in the browser's localStorage and persists across sessions.
+
+### Generate Admin API Key (Optional)
 
 ```bash
-openssl rand -base64 32
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
 ---
 
-## Reverse Proxy Setup (Nginx)
+## Nginx Setup
 
 ### Production Nginx Configuration with SSL
 
@@ -367,35 +410,6 @@ server {
 
 ---
 
-## Systemd Service (Optional)
-
-### Manage the Service
-
-```bash
-# Start service
-sudo systemctl start bughouse-ladder
-
-# Stop service
-sudo systemctl stop bughouse-ladder
-
-# Restart service
-sudo systemctl restart bughouse-ladder
-
-# View logs
-sudo journalctl -u bughouse-ladder -f
-
-# View status
-sudo systemctl status bughouse-ladder
-```
-
-### Enable Auto-Start on Boot
-
-```bash
-sudo systemctl enable bughouse-ladder
-```
-
----
-
 ## Verification
 
 ### 1. Check Server Health
@@ -425,10 +439,8 @@ Should return `HTTP/2 200` with `Content-Type: text/html`.
 ### 3. Check API
 
 ```bash
-# Test API endpoint (will fail without auth, but should connect)
-curl -X POST https://your-domain.com/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"your-password"}'
+# Test API endpoint (should return CORS or method error, not 404)
+curl -I https://your-domain.com/api/players
 ```
 
 ### 4. Check Service Status
@@ -491,7 +503,21 @@ sudo chown -R www-data:www-data /var/www/bughouse-ladder
 
 # Fix permissions
 sudo chmod -R 755 /var/www/bughouse-ladder
-sudo chmod 700 /var/www/bughouse-ladder/server/.env
+sudo chmod 600 /var/www/bughouse-ladder/server/.env
+```
+
+### CORS Errors in Browser
+
+Check that `CORS_ORIGIN` in `server/.env` matches your domain exactly:
+
+```env
+# Correct - must match browser's origin
+CORS_ORIGIN=https://your-domain.com  
+CORS_ORIGIN=https://omen.com
+
+# Wrong - trailing slash, http instead of https
+CORS_ORIGIN=https://your-domain.com/
+CORS_ORIGIN=http://your-domain.com
 ```
 
 ---
@@ -540,11 +566,10 @@ sudo tail -f /var/log/nginx/error.log
 
 ## Security Checklist
 
-- [ ] Changed `JWT_SECRET` to a random value
-- [ ] Changed default admin credentials
-- [ ] Configured SSL/TLS with Let's Encrypt
 - [ ] Set `NODE_ENV=production`
-- [ ] Configured CORS to only allow your domain
+- [ ] Set `CORS_ORIGIN` to your production domain (required)
+- [ ] Configured SSL/TLS with Let's Encrypt
+- [ ] Generated `ADMIN_API_KEY` if using admin endpoints (optional)
 - [ ] Enabled firewall (UFW):
   ```bash
   sudo ufw allow 'Nginx Full'
@@ -554,8 +579,6 @@ sudo tail -f /var/log/nginx/error.log
   ```bash
   chmod 600 /var/www/bughouse-ladder/server/.env
   ```
-- [ ] Regular system updates enabled
-- [ ] Log rotation configured
 
 ---
 

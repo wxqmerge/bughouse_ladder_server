@@ -1,452 +1,207 @@
-# Security Configuration Summary
+# Security Configuration
 
 ## Architecture Overview
 
+### Minimal Server Design
+
+The Bughouse Chess Ladder uses a **minimal server architecture** - the server is essentially a simple data store. All game entry, validation, and rating calculation happens in the browser.
+
 ### Storage Model
 
-**LOCAL Mode (no server configured in UI):**
+**LOCAL Mode (no server configured in Settings):**
 - All data stored in browser localStorage only
 - No server communication
 - Data persists only in current browser
-- **Cannot write to local ladder.tab** (browser security limitation)
 
-**SERVER Mode (server configured via UI settings):**
+**SERVER Mode (server configured via Settings menu):**
 - Frontend stores data in localStorage (immediate, fast)
 - Background sync sends PUT requests to server
 - Server writes to `server/data/ladder.tab` (source of truth)
 - Multiple clients can share the same ladder data
 
-### Files
-- `data/ladder.tab` - **DELETED** - Useless (browser cannot write to local filesystem)
-- `server/data/ladder.tab` - **ACTIVE** - Server writes here, shared across all clients
-
 ---
 
-## Changes Applied
+## Security Features
 
-### 1. 🔴 CRITICAL: Hardcoded Credentials Fixed
+### 1. CORS Protection
 
-#### Before:
-```typescript
-// auth.routes.ts
-const defaultAdminUsername = process.env.ADMIN_USERNAME || 'admin';
-const defaultAdminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+**Purpose:** Prevent unauthorized cross-origin requests
+
+**Configuration:**
+```env
+CORS_ORIGIN=https://your-domain.com
 ```
 
-#### After:
-```typescript
-// auth.routes.ts  
-const defaultAdminUsername = process.env.ADMIN_USERNAME!;
-const defaultAdminPassword = process.env.ADMIN_PASSWORD!;
+**Behavior:**
+- Only requests from configured origin are allowed
+- Production warning if `*` is used
+- Credentials (cookies) supported when needed
 
-if (!defaultAdminUsername || !defaultAdminPassword) {
-  console.error('ERROR: Required environment variables missing');
-  process.exit(1);
-}
+### 2. Admin API Key Protection (Optional)
+
+**Purpose:** Protect admin endpoints from unauthorized access
+
+**Configuration:**
+```env
+ADMIN_API_KEY=<64-character-hex-key>
 ```
 
-**Impact:** Server will NOT start without proper admin credentials configured.
+**Protected Endpoints:** `/api/admin/*`
 
----
+**Usage:** Include header `X-API-Key: <key>` with admin requests
 
-### 2. 🔴 CRITICAL: JWT Secret Validation
-
-#### Before:
-```typescript
-// auth.middleware.ts
-export const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-```
-
-#### After:
-```typescript
-// index.ts (validation runs at startup)
-if (!process.env.JWT_SECRET) {
-  console.error('ERROR: JWT_SECRET environment variable is required');
-  process.exit(1);
-}
-```
-
-**Impact:** Prevents token forgery attacks from default secret.
-
----
-
-### 3. 🔴 CRITICAL: CORS Configuration Fixed
-
-**Before:**
-```typescript
-app.use(cors({ origin: '*', credentials: true }));  // ⚠️ DANGEROUS!
-```
-
-**After:**
-```typescript
-const corsOrigins = process.env.CORS_ORIGINS?.split(',').map(o => o.trim()) || ['*'];
-if (isProduction && corsOrigins.includes('*')) {
-  console.warn('⚠️ SECURITY WARNING: CORS Origins set to "*" in production!');
-}
-app.use(cors({
-  origin: corsOrigins,
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
-}));
-```
-
-**Impact:** Configurable CORS origins with production warning on wildcard.
-
----
-
-### 4. 🟠 HIGH: Content Security Policy Enabled
-
-#### Before:
-```typescript
-app.use(helmet({
-  contentSecurityPolicy: false, // Disabled for development
-}));
-```
-
-#### After:
-```typescript
-const isProduction = process.env.NODE_ENV === 'production';
-app.use(helmet({
-  contentSecurityPolicy: isProduction ? {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", 'data:', 'blob:'],
-      connectSrc: ["'self'", process.env.CORS_ORIGIN],
-      objectSrc: ["'none'"],
-      mediaSrc: ["'none'"],
-      frameSrc: ["'none'"],
-    },
-  } : false,
-}));
-```
-
-**Impact:** XSS protection enabled in production.
-
----
-
-### 5. 🟠 HIGH: Rate Limiting Strengthened
-
-**Before:**
-```typescript
-const authLimiter = rateLimit({ max: 100 });  // Too permissive
-const apiLimiter = rateLimit({ max: 1000 });  // Way too high for production
-```
-
-**After:**
-```typescript
-const authLimiter = rateLimit({ max: 10 });   // Strict - prevent brute force
-const apiLimiter = rateLimit({ max: isProduction ? 100 : 1000 });  // Adaptive
-```
-
-**Impact:** Brute force protection on login (10 attempts) and API endpoints (100 req/15min in production).
-
----
-
-### 6. 🟠 HIGH: Request Size Limiting Added
-
-**Before:**
-```typescript
-app.use(express.json({ limit: '10mb' }));  // Too permissive - DoS risk
-```
-
-**After:**
-```typescript
-const requestSizeLimit = process.env.REQUEST_SIZE_LIMIT || '1mb';
-app.use(express.json({ limit: requestSizeLimit }));
-app.use(express.urlencoded({ extended: true, limit: requestSizeLimit }));
-```
-
-**Impact:** Prevents DoS attacks from large payloads.
-
----
-
-### 7. 🟠 HIGH: HTTP Method Security Added
-
-```typescript
-app.use((req, res, next) => {
-  const dangerousMethods = ['TRACE', 'TRACK', 'CONNECT'];
-  if (dangerousMethods.includes(req.method)) {
-    console.log(`[SECURITY] Blocked dangerous method: ${req.method}`);
-    return res.status(405).json({ success: false, error: { message: 'Method not allowed' } });
-  }
-  next();
-});
-```
-
-**Impact:** Blocks dangerous HTTP methods used in reconnaissance attacks.
-
----
-
-### 8. 🟡 MEDIUM: Security Logging Added
-
-```typescript
-if (isProduction) {
-  app.use('/api/*', (req, res, next) => {
-    const clientIp = req.ip || req.socket.remoteAddress;
-    if (req.path.includes('..') || req.path.includes('<script')) {
-      console.log(`[SECURITY] Suspicious request from ${clientIp}: ${req.method} ${req.path}`);
-    }
-    next();
-  });
-}
-```
-
-**Impact:** Logs suspicious requests (path traversal, XSS attempts) for monitoring.
-
----
-
-### 9. 🟡 MEDIUM: Admin API Key Timing-Safe Comparison
-
-**Before:**
-```typescript
-if (apiKey !== ADMIN_API_KEY) {  // Vulnerable to timing attacks!
-```
-
-**After:**
-```typescript
-import crypto from 'crypto';
-const keyBuffer = Buffer.from(ADMIN_API_KEY, 'utf-8');
-const providedBuffer = Buffer.from(apiKey, 'utf-8');
-if (!crypto.timingSafeEqual(keyBuffer, providedBuffer)) {
-  // Reject with same timing regardless of where mismatch occurs
-}
-```
-
-**Impact:** Prevents timing attacks on admin API key validation.
-
----
-
-### 6. 🟡 MEDIUM: Game Submission Authorization
-
-#### Before:
-```typescript
-// Allowed any authenticated user to submit for any player
-if (req.user?.role !== 'admin') {
-  console.log(`User submitting for player ${playerRank}`);
-}
-```
-
-#### After:
-```typescript
-// Non-admin users must be assigned a rank
-if (req.user?.role !== 'admin') {
-  const assignedRank = (req.user as any).assignedRank;
-  if (assignedRank !== undefined && assignedRank !== playerRank) {
-    res.status(403).json({ error: 'Can only submit for your own rank' });
-    return;
-  }
-}
-```
-
-**Impact:** Users can only submit game results for their assigned rank.
-
----
-
-### 7. 🟢 LOW: Client-Side Authentication Flow
-
-#### New Features:
-- **LoginForm Component**: Modal dialog for user authentication
-- **AuthService**: Manages JWT tokens in sessionStorage
-- **Automatic Login Prompt**: Shows login dialog when 401 errors occur
-- **Token Auto-Refresh**: Tokens automatically attached to all API requests
-
-#### Key Files:
-- `src/services/authService.ts` - Authentication state management
-- `src/components/LoginForm.tsx` - Login UI component
-- Updated `src/App.tsx` - Integrates login dialog
-- Updated `src/services/dataService.ts` - Uses auth tokens automatically
-
----
-
-## Environment Variables Required
-
-### Production Checklist:
-
-| Variable | Required | Default | Action |
-|----------|----------|---------|--------|
-| `JWT_SECRET` | ✅ YES | None | Generate with crypto |
-| `CORS_ORIGINS` | ✅ YES | None | Comma-separated origins |
-| `ADMIN_USERNAME` | ✅ YES | None | Choose username |
-| `ADMIN_PASSWORD` | ✅ YES | None | Use strong password |
-| `ADMIN_API_KEY` | ✅ YES | None | Generate 64-char hex key |
-| `NODE_ENV` | ✅ YES | development | Set to 'production' |
-| `PORT` | ❌ No | 3000 | Optional |
-| `REQUEST_SIZE_LIMIT` | ❌ No | 1mb | Optional |
-| `RATE_LIMIT_WINDOW_MS` | ❌ No | 900000 | Optional (15 min) |
-| `RATE_LIMIT_MAX_REQUESTS` | ❌ No | 100 | Optional |
-| `JWT_EXPIRY` | ❌ No | 24h | Optional |
-
----
-
-## How to Generate Secure Values
-
-### JWT Secret:
-```bash
-node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
-```
-
-### Admin API Key:
+**Generate Key:**
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-### Example Output:
+**Note:** Admin API key is optional. If not set, admin endpoints are publicly accessible (suitable for local/development use).
+
+### 3. Rate Limiting
+
+**Purpose:** Prevent abuse and DoS attacks
+
+**Default Settings:**
+- 100 requests per 15 minutes (production)
+- 1000 requests per 15 minutes (development)
+
+**Configuration:**
+```env
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX_REQUESTS=100
 ```
-a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456
+
+### 4. Helmet.js Security Headers
+
+**Purpose:** Set secure HTTP headers
+
+**Headers Applied:**
+- `X-Content-Type-Options: nosniff`
+- `X-Frame-Options: DENY`
+- `X-XSS-Protection: 1; mode=block`
+- `Strict-Transport-Security` (HTTPS only)
+- And more...
+
+### 5. Content Security Policy (Production Only)
+
+**Purpose:** Prevent XSS attacks
+
+**Applied in production only.** Development mode disables CSP for easier debugging.
+
+---
+
+## Environment Variables
+
+### Required Variables
+
+| Variable | Description | Example |
+|----------|-------------|--------|
+| `NODE_ENV` | Environment mode | `production` |
+| `CORS_ORIGIN` | Allowed frontend domain | `https://omen.com` |
+
+### Optional Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `PORT` | Server port | `3000` |
+| `ADMIN_API_KEY` | Admin endpoint protection | None (open) |
+| `RATE_LIMIT_WINDOW_MS` | Rate limit window | `900000` (15 min) |
+| `RATE_LIMIT_MAX_REQUESTS` | Max requests per window | `100` (prod), `1000` (dev) |
+
+---
+
+## Production Checklist
+
+Before deploying to production:
+
+- [ ] Set `NODE_ENV=production`
+- [ ] Set `CORS_ORIGIN` to your domain (required)
+- [ ] Generate `ADMIN_API_KEY` if using admin endpoints (optional)
+- [ ] Configure SSL/TLS (via nginx or reverse proxy)
+- [ ] Enable firewall rules
+
+### Example Production `.env`
+
+```env
+PORT=3000
+NODE_ENV=production
+CORS_ORIGIN=https://omen.com
+ADMIN_API_KEY=a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456
 ```
 
 ---
 
-## Verification Steps
+## Network Security Recommendations
 
-### 1. Check Environment Variables:
+### Firewall Rules (UFW example)
+
+```bash
+# Allow only essential ports
+sudo ufw allow 'Nginx Full'  # HTTP/HTTPS
+sudo ufw deny 3000           # Block direct server access
+sudo ufw enable
+```
+
+### Nginx Reverse Proxy (Recommended)
+
+See `README_INSTALL.md` for complete nginx configuration with SSL.
+
+---
+
+## Client-Side Configuration
+
+Users configure the server URL through the **Settings menu** in the browser:
+
+1. Open the application
+2. Click **Menu → Settings**
+3. Enter server URL (e.g., `omen.com:3000`)
+4. Optionally enter API key if server has admin protection enabled
+5. Click **Save** - page reloads with new configuration
+
+This setting is stored in the browser's localStorage and persists across sessions.
+
+---
+
+## Security Headers Summary
+
+| Header | Value | Purpose |
+|--------|-------|--------|
+| `X-Content-Type-Options` | `nosniff` | Prevent MIME sniffing |
+| `X-Frame-Options` | `DENY` | Prevent clickjacking |
+| `X-XSS-Protection` | `1; mode=block` | Enable XSS filter |
+| `Strict-Transport-Security` | `max-age=31536000` | Enforce HTTPS |
+| `Content-Security-Policy` | Configured | Prevent XSS (production) |
+
+---
+
+## Monitoring
+
+### Check Server Security Configuration
+
 ```bash
 cd server
-node -e "require('dotenv').config(); console.log(process.env.JWT_SECRET ? 'JWT_SECRET: OK' : 'JWT_SECRET: MISSING')"
+node -e "require('dotenv').config(); console.log('CORS:', process.env.CORS_ORIGIN || '(not set)'); console.log('Admin Key:', process.env.ADMIN_API_KEY ? 'Set' : '(not set)')"
 ```
 
-### 2. Test Server Startup:
-```bash
-cd server
-npm run dev
-```
+### Test CORS Configuration
 
-Expected output includes:
-- ✓ All environment variables validated
-- ⚠️ Warnings for development defaults
-- ✗ Server exits if required variables missing
-
-### 3. Test Rate Limiting:
-```bash
-# Should fail after 10 auth attempts
-for i in {1..15}; do curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3000/api/auth/login; done
-
-# Should fail after 100 API requests (in production)
-for i in {1..105}; do curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3000/api/ladder; done
-```
-
-### 4. Test CORS:
 ```bash
 # Request from wrong origin should fail
 curl -H "Origin: http://evil.com" -v http://localhost:3000/api/ladder
 # Should see Access-Control-Allow-Origin not set or set to configured origin
 ```
 
-### 5. Test Authentication:
-```bash
-# Login and get token
-curl -X POST http://localhost:3000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"your-password"}'
-
-# Use token for protected endpoint
-curl http://localhost:3000/api/ladder \
-  -H "Authorization: Bearer YOUR_TOKEN_HERE"
-```
-
 ---
 
-## Files Modified
+## No Authentication Required
 
-### Server-Side:
-1. `server/src/index.ts` - Environment validation, rate limiting, CSP, security middleware
-2. `server/src/routes/auth.routes.ts` - Required env vars, dotenv import
-3. `server/src/middleware/auth.middleware.ts` - Removed default JWT secret, timing-safe API key comparison
-4. `server/src/routes/game.routes.ts` - Authorization checks
-5. `server/src/routes/ladder.routes.ts` - Auth required for updates
-6. `server/src/middleware/errorHandler.ts` - Type safety fixes
+This application does **not** implement user authentication:
+- No username/password login
+- No JWT tokens
+- No session management
 
-### Configuration:
-1. `.env.example` - Complete documentation of all variables
-2. `.env` - Production defaults with strong API key placeholder
-3. `server/.env` - Synced with parent .env
-
----
-
-## 🚨 CRITICAL: Before Going Live
-
-### 1. Generate Strong API Key
-```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-```
-Update `.env`:
-```env
-ADMIN_API_KEY=<paste-64-char-key-here>
-```
-
-### 2. Set CORS to Your Domain
-```env
-# Replace with your actual domain!
-CORS_ORIGINS=https://yourdomain.com
-```
-
-### 3. Enable Production Mode
-```env
-NODE_ENV=production
-```
-
-### 4. Verify All Environment Variables
-```bash
-cd server
-node -e "require('dotenv').config(); const vars=['JWT_SECRET','CORS_ORIGINS','ADMIN_USERNAME','ADMIN_PASSWORD','ADMIN_API_KEY']; vars.forEach(v=>console.log(v+':',process.env[v]?'OK':'MISSING'))"
-```
-
----
-
-## Security Features Summary
-
-| Feature | Status | Details |
-|---------|--------|--------|
-| **Rate Limiting** | ✅ | 10 auth / 100 API req per 15 min (prod) |
-| **CORS Protection** | ✅ | Configurable origins, warning on `*` |
-| **Security Headers** | ✅ | Helmet.js with CSP |
-| **Request Size Limit** | ✅ | 1MB default (configurable) |
-| **Method Filtering** | ✅ | Blocks TRACE/TRACK/CONNECT |
-| **Timing-Safe API Key** | ✅ | Prevents timing attacks |
-| **Security Logging** | ✅ | Suspicious requests logged |
-| **HTTPS Enforcement** | ⚠️ | Requires nginx/reverse proxy |
-
----
-
-## Network Security Recommendations
-
-### Firewall Rules (UFW example):
-```bash
-# Allow only essential ports
-sudo ufw allow 80/tcp    # HTTP
-sudo ufw allow 443/tcp   # HTTPS
-sudo ufw allow 3000/tcp  # Node.js (internal only)
-sudo ufw enable
-```
-
-### nginx Reverse Proxy (recommended):
-See `README_INSTALL.md` for complete nginx configuration with SSL.
-
----
-
-## Monitoring Commands
-
-### Check Active Connections:
-```bash
-netstat -tulpn | grep 3000
-```
-
-### View Security Logs:
-```bash
-tail -f server.log | grep SECURITY
-```
-
----
-
-## Remaining Security Tasks (Optional)
-
-- [ ] Replace in-memory user store with database
-- [ ] Add password complexity validation
-- [ ] Implement account lockout after failed attempts
-- [ ] Add HTTPS certificate configuration
-- [ ] Configure secure cookie settings
-- [ ] Implement refresh token rotation
-- [ ] Add multi-factor authentication
+Security is achieved through:
+1. Optional admin API key for sensitive endpoints
+2. CORS protection
+3. Rate limiting
+4. Network-level security (firewall, SSL)
