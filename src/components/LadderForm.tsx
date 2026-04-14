@@ -362,8 +362,8 @@ export default function LadderForm({
         // Check if we have local data
         const localData = localStorage.getItem('ladder_ladder_players');
         const serverLocalData = localStorage.getItem('ladder_server_ladder_players');
-        const hasLocalPlayers = !!(localData && JSON.parse(localData).length > 0);
-        const hasServerLocalPlayers = !!(serverLocalData && JSON.parse(serverLocalData).length > 0);
+        const hasLocalPlayers = !!(localData && localData !== 'null' && JSON.parse(localData)?.length > 0);
+        const hasServerLocalPlayers = !!(serverLocalData && serverLocalData !== 'null' && JSON.parse(serverLocalData)?.length > 0);
 
         if (hasLocalPlayers || hasServerLocalPlayers) {
           (window as any).__ladder_setStatus?.('Loaded localStorage');
@@ -424,6 +424,47 @@ export default function LadderForm({
           }
         } else {
           (window as any).__ladder_setStatus?.('No data in localStorage');
+        }
+
+        // If no local data but server is configured, try fetching from server
+        if ((!hasLocalPlayers && !hasServerLocalPlayers) && serverUrl) {
+          (window as any).__ladder_setStatus?.(`Fetching from ${serverUrl}...`);
+          try {
+            const response = await fetch(`${serverUrl}/api/ladder`, {
+              headers: {},
+            });
+            
+            if (response.ok) {
+              const data = await response.json();
+              const serverPlayers = data.data?.players || [];
+              
+              if (serverPlayers && serverPlayers.length > 0) {
+                (window as any).__ladder_setStatus?.(`Loaded ${serverPlayers.length} players from server`);
+                const playersWithResults = serverPlayers.map((player: PlayerData) => ({
+                  ...player,
+                  gameResults: player.gameResults || new Array(31).fill(null),
+                }));
+                setPlayers(playersWithResults);
+                setSortBy(null);
+                if (shouldLog(10)) {
+                  console.log(
+                    `[LadderForm] Loaded ${playersWithResults.length} players from server (no local data)`,
+                  );
+                }
+                (window as any).__ladder_setStatus?.(null);
+                // Load settings and finish
+                const settings = getSettings();
+                if (settings) {
+                  console.log(`[LadderForm] Loaded settings from storage:`, settings);
+                }
+                return;
+              }
+            } else {
+              console.warn(`Server returned ${response.status}, starting with empty ladder`);
+            }
+          } catch (err) {
+            console.warn('Failed to fetch from server, starting with empty ladder:', err);
+          }
         }
 
         // Load settings
