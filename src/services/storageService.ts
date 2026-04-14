@@ -902,6 +902,23 @@ export function getAdminLockInfo(): { locked: boolean; holderId?: string; holder
  * @returns true if lock acquired, false if already held by another client
  */
 export function tryAcquireAdminLock(clientName?: string): boolean {
+  return acquireAdminLock(clientName, false);
+}
+
+/**
+ * Force acquire admin lock (override existing lock)
+ * @returns true if lock acquired/overridden
+ */
+export function forceAcquireAdminLock(clientName?: string): boolean {
+  return acquireAdminLock(clientName, true);
+}
+
+/**
+ * Internal function to acquire admin lock
+ * @param force - If true, override existing lock
+ * @returns true if lock acquired
+ */
+function acquireAdminLock(clientName?: string, force: boolean = false): boolean {
   const clientId = getClientId();
   const currentLock = getAdminLock();
   
@@ -910,14 +927,19 @@ export function tryAcquireAdminLock(clientName?: string): boolean {
     currentLock.clientId === clientId || 
     (Date.now() - currentLock.timestamp >= ADMIN_LOCK_TIMEOUT);
   
-  if (canAcquire) {
+  if (canAcquire || force) {
     const newLock: AdminLock = {
       clientId,
       timestamp: Date.now(),
       clientName: clientName || `Client ${clientId.substr(-4)}`
     };
     localStorage.setItem(ADMIN_LOCK_KEY, JSON.stringify(newLock));
-    log('[ADMIN_LOCK]', `Acquired lock: ${newLock.clientName}`);
+    
+    if (force && currentLock && currentLock.clientId !== clientId) {
+      log('[ADMIN_LOCK]', `FORCED lock acquisition - overridden ${currentLock.clientName}`);
+    } else {
+      log('[ADMIN_LOCK]', `Acquired lock: ${newLock.clientName}`);
+    }
     return true;
   }
   
