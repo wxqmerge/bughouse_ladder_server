@@ -1105,7 +1105,7 @@ export default function ErrorDialog({
           <br />
           2-player, 2 results: `3WL4` (player 3 vs 4, W then L)
           <br />
-          4-player team game: `A:BWC:D` where A&B = first team, C&D = second team
+          4-player team game: `A:BWC:D` or `A:BWLC:D` where A&B = first team, C&D = second team
           <br />
           Example: `5:6W7:8` means:
           <br />
@@ -1113,7 +1113,11 @@ export default function ErrorDialog({
           <br />
           - Team 1 wins, Team 2 loses
           <br />
-          - All teammates share same W/L/D result
+          Example: `1:2LL3:4` means:
+          <br />
+          - Team 1&2 loses BOTH games to Team 3&4
+          <br />
+          - All teammates share same result(s)
         </div>
       </div>
     </div>
