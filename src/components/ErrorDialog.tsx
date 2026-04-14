@@ -70,6 +70,45 @@ function formatResultText(results: string[]): string {
   return formatted.join(' and ') + ' against';
 }
 
+/**
+ * Check if a game entry conflicts with existing entries in a player's history
+ * Scans all game results for the same opponent(s)
+ * @returns conflicting result string (e.g., "5L6") or null if no conflict
+ */
+function findConflictForEntry(
+  playerRank: number,
+  opp1: number,
+  opp2: number,
+  opp3: number,
+  opp4: number,
+  gameResults: (string | null)[]
+): string | null {
+  // Get all unique opponent ranks from the new entry (excluding current player)
+  const opponents = [opp1, opp2, opp3, opp4].filter((r): r is number => r > 0 && r !== playerRank);
+  
+  for (const result of gameResults) {
+    if (!result || result.trim() === "") continue;
+    
+    // Parse this existing result to get its opponents
+    const parsed = updatePlayerGameData(result.replace(/_+$/, ""), true);
+    const existingOpponents = [
+      parsed.parsedPlayer1Rank,
+      parsed.parsedPlayer2Rank,
+      parsed.parsedPlayer3Rank,
+      parsed.parsedPlayer4Rank
+    ].filter((r): r is number => r !== undefined && r > 0 && r !== playerRank);
+    
+    // Check if any opponent from new entry matches existing entry
+    for (const opp of opponents) {
+      if (existingOpponents.includes(opp)) {
+        return result.replace(/_+$/, ""); // Return the conflicting entry (without underscore)
+      }
+    }
+  }
+  
+  return null; // No conflict found
+}
+
 export default function ErrorDialog({
   error,
   players,
@@ -503,7 +542,45 @@ export default function ErrorDialog({
           message: validation.message || getValidationErrorMessage(validation.error),
         });
       } else if (validation.isValid) {
-        setParseStatus({ isValid: true });
+        // Check for conflicts with existing entries
+        const playerRank = entryCell?.playerRank || 0;
+        let conflict: string | null = null;
+        
+        if (playerRank > 0) {
+          // Find the canonical player (lowest rank in the game)
+          // This is where committed results would be stored
+          const allPlayersInGame = [
+            playerRank,
+            validation.parsedPlayer1Rank || 0,
+            validation.parsedPlayer2Rank || 0,
+            validation.parsedPlayer3Rank || 0,
+            validation.parsedPlayer4Rank || 0
+          ].filter((r): r is number => r > 0);
+          
+          const canonicalPlayerRank = Math.min(...allPlayersInGame);
+          const canonicalPlayer = players.find(p => p.rank === canonicalPlayerRank);
+          
+          if (canonicalPlayer && canonicalPlayer.gameResults) {
+            conflict = findConflictForEntry(
+              canonicalPlayerRank,
+              validation.parsedPlayer1Rank || 0,
+              validation.parsedPlayer2Rank || 0,
+              validation.parsedPlayer3Rank || 0,
+              validation.parsedPlayer4Rank || 0,
+              canonicalPlayer.gameResults
+            );
+          }
+        }
+        
+        if (conflict) {
+          setParseStatus({
+            isValid: false,
+            error: 10,
+            message: conflict,
+          });
+        } else {
+          setParseStatus({ isValid: true });
+        }
       }
 
       // Update parsed player data for display in real-time
@@ -972,7 +1049,9 @@ export default function ErrorDialog({
               borderColor: parseStatus
                 ? parseStatus.isValid
                   ? "#10b981"
-                  : "#ef4444"
+                  : parseStatus.error === 10
+                    ? "#f59e0b"
+                    : "#ef4444"
                 : "#d1d5db",
             }}
             placeholder="e.g., 5:6W7:8 for 4-player (pairs separated by colon)"
@@ -997,13 +1076,19 @@ export default function ErrorDialog({
             <p
               style={{
                 fontSize: "0.75rem",
-                color: parseStatus.isValid ? "#10b981" : "#ef4444",
+                color: parseStatus.isValid
+                  ? "#10b981"
+                  : parseStatus.error === 10
+                    ? "#f59e0b"
+                    : "#ef4444",
                 marginBottom: "1rem",
               }}
             >
                {parseStatus.isValid
                  ? "✓ Valid format"
-                 : `✗ ${parseStatus.message || getValidationErrorMessage(parseStatus.error || 0)}`}
+                 : parseStatus.error === 10
+                   ? `⚠ Conflict: Game already exists (${parseStatus.message})`
+                   : `✗ ${parseStatus.message || getValidationErrorMessage(parseStatus.error || 0)}`}
             </p>
           )}
           <div
