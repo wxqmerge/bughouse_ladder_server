@@ -28,6 +28,53 @@ interface ErrorDialogProps {
   onAddPlayer?: () => void;
 }
 
+/**
+ * Extract result codes (W/L/D) from a result string
+ * @example extractResults("5W6") → ["W"]
+ * @example extractResults("3WL4") → ["W", "L"]
+ * @example extractResults("4:5WW6:7") → ["W", "W"]
+ */
+function extractResults(resultString: string): string[] {
+  const results = resultString.replace(/[^WLD]/gi, '').split('');
+  return results;
+}
+
+/**
+ * Format result codes as readable text
+ * @param results - Array of result codes (e.g., ["W", "L"])
+ * @param capitalizeFirst - Whether to capitalize first letter (for team games)
+ * @example formatResultText(["W"], false) → "won against"
+ * @example formatResultText(["L"], false) → "lost to"
+ * @example formatResultText(["D"], false) → "drew with"
+ * @example formatResultText(["W", "W"], true) → "Won and Won against"
+ * @example formatResultText(["W", "L"], false) → "won and lost against"
+ */
+function formatResultText(results: string[], capitalizeFirst = false): string {
+  if (results.length === 0) return '';
+  
+  if (results.length === 1) {
+    const r = results[0].toUpperCase();
+    const text = r === 'W' ? 'won against' : 
+                 r === 'L' ? 'lost to' : 
+                 'drew with';
+    return capitalizeFirst ? text.charAt(0).toUpperCase() + text.slice(1) : text;
+  }
+  
+  // Multiple results - join with "and"
+  const formatted = results.map(r => {
+    const upper = r.toUpperCase();
+    return upper === 'W' ? 'won' : 
+           upper === 'L' ? 'lost' : 
+           'drew';
+  });
+  
+  let resultText = formatted.join(' and ') + ' against';
+  if (capitalizeFirst) {
+    resultText = resultText.charAt(0).toUpperCase() + resultText.slice(1);
+  }
+  return resultText;
+}
+
 export default function ErrorDialog({
   error,
   players,
@@ -67,6 +114,7 @@ export default function ErrorDialog({
   const [displayPlayer2, setDisplayPlayer2] = useState<PlayerData | null>(null);
   const [displayPlayer3, setDisplayPlayer3] = useState<PlayerData | null>(null);
   const [displayPlayer4, setDisplayPlayer4] = useState<PlayerData | null>(null);
+  const [extractedResults, setExtractedResults] = useState<string[]>([]);
 
   const displayOriginalString = error
     ? error.originalString?.toUpperCase() || ""
@@ -179,6 +227,10 @@ export default function ErrorDialog({
         setDisplayPlayer2(p2);
         setDisplayPlayer3(p3);
         setDisplayPlayer4(p4);
+        
+        // Extract results for display
+        const results = extractResults(value);
+        setExtractedResults(results);
       }
     } else if (error && error.originalString) {
       const original = error.originalString.toUpperCase();
@@ -238,9 +290,14 @@ export default function ErrorDialog({
         setDisplayPlayer2(p2);
         setDisplayPlayer3(p3);
         setDisplayPlayer4(p4);
+        
+        // Extract results for display
+        const results = extractResults(original);
+        setExtractedResults(results);
       }
     } else {
       setCorrectedResult("");
+      setExtractedResults([]);
     }
   }, [existingValue, mode, error, players]);
 
@@ -312,6 +369,7 @@ export default function ErrorDialog({
     setDisplayPlayer2(null);
     setDisplayPlayer3(null);
     setDisplayPlayer4(null);
+    setExtractedResults([]);
 
     // Use onClearCell prop if provided (clears all matching cells)
     if (onClearCell) {
@@ -499,6 +557,10 @@ export default function ErrorDialog({
         setDisplayPlayer2(p2);
         setDisplayPlayer3(p3);
         setDisplayPlayer4(p4);
+        
+        // Extract results for display
+        const results = extractResults(filteredValue);
+        setExtractedResults(results);
       }
     }
   };
@@ -610,73 +672,147 @@ export default function ErrorDialog({
           )}
           {parsedGameData && (
             <>
-              {displayPlayer1 && (
-                <p
-                  style={{
-                    fontSize: "0.875rem",
-                    color: "#6b7280",
-                    marginBottom: "0.5rem",
-                  }}
-                >
-                  <strong>First Player:</strong>{" "}
-                  {displayPlayer1.firstName +
-                    " " +
-                    displayPlayer1.lastName +
-                    " (" +
-                    displayPlayer1.rank +
-                    ")"}
-                </p>
+              {/* 2-Player Game */}
+              {parsedGameData.player4Rank === 0 && (
+                <>
+                  {displayPlayer1 && (
+                    <p
+                      style={{
+                        fontSize: "0.875rem",
+                        color: "#6b7280",
+                        marginBottom: "0.5rem",
+                      }}
+                    >
+                      <strong>First Player:</strong>{" "}
+                      {displayPlayer1.firstName +
+                        " " +
+                        displayPlayer1.lastName +
+                        " (" +
+                        displayPlayer1.rank +
+                        ")"}
+                    </p>
+                  )}
+                  {extractedResults.length > 0 && (
+                    <p
+                      style={{
+                        fontSize: "0.875rem",
+                        color: "#059669",
+                        fontWeight: "600",
+                        marginBottom: "0.5rem",
+                      }}
+                    >
+                      {formatResultText(extractedResults, false)}
+                    </p>
+                  )}
+                  {displayPlayer2 && (
+                    <p
+                      style={{
+                        fontSize: "0.875rem",
+                        color: "#6b7280",
+                        marginBottom: "0.5rem",
+                      }}
+                    >
+                      <strong>Second Player:</strong>{" "}
+                      {displayPlayer2.firstName +
+                        " " +
+                        displayPlayer2.lastName +
+                        " (" +
+                        displayPlayer2.rank +
+                        ")"}
+                    </p>
+                  )}
+                </>
               )}
-              {displayPlayer2 && (
-                <p
-                  style={{
-                    fontSize: "0.875rem",
-                    color: "#6b7280",
-                    marginBottom: "0.5rem",
-                  }}
-                >
-                  <strong>Second Player:</strong>{" "}
-                  {displayPlayer2.firstName +
-                    " " +
-                    displayPlayer2.lastName +
-                    " (" +
-                    displayPlayer2.rank +
-                    ")"}
-                </p>
-              )}
-              {displayPlayer3 && (
-                <p
-                  style={{
-                    fontSize: "0.875rem",
-                    color: "#6b7280",
-                    marginBottom: "0.5rem",
-                  }}
-                >
-                  <strong>Third Player:</strong>{" "}
-                  {displayPlayer3.firstName +
-                    " " +
-                    displayPlayer3.lastName +
-                    " (" +
-                    displayPlayer3.rank +
-                    ")"}
-                </p>
-              )}
-              {displayPlayer4 && (
-                <p
-                  style={{
-                    fontSize: "0.875rem",
-                    color: "#6b7280",
-                    marginBottom: "0.5rem",
-                  }}
-                >
-                  <strong>Fourth Player:</strong>{" "}
-                  {displayPlayer4.firstName +
-                    " " +
-                    displayPlayer4.lastName +
-                    " (" +
-                    displayPlayer4.rank +
-                    ")"}
-                </p>
+              
+              {/* 4-Player Team Game */}
+              {parsedGameData.player4Rank !== 0 && (
+                <>
+                  {/* Team 1 */}
+                  {displayPlayer1 && (
+                    <p
+                      style={{
+                        fontSize: "0.875rem",
+                        color: "#6b7280",
+                        marginBottom: "0.25rem",
+                      }}
+                    >
+                      <strong>First Player:</strong>{" "}
+                      {displayPlayer1.firstName +
+                        " " +
+                        displayPlayer1.lastName +
+                        " (" +
+                        displayPlayer1.rank +
+                        ")"}
+                    </p>
+                  )}
+                  {displayPlayer2 && (
+                    <p
+                      style={{
+                        fontSize: "0.875rem",
+                        color: "#6b7280",
+                        marginBottom: "0.5rem",
+                      }}
+                    >
+                      <strong>Second Player:</strong>{" "}
+                      {displayPlayer2.firstName +
+                        " " +
+                        displayPlayer2.lastName +
+                        " (" +
+                        displayPlayer2.rank +
+                        ")"}
+                    </p>
+                  )}
+                  
+                  {/* Result between teams */}
+                  {extractedResults.length > 0 && (
+                    <p
+                      style={{
+                        fontSize: "0.875rem",
+                        color: "#059669",
+                        fontWeight: "600",
+                        marginBottom: "0.5rem",
+                      }}
+                    >
+                      {formatResultText(extractedResults, true)}
+                    </p>
+                  )}
+                  
+                  {/* Team 2 */}
+                  {displayPlayer3 && (
+                    <p
+                      style={{
+                        fontSize: "0.875rem",
+                        color: "#6b7280",
+                        marginBottom: "0.25rem",
+                      }}
+                    >
+                      <strong>Third Player:</strong>{" "}
+                      {displayPlayer3.firstName +
+                        " " +
+                        displayPlayer3.lastName +
+                        " (" +
+                        displayPlayer3.rank +
+                        ")"}
+                    </p>
+                  )}
+                  {displayPlayer4 && (
+                    <p
+                      style={{
+                        fontSize: "0.875rem",
+                        color: "#6b7280",
+                        marginBottom: "0.5rem",
+                      }}
+                    >
+                      <strong>Fourth Player:</strong>{" "}
+                      {displayPlayer4.firstName +
+                        " " +
+                        displayPlayer4.lastName +
+                        " (" +
+                        displayPlayer4.rank +
+                        ")"}
+                    </p>
+                  )}
+                </>
               )}
             </>
           )}
