@@ -109,8 +109,13 @@ app.use(helmet({
 }));
 
 // CORS configuration
+// Get allowed origins from environment variable (comma-separated list)
+const corsOrigins = process.env.CORS_ORIGINS?.split(',').map(o => o.trim()) || ['*'];
+console.log('[CORS] DEBUG - CORS_ORIGINS env var:', process.env.CORS_ORIGINS);
+console.log('[CORS] DEBUG - Parsed origins:', corsOrigins);
+
 app.use(cors({
-  origin: process.env.CORS_ORIGIN,
+  origin: corsOrigins,
   credentials: true,
 }));
 
