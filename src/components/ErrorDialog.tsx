@@ -26,6 +26,7 @@ interface ErrorDialogProps {
   onEnterRecalculateSave?: (correctedString: string) => void;
   isAdmin?: boolean;
   onAddPlayer?: () => void;
+  debugMode?: boolean;
 }
 
 /**
@@ -87,6 +88,7 @@ export default function ErrorDialog({
   onEnterRecalculateSave,
   isAdmin = false,
   onAddPlayer,
+  debugMode = false,
 }: ErrorDialogProps) {
   const [correctedResult, setCorrectedResult] = useState<string>(
     existingValue?.replace(/_$/, "") || "",
@@ -197,24 +199,20 @@ export default function ErrorDialog({
         });
 
         const p1 =
-          (validation.parsedPlayer1Rank || 0) > 0 &&
-          (validation.parsedPlayer1Rank || 0) <= players.length
-            ? players[(validation.parsedPlayer1Rank || 0) - 1] || null
+          (validation.parsedPlayer1Rank || 0) > 0
+            ? players.find(p => p.rank === validation.parsedPlayer1Rank) || null
             : null;
         const p2 =
-          (validation.parsedPlayer2Rank || 0) > 0 &&
-          (validation.parsedPlayer2Rank || 0) <= players.length
-            ? players[(validation.parsedPlayer2Rank || 0) - 1] || null
+          (validation.parsedPlayer2Rank || 0) > 0
+            ? players.find(p => p.rank === validation.parsedPlayer2Rank) || null
             : null;
         const p3 =
-          (validation.parsedPlayer3Rank || 0) > 0 &&
-          (validation.parsedPlayer3Rank || 0) <= players.length
-            ? players[(validation.parsedPlayer3Rank || 0) - 1] || null
+          (validation.parsedPlayer3Rank || 0) > 0
+            ? players.find(p => p.rank === validation.parsedPlayer3Rank) || null
             : null;
         const p4 =
-          (validation.parsedPlayer4Rank || 0) > 0 &&
-          (validation.parsedPlayer4Rank || 0) <= players.length
-            ? players[(validation.parsedPlayer4Rank || 0) - 1] || null
+          (validation.parsedPlayer4Rank || 0) > 0
+            ? players.find(p => p.rank === validation.parsedPlayer4Rank) || null
             : null;
 
         setDisplayPlayer1(p1);
@@ -260,24 +258,20 @@ export default function ErrorDialog({
         });
 
         const p1 =
-          (validation.parsedPlayer1Rank || 0) > 0 &&
-          (validation.parsedPlayer1Rank || 0) <= players.length
-            ? players[(validation.parsedPlayer1Rank || 0) - 1] || null
+          (validation.parsedPlayer1Rank || 0) > 0
+            ? players.find(p => p.rank === validation.parsedPlayer1Rank) || null
             : null;
         const p2 =
-          (validation.parsedPlayer2Rank || 0) > 0 &&
-          (validation.parsedPlayer2Rank || 0) <= players.length
-            ? players[(validation.parsedPlayer2Rank || 0) - 1] || null
+          (validation.parsedPlayer2Rank || 0) > 0
+            ? players.find(p => p.rank === validation.parsedPlayer2Rank) || null
             : null;
         const p3 =
-          (validation.parsedPlayer3Rank || 0) > 0 &&
-          (validation.parsedPlayer3Rank || 0) <= players.length
-            ? players[(validation.parsedPlayer3Rank || 0) - 1] || null
+          (validation.parsedPlayer3Rank || 0) > 0
+            ? players.find(p => p.rank === validation.parsedPlayer3Rank) || null
             : null;
         const p4 =
-          (validation.parsedPlayer4Rank || 0) > 0 &&
-          (validation.parsedPlayer4Rank || 0) <= players.length
-            ? players[(validation.parsedPlayer4Rank || 0) - 1] || null
+          (validation.parsedPlayer4Rank || 0) > 0
+            ? players.find(p => p.rank === validation.parsedPlayer4Rank) || null
             : null;
 
         setDisplayPlayer1(p1);
@@ -527,24 +521,20 @@ export default function ErrorDialog({
         });
 
         const p1 =
-          (validation.parsedPlayer1Rank || 0) > 0 &&
-          (validation.parsedPlayer1Rank || 0) <= players.length
-            ? players[(validation.parsedPlayer1Rank || 0) - 1] || null
+          (validation.parsedPlayer1Rank || 0) > 0
+            ? players.find(p => p.rank === validation.parsedPlayer1Rank) || null
             : null;
         const p2 =
-          (validation.parsedPlayer2Rank || 0) > 0 &&
-          (validation.parsedPlayer2Rank || 0) <= players.length
-            ? players[(validation.parsedPlayer2Rank || 0) - 1] || null
+          (validation.parsedPlayer2Rank || 0) > 0
+            ? players.find(p => p.rank === validation.parsedPlayer2Rank) || null
             : null;
         const p3 =
-          (validation.parsedPlayer3Rank || 0) > 0 &&
-          (validation.parsedPlayer3Rank || 0) <= players.length
-            ? players[(validation.parsedPlayer3Rank || 0) - 1] || null
+          (validation.parsedPlayer3Rank || 0) > 0
+            ? players.find(p => p.rank === validation.parsedPlayer3Rank) || null
             : null;
         const p4 =
-          (validation.parsedPlayer4Rank || 0) > 0 &&
-          (validation.parsedPlayer4Rank || 0) <= players.length
-            ? players[(validation.parsedPlayer4Rank || 0) - 1] || null
+          (validation.parsedPlayer4Rank || 0) > 0
+            ? players.find(p => p.rank === validation.parsedPlayer4Rank) || null
             : null;
 
         setDisplayPlayer1(p1);
@@ -646,12 +636,13 @@ export default function ErrorDialog({
         </div>
 
         <div style={{ marginBottom: "1rem" }}>
-          {(isGameEntry || isEnterGames) && (
+          {(isGameEntry || isEnterGames) && debugMode && (
             <p
               style={{
-                fontSize: "0.875rem",
-                color: "#6b7280",
+                fontSize: "0.75rem",
+                color: "#9ca3af",
                 marginBottom: "0.5rem",
+                fontStyle: "italic",
               }}
             >
               <strong>Entering:</strong> Round {displayCell.round + 1} for Player{" "}
@@ -812,7 +803,7 @@ export default function ErrorDialog({
           )}
         </div>
 
-        {correctedResult.trim() && parsedGameData && (
+        {debugMode && correctedResult.trim() && parsedGameData && (
           <p
             style={{
               fontSize: "0.75rem",
@@ -987,19 +978,21 @@ export default function ErrorDialog({
             placeholder="e.g., 5:6W7:8 for 4-player (pairs separated by colon)"
             autoFocus
           />
-          <p
-            style={{
-              fontSize: "0.75rem",
-              color: "#9ca3af",
-              marginBottom: "1rem",
-              userSelect: "text",
-              WebkitUserSelect: "text",
-              MozUserSelect: "text",
-              msUserSelect: "text",
-            }}
-          >
-            field name: correctedResult
-          </p>
+          {debugMode && (
+            <p
+              style={{
+                fontSize: "0.75rem",
+                color: "#9ca3af",
+                marginBottom: "1rem",
+                userSelect: "text",
+                WebkitUserSelect: "text",
+                MozUserSelect: "text",
+                msUserSelect: "text",
+              }}
+            >
+              field name: correctedResult
+            </p>
+          )}
           {parseStatus && (
             <p
               style={{

@@ -11,6 +11,7 @@ const USER_SETTINGS_KEY = 'bughouse-ladder-user-settings';
 export interface UserSettings {
   server: string;    // e.g., "omen.com:3000" or "http://localhost:3000" - empty = local mode
   apiKey: string;    // API key for authentication (optional)
+  debugMode: boolean; // Show extra debug info in dialogs (default: false)
 }
 
 /**
@@ -24,12 +25,13 @@ export const loadUserSettings = (): UserSettings => {
       return {
         server: parsed.server || '',
         apiKey: parsed.apiKey || '',
+        debugMode: parsed.debugMode || false,
       };
     }
   } catch (error) {
     console.error('[UserSettings] Failed to load settings:', error);
   }
-  return { server: '', apiKey: '' };
+  return { server: '', apiKey: '', debugMode: false };
 };
 
 /**
@@ -38,7 +40,7 @@ export const loadUserSettings = (): UserSettings => {
 export const saveUserSettings = (settings: UserSettings): void => {
   try {
     localStorage.setItem(USER_SETTINGS_KEY, JSON.stringify(settings));
-    console.log('[UserSettings] Saved settings:', { server: settings.server || '(empty)', apiKey: settings.apiKey ? '(set)' : '(empty)' });
+    console.log('[UserSettings] Saved settings:', { server: settings.server || '(empty)', apiKey: settings.apiKey ? '(set)' : '(empty)', debugMode: settings.debugMode });
   } catch (error) {
     console.error('[UserSettings] Failed to save settings:', error);
   }
