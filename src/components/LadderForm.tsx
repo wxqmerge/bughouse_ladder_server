@@ -230,7 +230,10 @@ export default function LadderForm({
   const [splashApiKey, setSplashApiKey] = useState('');
   const [hadExistingUserSettings, setHadExistingUserSettings] = useState(false);
   const [hasLocalPlayerData, setHasLocalPlayerData] = useState(false);
-  const [splashWaitingForAction, setSplashWaitingForAction] = useState(false);
+  // Blocking dialog shown at startup when server is unreachable
+  const [showServerDownBlockingDialog, setShowServerDownBlockingDialog] = useState(false);
+  const [isRetryingConnection, setIsRetryingConnection] = useState(false);
+  const [retryErrorMessage, setRetryErrorMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const latestPendingPlayersRef = useRef<PlayerData[] | null>(null);
 
@@ -275,40 +278,32 @@ export default function LadderForm({
     }
   }, []);
 
-  // Check if we should wait for user action on splash (server configured but unreachable, no local data)
+  // Check if we should show blocking dialog (server configured but unreachable)
   useEffect(() => {
-    const checkShouldWait = async () => {
+    const checkServerStatus = async () => {
       const userSettingsJson = localStorage.getItem('bughouse-ladder-user-settings');
       if (!userSettingsJson) return;
       
       const userSettings = JSON.parse(userSettingsJson);
       const serverUrl = userSettings.server?.trim() || '';
       
-      // Only wait if server is configured
+      // Only check if server is configured
       if (!serverUrl) return;
       
       // Check if server is reachable
       const isReachable = await testServerConnection();
       
-      // Wait if server is unreachable AND no local player data
-      if (!isReachable && !hasLocalPlayerData) {
-        console.log('[Splash] Server unreachable and no local data - waiting for user action');
-        setSplashWaitingForAction(true);
+      // Show blocking dialog if server is unreachable (regardless of local data)
+      if (!isReachable) {
+        console.log('[LadderForm] Server unreachable - showing blocking dialog');
+        setShowServerDownBlockingDialog(true);
       }
     };
     
-    checkShouldWait();
-  }, [hadExistingUserSettings, hasLocalPlayerData]);
+    checkServerStatus();
+  }, []);
 
-  // Auto-save splash screen changes to localStorage
-  useEffect(() => {
-    const userSettings = {
-      server: splashServerUrl,
-      apiKey: splashApiKey,
-    };
-    localStorage.setItem('bughouse-ladder-user-settings', JSON.stringify(userSettings));
-    console.log('[Splash] Auto-saved settings:', { server: splashServerUrl || '(empty)', apiKey: splashApiKey ? '(set)' : '(empty)' });
-  }, [splashServerUrl, splashApiKey]);
+
 
   // Track mode changes for UI updates
   useEffect(() => {
@@ -2058,13 +2053,11 @@ export default function LadderForm({
   };
 
   if (!players || players.length === 0) {
-    const isServerUnreachable = currentMode === 'server_down' && splashServerUrl.trim();
-    
     return (
       <div style={{ padding: "2rem", textAlign: "center", color: "#64748b" }}>
         <h1>{projectName}</h1>
         <p style={{ marginTop: "1rem", fontSize: "1.125rem" }}>
-          {splashWaitingForAction ? 'Startup paused - please take action below' : 'No players loaded.'}
+          'No players loaded.'
         </p>
         
         {/* Server Connection Section */}
@@ -2073,9 +2066,9 @@ export default function LadderForm({
             marginTop: "2rem",
             marginBottom: "2rem",
             padding: "1.5rem",
-            backgroundColor: isServerUnreachable ? "#fef3c7" : "#f8fafc",
+            backgroundColor: "#f8fafc",
             borderRadius: "0.5rem",
-            border: `1px solid ${isServerUnreachable ? "#f59e0b" : "#e2e8f0"}`,
+            border: "1px solid #e2e8f0",
             maxWidth: "500px",
             marginLeft: "auto",
             marginRight: "auto",
@@ -2088,17 +2081,17 @@ export default function LadderForm({
               justifyContent: "center",
               gap: "0.5rem",
               marginBottom: "1rem",
-              color: isServerUnreachable ? "#92400e" : "#374151",
+              color: "#374151",
               fontSize: "0.875rem",
               fontWeight: "600",
             }}
           >
             <Server size={18} />
-            <span>{isServerUnreachable ? "Server Unavailable" : "Connect to Server"}</span>
+            <span>Connect to Server</span>
           </div>
           
           {/* Status messages */}
-          {!hadExistingUserSettings && !isServerUnreachable && (
+          {!hadExistingUserSettings && (
             <p
               style={{
                 marginBottom: "0.5rem",
@@ -2110,7 +2103,7 @@ export default function LadderForm({
               No previous server configuration found.
             </p>
           )}
-          {!hasLocalPlayerData && !isServerUnreachable && (
+          {!hasLocalPlayerData && (
             <p
               style={{
                 marginBottom: "1rem",
@@ -2121,28 +2114,6 @@ export default function LadderForm({
             >
               No local player data found. Enter server details to connect, or load a file.
             </p>
-          )}
-          
-          {isServerUnreachable && (
-            <div
-              style={{
-                marginBottom: "1rem",
-                padding: "0.75rem",
-                backgroundColor: "#fffbeb",
-                borderLeft: "4px solid #f59e0b",
-                borderRadius: "0.25rem",
-                textAlign: "left",
-              }}
-            >
-              <p style={{ fontSize: "0.875rem", color: "#92400e", margin: 0 }}>
-                <strong>Server configured but unreachable:</strong> {splashServerUrl}
-              </p>
-              {splashWaitingForAction && (
-                <p style={{ fontSize: "0.875rem", color: "#78350f", marginTop: "0.5rem", margin: 0, fontStyle: 'italic' }}>
-                  Startup is paused. Click "Proceed (Server Down)" to continue in local mode.
-                </p>
-              )}
-            </div>
           )}
           
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginBottom: "1rem" }}>
@@ -2203,29 +2174,6 @@ export default function LadderForm({
             >
               Settings
             </button>
-            {isServerUnreachable && (
-              <button
-                onClick={() => {
-                  console.log('[Splash] Proceeding in server down mode');
-                  setSplashWaitingForAction(false);
-                  // Initialize with empty players to exit splash screen
-                  setPlayers([]);
-                  setSortBy(null);
-                }}
-                style={{
-                  padding: "0.625rem 1.25rem",
-                  backgroundColor: "#f59e0b",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "0.25rem",
-                  fontSize: "0.875rem",
-                  cursor: "pointer",
-                  fontWeight: "500",
-                }}
-              >
-                Proceed (Server Down)
-              </button>
-            )}
           </div>
           
           <p
@@ -2276,6 +2224,195 @@ export default function LadderForm({
           </button>
         </div>
       </div>
+    );
+  }
+
+  // Retry server connection
+  const handleRetryConnection = async () => {
+    setIsRetryingConnection(true);
+    setRetryErrorMessage(null);
+    
+    try {
+      const isReachable = await testServerConnection();
+      
+      if (isReachable) {
+        console.log('[ServerDownDialog] Server is now reachable!');
+        setShowServerDownBlockingDialog(false);
+        // Reload to reconnect properly
+        setTimeout(() => window.location.reload(), 500);
+      } else {
+        setRetryErrorMessage('Server is still unreachable. Please try again later.');
+        setIsRetryingConnection(false);
+      }
+    } catch (error) {
+      setRetryErrorMessage('Failed to connect to server. Please try again later.');
+      setIsRetryingConnection(false);
+    }
+  };
+
+  // Server-down blocking dialog - shown at startup when server is unreachable
+  if (showServerDownBlockingDialog) {
+    const userSettingsJson = localStorage.getItem('bughouse-ladder-user-settings');
+    let configuredServerUrl = '';
+    if (userSettingsJson) {
+      const userSettings = JSON.parse(userSettingsJson);
+      configuredServerUrl = userSettings.server?.trim() || '';
+    }
+
+    return (
+      <>
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.7)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 10000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              borderRadius: "0.75rem",
+              padding: "2rem",
+              maxWidth: "500px",
+              width: "90%",
+              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.75rem",
+                marginBottom: "1.5rem",
+              }}
+            >
+              <Server size={32} color="#f59e0b" />
+              <h2
+                style={{
+                  fontSize: "1.5rem",
+                  fontWeight: "700",
+                  color: "#1f2937",
+                  margin: 0,
+                }}
+              >
+                Server Unavailable
+              </h2>
+            </div>
+
+            <div
+              style={{
+                marginBottom: "1.5rem",
+                padding: "1rem",
+                backgroundColor: "#fffbeb",
+                borderLeft: "4px solid #f59e0b",
+                borderRadius: "0.25rem",
+              }}
+            >
+              <p style={{ fontSize: "0.95rem", color: "#92400e", margin: 0, lineHeight: "1.5" }}>
+                The configured server is currently unreachable.
+              </p>
+              {configuredServerUrl && (
+                <p style={{ fontSize: "0.875rem", color: "#78350f", marginTop: "0.5rem", margin: 0 }}>
+                  <strong>Server:</strong> {configuredServerUrl}
+                </p>
+              )}
+            </div>
+
+            <p style={{ fontSize: "0.9rem", color: "#374151", marginBottom: "1.5rem", lineHeight: "1.5" }}>
+              You can continue working in local mode. Changes will be saved locally and synced when the server becomes available again.
+            </p>
+
+            {/* Retry error message */}
+            {retryErrorMessage && (
+              <div
+                style={{
+                  marginBottom: "1rem",
+                  padding: "0.75rem",
+                  backgroundColor: "#fee2e2",
+                  borderLeft: "4px solid #ef4444",
+                  borderRadius: "0.25rem",
+                }}
+              >
+                <p style={{ fontSize: "0.875rem", color: "#b91c1c", margin: 0 }}>
+                  {retryErrorMessage}
+                </p>
+              </div>
+            )}
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+              <button
+                onClick={() => {
+                  console.log('[ServerDownDialog] Proceeding in local mode');
+                  setShowServerDownBlockingDialog(false);
+                }}
+                style={{
+                  padding: "0.875rem 1.5rem",
+                  backgroundColor: "#f59e0b",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "0.375rem",
+                  fontSize: "1rem",
+                  cursor: "pointer",
+                  fontWeight: "600",
+                }}
+              >
+                Proceed in Local Mode
+              </button>
+              
+              <button
+                onClick={() => setShowSettings?.(true)}
+                style={{
+                  padding: "0.875rem 1.5rem",
+                  backgroundColor: "white",
+                  color: "#374151",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "0.375rem",
+                  fontSize: "1rem",
+                  cursor: "pointer",
+                  fontWeight: "600",
+                }}
+              >
+                Change Server Settings
+              </button>
+              
+              <button
+                onClick={handleRetryConnection}
+                disabled={isRetryingConnection}
+                style={{
+                  padding: "0.875rem 1.5rem",
+                  backgroundColor: isRetryingConnection ? "#9ca3af" : "#3b82f6",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "0.375rem",
+                  fontSize: "1rem",
+                  cursor: isRetryingConnection ? "not-allowed" : "pointer",
+                  fontWeight: "600",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "0.5rem",
+                }}
+              >
+                {isRetryingConnection ? (
+                  <>
+                    <span style={{ animation: "spin 1s linear infinite" }}>⏳</span>
+                    Retrying...
+                  </>
+                ) : (
+                  'Retry Connection'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </>
     );
   }
 
@@ -3005,6 +3142,14 @@ export default function LadderForm({
           onApplyResults={handleApplyBulkResults}
         />
       )}
+      
+      {/* CSS animation for retry spinner */}
+      <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }
