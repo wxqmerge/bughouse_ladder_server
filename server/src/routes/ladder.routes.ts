@@ -34,9 +34,7 @@ const router = Router();
 // Get all ladder data (public read access)
 router.get('/', async (req: Request, res: Response): Promise<void> => {
   try {
-    log('[SERVER]', 'GET /api/ladder - fetching all players');
     const ladderData = await readLadderFile();
-    log('[SERVER]', 'Returning ' + ladderData.players.length + ' players');
     res.json({
       success: true,
       data: {
@@ -58,7 +56,6 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
 router.get('/:rank', async (req: Request, res: Response): Promise<void> => {
   try {
     const rank = parseInt(req.params.rank);
-    log('[SERVER]', 'GET /api/ladder/' + rank + ' - fetching player');
     if (isNaN(rank) || rank < 1) {
       res.status(400).json({
         success: false,
@@ -95,7 +92,6 @@ router.get('/:rank', async (req: Request, res: Response): Promise<void> => {
 router.put('/:rank', async (req: Request, res: Response): Promise<void> => {
   try {
     const rank = parseInt(req.params.rank);
-    log('[SERVER]', 'PUT /api/ladder/' + rank + ' - updating player');
     if (isNaN(rank) || rank < 1) {
       res.status(400).json({
         success: false,
@@ -144,7 +140,6 @@ router.delete('/:rank/round/:roundIndex', async (req: Request, res: Response): P
   try {
     const rank = parseInt(req.params.rank);
     const roundIndex = parseInt(req.params.roundIndex);
-    log('[SERVER]', 'DELETE /api/ladder/' + rank + '/round/' + roundIndex + ' - clearing cell');
 
     if (isNaN(rank) || rank < 1 || isNaN(roundIndex) || roundIndex < 0 || roundIndex > 30) {
       res.status(400).json({
@@ -195,7 +190,6 @@ router.delete('/:rank/round/:roundIndex', async (req: Request, res: Response): P
 // Bulk update players (no auth required - full access for local use)
 router.put('/', async (req: Request, res: Response): Promise<void> => {
   try {
-    log('[SERVER]', 'Received PUT /api/ladder');
     const { players } = req.body as { players: PlayerData[] };
     
     if (!players || !Array.isArray(players)) {
@@ -209,10 +203,8 @@ router.put('/', async (req: Request, res: Response): Promise<void> => {
     const ladderData: LadderData = await withTiming(`readLadderFile(bulk)`, readLadderFile);
     ladderData.players = players;
 
-    log('[SERVER]', 'Saving ' + players.length + ' players to file');
     await withTiming(`writeLadderFile(bulk-${players.length})`, () => writeLadderFile(ladderData));
 
-    log('[SERVER]', '✓ Successfully saved ' + players.length + ' players');
     res.json({
       success: true,
       data: { message: 'Players updated successfully', count: players.length },

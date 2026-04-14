@@ -14,27 +14,6 @@ import { getProgramMode } from '../utils/mode';
 import { loadUserSettings } from './userSettingsStorage';
 
 /**
- * Listen for admin lock changes from other tabs/windows
- * This helps detect race conditions where multiple clients acquire the lock simultaneously
- */
-window.addEventListener('storage', (event) => {
-  if (event.key === ADMIN_LOCK_KEY && event.newValue) {
-    try {
-      const newLock: AdminLock = JSON.parse(event.newValue);
-      const myClientId = getClientId();
-      
-      // If another client just acquired the lock while we thought we had it
-      if (newLock.clientId !== myClientId) {
-        log('[ADMIN_LOCK_RACE]', `⚠️ Lock stolen by ${newLock.clientName} (${newLock.ipAddress})! We may need to release.`);
-        // Note: We don't auto-release here - let the periodic check in LadderForm handle it
-      }
-    } catch (error) {
-      console.error('[ADMIN_LOCK] Failed to parse lock change:', error);
-    }
-  }
-});
-
-/**
  * Get the storage key prefix based on current mode
  * Local mode uses 'ladder_' prefix (backward compatible)
  * Dev/Server modes use 'ladder_server_' prefix for isolation during testing
@@ -849,7 +828,6 @@ export interface AdminLock {
   clientId: string;
   timestamp: number;
   clientName?: string;
-  ipAddress?: string;  // For debugging race conditions
 }
 
 /**
@@ -936,52 +914,35 @@ export function forceAcquireAdminLock(clientName?: string): boolean {
 }
 
 /**
- * Cached IP address for admin lock logging
+ * Notify server of admin lock action (non-blocking)
  */
-let cachedIpAddress: string | null = null;
-
-/**
- * Fetch client's public IP address (cached, non-blocking)
- * Called separately from lock acquisition to avoid async complexity
- */
-async function fetchClientIpAddress(): Promise<void> {
-  if (cachedIpAddress) return;
-  
+function notifyServerOfLockAction(action: 'acquire' | 'release' | 'force', clientId: string, clientName?: string): void {
+  // Fetch server URL from user settings
   try {
-    // Use a free IP service - cache result to avoid repeated calls
-    const response = await fetch('https://api.ipify.org?format=json');
-    if (response.ok) {
-      const data = await response.json();
-      cachedIpAddress = data.ip || 'unknown';
-      log('[ADMIN_LOCK]', `IP address cached: ${cachedIpAddress}`);
+    const userSettingsJson = localStorage.getItem('bughouse-ladder-user-settings');
+    if (userSettingsJson) {
+      const userSettings = JSON.parse(userSettingsJson);
+      const serverUrl = userSettings.server?.trim();
+      if (serverUrl) {
+        fetch(`${serverUrl}/api/admin-lock/lock`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action, clientId, clientName }),
+        }).catch(() => {}); // Silently fail - don't block lock operations
+      }
     }
   } catch (error) {
-    console.warn('[ADMIN_LOCK] Failed to fetch IP:', error);
-  }
-  
-  if (!cachedIpAddress) {
-    cachedIpAddress = 'local/unknown';
+    // Ignore errors - this is just for logging
   }
 }
 
-// Start fetching IP address in background on module load
-fetchClientIpAddress();
-
 /**
- * Get current IP address (returns cached value or placeholder)
- */
-function getClientIpAddress(): string {
-  return cachedIpAddress || 'fetching...';
-}
-
-/**
- * Internal function to acquire admin lock with race condition protection
+ * Internal function to acquire admin lock
  * @param force - If true, override existing lock
  * @returns true if lock acquired
  */
 function acquireAdminLock(clientName?: string, force: boolean = false): boolean {
   const clientId = getClientId();
-  const ipAddress = getClientIpAddress();
   
   const currentLock = getAdminLock();
   
@@ -994,22 +955,23 @@ function acquireAdminLock(clientName?: string, force: boolean = false): boolean 
     const newLock: AdminLock = {
       clientId,
       timestamp: Date.now(),
-      clientName: clientName || `Client ${clientId.substr(-4)}`,
-      ipAddress
+      clientName: clientName || `Client ${clientId.substr(-4)}`
     };
     
-    // Atomically set the lock
     localStorage.setItem(ADMIN_LOCK_KEY, JSON.stringify(newLock));
     
+    // Notify server
+    notifyServerOfLockAction(force ? 'force' : 'acquire', clientId, newLock.clientName);
+    
     if (force && currentLock && currentLock.clientId !== clientId) {
-      log('[ADMIN_LOCK]', `FORCED lock acquisition from IP ${ipAddress} - overridden ${currentLock.clientName} (${currentLock.ipAddress || 'unknown'})`);
+      log('[ADMIN_LOCK]', `FORCED lock acquisition - overridden ${currentLock.clientName}`);
     } else {
-      log('[ADMIN_LOCK]', `Acquired lock from IP ${ipAddress}: ${newLock.clientName}`);
+      log('[ADMIN_LOCK]', `Acquired lock: ${newLock.clientName}`);
     }
     return true;
   }
   
-  log('[ADMIN_LOCK]', `Failed to acquire - held by ${currentLock?.clientName} (${currentLock?.ipAddress || 'unknown'})`);
+  log('[ADMIN_LOCK]', `Failed to acquire - held by ${currentLock?.clientName}`);
   return false;
 }
 
@@ -1036,6 +998,9 @@ export function releaseAdminLock(): void {
   if (currentLock && currentLock.clientId === clientId) {
     localStorage.removeItem(ADMIN_LOCK_KEY);
     log('[ADMIN_LOCK]', `Released lock: ${currentLock.clientName}`);
+    
+    // Notify server
+    notifyServerOfLockAction('release', clientId, currentLock.clientName);
   }
 }
 

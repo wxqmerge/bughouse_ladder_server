@@ -20,6 +20,7 @@ import { router as authRouter } from './routes/auth.routes.js';
 import { router as ladderRouter } from './routes/ladder.routes.js';
 import { router as gameRouter } from './routes/game.routes.js';
 import { router as adminRouter } from './routes/admin.routes.js';
+import { router as adminLockRouter } from './routes/adminLock.routes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { initializeDefaultLadder } from './services/dataService.js';
 import { generatePerformanceReport, clearSlowOperations } from './utils/performance.js';
@@ -38,30 +39,31 @@ console.log('  - ADMIN_API_KEY:', process.env.ADMIN_API_KEY ? 'Set (' + process.
 // Trust proxy for proper IP handling behind reverse proxy
 app.set('trust proxy', 1);
 
-// Log all API requests with timing for slow requests (>500ms)
-app.use('/api/*', (req, res, next) => {
+// Consolidated request logging - logs all requests in one line
+app.use((req, res, next) => {
   const startTime = Date.now();
-  const requestInfo = `${req.method} ${req.path}`;
-  console.log(`[API] ${requestInfo}`);
+  const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
   
-  // Hook into response finish to log duration
+  // Hook into response finish to log complete request info
   const originalEnd = res.end;
   res.end = function(chunk?: any, encoding?: any, callback?: any) {
     const duration = Date.now() - startTime;
-    if (duration > 500) {
-      console.log(`\n[SLOW REQUEST] ${requestInfo} took ${duration}ms`);
-      console.log(`[SLOW REQUEST] Query params:`, req.query);
-      console.log(`[SLOW REQUEST] Headers:`, { 
-        'content-type': req.headers['content-type'],
-        'user-agent': req.headers['user-agent']?.substring(0, 100)
-      });
-      // Capture call stack to identify slow endpoint
-      const stack = new Error().stack;
-      if (stack) {
-        console.log(`[SLOW REQUEST] Stack trace:`);
-        console.log(stack.split('\n').slice(0, 10).join('\n'));
-      }
+    const status = res.statusCode;
+    const method = req.method;
+    const path = req.path;
+    
+    // Build query string if present
+    let queryString = '';
+    if (Object.keys(req.query).length > 0) {
+      const qstr = Object.entries(req.query)
+        .map(([k, v]) => `${k}=${v}`)
+        .join('&');
+      queryString = ` ?${qstr}`;
     }
+    
+    // Single consolidated log line
+    console.log(`[API] ${clientIp} ${method.padEnd(4)} ${path}${queryString.padEnd(35)} ${status.toString().padStart(3)} ${duration}ms`);
+    
     return originalEnd.call(res, chunk, encoding, callback);
   };
   
@@ -172,6 +174,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/ladder', ladderRouter);
 app.use('/api/games', gameRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/admin-lock', adminLockRouter);
 
 // Serve static files from React app in production
 if (process.env.NODE_ENV === 'production') {
