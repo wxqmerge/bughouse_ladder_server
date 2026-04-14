@@ -119,13 +119,13 @@ Accessed via **Operations → Settings** (always available, even without admin m
 #### Supported Formats
 
 1. **LadderForm Format (Recommended)**
-   ```
-   Rnk|Group|Last Name|First Name|Previous Rating|New Rating|Gr|Gms|Attendance|Phone|Info|1|2|3|...|31
-   ```
+    ```
+    Rnk|Group|Last Name|First Name|Previous Rating|New Rating|Gr|Gms|Attendance|Phone|Info|1|2|3|...|31
+    ```
 
-2. **Kings Cross Format (Legacy)**
-   - Automatically detected and converted
-   - May lose some metadata
+2. **VB6 Ladder Format (Legacy)**
+    - Automatically detected and converted
+    - May lose some metadata
 
 #### Loading Procedure
 
@@ -222,7 +222,7 @@ In server mode, changes are synchronized automatically:
 
 Currently, bulk player edits must be done via:
 1. Export data
-2. Edit in spreadsheet application
+2. Edit in a spreadsheet application (e.g., LibreOffice Calc)
 3. Re-import
 
 ---
@@ -303,12 +303,13 @@ After successful recalculation:
    - Cycles back to start after completion
 
 2. **Rating Finalization**
-   - "New Rating" moves to "Previous Rating"
-   - New rating calculations start fresh
+    - "New Rating" moves to "Previous Rating"
+    - New rating calculations start fresh
 
-3. **Game Count Reset Options**
-   - Keep cumulative games, or
-   - Reset to zero for new title
+3. **Game Count Recalculation**
+    - Game count is recalculated from the game results array each new day
+    - The application counts non-empty cells in the game grid and updates the Gms column
+    - To manually adjust game counts: Export data, edit in spreadsheet (e.g., LibreOffice Calc), re-import
 
 4. **Re-ranking Option**
    - Players can be re-sorted by rating

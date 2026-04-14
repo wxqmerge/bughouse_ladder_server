@@ -77,7 +77,7 @@ When errors are detected (automatically after recalculation or via Check Errors)
 
 **Best for:** Entering many results quickly from a spreadsheet or text file
 
-1. Prepare your results in a text editor or spreadsheet with tab-separated values
+1. Prepare your results in a text editor or spreadsheet (e.g., LibreOffice Calc) with tab-separated values
 2. Copy the results to clipboard
 3. Go to **Operations → Paste Multiple Results**
 4. Or simply paste directly into any game result cell
@@ -103,7 +103,7 @@ Game results use a compact notation encoding:
 - **Player ranks** (who played)
 - **Results** (W = Win, L = Loss, D = Draw)
 
-**Important:** 4-player games are TEAM games. One team game is played between two teams of two players each. All teammates share the same result (W, L, or D).
+**Important:** 4-player games are TEAM games. Two teams of two players play TWO games against each other. All teammates share the same results (e.g., both get W, or both get L).
 
 ### 2-Player Games
 
@@ -132,29 +132,33 @@ Examples:
 ### 4-Player Games (Team vs Team)
 
 ```
-Format: A:B_R_C:D
+Format: A:B_R_C:D or A:B_R1_R2_C:D
 Meaning:
   - Team 1: Players A and B (partners)
   - Team 2: Players C and D (partners)
-  - _R_ = Result for Team 1 (W/L/D)
-  - ONE team game is played, not two individual games
+  - _R_, _R1_, _R2_ = Result(s) for Team 1 (W/L/D)
+  - Two teams play TWO games against each other
+  - Single result = one game played; Double result = both games played
 
 Examples:
   5:6W7:8  → 
     Team of 5 & 6 plays ONE game against Team of 7 & 8
     Team 5&6 WINS (Team 7&8 loses)
-    All players on winning team get Win, all on losing team get Loss
 
-  1:2L4:5  →
-    Team of 1 & 2 plays ONE game against Team of 4 & 5
-    Team 1&2 LOSES (Team 4&5 wins)
+  1:2LL3:4  →
+    Team of 1 & 2 plays TWO games against Team of 3 & 4
+    Team 1&2 LOSES both games (Team 3&4 wins both)
+
+  5:6WD7:8  →
+    Team of 5 & 6 plays TWO games against Team of 7 & 8
+    Team 5&6 WINS first game, DRAWS second game (split result)
 
   9:10D11:12  →
-    Team of 9 & 10 draws with Team of 11 & 12
+    Team of 9 & 10 draws with Team of 11 & 12 (one game)
     All four players get Draw
 ```
 
-**Important:** In 4-player team games, there is only ONE result (W/L/D) for the team. Both teammates share the same result.
+**Important:** In 4-player team games, teammates always share the same result(s). If you enter `1:2LL3:4`, both players 1 and 2 get two Losses, and both players 3 and 4 get two Wins.
 
 ### Result Codes Reference
 
@@ -272,7 +276,7 @@ Enter corrected result string:
 
 ### Paste Multiple Results
 
-**Use case:** You have results in a spreadsheet or text file
+**Use case:** You have results in a spreadsheet (e.g., LibreOffice Calc) or text file
 
 **Steps:**
 1. Format results as tab-separated values:
@@ -315,7 +319,7 @@ Enter corrected result string:
 
 1. **Always verify opponent's entry** - After entering your result, check that opponents entered matching results
 
-2. **Team games: all teammates share the same result** - In 4-player team games (format `A:B_W_C:D`), both teammates get W, L, or D together. There is no individual result.
+2. **Team games: all teammates share the same results** - In 4-player team games (format `A:B_W_C:D` or `A:B_WL_C:D`), both teammates get the same result(s). If you enter `1:2LL3:4`, both players 1 and 2 get two Losses.
 
 3. **Use Enter Games mode for batches** - More efficient than cell-by-cell entry
 
@@ -374,20 +378,21 @@ Lose Both:   YourRank LL OpponentRank   Example: 5LL7
 ### 4-Player Format Quick Reference
 
 ```
-Format: P1:P2_Result_P3:P4
+Format: P1:P2_Result_P3:P4 or P1:P2_Result1_Result2_P3:P4
 
 Where:
   P1, P2 = Your team (partners)
   P3, P4 = Opponent team
-  Result = Team result (W/L/D for your team)
+  Result(s) = Team result(s) for your team (W/L/D, or two results)
 
-ONE team game is played - all teammates share the same result!
+Two teams play TWO games - enter one or two results:
 
 Examples:
   You are Player 5, your partner is 6:
-    Your team wins:   5:6W7:8  (Players 5,6 get Win; Players 7,8 get Loss)
-    Your team loses:  5:6L7:8  (Players 5,6 get Loss; Players 7,8 get Win)
-    Teams draw:       5:6D7:8  (All four players get Draw)
+    One game, your team wins:   5:6W7:8  (Players 5,6 get Win; Players 7,8 get Loss)
+    Two games, your team loses both: 5:6LL7:8  (Players 5,6 get two Losses; Players 7,8 get two Wins)
+    Two games, split result:     5:6WL7:8  (Player 5,6 win first, lose second)
+    One game, teams draw:        5:6D7:8  (All four players get Draw)
 ```
 
 ---
@@ -401,7 +406,7 @@ Examples:
 **Entry for Player 3:** `3W7`
 **Entry for Player 7:** `7L3`
 
-### Example 2: 4-Player Team Game (Your Team Wins)
+### Example 2: 4-Player Team Game (Your Team Wins One Game)
 
 **Situation:** Team of Players 1&2 plays ONE game against Team of Players 5&6. Team 1&2 wins.
 
@@ -411,11 +416,21 @@ Examples:
 - Player 5: `1:2L5:6`
 - Player 6: `1:2L5:6`
 
-**Note:** All teammates share the same result! There is no "split" in team games.
+### Example 2b: 4-Player Team Game (Two Games, One Team Wins Both)
+
+**Situation:** Team of Players 1&2 plays TWO games against Team of Players 5&6. Team 1&2 wins both.
+
+**Entries (all players enter the same thing):**
+- Player 1: `1:2WW5:6`
+- Player 2: `1:2WW5:6`
+- Player 5: `1:2LL5:6`
+- Player 6: `1:2LL5:6`
+
+**Note:** All teammates share the same result(s)! Both players on a team get identical results.
 
 ### Example 3: 4-Player Team Game (Draw)
 
-**Situation:** Team of Players 3&4 plays ONE game against Team of Players 7&8. Teams draw.
+**Situation:** Team of Players 3&4 plays against Team of Players 7&8. Teams draw.
 
 **Entries (all players enter the same thing):**
 - Player 3: `3:4D7:8`
