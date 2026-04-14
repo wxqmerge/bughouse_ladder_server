@@ -11,6 +11,7 @@ import { PlayerData } from '../../shared/types';
 import { log } from '../utils/log';
 import { dataService, DataServiceMode } from './dataService';
 import { getProgramMode } from '../utils/mode';
+import { loadUserSettings } from './userSettingsStorage';
 
 /**
  * Get the storage key prefix based on current mode
@@ -232,6 +233,91 @@ export function getPendingSyncCount(): number {
   return pendingSyncQueue.length;
 }
 
+// ==================== PENDING DELETES TRACKING ====================
+
+/**
+ * Queue a cell delete for offline resilience
+ * Sends immediate DELETE request (non-blocking), queues for retry if fails
+ */
+export function queueDelete(playerRank: number, round: number): void {
+  const key = `${playerRank}:${round}`;
+  
+  // Add to pending queue
+  let deletes = new Set(
+    JSON.parse(localStorage.getItem(getKeyPrefix() + 'ladder_pending_deletes') || '[]')
+  );
+  deletes.add(key);
+  localStorage.setItem(getKeyPrefix() + 'ladder_pending_deletes', JSON.stringify([...deletes]));
+  
+  // Try immediate DELETE (non-blocking)
+  (async () => {
+    try {
+      const userSettings = loadUserSettings();
+      const serverUrl = userSettings.server?.trim();
+      if (serverUrl) {
+        await fetch(`${serverUrl}/api/ladder/${playerRank}/round/${round}`, {
+          method: 'DELETE'
+        });
+        // Remove from queue on success
+        deletes.delete(key);
+        localStorage.setItem(getKeyPrefix() + 'ladder_pending_deletes', JSON.stringify([...deletes]));
+      }
+    } catch (err) {
+      log('[STORAGE]', 'Delete queued for retry:', key);
+    }
+  })();
+}
+
+/**
+ * Get all pending deletes from queue
+ */
+export function getPendingDeletes(): Set<string> {
+  return new Set(
+    JSON.parse(localStorage.getItem(getKeyPrefix() + 'ladder_pending_deletes') || '[]')
+  );
+}
+
+/**
+ * Clear pending delete queue (call after successful save)
+ */
+export function clearPendingDeletes(): void {
+  localStorage.removeItem(getKeyPrefix() + 'ladder_pending_deletes');
+}
+
+/**
+ * Replay all pending deletes to server
+ */
+export async function replayPendingDeletes(): Promise<void> {
+  const deletes = getPendingDeletes();
+  if (deletes.size === 0) return;
+  
+  const userSettings = loadUserSettings();
+  const serverUrl = userSettings.server?.trim();
+  if (!serverUrl) {
+    log('[STORAGE]', 'No server configured, cannot replay deletes');
+    return;
+  }
+  
+  log('[STORAGE]', `Replaying ${deletes.size} pending deletes...`);
+  
+  for (const key of deletes) {
+    const [rankStr, roundStr] = key.split(':');
+    const rank = parseInt(rankStr);
+    const round = parseInt(roundStr);
+    
+    try {
+      await fetch(`${serverUrl}/api/ladder/${rank}/round/${round}`, {
+        method: 'DELETE'
+      });
+    } catch (err) {
+      log('[STORAGE]', `Failed to replay delete ${key}:`, err);
+    }
+  }
+  
+  // Clear queue after replay attempt
+  clearPendingDeletes();
+}
+
 // ==================== BATCH SYNC MANAGEMENT ====================
 
 /**
@@ -374,7 +460,7 @@ export interface SaveResult {
   error?: string;
 }
 
-export async function savePlayers(players: PlayerData[], waitForServer = false): Promise<SaveResult> {
+export async function savePlayers(players: PlayerData[], waitForServer = false, skipServerSync = false): Promise<SaveResult> {
   // During batch mode, update the buffer instead of writing to localStorage
   if (isInBatch()) {
     batchBuffer = players;
@@ -440,6 +526,10 @@ export async function savePlayers(players: PlayerData[], waitForServer = false):
         log('[STORAGE]', '✗ Save failed:', error.message);
         return { success: true, serverSynced: false, error: error.message };
       }
+    } else if (skipServerSync) {
+      // Cache only - no server sync (used for polling cache updates)
+      log('[STORAGE]', '[CACHE] Cached to localStorage (no server sync)');
+      return { success: true, serverSynced: false };
     } else {
       // Background sync to server (don't wait)
       (async () => {
