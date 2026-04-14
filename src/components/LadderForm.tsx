@@ -780,7 +780,11 @@ export default function LadderForm({
         }
       }
       
-      return { ...sp, gameResults: mergedGameResults };
+      return { 
+        ...sp, 
+        nRating: localPlayer.nRating !== undefined ? localPlayer.nRating : sp.nRating,
+        gameResults: mergedGameResults 
+      };
     });
   };
 
@@ -1340,11 +1344,16 @@ export default function LadderForm({
       const freshPlayers = data.data?.players || [];
       
       if (freshPlayers && freshPlayers.length > 0) {
-        // Add gameResults array if missing
-        const playersWithResults = freshPlayers.map((player: PlayerData) => ({
-          ...player,
-          gameResults: player.gameResults || new Array(31).fill(null),
-        }));
+        // Preserve local nRating values - server returns 0 for all (ladder.tab doesn't store them)
+        const playersWithResults = freshPlayers.map((player: PlayerData) => {
+          // Find corresponding local player to preserve nRating
+          const localPlayer = players.find((lp: PlayerData) => lp.rank === player.rank);
+          return {
+            ...player,
+            nRating: localPlayer?.nRating !== undefined ? localPlayer.nRating : player.nRating,
+            gameResults: player.gameResults || new Array(31).fill(null),
+          };
+        });
         
         // Update state (preserve sort order)
         setPlayers(playersWithResults);
@@ -2816,35 +2825,6 @@ export default function LadderForm({
         }}>
           <span style={{ color: '#92400e', fontWeight: '600' }}>⚠️ Server Down Mode</span>
           <span style={{ color: '#78350f' }}>Only game entry is available. Use Recalculate_Save when server is back online.</span>
-        </div>
-      )}
-      {/* Admin lock indicator */}
-      {adminLockInfo.locked && (
-        <div style={{
-          backgroundColor: isAdmin ? '#dcfce7' : '#fef3c7',
-          border: `1px solid ${isAdmin ? '#22c55e' : '#f59e0b'}`,
-          borderRadius: '0.375rem',
-          padding: '0.75rem 1rem',
-          marginBottom: '1rem',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.5rem',
-          fontSize: getFontSize(),
-        }}>
-          {isAdmin ? (
-            <>
-              <span style={{ color: '#166534', fontWeight: '600' }}>🔑 Admin Mode Active</span>
-              <span style={{ color: '#15803d' }}>You are currently in admin mode. Cells are editable.</span>
-            </>
-          ) : (
-            <>
-              <span style={{ color: '#92400e', fontWeight: '600' }}>🔒 Admin Mode Locked</span>
-              <span style={{ color: '#78350f' }}>
-                Held by "{adminLockInfo.holderName}". 
-                {adminLockInfo.expiresAt && `Releases in ${Math.ceil((adminLockInfo.expiresAt - Date.now()) / 1000)}s.`}
-              </span>
-            </>
-          )}
         </div>
       )}
       {/* Mobile menu trigger */}
