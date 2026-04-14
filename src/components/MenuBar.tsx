@@ -42,6 +42,8 @@ interface MenuBarProps {
   onProjectNameChange?: (name: string) => void;
   onSetTitle?: (title: string) => void;
   playerCount?: number;
+  serverUrl?: string; // Server URL - if set without API key, admin mode is disabled
+  hasAdminApiKey?: boolean; // If true and serverUrl is set, admin mode is enabled
 }
 
 interface MenuItem {
@@ -69,7 +71,12 @@ export default function MenuBar({
   onProjectNameChange,
   onSetTitle,
   playerCount,
+  serverUrl,
+  hasAdminApiKey,
 }: MenuBarProps) {
+  // Admin mode is disabled if connected to server without admin API key
+  // Enabled if: no server (local mode) OR has admin API key configured
+  const adminModeDisabled = !!(serverUrl && serverUrl.trim() && !hasAdminApiKey);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [isServerDown, setIsServerDown] = useState(false);
 
@@ -219,7 +226,7 @@ export default function MenuBar({
       },
       dataMenuItem: "Paste Multiple Results",
     },
-    ...(isAdmin && onAddPlayer
+    ...(!adminModeDisabled && onAddPlayer
       ? [
           {
             icon: <Plus size={16} />,
@@ -232,15 +239,19 @@ export default function MenuBar({
           },
         ]
       : []),
-    {
-      icon: <Shield size={16} />,
-      label: isAdmin ? "Exit Admin Mode" : "Admin Mode",
-      onClick: () => {
-        onToggleAdmin();
-        closeAllMenus();
-      },
-      dataMenuItem: isAdmin ? "Exit Admin Mode" : "Admin Mode",
-    },
+    ...(adminModeDisabled
+      ? []
+      : [
+          {
+            icon: <Shield size={16} />,
+            label: isAdmin ? "Exit Admin Mode" : "Admin Mode",
+            onClick: () => {
+              onToggleAdmin();
+              closeAllMenus();
+            },
+            dataMenuItem: isAdmin ? "Exit Admin Mode" : "Admin Mode",
+          },
+        ]),
     // Settings - always accessible, moved to bottom of Operations
     {
       icon: <SettingsIcon size={16} />,

@@ -4,25 +4,39 @@
 
 This project uses **Vitest** for unit testing with **React Testing Library** for component tests.
 
+For debugging and running in different modes, see [README_DEBUG.md](./README_DEBUG.md).
+
+---
+
 ## Running Tests
 
-### Interactive Mode (Watch)
-```bash
-npm test
-```
-Runs tests and watches for file changes.
-
-### Run Once
+### Run All Tests Once (CI Mode)
 ```bash
 npm run test:run
 ```
-Runs all tests once and exits.
 
-### With Coverage Report
+Expected output:
+```
+Test Files  X passed (X)
+ Tests      Y passed (Y)
+Duration    ~Zs
+```
+
+### Run Tests with Auto-Restart (Watch Mode)
+```bash
+npm test
+```
+
+Tests will automatically re-run when you modify source files.
+
+### Run Tests with Coverage Report
 ```bash
 npm run test:coverage
 ```
-Generates HTML coverage report in `coverage/` directory.
+
+Coverage report opens in browser at `coverage/index.html`.
+
+---
 
 ## Test Structure
 
@@ -41,6 +55,8 @@ src/
     └── *.test.tsx              # Component tests inline
 ```
 
+---
+
 ## Current Test Coverage
 
 ### Unit Tests (46 passing)
@@ -52,11 +68,13 @@ src/
 | `migration.test.ts` | 13 | Local ↔ Server data migration |
 | `utils.test.ts` | 4 | Error message utilities |
 
-### Component Tests (2 passing, 1 failing)
+### Component Tests
 
-| File | Status | Description |
-|------|--------|-------------|
-| `LadderForm.test.tsx` | Partial | Component rendering tests |
+| File | Description |
+|------|-------------|
+| `LadderForm.test.tsx` | Component rendering tests |
+
+---
 
 ## Test Categories
 
@@ -114,6 +132,8 @@ it('should detect mismatch when last names differ', () => {
 });
 ```
 
+---
+
 ## Writing New Tests
 
 ### Unit Test Template
@@ -145,6 +165,8 @@ describe('MyComponent', () => {
 });
 ```
 
+---
+
 ## Fixtures
 
 Test fixtures are stored in `src/test/fixtures/`:
@@ -168,6 +190,8 @@ Import fixtures in tests:
 import { simplePlayers } from '../fixtures/players';
 ```
 
+---
+
 ## CI Integration
 
 Tests run automatically in CI pipeline. All tests must pass for merges.
@@ -176,6 +200,8 @@ Tests run automatically in CI pipeline. All tests must pass for merges.
 - All unit tests must pass
 - No new test coverage regressions
 - Component tests should not have unhandled errors
+
+---
 
 ## Debugging Tests
 
@@ -193,6 +219,26 @@ npm test -t "should return 0.5 when ratings are equal"
 1. Set breakpoint in test file
 2. Click debug icon next to test
 3. Or use `console.log()` for simple debugging
+
+---
+
+## Test Configuration
+
+- **Framework:** Vitest v4.x
+- **Environment:** jsdom (browser simulation)
+- **Setup File:** `src/test/setup.ts`
+- **Config:** `vitest.config.ts`
+
+---
+
+## Test Best Practices
+
+1. **Use `waitFor()`** for async operations (data loading, state updates)
+2. **Prefer semantic queries**: `getByRole()`, `getByText()` over `query_selector`
+3. **Test behavior, not implementation**: Focus on what users see/do
+4. **Use descriptive test names**: `"should update rating when game is added"`
+
+---
 
 ## Notes
 
