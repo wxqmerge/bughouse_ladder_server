@@ -817,18 +817,7 @@ export async function saveToServer(): Promise<{ success: boolean; error?: string
 /**
  * Admin lock configuration
  */
-const ADMIN_LOCK_KEY = 'ladder_admin_lock';
-const ADMIN_LOCK_TIMEOUT = 60000; // 60 seconds before expiration
 export const ADMIN_LOCK_REFRESH_INTERVAL = 30000; // Refresh every 30 seconds
-
-/**
- * Admin lock data structure
- */
-export interface AdminLock {
-  clientId: string;
-  timestamp: number;
-  clientName?: string;
-}
 
 /**
  * Generate unique client ID
@@ -850,163 +839,223 @@ export function getClientId(): string {
 }
 
 /**
- * Get current admin lock from localStorage
+ * Get client name for display
  */
-export function getAdminLock(): AdminLock | null {
+function getClientName(clientId: string): string {
+  return `Client ${clientId.substr(-4)}`;
+}
+
+/**
+ * Get server URL with protocol
+ */
+function getServerUrl(): string | null {
   try {
-    const lockData = localStorage.getItem(ADMIN_LOCK_KEY);
-    return lockData ? JSON.parse(lockData) : null;
+    const userSettingsJson = localStorage.getItem('bughouse-ladder-user-settings');
+    if (!userSettingsJson) return null;
+    const userSettings = JSON.parse(userSettingsJson);
+    let serverUrl = userSettings.server?.trim();
+    if (!serverUrl) return null;
+    // Ensure URL has protocol
+    if (!serverUrl.startsWith('http://') && !serverUrl.startsWith('https://')) {
+      serverUrl = `http://${serverUrl}`;
+    }
+    return serverUrl;
   } catch (error) {
-    console.error('[ADMIN_LOCK] Failed to read lock:', error);
+    console.error('[ADMIN_LOCK] Failed to get server URL:', error);
     return null;
   }
 }
 
 /**
- * Check if admin mode is currently locked by another client
- */
-export function isAdminLocked(): boolean {
-  const lock = getAdminLock();
-  if (!lock) return false;
-  
-  const currentTime = Date.now();
-  const timeSinceLastActivity = currentTime - lock.timestamp;
-  
-  // Lock is considered released if it's expired
-  return timeSinceLastActivity < ADMIN_LOCK_TIMEOUT;
-}
-
-/**
- * Get information about who holds the admin lock
- */
-export function getAdminLockInfo(): { locked: boolean; holderId?: string; holderName?: string; expiresAt?: number } {
-  const lock = getAdminLock();
-  if (!lock) {
-    return { locked: false };
-  }
-  
-  const currentTime = Date.now();
-  const timeSinceLastActivity = currentTime - lock.timestamp;
-  const isExpired = timeSinceLastActivity >= ADMIN_LOCK_TIMEOUT;
-  
-  return {
-    locked: !isExpired,
-    holderId: lock.clientId,
-    holderName: lock.clientName || `Client ${lock.clientId.substr(-4)}`,
-    expiresAt: isExpired ? undefined : lock.timestamp + ADMIN_LOCK_TIMEOUT
-  };
-}
-
-/**
- * Attempt to acquire admin lock
+ * Try to acquire admin lock from server
  * @returns true if lock acquired, false if already held by another client
  */
-export function tryAcquireAdminLock(clientName?: string): boolean {
-  return acquireAdminLock(clientName, false);
+export async function tryAcquireAdminLock(clientName?: string): Promise<boolean> {
+  const serverUrl = getServerUrl();
+  if (!serverUrl) {
+    console.log('[ADMIN_LOCK] No server configured - using local mode');
+    return true; // In local mode, always allow
+  }
+
+  const clientId = getClientId();
+  const name = clientName || getClientName(clientId);
+
+  try {
+    const response = await fetch(`${serverUrl}/api/admin-lock/acquire`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clientId, clientName: name }),
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      log('[ADMIN_LOCK]', `Acquired lock: ${name}`);
+      return true;
+    } else {
+      log('[ADMIN_LOCK]', `Failed to acquire - held by ${data.heldBy?.clientName}`);
+      return false;
+    }
+  } catch (error) {
+    console.error('[ADMIN_LOCK] Failed to acquire lock:', error);
+    return false;
+  }
 }
 
 /**
  * Force acquire admin lock (override existing lock)
  * @returns true if lock acquired/overridden
  */
-export function forceAcquireAdminLock(clientName?: string): boolean {
-  return acquireAdminLock(clientName, true);
-}
-
-/**
- * Notify server of admin lock action (non-blocking)
- */
-function notifyServerOfLockAction(action: 'acquire' | 'release' | 'force', clientId: string, clientName?: string): void {
-  // Fetch server URL from user settings
-  try {
-    const userSettingsJson = localStorage.getItem('bughouse-ladder-user-settings');
-    if (userSettingsJson) {
-      const userSettings = JSON.parse(userSettingsJson);
-      const serverUrl = userSettings.server?.trim();
-      if (serverUrl) {
-        fetch(`${serverUrl}/api/admin-lock/lock`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action, clientId, clientName }),
-        }).catch(() => {}); // Silently fail - don't block lock operations
-      }
-    }
-  } catch (error) {
-    // Ignore errors - this is just for logging
-  }
-}
-
-/**
- * Internal function to acquire admin lock
- * @param force - If true, override existing lock
- * @returns true if lock acquired
- */
-function acquireAdminLock(clientName?: string, force: boolean = false): boolean {
-  const clientId = getClientId();
-  
-  const currentLock = getAdminLock();
-  
-  // Check if lock is held by us or is expired
-  const canAcquire = !currentLock || 
-    currentLock.clientId === clientId || 
-    (Date.now() - currentLock.timestamp >= ADMIN_LOCK_TIMEOUT);
-  
-  if (canAcquire || force) {
-    const newLock: AdminLock = {
-      clientId,
-      timestamp: Date.now(),
-      clientName: clientName || `Client ${clientId.substr(-4)}`
-    };
-    
-    localStorage.setItem(ADMIN_LOCK_KEY, JSON.stringify(newLock));
-    
-    // Notify server
-    notifyServerOfLockAction(force ? 'force' : 'acquire', clientId, newLock.clientName);
-    
-    if (force && currentLock && currentLock.clientId !== clientId) {
-      log('[ADMIN_LOCK]', `FORCED lock acquisition - overridden ${currentLock.clientName}`);
-    } else {
-      log('[ADMIN_LOCK]', `Acquired lock: ${newLock.clientName}`);
-    }
+export async function forceAcquireAdminLock(clientName?: string): Promise<boolean> {
+  const serverUrl = getServerUrl();
+  if (!serverUrl) {
+    console.log('[ADMIN_LOCK] No server configured - using local mode');
     return true;
   }
-  
-  log('[ADMIN_LOCK]', `Failed to acquire - held by ${currentLock?.clientName}`);
-  return false;
-}
 
-/**
- * Refresh admin lock (extend expiration time)
- */
-export function refreshAdminLock(): void {
   const clientId = getClientId();
-  const currentLock = getAdminLock();
-  
-  if (currentLock && currentLock.clientId === clientId) {
-    currentLock.timestamp = Date.now();
-    localStorage.setItem(ADMIN_LOCK_KEY, JSON.stringify(currentLock));
+  const name = clientName || getClientName(clientId);
+
+  try {
+    const response = await fetch(`${serverUrl}/api/admin-lock/force`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clientId, clientName: name }),
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      if (data.overridden) {
+        log('[ADMIN_LOCK]', `FORCED lock acquisition - overridden ${data.overridden.clientName}`);
+      } else {
+        log('[ADMIN_LOCK]', `Acquired lock (force): ${name}`);
+      }
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error('[ADMIN_LOCK] Failed to force acquire lock:', error);
+    return false;
   }
 }
 
 /**
  * Release admin lock
  */
-export function releaseAdminLock(): void {
+export async function releaseAdminLock(): Promise<void> {
+  const serverUrl = getServerUrl();
+  if (!serverUrl) return;
+
   const clientId = getClientId();
-  const currentLock = getAdminLock();
-  
-  if (currentLock && currentLock.clientId === clientId) {
-    localStorage.removeItem(ADMIN_LOCK_KEY);
-    log('[ADMIN_LOCK]', `Released lock: ${currentLock.clientName}`);
-    
-    // Notify server
-    notifyServerOfLockAction('release', clientId, currentLock.clientName);
+
+  try {
+    await fetch(`${serverUrl}/api/admin-lock/release`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clientId }),
+    });
+    log('[ADMIN_LOCK]', `Released lock`);
+  } catch (error) {
+    console.error('[ADMIN_LOCK] Failed to release lock:', error);
   }
 }
 
 /**
- * Force release admin lock (for cleanup purposes)
+ * Refresh admin lock (extend expiration time)
  */
-export function forceReleaseAdminLock(): void {
-  localStorage.removeItem(ADMIN_LOCK_KEY);
+export async function refreshAdminLock(): Promise<void> {
+  const serverUrl = getServerUrl();
+  if (!serverUrl) return;
+
+  const clientId = getClientId();
+
+  try {
+    await fetch(`${serverUrl}/api/admin-lock/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clientId }),
+    });
+  } catch (error) {
+    console.error('[ADMIN_LOCK] Failed to refresh lock:', error);
+  }
 }
+
+/**
+ * Get information about who holds the admin lock
+ */
+export async function getAdminLockInfo(): Promise<{ locked: boolean; holderId?: string; holderName?: string; expiresAt?: number }> {
+  const serverUrl = getServerUrl();
+  if (!serverUrl) {
+    return { locked: false }; // In local mode, never locked
+  }
+
+  try {
+    const response = await fetch(`${serverUrl}/api/admin-lock/status`);
+    const data = await response.json();
+
+    if (!data.locked) {
+      return { locked: false };
+    }
+
+    return {
+      locked: true,
+      holderId: data.lock?.clientId,
+      holderName: data.lock?.clientName,
+      expiresAt: data.expiresAt,
+    };
+  } catch (error) {
+    console.error('[ADMIN_LOCK] Failed to get lock info:', error);
+    return { locked: false };
+  }
+}
+
+/**
+ * Check if admin mode is currently locked by another client
+ */
+export async function isAdminLocked(): Promise<boolean> {
+  const info = await getAdminLockInfo();
+  return info.locked;
+}
+
+/**
+ * Notify server of admin lock action (non-blocking) - DEPRECATED, kept for backward compatibility
+ */
+function notifyServerOfLockAction(action: 'acquire' | 'release' | 'force', clientId: string, clientName?: string): void {
+  console.log(`[ADMIN_LOCK_NOTIFY] >>> CALLED with action=${action}, clientId=${clientId}, clientName=${clientName}`);
+  // Fetch server URL from user settings
+  try {
+    const userSettingsJson = localStorage.getItem('bughouse-ladder-user-settings');
+    if (!userSettingsJson) {
+      console.log('[ADMIN_LOCK_NOTIFY] No user settings found');
+      return;
+    }
+    const userSettings = JSON.parse(userSettingsJson);
+    let serverUrl = userSettings.server?.trim();
+    if (!serverUrl) {
+      console.log('[ADMIN_LOCK_NOTIFY] No server URL configured (local mode?)');
+      return;
+    }
+    // Ensure URL has protocol
+    if (!serverUrl.startsWith('http://') && !serverUrl.startsWith('https://')) {
+      serverUrl = `http://${serverUrl}`;
+    }
+    const url = `${serverUrl}/api/admin-lock/lock`;
+    console.log(`[ADMIN_LOCK_NOTIFY] Sending ${action} to ${url}`);
+    fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, clientId, clientName }),
+    }).then(response => {
+      console.log(`[ADMIN_LOCK_NOTIFY] Server responded: ${response.status}`);
+    }).catch(err => {
+      console.log(`[ADMIN_LOCK_NOTIFY] Fetch failed:`, err);
+    });
+  } catch (error) {
+    console.log('[ADMIN_LOCK_NOTIFY] Error:', error);
+  }
+}
+
+/**
+ * Notify server of admin lock action (non-blocking) - DEPRECATED, kept for backward compatibility
+ */
