@@ -21,6 +21,7 @@ import { Menu as MenuIcon, Server } from "lucide-react";
 import { shouldLog } from "../utils/debug";
 import { getVersionString, isLocalMode, isServerDownMode, getProgramMode, testServerConnection } from "../utils/mode";
 import { log } from "../utils/log";
+import { loadUserSettings } from "../services/userSettingsStorage";
 import { getKeyPrefix, startBatch, endBatch, saveToServer, clearAllSaveStatus, isCellSaved, markLocalChanges, getHasLocalChanges, clearLocalChangesFlag } from "../services/storageService";
 import {
   getPlayers,
@@ -222,6 +223,7 @@ export default function LadderForm({
   const [isAddPlayerDialogOpen, setIsAddPlayerDialogOpen] = useState(false);
   const [showBulkPasteDialog, setShowBulkPasteDialog] = useState(false);
   const [currentMode, setCurrentMode] = useState<'local' | 'server_down' | 'server'>('local');
+  const [debugMode, setDebugMode] = useState(false);
   // Enter Games mode state
   const [enterGamesError, setEnterGamesError] = useState<ValidationResult | null>(null);
   const [isEnterGamesMode, setIsEnterGamesMode] = useState(false);
@@ -358,6 +360,10 @@ export default function LadderForm({
             | "200%";
           setZoomLevel(zoomPercent);
         }
+
+        // Load debug mode from user settings
+        const userSettings = loadUserSettings();
+        setDebugMode(userSettings.debugMode || false);
 
         // Check if we have local data
         const localData = localStorage.getItem('ladder_ladder_players');
@@ -3112,6 +3118,7 @@ export default function LadderForm({
           onUpdatePlayerData={handleUpdatePlayerData}
           isAdmin={isAdmin}
           onAddPlayer={handleAddPlayer}
+          debugMode={debugMode}
         />
       )}
       {entryCell &&
@@ -3142,6 +3149,7 @@ export default function LadderForm({
             onUpdatePlayerData={handleUpdatePlayerData}
             isAdmin={isAdmin}
             onAddPlayer={handleAddPlayer}
+            debugMode={debugMode}
           />
         )}
       {currentError && (

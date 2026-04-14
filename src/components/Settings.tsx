@@ -42,6 +42,7 @@ export default function Settings({
   // Server settings state
   const [serverUrl, setServerUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
+  const [debugMode, setDebugMode] = useState(false);
 
   useEffect(() => {
     const savedSettings = localStorage.getItem(
@@ -62,6 +63,7 @@ export default function Settings({
     const userSettings = loadUserSettings();
     setServerUrl(userSettings.server || '');
     setApiKey(userSettings.apiKey || '');
+    setDebugMode(userSettings.debugMode || false);
   }, []);
 
   const handleSave = () => {
@@ -80,6 +82,7 @@ export default function Settings({
     const userSettings: UserSettings = {
       server: serverUrl.trim(),
       apiKey: apiKey.trim(),
+      debugMode: debugMode,
     };
     saveUserSettings(userSettings);
     
@@ -573,6 +576,32 @@ export default function Settings({
                 Required if server has admin protection enabled
               </p>
             </div>
+          </div>
+          
+          {/* Debug Mode Checkbox */}
+          <div style={{ gridColumn: '1 / -1', marginTop: '0.5rem' }}>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                fontSize: "0.875rem",
+                color: "#6b7280",
+                cursor: "pointer",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={debugMode}
+                onChange={(e) => setDebugMode(e.target.checked)}
+                style={{
+                  width: "16px",
+                  height: "16px",
+                  cursor: "pointer",
+                }}
+              />
+              <span>Debug mode (show extra info in dialogs)</span>
+            </label>
           </div>
         </div>
 
