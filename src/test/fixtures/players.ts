@@ -6,7 +6,7 @@
 import { PlayerData } from '../../../shared/types/index.ts';
 
 /**
- * Sample player data from kings_cross.tab
+ * Sample player data from VB6 ladder format
  * Used for testing basic operations and rating calculations
  */
 export const kingsCrossPlayers: PlayerData[] = [

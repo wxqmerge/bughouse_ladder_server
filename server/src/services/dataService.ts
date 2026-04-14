@@ -115,7 +115,7 @@ export async function readLadderFile(): Promise<LadderData> {
     
     // Parse player data - supports both formats:
     // New format (LadderForm): Rnk|Group|Last Name|First Name|Prev Rating|New Rating|Gr|Gms|Attendance|Phone|Info
-    // Old format (kings_cross): Group|Last Name|First Name|Rating|Rnk|N Rate|Gr|[blank]|X|Phone|Info|School|Room|[games]|Version
+    // Old format (VB6 ladder): Group|Last Name|First Name|Rating|Rnk|N Rate|Gr|[blank]|X|Phone|Info|School|Room|[games]|Version
     const players: PlayerData[] = [];
     
     for (let i = 0; i < dataLines.length; i++) {
@@ -151,7 +151,7 @@ export async function readLadderFile(): Promise<LadderData> {
           gameResults: [],
         };
       } else {
-        // Old kings_cross format
+        // Old VB6 ladder format
         player = {
           rank: parseInt(fields[4]) || 0,
           group: fields[0] || '',
@@ -181,13 +181,13 @@ export async function readLadderFile(): Promise<LadderData> {
 }
 
 export function generateTabContent(ladderData: LadderData): string {
-  // Output format matches kings_cross headers:
+  // Output format matches VB6 ladder headers:
   // Group|Last Name|First Name|Rating|Rnk|N Rate|Gr|[blank]|X|Phone|Info|School|Room|[games]|Version
   
   const headerLine = 'Group\tLast Name\tFirst Name\tRating\tRnk\tN Rate\tGr\t\tX\tPhone\tInfo\tSchool\tRoom\t1\t2\t3\t4\t5\t6\t7\t8\t9\t10\t11\t12\t13\t14\t15\t16\t17\t18\t19\t20\t21\t22\t23\t24\t25\t26\t27\t28\t29\t30\t31\tVersion 1.21';
   
   const playerLines = ladderData.players.map(player => {
-    // Base fields in kings_cross order
+    // Base fields in VB6 ladder order
     const baseFields = [
       player.group, // Group
       player.lastName, // Last Name
@@ -247,13 +247,13 @@ export async function initializeDefaultLadder(): Promise<void> {
   } catch {
     await ensureDataDirectory();
     
-    // Try to copy from kings_cross.tab if it exists
-    const kingsCrossPath = path.join(path.dirname(__dirname), '..', 'kings_cross.tab');
+    // Try to copy from vb6_ladder.tab if it exists
+    const vb6LadderPath = path.join(path.dirname(__dirname), '..', 'vb6_ladder.tab');
     try {
-      await fs.access(kingsCrossPath);
-      const content = await fs.readFile(kingsCrossPath, 'utf-8');
+      await fs.access(vb6LadderPath);
+      const content = await fs.readFile(vb6LadderPath, 'utf-8');
       await fs.writeFile(TAB_FILE_PATH, content, 'utf-8');
-      log('[SERVER]', `Copied kings_cross.tab to ${TAB_FILE_PATH}`);
+      log('[SERVER]', `Copied vb6_ladder.tab to ${TAB_FILE_PATH}`);
     } catch {
       // Create empty file
       await fs.writeFile(TAB_FILE_PATH, '', 'utf-8');

@@ -264,7 +264,11 @@ sudo certbot --nginx -d your-domain.com -d www.your-domain.com
 sudo certbot renew --dry-run
 ```
 
-### Step 9: Create Systemd Service (Optional)
+### Step 9: Create Systemd Service (Optional but Recommended)
+
+**Purpose:** Run the server as a background service that starts on boot and auto-restarts on crash.
+
+**Note:** This step is optional - you can run the server manually instead. See "Manual Server Start" below.
 
 Create service file:
 
@@ -308,6 +312,20 @@ sudo systemctl start bughouse-ladder
 
 # Verify status
 sudo systemctl status bughouse-ladder
+```
+
+### Manual Server Start (Alternative to Systemd)
+
+If you don't want to use systemd, simply run:
+
+```bash
+cd /var/www/bughouse-ladder/server
+NODE_ENV=production node dist/index.js
+```
+
+To run in background:
+```bash
+nohup NODE_ENV=production node dist/index.js > server.log 2>&1 &
 ```
 
 ---
