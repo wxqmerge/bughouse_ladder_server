@@ -22,7 +22,7 @@ import { shouldLog } from "../utils/debug";
 import { getVersionString, isLocalMode, isServerDownMode, getProgramMode, testServerConnection } from "../utils/mode";
 import { log } from "../utils/log";
 import { loadUserSettings } from "../services/userSettingsStorage";
-import { getKeyPrefix, startBatch, endBatch, saveToServer, clearAllSaveStatus, isCellSaved, markLocalChanges, getHasLocalChanges, clearLocalChangesFlag } from "../services/storageService";
+import { getKeyPrefix, startBatch, endBatch, saveToServer, clearAllSaveStatus, isCellSaved, markLocalChanges, getHasLocalChanges, clearLocalChangesFlag, getPendingDeletes, clearPendingDeletes, queueDelete } from "../services/storageService";
 import {
   getPlayers,
   savePlayers,
@@ -172,6 +172,7 @@ interface LadderFormProps {
   triggerWalkthrough?: boolean;
   setTriggerWalkthrough?: (show: boolean) => void;
   onSetRecalculateRef?: (ref: () => void) => void;
+  onSetRefreshPlayersRef?: (ref: () => void) => void;
 }
 
 export default function LadderForm({
@@ -179,6 +180,7 @@ export default function LadderForm({
   triggerWalkthrough,
   setTriggerWalkthrough,
   onSetRecalculateRef,
+  onSetRefreshPlayersRef,
 }: LadderFormProps = {}) {
   const [players, setPlayers] = useState<PlayerData[]>([]);
   const [zoomLevel, setZoomLevel] = useState<
@@ -647,13 +649,23 @@ export default function LadderForm({
     errorCount: number;
     playerResultsByMatch?: Map<string, any[]>;
   } => {
-    if (players.length === 0) {
+    return checkGameErrorsWithPlayers(players);
+  };
+
+  const checkGameErrorsWithPlayers = (playersList: PlayerData[]): {
+    hasErrors: boolean;
+    matches: MatchData[];
+    errors: ValidationResult[];
+    errorCount: number;
+    playerResultsByMatch?: Map<string, any[]>;
+  } => {
+    if (playersList.length === 0) {
       console.error("No players to process");
       return { hasErrors: false, matches: [], errors: [], errorCount: 0 };
     }
 
     const { matches, hasErrors, errorCount, errors, playerResultsByMatch } =
-      processGameResults(players, 31);
+      processGameResults(playersList, 31);
     if (shouldLog(4)) {
       console.log(`Validated ${matches.length} matches, errors: ${errorCount}`);
     }
@@ -661,7 +673,7 @@ export default function LadderForm({
     if (hasErrors && errors.length > 0) {
       console.warn("Errors detected. Opening dialog for correction.");
       setIsRecalculating(true);
-      setPendingPlayers(players);
+      setPendingPlayers(playersList);
       setPendingMatches(matches);
       setPendingPlayerResultsByMatch(playerResultsByMatch);
       setCurrentError(errors[0]);
@@ -674,6 +686,64 @@ export default function LadderForm({
     }
 
     return { hasErrors, matches, errors, errorCount, playerResultsByMatch };
+  };
+
+  /**
+   * Merge server players with local changes
+   * Preserves: local unconfirmed entries, pending deletes
+   */
+  const mergeServerWithLocal = (
+    serverPlayers: PlayerData[],
+    localPlayers: PlayerData[]
+  ): PlayerData[] => {
+    const pendingDeletes = getPendingDeletes();
+    
+    return serverPlayers.map((sp: PlayerData) => {
+      const localPlayer = localPlayers.find((lp: PlayerData) => lp.rank === sp.rank);
+      
+      if (!localPlayer || !localPlayer.gameResults) {
+        return sp;
+      }
+      
+      const mergedGameResults = [
+        ...(sp.gameResults || new Array(31).fill(null))
+      ];
+      
+      for (let r = 0; r < 31; r++) {
+        const cellKey = `${localPlayer.rank}:${r}`;
+        
+        // Check if this cell was deleted locally but not yet synced
+        if (pendingDeletes.has(cellKey)) {
+          mergedGameResults[r] = '';
+          log(
+            '[MERGE]',
+            `Preserved pending delete at P${localPlayer.rank} R${r + 1}`
+          );
+          continue;
+        }
+        
+        // Merge unconfirmed local entries with server data
+        const localResult = localPlayer.gameResults[r];
+        const serverResult = sp.gameResults?.[r];
+        
+        const localConfirmed = localResult?.endsWith('_') || false;
+        const serverConfirmed = serverResult?.endsWith('_') || false;
+        
+        // Priority: local unconfirmed > server confirmed > server unconfirmed
+        if (localResult && localResult.trim() && !localConfirmed) {
+          mergedGameResults[r] = localResult;
+          log(
+            '[MERGE]',
+            `Preserved local unconfirmed at P${localPlayer.rank} R${r + 1}`
+          );
+        } else if (serverConfirmed && !localConfirmed) {
+          // Keep server confirmed result
+          mergedGameResults[r] = serverResult;
+        }
+      }
+      
+      return { ...sp, gameResults: mergedGameResults };
+    });
   };
 
   // Enter Games mode handlers
@@ -1018,7 +1088,30 @@ export default function LadderForm({
    * This is the primary save operation for users
    */
   const recalculateAndSave = async () => {
-    log('[RECALC]', 'Starting recalculate_and_save with ' + players.length + ' players');
+    log('[RECALC]', 'Starting recalculate_and_save');
+
+    // CRITICAL: Fetch fresh data from server before processing to avoid overwriting other clients' work
+    let playersToUse: PlayerData[] = players;
+    
+    log('[RECALC]', 'Fetching fresh data from server...');
+    try {
+      const userSettings = loadUserSettings();
+      const serverUrl = userSettings.server?.trim();
+      if (serverUrl) {
+        const response = await fetch(`${serverUrl}/api/ladder`);
+        if (response.ok) {
+          const data = await response.json();
+          const serverPlayers = data.data?.players || [];
+          
+          if (serverPlayers && serverPlayers.length > 0) {
+            playersToUse = mergeServerWithLocal(serverPlayers, players);
+            log('[RECALC]', 'Merged server data with local changes');
+          }
+        }
+      }
+    } catch (error) {
+      log('[RECALC]', 'Failed to fetch fresh data, using local:', error);
+    }
 
     // Clear save status - all cells need to be re-saved after recalculation
     clearAllSaveStatus();
@@ -1026,7 +1119,7 @@ export default function LadderForm({
     // Note: Not using batch mode since this is a single atomic operation
 
     // Always build fresh matches from current UI state (no caching)
-    const result = checkGameErrors();
+    const result = checkGameErrorsWithPlayers(playersToUse);
 
     // If there are errors, show the error dialog and return early
     if (result.hasErrors && result.errors.length > 0) {
@@ -1048,7 +1141,7 @@ export default function LadderForm({
       console.log(`Matches to process: ${matches.length}`);
       // Count existing game results before clear
       let totalExisting = 0;
-      for (const p of players) {
+      for (const p of playersToUse) {
         const filled = p.gameResults.filter((r) => r !== null && r !== "");
         totalExisting += filled.length;
       }
@@ -1056,7 +1149,7 @@ export default function LadderForm({
     }
 
     const processedPlayers = repopulateGameResults(
-      players,
+      playersToUse,
       matches,
       31,
       playerResultsByMatch,
@@ -1150,6 +1243,8 @@ export default function LadderForm({
         log('[RECALC]', '✓ Saved to server');
         // Clear local changes flag after successful server sync
         clearLocalChangesFlag();
+        // Clear pending deletes after successful server sync
+        clearPendingDeletes();
       } else {
         log('[RECALC]', '✓ Saved locally (server sync skipped)');
       }
@@ -1165,6 +1260,41 @@ export default function LadderForm({
     
     (window as any).__ladder_setStatus?.(null);
   };
+
+  /**
+   * Refresh players from server/storage
+   * Called when polling detects data changes from other clients
+   */
+  const refreshPlayers = async () => {
+    try {
+      log('[REFRESH]', 'Refreshing players from server/storage');
+      
+      // Fetch fresh data
+      const freshPlayers = await getPlayers();
+      
+      if (freshPlayers && freshPlayers.length > 0) {
+        // Add gameResults array if missing
+        const playersWithResults = freshPlayers.map((player: PlayerData) => ({
+          ...player,
+          gameResults: player.gameResults || new Array(31).fill(null),
+        }));
+        
+        // Update state (preserve sort order)
+        setPlayers(playersWithResults);
+        
+        log('[REFRESH]', '✓ Refreshed ' + playersWithResults.length + ' players');
+      }
+    } catch (error) {
+      log('[REFRESH]', '✗ Failed to refresh:', error);
+    }
+  };
+
+  // Expose refreshPlayers function to App.tsx
+  useEffect(() => {
+    if (onSetRefreshPlayersRef) {
+      onSetRefreshPlayersRef(refreshPlayers);
+    }
+  }, [onSetRefreshPlayersRef, refreshPlayers]);
 
   const countNonBlankRounds = (): number => {
     let count = 0;

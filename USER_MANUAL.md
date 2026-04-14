@@ -24,6 +24,49 @@ The Bughouse Chess Ladder tracks player ratings using the Elo rating system. Gam
 
 ---
 
+## Multi-Client Usage
+
+### Using Multiple Browsers Simultaneously
+
+The ladder application supports multiple users entering games from different browsers at the same time. This is useful when:
+- Tournament directors and scorekeepers work from separate computers
+- Multiple people enter games for different sections simultaneously
+- You want to review data on one screen while entering on another
+
+### How Synchronization Works
+
+**Automatic Updates (5-second delay)**
+- Changes made in Browser A appear in Browser B within 5 seconds
+- No manual refresh required
+- Works across different computers on the same network
+
+**Smart Merge on Save**
+- When you save, the system fetches latest data from server first
+- Your local unconfirmed entries are preserved and merged with server data
+- No work is lost when multiple people save around the same time
+
+**Example Scenario:**
+```
+Browser A: Enters game "4W5" → Saves
+Browser B: Automatically sees "4W5" within 5 seconds (no refresh needed)
+Browser B: Enters game "6W7" → Saves  
+Browser A: Automatically sees both games (merge preserves both)
+```
+
+### Best Practices for Multi-Client Use
+
+1. **Save frequently** - The merge happens on save, so save often to sync work
+2. **Don't edit same cells simultaneously** - While merge is smart, it's best to avoid two people editing the exact same round/player at once
+3. **Wait for underscore** - Cells show "_" suffix when saved (e.g., "4W5_"). Wait for this before assuming sync is complete.
+4. **Reconnect dialog** - If server goes down and comes back, the reconnect dialog will offer to merge your local changes with server data
+
+### Limitations
+
+- **Up to 5 second delay** - Polling-based sync means changes may take up to 5 seconds to appear on other clients
+- **Local-first merge** - Your unconfirmed local entries always win over server data (your work is preserved)
+
+---
+
 ## Entering Game Results
 
 ### Method 1: Direct Cell Entry
@@ -329,9 +372,11 @@ Enter corrected result string:
 
 3. **Use Enter Games mode for batches** - More efficient than cell-by-cell entry
 
-4. **Save frequently** - Changes are auto-saved, but recalculation applies them
+4. **Save frequently** - Changes are auto-saved locally, but recalculation saves to server and enables multi-client sync
 
 5. **Check errors after each round** - Catch mistakes early before they compound
+
+6. **Multi-client: wait for underscore** - When working across multiple browsers, cells show "_" suffix when saved to server (e.g., "4W5_"). This confirms the entry is synced and visible to other clients.
 
 ### Common Mistakes to Avoid
 
