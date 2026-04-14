@@ -1105,17 +1105,15 @@ export default function ErrorDialog({
           <br />
           2-player, 2 results: `3WL4` (player 3 vs 4, W then L)
           <br />
-          4-player: `A:BWC:D` where A:B = first pair, C:D = second pair
+          4-player team game: `A:BWC:D` where A&B = first team, C&D = second team
           <br />
           Example: `5:6W7:8` means:
           <br />
-          - Player 1 (rank 5) vs player 3 (rank 7)
+          - Team 1 (players 5&6) vs Team 2 (players 7&8)
           <br />
-          - Player 2 (rank 6) vs player 4 (rank 8)
+          - Team 1 wins, Team 2 loses
           <br />
-          - Player 1 and 2 win
-          <br />
-          Colon separates pairs, not teams
+          - All teammates share same W/L/D result
         </div>
       </div>
     </div>

@@ -775,33 +775,34 @@ export default function LadderForm({
       };
 
       if (is4Player) {
-        // 4-player game: format is "A:BWC:D" where C is outcome for pair A:B
-        const outcomeForPair1 = valueToSave[3]; // Character at position 3 (0-indexed): "5:6W7:8"[3] = 'W'
+        // 4-player team game: format is "A:BWC:D" where C is outcome for team A&B
+        const outcomeForTeam1 = valueToSave[3]; // Character at position 3 (0-indexed): "5:6W7:8"[3] = 'W'
         
-        // Determine if current player is in pair 1 or pair 2
-        let isCurrentPlayerInPair1 = false;
+        // Determine which team current player is on
+        let isCurrentPlayerOnTeam1 = false;
         if (currentPlayerRank === p1Rank || currentPlayerRank === p2Rank) {
-          isCurrentPlayerInPair1 = true;
+          isCurrentPlayerOnTeam1 = true;
         } else if (currentPlayerRank === p3Rank || currentPlayerRank === p4Rank) {
-          isCurrentPlayerInPair1 = false;
+          isCurrentPlayerOnTeam1 = false;
         }
         
-        // Did current player's pair win?
-        const currentPairWon = isCurrentPlayerInPair1 ? (outcomeForPair1 === "W") : (outcomeForPair1 === "L");
+        // Did current player's team win?
+        // In a team game, all teammates share the same W/L/D result
+        const currentTeamWon = isCurrentPlayerOnTeam1 ? (outcomeForTeam1 === "W") : (outcomeForTeam1 === "L");
         
-        // Outcome from each pair's perspective
-        const outcomeForPair1TheirView = currentPairWon ? "W" : "L";
-        const outcomeForPair2TheirView = currentPairWon ? "L" : "W";
+        // Outcome from each team's perspective
+        const outcomeForTeam1TheirView = currentTeamWon ? "W" : "L";
+        const outcomeForTeam2TheirView = currentTeamWon ? "L" : "W";
 
-        // Build result strings for each pair
-        const resultForPair1 = `${p1Rank}:${p2Rank}${outcomeForPair1TheirView}${p3Rank}:${p4Rank}`;
-        const resultForPair2 = `${p1Rank}:${p2Rank}${outcomeForPair2TheirView}${p3Rank}:${p4Rank}`;
+        // Build result strings for each team (all teammates get same result)
+        const resultForTeam1 = `${p1Rank}:${p2Rank}${outcomeForTeam1TheirView}${p3Rank}:${p4Rank}`;
+        const resultForTeam2 = `${p1Rank}:${p2Rank}${outcomeForTeam2TheirView}${p3Rank}:${p4Rank}`;
 
         // Fill cells for ALL players in the game (including current player)
-        fillCell(p1Rank, resultForPair1);
-        fillCell(p2Rank, resultForPair1);
-        fillCell(p3Rank, resultForPair2);
-        fillCell(p4Rank, resultForPair2);
+        fillCell(p1Rank, resultForTeam1);
+        fillCell(p2Rank, resultForTeam1);
+        fillCell(p3Rank, resultForTeam2);
+        fillCell(p4Rank, resultForTeam2);
       } else {
         // 2-player game: format is "AWB" where A vs B, outcome is A's result
         const outcome = valueToSave[1]; // Character at position 1: "5W3"[1] = 'W'
