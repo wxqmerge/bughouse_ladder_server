@@ -161,13 +161,6 @@ export async function readLadderFile(): Promise<LadderData> {
           gameResults.push(value || null);
         }
         
-        // Debug: Log game results for players 5 and 6
-        const rank = parseInt(fields[4]) || 0;
-        if (rank === 5 || rank === 6) {
-          const filledCells = gameResults.map((r, i) => r ? `R${i+1}:${r}` : null).filter(Boolean);
-          console.log(`[SERVER READ] Player ${rank} game results:`, filledCells.slice(0, 5));
-        }
-        
         player = {
           rank: parseInt(fields[4]) || 0,
           group: fields[0] || '',
