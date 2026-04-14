@@ -42,37 +42,31 @@ function extractResults(resultString: string): string[] {
 /**
  * Format result codes as readable text
  * @param results - Array of result codes (e.g., ["W", "L"])
- * @param capitalizeFirst - Whether to capitalize first letter (for team games)
- * @example formatResultText(["W"], false) → "won against"
- * @example formatResultText(["L"], false) → "lost to"
- * @example formatResultText(["D"], false) → "drew with"
- * @example formatResultText(["W", "W"], true) → "Won and Won against"
- * @example formatResultText(["W", "L"], false) → "won and lost against"
+ * @example formatResultText(["W"]) → "Won against"
+ * @example formatResultText(["L"]) → "Lost to"
+ * @example formatResultText(["D"]) → "Drew with"
+ * @example formatResultText(["W", "W"]) → "Won and Won against"
+ * @example formatResultText(["W", "L"]) → "Won and Lost against"
  */
-function formatResultText(results: string[], capitalizeFirst = false): string {
+function formatResultText(results: string[]): string {
   if (results.length === 0) return '';
   
   if (results.length === 1) {
     const r = results[0].toUpperCase();
-    const text = r === 'W' ? 'won against' : 
-                 r === 'L' ? 'lost to' : 
-                 'drew with';
-    return capitalizeFirst ? text.charAt(0).toUpperCase() + text.slice(1) : text;
+    return r === 'W' ? 'Won against' : 
+           r === 'L' ? 'Lost to' : 
+           'Drew with';
   }
   
-  // Multiple results - join with "and"
+  // Multiple results - join with "and" (title case for each word)
   const formatted = results.map(r => {
     const upper = r.toUpperCase();
-    return upper === 'W' ? 'won' : 
-           upper === 'L' ? 'lost' : 
-           'drew';
+    return upper === 'W' ? 'Won' : 
+           upper === 'L' ? 'Lost' : 
+           'Drew';
   });
   
-  let resultText = formatted.join(' and ') + ' against';
-  if (capitalizeFirst) {
-    resultText = resultText.charAt(0).toUpperCase() + resultText.slice(1);
-  }
-  return resultText;
+  return formatted.join(' and ') + ' against';
 }
 
 export default function ErrorDialog({
@@ -701,7 +695,7 @@ export default function ErrorDialog({
                         marginBottom: "0.5rem",
                       }}
                     >
-                      {formatResultText(extractedResults, false)}
+                      {formatResultText(extractedResults)}
                     </p>
                   )}
                   {displayPlayer2 && (
@@ -773,7 +767,7 @@ export default function ErrorDialog({
                         marginBottom: "0.5rem",
                       }}
                     >
-                      {formatResultText(extractedResults, true)}
+                      {formatResultText(extractedResults)}
                     </p>
                   )}
                   
