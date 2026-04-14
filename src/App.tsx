@@ -27,7 +27,9 @@ import {
   endBatch,
   getHasLocalChanges,
   clearLocalChangesFlag,
+  replayPendingDeletes,
 } from "./services/storageService";
+import { dataService } from "./services/dataService";
 import "./css/index.css";
 
 // Global status tracking
@@ -49,6 +51,7 @@ function App() {
   const [lastKnownMode, setLastKnownMode] = useState<'local' | 'server_down' | 'dev' | 'server' | null>(null);
   const [status, setStatus] = useState<string | null>("Initializing...");
   const recalculateRef = useRef<(() => void) | undefined>(undefined);
+  const refreshPlayersRef = useRef<(() => void) | undefined>(undefined);
 
   // Set up status callback for child components
   useEffect(() => {
@@ -65,6 +68,24 @@ function App() {
     updateConnectionState()
       .then(() => {
         setStatus(null); // Clear status after connection check
+        
+        // Start polling for data updates in server mode (every 5 seconds)
+        const mode = getProgramMode();
+        if (mode !== 'local' && mode !== 'server_down') {
+          console.log('[APP] Starting data polling (5 second interval)');
+          dataService.startPolling(5000);
+          
+          // Subscribe to data changes and notify LadderForm
+          const unsubscribe = dataService.subscribe(() => {
+            console.log('[APP] Data changed - notifying LadderForm');
+            if (refreshPlayersRef.current) {
+              refreshPlayersRef.current();
+            }
+          });
+          
+          // Store unsubscribe for cleanup
+          (window as any).__ladder_dataServiceUnsubscribe = unsubscribe;
+        }
       })
       .catch(console.error);
     
@@ -108,6 +129,19 @@ function App() {
     
     return () => {
       stopPeriodicChecks();
+      
+      // Stop polling on unmount
+      const mode = getProgramMode();
+      if (mode !== 'local' && mode !== 'server_down') {
+        console.log('[APP] Stopping data polling');
+        dataService.stopPolling();
+        
+        // Unsubscribe from data changes
+        if ((window as any).__ladder_dataServiceUnsubscribe) {
+          (window as any).__ladder_dataServiceUnsubscribe();
+          (window as any).__ladder_dataServiceUnsubscribe = null;
+        }
+      }
     };
   }, []);
 
@@ -185,10 +219,17 @@ function App() {
     recalculateRef.current = ref;
   };
 
-  // Handle pulling from server (discard local changes, get server data)
+  const handleSetRefreshPlayersRef = (ref: () => void) => {
+    refreshPlayersRef.current = ref;
+  };
+
+  // Handle pulling from server (merge with local changes)
   const handlePullFromServer = async () => {
-    console.log("[Reconnect] Pulling from server - discarding local changes");
+    console.log("[Reconnect] Pulling from server - merging with local changes");
     try {
+      // Replay pending deletes first
+      await replayPendingDeletes();
+      
       // Fetch fresh data from server
       const userSettings = loadUserSettings();
       const serverUrl = userSettings.server;
@@ -198,15 +239,36 @@ function App() {
           const data = await response.json();
           const serverPlayers = data.data?.players || [];
           
-          // Clear local data and replace with server data
+          // Get local players for merge
+          const localPlayers = await getPlayers();
+          
+          // Simple merge: keep server as base, preserve local unconfirmed entries
+          const mergedPlayers = serverPlayers.map((sp: any) => {
+            const localPlayer = localPlayers.find((lp: any) => lp.rank === sp.rank);
+            if (localPlayer && localPlayer.gameResults) {
+              const mergedGameResults = [...(sp.gameResults || new Array(31).fill(null))];
+              for (let r = 0; r < 31; r++) {
+                const localResult = localPlayer.gameResults[r];
+                const serverResult = sp.gameResults?.[r];
+                // Preserve local unconfirmed entries
+                if (localResult && localResult.trim() && !localResult.endsWith('_')) {
+                  mergedGameResults[r] = localResult;
+                }
+              }
+              return { ...sp, gameResults: mergedGameResults };
+            }
+            return sp;
+          });
+          
+          // Save merged data
           startBatch();
-          await savePlayers(serverPlayers);
+          await savePlayers(mergedPlayers);
           await endBatch();
           
-          // Clear local changes flag
+          // Clear flags
           clearLocalChangesFlag();
           
-          console.log(`[Reconnect] Pulled ${serverPlayers.length} players from server`);
+          console.log(`[Reconnect] Pulled and merged ${serverPlayers.length} players from server`);
           setShowReconnectDialog(false);
           
           // Reload to apply changes
@@ -222,10 +284,13 @@ function App() {
     }
   };
 
-  // Handle pushing to server (upload local changes, overwrite server)
+  // Handle pushing to server (merge local changes with server)
   const handlePushToServer = async () => {
-    console.log("[Reconnect] Pushing to server - uploading local changes");
+    console.log("[Reconnect] Pushing to server - merging local changes");
     try {
+      // Replay pending deletes first
+      await replayPendingDeletes();
+      
       // Get local players
       const localPlayers = await getPlayers();
       
@@ -242,11 +307,11 @@ function App() {
         if (response.ok) {
           console.log(`[Reconnect] Pushed ${localPlayers.length} players to server`);
           
-          // Clear local changes flag
+          // Clear flags
           clearLocalChangesFlag();
           
           setShowReconnectDialog(false);
-          alert("Successfully pushed local changes to server!");
+          alert("Successfully synced local changes to server!");
         } else {
           console.error("[Reconnect] Failed to push to server:", response.status);
           alert("Failed to push to server. Please try again.");
@@ -287,6 +352,7 @@ function App() {
         triggerWalkthrough={triggerWalkthrough}
         setTriggerWalkthrough={setTriggerWalkthrough}
         onSetRecalculateRef={handleSetRecalculateRef}
+        onSetRefreshPlayersRef={handleSetRefreshPlayersRef}
       />
       {showSettings && (
         <Settings

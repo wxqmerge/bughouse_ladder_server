@@ -63,12 +63,21 @@ class DataService {
     this.subscribers.forEach(callback => callback());
   }
 
+  // Track last known data hash to detect actual changes
+  private lastDataHash: string | null = null;
+
   // Start polling for updates (in server modes)
   startPolling(intervalMs: number = 15000): void {
     this.stopPolling();
     this.pollInterval = setInterval(async () => {
       try {
-        await this.refreshData();
+        const changed = await this.refreshData();
+        if (changed) {
+          console.log('[DataService] Data changed - notifying subscribers');
+          this.notifySubscribers();
+        } else {
+          // No change detected
+        }
       } catch (error) {
         console.error('Polling error:', error);
       }
@@ -83,12 +92,50 @@ class DataService {
     }
   }
 
-  // Refresh data from source
-  async refreshData(): Promise<void> {
+  // Simple hash function for comparing data
+  private computeHash(players: PlayerData[]): string {
+    return JSON.stringify(players.map(p => ({
+      rank: p.rank,
+      gameResults: p.gameResults
+    })));
+  }
+
+  // Refresh data from source - returns true if data changed
+  async refreshData(): Promise<boolean> {
     if (this.config.mode === DataServiceMode.LOCAL) {
       // No-op for local mode - data is already in localStorage
+      return false;
     } else {
-      await this.fetchPlayers();
+      try {
+        // Fetch fresh data from server WITHOUT caching to localStorage
+        const response = await fetch(`${this.getApiUrl()}/api/ladder`, {
+          headers: this.getAuthHeaders(),
+        });
+        
+        if (!response.ok) {
+          console.error(`[DataService] Polling failed: ${response.status}`);
+          return false;
+        }
+
+        const data = await response.json();
+        const serverPlayers = data.data?.players || [];
+        
+        // Compute hash of current server data
+        const newHash = this.computeHash(serverPlayers);
+        
+        // Check if data actually changed
+        if (newHash !== this.lastDataHash) {
+          this.lastDataHash = newHash;
+          console.log('[DataService] Polling detected data change');
+          return true; // Data changed
+        }
+        
+        return false; // No change
+      } catch (error) {
+        // Silently fail - polling should continue even if server is temporarily unavailable
+        console.error('[DataService] Polling refresh failed:', error);
+        return false;
+      }
     }
   }
 
@@ -98,7 +145,12 @@ class DataService {
     if (this.config.mode === DataServiceMode.LOCAL) {
       return this.getLocalPlayers();
     } else {
-      return this.fetchPlayers();
+      const players = await this.fetchPlayers();
+      // Initialize hash on first fetch
+      if (this.lastDataHash === null) {
+        this.lastDataHash = this.computeHash(players);
+      }
+      return players;
     }
   }
 
@@ -213,8 +265,8 @@ class DataService {
     }
 
     const data = await response.json();
-    // Cache in localStorage via storageService
-    storageSavePlayers(data.data.players);
+    // Cache in localStorage via storageService (skip server sync - we're fetching FROM server)
+    storageSavePlayers(data.data.players, false, true);
     return data.data.players;
   }
 

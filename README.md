@@ -127,7 +127,102 @@ bughouse_ladder_server/
 - Title progression system
 - Automatic new day processing
 - File import/export (.tab format)
-- Real-time data synchronization (~15s polling)
+- Multi-client synchronization (5-second polling with change detection)
+
+---
+
+## Multi-Client Synchronization
+
+### Overview
+
+The application supports multiple users editing the ladder simultaneously from different browsers. Changes are automatically synchronized across all connected clients.
+
+### How It Works
+
+**1. Fetch-Before-Save (Prevents Overwrites)**
+```
+Browser A saves:
+  1. Fetch latest data from server
+  2. Merge with local unconfirmed entries
+  3. Process and save merged result to server
+  
+Result: Browser B's changes are preserved, not overwritten
+```
+
+**2. Polling with Change Detection (5-second interval)**
+```
+Every 5 seconds:
+  1. Fetch from server (cache only, no sync)
+  2. Compute hash of game results
+  3. If hash changed → notify subscribers
+  4. Subscribers refresh UI with fresh data
+  
+Result: Browser B sees Browser A's changes within 5 seconds
+```
+
+**3. Smart Merge Strategy**
+```
+Local unconfirmed entries > Server confirmed > Server unconfirmed
+
+- Local unconfirmed: User entered but hasn't saved yet → PRESERVED
+- Server confirmed: Saved by another client → KEPT
+- Pending deletes: Queued for retry on reconnect → REPLAYED
+```
+
+**4. Offline Resilience**
+```
+If server is down:
+  - Game entries saved to localStorage
+  - Deletes queued in localStorage
+  - On reconnect: automatic merge + replay pending operations
+```
+
+### Data Flow Diagram
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                      BROWSER A (Client)                          │
+│                                                                  │
+│  User enters "4w5" → Local state updated                        │
+│                    ↓                                             │
+│  Click Save → Fetch from server (GET /api/ladder)              │
+│                    ↓                                             │
+│  Merge: Server data + Local unconfirmed entries                │
+│                    ↓                                             │
+│  Recalculate ratings                                            │
+│                    ↓                                             │
+│  Save to server (PUT /api/ladder) → ladder.tab updated         │
+└────────────────────────────┬─────────────────────────────────────┘
+                             │
+                             │ Server saves to data/ladder.tab
+                             ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                      BROWSER B (Client)                          │
+│                                                                  │
+│  Polling interval (5s):                                         │
+│    GET /api/ladder → hash compare                               │
+│                    ↓                                             │
+│  Hash changed? YES → notify subscribers                         │
+│                    ↓                                             │
+│  Refresh UI: Fetch fresh data, update React state              │
+│                    ↓                                             │
+│  User sees "4w5" without page refresh                          │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### Configuration
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Polling interval | 5000ms (5 seconds) | How often to check for changes |
+| Change detection | Hash comparison | Only refreshes when data actually changed |
+| Merge strategy | Local-first | Preserves local unconfirmed entries |
+
+### Limitations
+
+- **Latency**: Up to 5 seconds before changes visible on other clients
+- **No real-time push**: Uses polling (not WebSockets) for simplicity and reconnect resilience
+- **Conflict resolution**: Local unconfirmed entries always win over server data
 
 ---
 
@@ -204,7 +299,10 @@ The frontend uses relative API paths by default, so no configuration is needed f
 
 | File | Purpose |
 |------|--------|
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | System architecture and multi-client sync design |
 | [README_INSTALL.md](./README_INSTALL.md) | Production deployment guide |
+| [USER_MANUAL.md](./USER_MANUAL.md) | End-user guide for entering games |
+| [ADMIN_MANUAL.md](./ADMIN_MANUAL.md) | Administrator operations reference |
 | [SECURITY.md](./SECURITY.md) | Security configuration and hardening |
 | [TESTS.md](./TESTS.md) | Unit test suite documentation |
 
