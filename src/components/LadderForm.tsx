@@ -188,7 +188,7 @@ export default function LadderForm({
   >("100%");
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminLockInfo, setAdminLockInfo] = useState<{ locked: boolean; holderName?: string; expiresAt?: number }>(
-    getAdminLockInfo()
+    { locked: false }
   );
   const [showOverrideDialog, setShowOverrideDialog] = useState(false);
   const [overrideLockHolder, setOverrideLockHolder] = useState<string | null>(null);
@@ -336,8 +336,12 @@ export default function LadderForm({
   useEffect(() => {
     if (!isAdmin) return;
     
-    const refreshInterval = setInterval(() => {
-      refreshAdminLock();
+    const refreshInterval = setInterval(async () => {
+      try {
+        await refreshAdminLock();
+      } catch (error) {
+        console.error('[ADMIN_LOCK] Failed to refresh lock:', error);
+      }
     }, ADMIN_LOCK_REFRESH_INTERVAL);
     
     return () => clearInterval(refreshInterval);
@@ -345,16 +349,25 @@ export default function LadderForm({
 
   // Admin lock: Monitor for lock status changes from other clients
   useEffect(() => {
-    const checkInterval = setInterval(() => {
-      const info = getAdminLockInfo();
-      setAdminLockInfo(info);
-      
-      // If we're in admin mode but lost the lock, exit admin mode
-      if (isAdmin && !info.locked) {
-        log('[ADMIN_LOCK]', 'Lost admin lock - exiting admin mode');
-        setIsAdmin(false);
+    const checkLockStatus = async () => {
+      try {
+        const info = await getAdminLockInfo();
+        setAdminLockInfo(info);
+        
+        // If we're in admin mode but lost the lock, exit admin mode
+        if (isAdmin && !info.locked) {
+          log('[ADMIN_LOCK]', 'Lost admin lock - exiting admin mode');
+          setIsAdmin(false);
+        }
+      } catch (error) {
+        console.error('[ADMIN_LOCK] Failed to check lock status:', error);
       }
-    }, 1000); // Check every second
+    };
+    
+    // Initial check
+    checkLockStatus();
+    
+    const checkInterval = setInterval(checkLockStatus, 1000); // Check every second
     
     return () => clearInterval(checkInterval);
   }, [isAdmin]);
@@ -363,10 +376,10 @@ export default function LadderForm({
   useEffect(() => {
     return () => {
       if (isAdmin) {
-        releaseAdminLock();
+        releaseAdminLock().catch(err => console.error('[ADMIN_LOCK] Failed to release lock:', err));
       }
     };
-  }, []);
+  }, [isAdmin]);
 
   // Override dialog: Timer countdown
   useEffect(() => {
@@ -2261,7 +2274,7 @@ export default function LadderForm({
     }
   };
 
-  const handleToggleAdmin = () => {
+  const handleToggleAdmin = async () => {
     if (shouldLog(10)) {
       console.log(">>> [MENU ACTION] Toggle admin mode");
     }
@@ -2270,7 +2283,7 @@ export default function LadderForm({
     
     if (!isAdmin) {
       // Attempting to enter admin mode
-      const lockInfo = getAdminLockInfo();
+      const lockInfo = await getAdminLockInfo();
       if (lockInfo.locked && lockInfo.holderId !== myClientId) {
         // Show override dialog instead of alert
         setOverrideLockHolder(lockInfo.holderName || "Another user");
@@ -2280,14 +2293,15 @@ export default function LadderForm({
       }
       
       // Try to acquire lock
-      if (tryAcquireAdminLock()) {
+      const acquired = await tryAcquireAdminLock();
+      if (acquired) {
         setIsAdmin(true);
       } else {
-        alert("Admin mode is currently in use by another browser. Please wait for it to become available.");
+        alert("Admin mode is currently held by another user. Please wait or use override.");
       }
     } else {
       // Exiting admin mode - release lock
-      releaseAdminLock();
+      releaseAdminLock().catch(err => console.error('[ADMIN_LOCK] Failed to release lock:', err));
       setIsAdmin(false);
     }
   };
@@ -2756,9 +2770,10 @@ export default function LadderForm({
         
         <div style={{ display: "flex", gap: "0.75rem", marginBottom: "1rem" }}>
           <button
-            onClick={() => {
+            onClick={async () => {
               setShowOverrideDialog(false);
-              if (tryAcquireAdminLock()) {
+              const acquired = await tryAcquireAdminLock();
+              if (acquired) {
                 setIsAdmin(true);
               }
             }}
@@ -2779,9 +2794,10 @@ export default function LadderForm({
           </button>
           
           <button
-            onClick={() => {
+            onClick={async () => {
               setShowOverrideDialog(false);
-              if (forceAcquireAdminLock()) {
+              const acquired = await forceAcquireAdminLock();
+              if (acquired) {
                 setIsAdmin(true);
               }
             }}
