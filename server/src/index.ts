@@ -94,8 +94,23 @@ const apiLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// Admin lock rate limiter (very lenient - status checks happen every second)
+const adminLockLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 600, // 10 requests per second allowed
+  message: (_req: Request, res: Response) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-API-Key');
+    return { success: false, error: { message: 'Too many admin lock requests.' } };
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 app.use('/api/auth', authLimiter);
-app.use('/api', apiLimiter);
+app.use('/api/admin-lock', adminLockLimiter); // Apply lenient limiter to admin-lock
+app.use('/api', apiLimiter); // General limiter for other API routes
 
 // CORS configuration - MUST come before Helmet!
 // Get allowed origins from environment variable (comma-separated list)
