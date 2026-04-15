@@ -367,7 +367,7 @@ export default function LadderForm({
     // Initial check
     checkLockStatus();
     
-    const checkInterval = setInterval(checkLockStatus, 1000); // Check every second
+    const checkInterval = setInterval(checkLockStatus, 2000); // Check every 2 seconds
     
     return () => clearInterval(checkInterval);
   }, [isAdmin]);
@@ -2297,7 +2297,15 @@ export default function LadderForm({
       if (acquired) {
         setIsAdmin(true);
       } else {
-        alert("Admin mode is currently held by another user. Please wait or use override.");
+        // Lock acquisition failed - show override dialog
+        const lockInfo = await getAdminLockInfo();
+        if (lockInfo.locked) {
+          setOverrideLockHolder(lockInfo.holderName || "Another user");
+          setOverrideTimeout(Math.ceil((lockInfo.expiresAt! - Date.now()) / 1000));
+          setShowOverrideDialog(true);
+        } else {
+          alert("Failed to acquire admin lock. Please try again.");
+        }
       }
     } else {
       // Exiting admin mode - release lock
@@ -2568,6 +2576,107 @@ export default function LadderForm({
 
     return (
       <>
+        {/* Admin lock override dialog - rendered first to appear on top */}
+        {showOverrideDialog && (
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: "rgba(0, 0, 0, 0.5)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 10001,
+            }}
+          >
+            <div
+              style={{
+                backgroundColor: "white",
+                borderRadius: "0.75rem",
+                padding: "2rem",
+                maxWidth: "450px",
+                width: "90%",
+                boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)",
+              }}
+            >
+              <div style={{ fontSize: "1.25rem", fontWeight: 600, marginBottom: "1.5rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <span>🔄</span> Admin Mode Lock Held
+              </div>
+              
+              <div style={{ marginBottom: "1rem" }}>
+                <div style={{ color: "#64748b", fontSize: "0.875rem", marginBottom: "0.25rem" }}>
+                  Admin mode is currently held by:
+                </div>
+                <div style={{ fontSize: "1.125rem", fontWeight: 500, color: "#1e293b" }}>
+                  "{overrideLockHolder}"
+                </div>
+              </div>
+              
+              <div style={{ marginBottom: "1.5rem", padding: "0.75rem", backgroundColor: "#f8fafc", borderRadius: "0.5rem" }}>
+                <div style={{ fontSize: "0.875rem", color: "#64748b" }}>
+                  Available in: <strong style={{ color: "#1e293b", fontSize: "1.125rem" }}>{overrideTimeout}</strong> seconds
+                </div>
+              </div>
+              
+              <div style={{ display: "flex", gap: "0.75rem", marginBottom: "1rem" }}>
+                <button
+                  onClick={async () => {
+                    setShowOverrideDialog(false);
+                    const acquired = await tryAcquireAdminLock();
+                    if (acquired) {
+                      setIsAdmin(true);
+                    }
+                  }}
+                  disabled={overrideTimeout > 0}
+                  style={{
+                    flex: 1,
+                    padding: "0.75rem 1rem",
+                    backgroundColor: overrideTimeout > 0 ? "#cbd5e1" : "#3b82f6",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "0.5rem",
+                    fontWeight: 600,
+                    cursor: overrideTimeout > 0 ? "not-allowed" : "pointer",
+                    fontSize: "1rem",
+                  }}
+                >
+                  Wait ({overrideTimeout}s)
+                </button>
+                
+                <button
+                  onClick={async () => {
+                    setShowOverrideDialog(false);
+                    const acquired = await forceAcquireAdminLock();
+                    if (acquired) {
+                      setIsAdmin(true);
+                    }
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: "0.75rem 1rem",
+                    backgroundColor: "#ef4444",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "0.5rem",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    fontSize: "1rem",
+                  }}
+                >
+                  Override Lock
+                </button>
+              </div>
+              
+              <div style={{ color: "#f59e0b", fontSize: "0.875rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <span>⚠️</span> Dangerous: allows multiple admins simultaneously!
+              </div>
+            </div>
+          </div>
+        )}
+
         <div
           style={{
             position: "fixed",
@@ -2723,109 +2832,110 @@ export default function LadderForm({
     );
   }
 
-  {/* Admin lock override dialog */}
-  {showOverrideDialog && (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: "rgba(0, 0, 0, 0.5)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 10000,
-      }}
-    >
-      <div
-        style={{
-          backgroundColor: "white",
-          borderRadius: "0.75rem",
-          padding: "2rem",
-          maxWidth: "450px",
-          width: "90%",
-          boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)",
-        }}
-      >
-        <div style={{ fontSize: "1.25rem", fontWeight: 600, marginBottom: "1.5rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <span>🔄</span> Admin Mode Lock Held
-        </div>
-        
-        <div style={{ marginBottom: "1rem" }}>
-          <div style={{ color: "#64748b", fontSize: "0.875rem", marginBottom: "0.25rem" }}>
-            Admin mode is currently held by:
-          </div>
-          <div style={{ fontSize: "1.125rem", fontWeight: 500, color: "#1e293b" }}>
-            "{overrideLockHolder}"
-          </div>
-        </div>
-        
-        <div style={{ marginBottom: "1.5rem", padding: "0.75rem", backgroundColor: "#f8fafc", borderRadius: "0.5rem" }}>
-          <div style={{ fontSize: "0.875rem", color: "#64748b" }}>
-            Available in: <strong style={{ color: "#1e293b", fontSize: "1.125rem" }}>{overrideTimeout}</strong> seconds
-          </div>
-        </div>
-        
-        <div style={{ display: "flex", gap: "0.75rem", marginBottom: "1rem" }}>
-          <button
-            onClick={async () => {
-              setShowOverrideDialog(false);
-              const acquired = await tryAcquireAdminLock();
-              if (acquired) {
-                setIsAdmin(true);
-              }
-            }}
-            disabled={overrideTimeout > 0}
-            style={{
-              flex: 1,
-              padding: "0.75rem 1rem",
-              backgroundColor: overrideTimeout > 0 ? "#cbd5e1" : "#3b82f6",
-              color: "white",
-              border: "none",
-              borderRadius: "0.5rem",
-              fontWeight: 600,
-              cursor: overrideTimeout > 0 ? "not-allowed" : "pointer",
-              fontSize: "1rem",
-            }}
-          >
-            Wait ({overrideTimeout}s)
-          </button>
-          
-          <button
-            onClick={async () => {
-              setShowOverrideDialog(false);
-              const acquired = await forceAcquireAdminLock();
-              if (acquired) {
-                setIsAdmin(true);
-              }
-            }}
-            style={{
-              flex: 1,
-              padding: "0.75rem 1rem",
-              backgroundColor: "#ef4444",
-              color: "white",
-              border: "none",
-              borderRadius: "0.5rem",
-              fontWeight: 600,
-              cursor: "pointer",
-              fontSize: "1rem",
-            }}
-          >
-            Override Lock
-          </button>
-        </div>
-        
-        <div style={{ color: "#f59e0b", fontSize: "0.875rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <span>⚠️</span> Overriding will kick the other user out!
-        </div>
-      </div>
-    </div>
-  )}
-
   return (
-    <div style={{ marginTop: "1rem" }}>
+    <>
+      {/* Admin lock override dialog - rendered first to appear on top */}
+      {showOverrideDialog && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 10000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              borderRadius: "0.75rem",
+              padding: "2rem",
+              maxWidth: "450px",
+              width: "90%",
+              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)",
+            }}
+          >
+            <div style={{ fontSize: "1.25rem", fontWeight: 600, marginBottom: "1.5rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <span>🔄</span> Admin Mode Lock Held
+            </div>
+            
+            <div style={{ marginBottom: "1rem" }}>
+              <div style={{ color: "#64748b", fontSize: "0.875rem", marginBottom: "0.25rem" }}>
+                Admin mode is currently held by:
+              </div>
+              <div style={{ fontSize: "1.125rem", fontWeight: 500, color: "#1e293b" }}>
+                "{overrideLockHolder}"
+              </div>
+            </div>
+            
+            <div style={{ marginBottom: "1.5rem", padding: "0.75rem", backgroundColor: "#f8fafc", borderRadius: "0.5rem" }}>
+              <div style={{ fontSize: "0.875rem", color: "#64748b" }}>
+                Available in: <strong style={{ color: "#1e293b", fontSize: "1.125rem" }}>{overrideTimeout}</strong> seconds
+              </div>
+            </div>
+            
+            <div style={{ display: "flex", gap: "0.75rem", marginBottom: "1rem" }}>
+              <button
+                onClick={async () => {
+                  setShowOverrideDialog(false);
+                  const acquired = await tryAcquireAdminLock();
+                  if (acquired) {
+                    setIsAdmin(true);
+                  }
+                }}
+                disabled={overrideTimeout > 0}
+                style={{
+                  flex: 1,
+                  padding: "0.75rem 1rem",
+                  backgroundColor: overrideTimeout > 0 ? "#cbd5e1" : "#3b82f6",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "0.5rem",
+                  fontWeight: 600,
+                  cursor: overrideTimeout > 0 ? "not-allowed" : "pointer",
+                  fontSize: "1rem",
+                }}
+              >
+                Wait ({overrideTimeout}s)
+              </button>
+              
+              <button
+                onClick={async () => {
+                  setShowOverrideDialog(false);
+                  const acquired = await forceAcquireAdminLock();
+                  if (acquired) {
+                    setIsAdmin(true);
+                  }
+                }}
+                style={{
+                  flex: 1,
+                  padding: "0.75rem 1rem",
+                  backgroundColor: "#ef4444",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "0.5rem",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  fontSize: "1rem",
+                }}
+              >
+                Override Lock
+              </button>
+            </div>
+            
+            <div style={{ color: "#f59e0b", fontSize: "0.875rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <span>⚠️</span> Dangerous: allows multiple admins simultaneously!
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div style={{ marginTop: "1rem" }}>
       {/* Server down mode indicator */}
       {currentMode === 'server_down' && (
         <div style={{
@@ -3580,5 +3690,6 @@ export default function LadderForm({
         }
       `}</style>
     </div>
+    </>
   );
 }
