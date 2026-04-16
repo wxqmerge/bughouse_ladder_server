@@ -2783,7 +2783,11 @@ export default function LadderForm({
               </button>
               
               <button
-                onClick={() => setShowSettings?.(true)}
+                onClick={() => {
+                  console.log('[ServerDownDialog] Opening settings, hiding blocking dialog');
+                  setShowServerDownBlockingDialog(false);
+                  setShowSettings?.(true);
+                }}
                 style={{
                   padding: "0.875rem 1.5rem",
                   backgroundColor: "white",
