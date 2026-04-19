@@ -14,6 +14,18 @@ export interface UserSettings {
   debugMode: boolean; // Show extra debug info in dialogs (default: false)
 }
 
+export function normalizeServerUrl(input: string): string {
+  let url = input.trim();
+  if (!url) return '';
+  // Replace backslashes with forward slashes (Windows-style paths)
+  url = url.replace(/\\/g, '/');
+  // Ensure protocol is present
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    url = 'http://' + url;
+  }
+  return url;
+}
+
 /**
  * Load user settings from localStorage
  */
@@ -39,8 +51,9 @@ export const loadUserSettings = (): UserSettings => {
  */
 export const saveUserSettings = (settings: UserSettings): void => {
   try {
-    localStorage.setItem(USER_SETTINGS_KEY, JSON.stringify(settings));
-    console.log('[UserSettings] Saved settings:', { server: settings.server || '(empty)', apiKey: settings.apiKey ? '(set)' : '(empty)', debugMode: settings.debugMode });
+    const normalizedServer = normalizeServerUrl(settings.server);
+    localStorage.setItem(USER_SETTINGS_KEY, JSON.stringify({ ...settings, server: normalizedServer }));
+    console.log('[UserSettings] Saved settings:', { server: normalizedServer || '(empty)', apiKey: settings.apiKey ? '(set)' : '(empty)', debugMode: settings.debugMode });
   } catch (error) {
     console.error('[UserSettings] Failed to save settings:', error);
   }

@@ -23,6 +23,7 @@ import { getVersionString, isLocalMode, isServerDownMode, getProgramMode, testSe
 import { log } from "../utils/log";
 import { loadUserSettings } from "../services/userSettingsStorage";
 import { getKeyPrefix, startBatch, endBatch, saveToServer, clearAllSaveStatus, isCellSaved, markCellAsSaved, markLocalChanges, getHasLocalChanges, clearLocalChangesFlag, getPendingDeletes, clearPendingDeletes, queueDelete, isAdminLocked, tryAcquireAdminLock, forceAcquireAdminLock, releaseAdminLock, refreshAdminLock, getAdminLockInfo, ADMIN_LOCK_REFRESH_INTERVAL, getClientId, getServerUrl } from "../services/storageService";
+import { normalizeServerUrl } from "../services/userSettingsStorage";
 import {
   getPlayers,
   savePlayers,
@@ -272,7 +273,7 @@ export default function LadderForm({
       const userSettingsJson = localStorage.getItem('bughouse-ladder-user-settings');
       if (userSettingsJson) {
         const userSettings = JSON.parse(userSettingsJson);
-        setSplashServerUrl(userSettings.server || '');
+        setSplashServerUrl(normalizeServerUrl(userSettings.server) || '');
         setSplashApiKey(userSettings.apiKey || '');
         setHadExistingUserSettings(true);
       }
