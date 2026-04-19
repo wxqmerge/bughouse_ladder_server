@@ -27,6 +27,9 @@ export function requireAdminKey(
   const apiKey = req.headers['x-api-key'] as string;
   
   if (!apiKey) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[ADMIN_AUTH] 401 - Missing API key | IP: ${req.ip} | Path: ${req.path} | Method: ${req.method}`);
+    }
     res.status(401).json({
       success: false,
       error: { message: 'Admin API key required' },
@@ -49,6 +52,9 @@ export function requireAdminKey(
       providedBuffer.copy(paddedProvided);
       
       if (!crypto.timingSafeEqual(paddedKey, paddedProvided)) {
+        const providedMask = apiKey.slice(0, 4) + '*'.repeat(Math.max(0, apiKey.length - 8)) + apiKey.slice(-4);
+        const expectedMask = ADMIN_API_KEY.slice(0, 4) + '*'.repeat(Math.max(0, ADMIN_API_KEY.length - 8)) + ADMIN_API_KEY.slice(-4);
+        console.log(`[ADMIN_AUTH] 401 - Invalid API key | IP: ${req.ip} | Path: ${req.path} | Provided: "${providedMask}" (${apiKey.length} chars) | Expected: "${expectedMask}" (${ADMIN_API_KEY.length} chars)`);
         res.status(401).json({
           success: false,
           error: { message: 'Invalid admin API key' },
@@ -56,6 +62,9 @@ export function requireAdminKey(
         return;
       }
     } else if (!crypto.timingSafeEqual(keyBuffer, providedBuffer)) {
+      const providedMask = apiKey.slice(0, 4) + '*'.repeat(Math.max(0, apiKey.length - 8)) + apiKey.slice(-4);
+      const expectedMask = ADMIN_API_KEY.slice(0, 4) + '*'.repeat(Math.max(0, ADMIN_API_KEY.length - 8)) + ADMIN_API_KEY.slice(-4);
+      console.log(`[ADMIN_AUTH] 401 - Invalid API key | IP: ${req.ip} | Path: ${req.path} | Provided: "${providedMask}" (${apiKey.length} chars) | Expected: "${expectedMask}" (${ADMIN_API_KEY.length} chars)`);
       res.status(401).json({
         success: false,
         error: { message: 'Invalid admin API key' },
@@ -63,7 +72,9 @@ export function requireAdminKey(
       return;
     }
   } catch (error) {
-    console.error('[SECURITY] API Key validation error:', error);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[ADMIN_AUTH] 401 - Key validation error | IP: ${req.ip} | Path: ${req.path} | Error: ${(error as Error).message}`);
+    }
     res.status(401).json({
       success: false,
       error: { message: 'Invalid admin API key' },
