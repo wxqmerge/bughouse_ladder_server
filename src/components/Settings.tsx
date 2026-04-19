@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import "../css/index.css";
 import { getKeyPrefix } from "../services/storageService";
-import { loadUserSettings, saveUserSettings, type UserSettings } from "../services/userSettingsStorage";
+import { loadUserSettings, saveUserSettings, normalizeServerUrl, type UserSettings } from "../services/userSettingsStorage";
 
 interface SettingsProps {
   onClose: () => void;
@@ -61,7 +61,7 @@ export default function Settings({
     
     // Load user server settings
     const userSettings = loadUserSettings();
-    setServerUrl(userSettings.server || '');
+    setServerUrl(normalizeServerUrl(userSettings.server) || '');
     setApiKey(userSettings.apiKey || '');
     setDebugMode(userSettings.debugMode || false);
   }, []);
@@ -516,8 +516,8 @@ export default function Settings({
                 type="text"
                 id="serverUrl"
                 value={serverUrl}
-                onChange={(e) => setServerUrl(e.target.value)}
-                placeholder="omen.com:3000 or http://localhost:3000"
+                onChange={(e) => setServerUrl(normalizeServerUrl(e.target.value))}
+                placeholder="http://omen.com:3000 or omen.com:3000"
                 style={{
                   width: "100%",
                   padding: "0.5rem",
