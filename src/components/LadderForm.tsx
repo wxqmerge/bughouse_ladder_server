@@ -22,7 +22,7 @@ import { shouldLog } from "../utils/debug";
 import { getVersionString, isLocalMode, isServerDownMode, getProgramMode, testServerConnection } from "../utils/mode";
 import { log } from "../utils/log";
 import { loadUserSettings } from "../services/userSettingsStorage";
-import { getKeyPrefix, startBatch, endBatch, saveToServer, clearAllSaveStatus, isCellSaved, markCellAsSaved, markLocalChanges, getHasLocalChanges, clearLocalChangesFlag, getPendingDeletes, clearPendingDeletes, queueDelete, isAdminLocked, tryAcquireAdminLock, forceAcquireAdminLock, releaseAdminLock, refreshAdminLock, getAdminLockInfo, ADMIN_LOCK_REFRESH_INTERVAL, getClientId } from "../services/storageService";
+import { getKeyPrefix, startBatch, endBatch, saveToServer, clearAllSaveStatus, isCellSaved, markCellAsSaved, markLocalChanges, getHasLocalChanges, clearLocalChangesFlag, getPendingDeletes, clearPendingDeletes, queueDelete, isAdminLocked, tryAcquireAdminLock, forceAcquireAdminLock, releaseAdminLock, refreshAdminLock, getAdminLockInfo, ADMIN_LOCK_REFRESH_INTERVAL, getClientId, getServerUrl } from "../services/storageService";
 import {
   getPlayers,
   savePlayers,
@@ -2284,6 +2284,13 @@ export default function LadderForm({
     if (!isAdmin) {
       // Attempting to enter admin mode
       const lockInfo = await getAdminLockInfo();
+      
+      // Check if server is unreachable first
+      if (lockInfo.serverReachable === false) {
+        alert("Cannot reach admin server. Please check:\n\n- Server URL is correct\n- Server is running\n- Network connection is active\n\nServer: " + (getServerUrl() || 'unknown'));
+        return;
+      }
+      
       if (lockInfo.locked && lockInfo.holderId !== myClientId) {
         // Show override dialog instead of alert
         setOverrideLockHolder(lockInfo.holderName || "Another user");
@@ -2298,13 +2305,17 @@ export default function LadderForm({
         setIsAdmin(true);
       } else {
         // Lock acquisition failed - show override dialog
-        const lockInfo = await getAdminLockInfo();
-        if (lockInfo.locked) {
-          setOverrideLockHolder(lockInfo.holderName || "Another user");
-          setOverrideTimeout(Math.ceil((lockInfo.expiresAt! - Date.now()) / 1000));
+        const lockInfo2 = await getAdminLockInfo();
+        if (lockInfo2.locked && lockInfo2.holderId !== myClientId) {
+          setOverrideLockHolder(lockInfo2.holderName || "Another user");
+          setOverrideTimeout(Math.ceil((lockInfo2.expiresAt! - Date.now()) / 1000));
           setShowOverrideDialog(true);
         } else {
-          alert("Failed to acquire admin lock. Please try again.");
+          if (lockInfo2.serverReachable === false) {
+            alert("Cannot reach admin server. Please check:\n\n- Server URL is correct\n- Server is running\n- Network connection is active");
+          } else {
+            alert("Failed to acquire admin lock. Please try again.");
+          }
         }
       }
     } else {
