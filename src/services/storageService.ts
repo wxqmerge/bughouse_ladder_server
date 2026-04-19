@@ -855,6 +855,8 @@ export function getServerUrl(): string | null {
     const userSettings = JSON.parse(userSettingsJson);
     let serverUrl = userSettings.server?.trim();
     if (!serverUrl) return null;
+    // Normalize backslashes to forward slashes (Windows-style paths)
+    serverUrl = serverUrl.replace(/\\/g, '/');
     // Ensure URL has protocol
     if (!serverUrl.startsWith('http://') && !serverUrl.startsWith('https://')) {
       serverUrl = `http://${serverUrl}`;
@@ -1037,6 +1039,7 @@ function notifyServerOfLockAction(action: 'acquire' | 'release' | 'force', clien
       console.log('[ADMIN_LOCK_NOTIFY] No server URL configured (local mode?)');
       return;
     }
+    serverUrl = serverUrl.replace(/\\/g, '/');
     // Ensure URL has protocol
     if (!serverUrl.startsWith('http://') && !serverUrl.startsWith('https://')) {
       serverUrl = `http://${serverUrl}`;
