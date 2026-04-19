@@ -848,7 +848,7 @@ function getClientName(clientId: string): string {
 /**
  * Get server URL with protocol
  */
-function getServerUrl(): string | null {
+export function getServerUrl(): string | null {
   try {
     const userSettingsJson = localStorage.getItem('bughouse-ladder-user-settings');
     if (!userSettingsJson) return null;
@@ -984,10 +984,10 @@ export async function refreshAdminLock(): Promise<void> {
 /**
  * Get information about who holds the admin lock
  */
-export async function getAdminLockInfo(): Promise<{ locked: boolean; holderId?: string; holderName?: string; expiresAt?: number }> {
+export async function getAdminLockInfo(): Promise<{ locked: boolean; holderId?: string; holderName?: string; expiresAt?: number; serverReachable?: boolean }> {
   const serverUrl = getServerUrl();
   if (!serverUrl) {
-    return { locked: false }; // In local mode, never locked
+    return { locked: false, serverReachable: true }; // In local mode, never locked
   }
 
   try {
@@ -995,7 +995,7 @@ export async function getAdminLockInfo(): Promise<{ locked: boolean; holderId?: 
     const data = await response.json();
 
     if (!data.locked) {
-      return { locked: false };
+      return { locked: false, serverReachable: true };
     }
 
     return {
@@ -1003,10 +1003,11 @@ export async function getAdminLockInfo(): Promise<{ locked: boolean; holderId?: 
       holderId: data.lock?.clientId,
       holderName: data.lock?.clientName,
       expiresAt: data.expiresAt,
+      serverReachable: true,
     };
   } catch (error) {
-    console.error('[ADMIN_LOCK] Failed to get lock info:', error);
-    return { locked: false };
+    console.error('[ADMIN_LOCK] Failed to get lock info - server unreachable:', error);
+    return { locked: false, serverReachable: false };
   }
 }
 
