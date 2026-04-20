@@ -1,5 +1,7 @@
 # Unit Test Suite
 
+**Version: 1.0.1**
+
 ## Overview
 
 This project uses **Vitest** for unit testing with **React Testing Library** for component tests.
