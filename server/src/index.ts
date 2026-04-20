@@ -241,7 +241,7 @@ async function startServer() {
 }
 
 // ES module equivalent of !module.parent
-const isMainModule = process.argv[1] && path.basename(process.argv[1]) === 'index.ts';
+const isMainModule = process.argv[1] && (path.basename(process.argv[1]).endsWith('index.ts') || path.basename(process.argv[1]).endsWith('index.js'));
 if (isMainModule) {
   startServer();
 }
