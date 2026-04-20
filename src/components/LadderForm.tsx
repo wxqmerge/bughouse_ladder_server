@@ -269,6 +269,27 @@ export default function LadderForm({
   // Initialize splash screen state from localStorage
   useEffect(() => {
     try {
+      // Check for pending remote file load
+      const pendingFileLoad = sessionStorage.getItem('pendingFileLoad');
+      if (pendingFileLoad === 'true') {
+        const encodedContent = sessionStorage.getItem('pendingFileContent');
+        const fileName = sessionStorage.getItem('pendingFileName') || 'ladder';
+        
+        if (encodedContent) {
+          const text = decodeURIComponent(escape(atob(encodedContent)));
+          const blob = new Blob([text], { type: 'text/tab-separated-values' });
+          const file = new File([blob], fileName, { type: 'text/tab-separated-values' });
+          
+          sessionStorage.removeItem('pendingFileLoad');
+          sessionStorage.removeItem('pendingFileContent');
+          sessionStorage.removeItem('pendingFileName');
+          
+          setLastFile(file);
+          loadPlayers(file);
+          return;
+        }
+      }
+      
       // Check for user settings
       const userSettingsJson = localStorage.getItem('bughouse-ladder-user-settings');
       if (userSettingsJson) {
@@ -2549,6 +2570,48 @@ export default function LadderForm({
           >
             Load Sample Data
           </button>
+        </div>
+        
+        {/* Drop Zone for .tab files */}
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onDragLeave={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+              const file = files[0];
+              const ext = file.name.split('.').pop()?.toLowerCase();
+              if (ext === 'tab' || ext === 'txt') {
+                setLastFile(file);
+                loadPlayers(file);
+              } else {
+                alert('Please drop a .tab or .txt file');
+              }
+            }
+          }}
+          style={{
+            marginTop: "1.5rem",
+            padding: "2rem",
+            border: "2px dashed #cbd5e1",
+            borderRadius: "0.5rem",
+            backgroundColor: "#f8fafc",
+            textAlign: "center",
+            color: "#64748b",
+            fontSize: "0.875rem",
+            transition: "border-color 0.2s, background-color 0.2s",
+          }}
+        >
+          <div style={{ marginBottom: "0.5rem", fontSize: "1.5rem" }}>📄</div>
+          <p style={{ margin: 0, fontWeight: "500", color: "#374151" }}>Drop .tab file here</p>
+          <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.75rem" }}>or use the Load File button above</p>
         </div>
       </div>
     );
