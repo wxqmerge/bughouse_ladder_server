@@ -1,5 +1,7 @@
 # Bughouse Chess Ladder - Administrator Manual
 
+**Version: 1.0.1**
+
 ## Table of Contents
 
 1. [Introduction](#introduction)
@@ -82,11 +84,33 @@ Accessed via **Operations → Settings** (always available, even without admin m
 
 ### Server URL Configuration
 
-1. Open Settings dialog
+#### Via Settings Dialog
+
+1. Open Settings dialog (**Operations → Settings**)
 2. Enter server URL (e.g., `http://localhost:3000` or `https://ladder.example.com`)
-3. Click "Test Connection"
-4. If successful, click "Connect"
-5. Browser reloads with new configuration
+3. Optionally enter API key if server has admin protection enabled
+4. Click **Save** - page reloads with new configuration
+
+#### Via URL (Quick Setup)
+
+Share a single URL to auto-configure any client:
+
+**Connect to server with API key:**
+```
+http://your-domain.com/?config=1&server=http://your-server:port&key=your-api-key-here
+```
+
+**Reset to local mode:**
+```
+http://your-domain.com/?config=2
+```
+
+**Load remote .tab file:**
+```
+http://your-domain.com/?config=3&file=http://server/ladder.tab
+```
+
+All methods store settings in browser's localStorage for persistence.
 
 ### Admin API Key Configuration
 

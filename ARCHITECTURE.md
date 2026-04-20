@@ -1,5 +1,7 @@
 # Bughouse Chess Ladder - Architecture Documentation
 
+**Version: 1.0.1**
+
 ## System Overview
 
 A modern client-server reimplementation of the VB6 Bughouse Chess Ladder, featuring multi-client synchronization while maintaining compatibility with the original data format and business logic.
@@ -436,6 +438,33 @@ Hash computation:
 Alternative considered: File modification timestamp
 Rejection reason: Doesn't detect content changes, only file writes
 ```
+
+---
+
+## User Settings Storage
+
+### localStorage Structure
+
+| Key | Purpose |
+|-----|---------|
+| `bughouse-ladder-user-settings` | Server URL, API key, debug mode |
+| `ladder_client_id` | Unique client identifier (sessionStorage) |
+
+### URL-Based Configuration
+
+The app supports one-click configuration via URL parameters:
+
+| Param | Purpose | Example |
+|-------|---------|---------|
+| `?config=1&server=...&key=...` | Connect to server | Sets server URL + API key in localStorage |
+| `?config=2` | Reset to local mode | Clears all user settings |
+| `?config=3&file=...` | Load remote .tab file | Fetches file from URL, loads into app |
+
+URL params are automatically cleared after application (using `history.replaceState`) so reloads don't re-apply.
+
+### Drag & Drop
+
+Local `.tab` files can be loaded by dragging onto the splash screen drop zone. Uses the File API — no server upload required.
 
 ---
 

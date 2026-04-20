@@ -1,5 +1,25 @@
 # Bughouse Chess Ladder - User Manual
 
+**Version: 1.0.1**
+
+## Getting Started
+
+### Connecting to a Server
+
+#### Option 1: Settings Dialog
+1. Open **Operations → Settings**
+2. Enter server URL and API key
+3. Click **Save**
+
+#### Option 2: One-Click URL
+Open this URL to auto-configure:
+```
+http://your-domain.com/?config=1&server=http://your-server:port&key=your-api-key-here
+```
+
+#### Option 3: Load Local File
+Drag a `.tab` file onto the splash screen (no server needed).
+
 ## Table of Contents
 
 1. [Overview](#overview)
