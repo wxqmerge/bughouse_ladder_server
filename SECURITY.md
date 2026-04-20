@@ -1,5 +1,17 @@
 # Security Configuration
 
+**Version: 1.0.1**
+
+## Development Debug Logging (Non-Production)
+
+In development mode (`NODE_ENV != production`), failed admin API key attempts are logged with masked key comparison:
+
+```
+[ADMIN_AUTH] 401 - Invalid API key | IP: ::1 | Path: /api/admin/lock | Provided: "6ccd****b0cf" (64 chars) | Expected: "CHANGE****CRYPTO" (62 chars)
+```
+
+Keys are masked (first 4 + last 4 visible, middle hidden). No logging occurs in production.
+
 ## Architecture Overview
 
 ### Minimal Server Design

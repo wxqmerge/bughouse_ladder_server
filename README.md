@@ -1,6 +1,10 @@
 # Bughouse Chess Ladder Server
 
+**Version: 1.0.1**
+
 A modern client-server implementation of the VB6 Bughouse Chess Ladder application.
+
+**Communication:** TCP/HTTP (NOT UDP). Default port is 3000.
 
 ## Quick Start
 
@@ -99,6 +103,32 @@ bughouse_ladder_server/
 ```
 
 ---
+
+## Configuration Methods
+
+### URL-Based Setup (One-Click)
+
+Open these URLs to configure clients automatically:
+
+| Config | URL Format | Purpose |
+|--------|------------|---------|
+| Server | `?config=1&server=http://host:port&key=yourkey` | Connect to server with API key |
+| Local mode | `?config=2` | Reset to local mode (no server) |
+| Remote file | `?config=3&file=http://host/file.tab` | Fetch and load .tab file from URL |
+
+**Example - Connect to production server:**
+```
+http://your-app-domain/?config=1&server=http://your-server:port&key=your-api-key-here
+```
+
+**Example - Load remote ladder data:**
+```
+http://your-app-domain/?config=3&file=http://server/ladder.tab
+```
+
+### Drag & Drop (Local Files)
+
+On the splash screen, drag a `.tab` file onto the drop zone to load it directly. No server needed.
 
 ## Features
 
@@ -287,11 +317,10 @@ TAB_FILE_PATH=./data/ladder.tab
 ### Frontend (`.env` in root)
 
 ```env
-# API URL - Leave empty or use /api for same-origin requests (recommended)
-VITE_API_URL=/api
+PACKAGE_VERSION=1.0.1
 ```
 
-The frontend uses relative API paths by default, so no configuration is needed for most deployments.
+Frontend server configuration is done per-user via the Settings dialog or URL-based setup — no `VITE_API_URL` needed.
 
 ---
 

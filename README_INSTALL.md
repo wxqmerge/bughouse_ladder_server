@@ -1,5 +1,9 @@
 # Bughouse Chess Ladder - Production Installation Guide
 
+**Version: 1.0.1**
+
+**Communication:** TCP/HTTP (NOT UDP). Default port is 3000.
+
 This guide provides step-by-step instructions for deploying the Bughouse Chess Ladder application to a production server.
 
 ---
@@ -343,7 +347,9 @@ nohup NODE_ENV=production node dist/index.js > server.log 2>&1 &
 
 ### Client-Side Server Configuration
 
-Users configure the server URL through the **Settings menu** in the browser:
+Users can configure the application in three ways:
+
+#### Method 1: Settings Dialog (Interactive)
 
 1. Open the application
 2. Click **Menu → Settings**
@@ -351,7 +357,26 @@ Users configure the server URL through the **Settings menu** in the browser:
 4. Optionally enter API key if server has admin protection enabled
 5. Click **Save** - page reloads with new configuration
 
-This setting is stored in the browser's localStorage and persists across sessions.
+#### Method 2: URL-Based Setup (One-Click)
+
+Share a single URL with users to auto-configure everything:
+
+| Config | URL Format | Purpose |
+|--------|------------|---------|
+| Server + API key | `?config=1&server=http://host:port&key=yourkey` | Full server connection |
+| Local mode | `?config=2` | Reset to local (no server) |
+| Remote file load | `?config=3&file=http://host/file.tab` | Fetch and load .tab from URL |
+
+**Example for production deployment:**
+```
+http://your-domain.com/?config=1&server=http://your-server:port&key=your-api-key-here
+```
+
+#### Method 3: Drag & Drop (Local Files)
+
+On the splash screen, drag a `.tab` file onto the drop zone. No server needed — loads directly into local mode.
+
+All settings are stored in the browser's localStorage and persist across sessions.
 
 ### Generate Admin API Key (Optional)
 
