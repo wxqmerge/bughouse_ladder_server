@@ -66,3 +66,104 @@ export const clearUserSettings = (): void => {
   localStorage.removeItem(USER_SETTINGS_KEY);
   console.log('[UserSettings] Cleared user settings');
 };
+
+/**
+ * Load remote .tab file from URL
+ * Stores content in sessionStorage for the splash screen to pick up
+ */
+export async function loadRemoteFile(fileUrl: string): Promise<{ success: boolean; filename?: string }> {
+  try {
+    const response = await fetch(fileUrl);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    
+    const text = await response.text();
+    const blob = new Blob([text], { type: 'text/tab-separated-values' });
+    const fileName = fileUrl.split('/').pop()?.split('?')[0] || 'ladder';
+    
+    sessionStorage.setItem('pendingFileContent', btoa(unescape(encodeURIComponent(text))));
+    sessionStorage.setItem('pendingFileName', fileName);
+    sessionStorage.setItem('pendingFileLoad', 'true');
+    
+    console.log('[UserSettings] Remote file loaded:', fileName);
+    return { success: true, filename: fileName };
+  } catch (error) {
+    console.error('[UserSettings] Failed to load remote file:', error);
+    return { success: false };
+  }
+}
+
+/**
+ * Load config from URL query params:
+ *   ?config=1&server=http://host:port&key=abc123  → server connection
+ *   ?config=3&file=http://host/file.tab           → remote file load
+ */
+export async function loadConfigFromUrl(): Promise<boolean> {
+  const url = new URL(window.location.href);
+  if (!url.searchParams.get('config')) return false;
+
+  const configType = url.searchParams.get('config');
+  
+  // Server connection: ?config=1&server=...&key=...
+  if (configType === '1') {
+    const serverUrl = url.searchParams.get('server') || '';
+    const apiKey = url.searchParams.get('key') || '';
+    
+    if (!serverUrl.trim()) {
+      alert('Missing server URL. Use: ?config=1&server=http://host:port&key=yourkey');
+      return false;
+    }
+
+    const normalized = normalizeServerUrl(serverUrl);
+    
+    saveUserSettings({
+      server: normalized,
+      apiKey: apiKey.trim(),
+      debugMode: false,
+    });
+
+    alert(`Connected!\n\nServer: ${normalized}\nAPI Key: ${apiKey ? '***' + apiKey.slice(-4) : '(empty)'}`);
+  }
+  
+  // Remote file load: ?config=3&file=http://host/file.tab
+  else if (configType === '3') {
+    const fileUrl = url.searchParams.get('file');
+    
+    if (!fileUrl) {
+      alert('Missing file URL. Use: ?config=3&file=http://host/file.tab');
+      return false;
+    }
+
+    const result = await loadRemoteFile(fileUrl);
+    if (result.success) {
+      alert(`Loaded file: ${result.filename}\n\nThe app will reload to apply.`);
+      // Reload so splash screen picks up the pending file
+      setTimeout(() => window.location.reload(), 1000);
+    } else {
+      alert('Failed to load file from URL. Check the URL and try again.');
+    }
+  }
+  
+  // Local mode reset: ?config=2 (no parameters)
+  else if (configType === '2') {
+    clearUserSettings();
+    sessionStorage.removeItem('pendingFileLoad');
+    sessionStorage.removeItem('pendingFileContent');
+    sessionStorage.removeItem('pendingFileName');
+    alert('Reset to local mode.\n\nThe app will reload to apply.');
+    setTimeout(() => window.location.reload(), 500);
+  }
+  
+  else {
+    alert(`Unknown config type: ${configType}\n\nUse:\n- ?config=1&server=http://host:port&key=yourkey (server)\n- ?config=3&file=http://host/file.tab (remote file)\n- ?config=2 (reset to local)`);
+    return false;
+  }
+
+  // Clear the query params from URL (so reload doesn't re-apply)
+  url.searchParams.delete('config');
+  url.searchParams.delete('server');
+  url.searchParams.delete('key');
+  url.searchParams.delete('file');
+  window.history.replaceState({}, '', url.toString());
+
+  return true;
+}

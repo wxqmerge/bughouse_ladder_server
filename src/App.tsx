@@ -15,7 +15,7 @@ import {
   getProgramMode,
   isLocalMode,
 } from "./utils/mode";
-import { loadUserSettings } from "./services/userSettingsStorage";
+import { loadUserSettings, loadConfigFromUrl } from "./services/userSettingsStorage";
 import { checkMigrationNeeded, storeCurrentMode } from "./utils/migrationUtils";
 import {
   savePlayers,
@@ -59,6 +59,11 @@ function App() {
     return () => {
       setStatusCallback = null;
     };
+  }, []);
+
+  // Load URL-based config on mount (async - runs before other init)
+  useEffect(() => {
+    loadConfigFromUrl().catch(console.error);
   }, []);
 
   // Test server connectivity and check for migration on mount
