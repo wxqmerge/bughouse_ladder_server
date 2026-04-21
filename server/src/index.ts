@@ -33,8 +33,8 @@ const isProduction = process.env.NODE_ENV === 'production';
 console.log('Environment variables loaded:');
 console.log('  - NODE_ENV:', process.env.NODE_ENV);
 console.log('  - PORT:', process.env.PORT);
-console.log('  - CORS_ORIGINS:', process.env.CORS_ORIGINS);
-console.log('  - ADMIN_API_KEY:', process.env.ADMIN_API_KEY ? 'Set (' + process.env.ADMIN_API_KEY.length + ' chars)' : 'NOT SET');
+console.log('  - CORS_ORIGINS:', process.env.CORS_ORIGINS || '(not set)');
+console.log('  - ADMIN_API_KEY:', process.env.ADMIN_API_KEY ? 'Set' : 'NOT SET');
 
 // Trust proxy for proper IP handling behind reverse proxy
 app.set('trust proxy', 1);
@@ -98,12 +98,7 @@ const apiLimiter = rateLimit({
 const adminLockLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 600, // 10 requests per second allowed
-  message: (_req: Request, res: Response) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-API-Key');
-    return { success: false, error: { message: 'Too many admin lock requests.' } };
-  },
+  message: { success: false, error: { message: 'Too many admin lock requests.' } },
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -121,7 +116,7 @@ console.log('  - CORS_ORIGINS env var:', process.env.CORS_ORIGINS);
 console.log('  - Parsed origins:', corsOrigins);
 
 app.use(cors({
-  origin: '*', // Allow all origins for development
+  origin: corsOrigins.length === 1 && corsOrigins[0] === '*' ? '*' : corsOrigins,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
@@ -135,7 +130,7 @@ app.use(helmet({
       scriptSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", 'data:', 'blob:'],
-      connectSrc: ["'self'", process.env.CORS_ORIGIN ? new URL(process.env.CORS_ORIGIN).origin : "'self'"],
+      connectSrc: ["'self'", corsOrigins[0] !== '*' ? new URL(corsOrigins[0]).origin : "'self'"],
       fontSrc: ["'self'"],
       objectSrc: ["'none'"],
       mediaSrc: ["'none'"],
@@ -218,26 +213,26 @@ async function startServer() {
       console.log(`✓ Server running on port ${PORT}`);
       console.log(`✓ Environment: ${process.env.NODE_ENV || 'development'}`);
       console.log(`✓ CORS Origins: ${process.env.CORS_ORIGINS || '*'}`);
-      console.log(`✓ Admin API Key: ${process.env.ADMIN_API_KEY && !process.env.ADMIN_API_KEY.includes('CHANGE') ? 'Enabled (protected)' : '⚠️  Using DEFAULT/weak key!'}`);
+      const adminKeySet = !!process.env.ADMIN_API_KEY;
+      console.log(`✓ Admin API Key: ${adminKeySet ? 'Enabled' : '⚠️  NOT SET (endpoints unprotected)'}`);
       console.log(`✓ Rate Limit: ${isProduction ? '100' : '1000'} req/15min`);
       console.log('');
       
       // Connection instructions for clients
       console.log('CLIENT CONFIGURATION:');
       console.log(`  Open this URL to configure a client:`);
-      console.log(`  http://your-host:${PORT}/?config=1&server=http://your-host:${PORT}&key=YOUR_API_KEY`);
+      console.log(`  http://your-host:${PORT}/?config=1&server=http://your-host:${PORT}`);
       console.log('');
       
-      if (process.env.NODE_ENV !== 'production') {
+      if (!adminKeySet) {
+        console.log('⚠️  SECURITY WARNING: ADMIN_API_KEY is not set!');
+        console.log('  All admin and write endpoints are publicly accessible.');
+        console.log('  Set ADMIN_API_KEY in .env to protect your server.');
+        console.log('');
+      }
+      if (process.env.NODE_ENV !== 'production' && adminKeySet) {
         console.log('⚠️  DEVELOPMENT MODE');
-        if (process.env.ADMIN_API_KEY) {
-          console.log(`  - Admin endpoints protected with API key`);
-          if (process.env.ADMIN_API_KEY.includes('dev-admin-key')) {
-            console.log('  ⚠️  Using DEFAULT admin key - CHANGE IN PRODUCTION!');
-          }
-        } else {
-          console.log('  - Admin endpoints are unprotected');
-        }
+        console.log('  - Admin endpoints protected with API key');
         console.log('');
       }
       

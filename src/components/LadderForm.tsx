@@ -21,6 +21,7 @@ import { Menu as MenuIcon, Server } from "lucide-react";
 import { shouldLog } from "../utils/debug";
 import { getVersionString, isLocalMode, isServerDownMode, getProgramMode, testServerConnection } from "../utils/mode";
 import { log } from "../utils/log";
+import { mergeServerWithLocal as _mergeServerWithLocal } from "../utils/mergeUtils";
 import { loadUserSettings } from "../services/userSettingsStorage";
 import { getKeyPrefix, startBatch, endBatch, saveToServer, clearAllSaveStatus, isCellSaved, markCellAsSaved, markLocalChanges, getHasLocalChanges, clearLocalChangesFlag, getPendingDeletes, clearPendingDeletes, queueDelete, isAdminLocked, tryAcquireAdminLock, forceAcquireAdminLock, releaseAdminLock, getAdminLockInfo, getClientId, getServerUrl } from "../services/storageService";
 import { normalizeServerUrl } from "../services/userSettingsStorage";
@@ -834,57 +835,7 @@ export default function LadderForm({
     localPlayers: PlayerData[]
   ): PlayerData[] => {
     const pendingDeletes = getPendingDeletes();
-    
-    return serverPlayers.map((sp: PlayerData) => {
-      const localPlayer = localPlayers.find((lp: PlayerData) => lp.rank === sp.rank);
-      
-      if (!localPlayer || !localPlayer.gameResults) {
-        return sp;
-      }
-      
-      const mergedGameResults = [
-        ...(sp.gameResults || new Array(31).fill(null))
-      ];
-      
-      for (let r = 0; r < 31; r++) {
-        const cellKey = `${localPlayer.rank}:${r}`;
-        
-        // Check if this cell was deleted locally but not yet synced
-        if (pendingDeletes.has(cellKey)) {
-          mergedGameResults[r] = '';
-          log(
-            '[MERGE]',
-            `Preserved pending delete at P${localPlayer.rank} R${r + 1}`
-          );
-          continue;
-        }
-        
-        // Merge unconfirmed local entries with server data
-        const localResult = localPlayer.gameResults[r];
-        const serverResult = sp.gameResults?.[r];
-        
-        const localConfirmed = localResult?.endsWith('_') || false;
-        const serverConfirmed = serverResult?.endsWith('_') || false;
-        
-        // Priority: local unconfirmed > server confirmed > server unconfirmed
-        if (localResult && localResult.trim() && !localConfirmed) {
-          mergedGameResults[r] = localResult;
-          log(
-            '[MERGE]',
-            `Preserved local unconfirmed at P${localPlayer.rank} R${r + 1}`
-          );
-        } else if (serverConfirmed && !localConfirmed) {
-          // Keep server confirmed result
-          mergedGameResults[r] = serverResult;
-        }
-      }
-      
-      return { 
-        ...sp, 
-        nRating: localPlayer.nRating !== undefined ? localPlayer.nRating : sp.nRating,
-        gameResults: mergedGameResults 
-      };
-    });
+    return _mergeServerWithLocal(serverPlayers, localPlayers, pendingDeletes);
   };
 
   // Enter Games mode handlers
@@ -2297,36 +2248,24 @@ export default function LadderForm({
       markLocalChanges();
     }
 
-    setPlayers((prevPlayers) => {
-      const updatedPlayers = prevPlayers.map((p) => ({ ...p }));
-
+    const updatedPlayers = (() => {
+      const playersCopy = players.map((p) => ({ ...p }));
       for (const result of results) {
-        const playerIndex = updatedPlayers.findIndex(
+        const playerIndex = playersCopy.findIndex(
           (p) => p.rank === result.playerRank,
         );
         if (playerIndex !== -1) {
-          const player = updatedPlayers[playerIndex];
+          const player = playersCopy[playerIndex];
           if (!player.gameResults) {
             player.gameResults = new Array(31).fill(null);
           }
           player.gameResults[result.roundIndex] = result.resultString;
         }
       }
+      return playersCopy;
+    })();
 
-      return updatedPlayers;
-    });
-
-    // Save after state update
-    const updatedPlayers = players.map((p) => ({ ...p }));
-    for (const result of results) {
-      const playerIndex = updatedPlayers.findIndex((p) => p.rank === result.playerRank);
-      if (playerIndex !== -1) {
-        if (!updatedPlayers[playerIndex].gameResults) {
-          updatedPlayers[playerIndex].gameResults = new Array(31).fill(null);
-        }
-        updatedPlayers[playerIndex].gameResults[result.roundIndex] = result.resultString;
-      }
-    }
+    setPlayers(updatedPlayers);
     await savePlayers(updatedPlayers);
 
     if (shouldLog(10)) {

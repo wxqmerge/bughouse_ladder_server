@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { AuthRequest, requireUserKey } from '../middleware/auth.middleware.js';
+import { writeLimiter } from '../middleware/rateLimit.middleware.js';
 import {
   readLadderFile,
   writeLadderFile,
@@ -89,7 +90,7 @@ router.get('/:rank', async (req: Request, res: Response): Promise<void> => {
 });
 
 // Update player data (requires user or admin API key)
-router.put('/:rank', requireUserKey, async (req: Request, res: Response): Promise<void> => {
+router.put('/:rank', requireUserKey, writeLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
     const rank = parseInt(req.params.rank);
     if (isNaN(rank) || rank < 1) {
@@ -136,7 +137,7 @@ router.put('/:rank', requireUserKey, async (req: Request, res: Response): Promis
 });
 
 // Clear a single game result cell (requires user or admin API key)
-router.delete('/:rank/round/:roundIndex', requireUserKey, async (req: Request, res: Response): Promise<void> => {
+router.delete('/:rank/round/:roundIndex', requireUserKey, writeLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
     const rank = parseInt(req.params.rank);
     const roundIndex = parseInt(req.params.roundIndex);
@@ -188,7 +189,7 @@ router.delete('/:rank/round/:roundIndex', requireUserKey, async (req: Request, r
 });
 
 // Bulk update players (requires user or admin API key)
-router.put('/', requireUserKey, async (req: Request, res: Response): Promise<void> => {
+router.put('/', requireUserKey, writeLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
     const { players } = req.body as { players: PlayerData[] };
     
