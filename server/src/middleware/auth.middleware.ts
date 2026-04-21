@@ -12,6 +12,61 @@ export interface AuthRequest extends Request {
 // API Key for admin endpoints (optional - if not set, admin endpoints are publicly accessible)
 export const ADMIN_API_KEY = process.env.ADMIN_API_KEY || '';
 
+// API Key for user write operations (optional - if not set, all writes allowed when no admin key)
+export const USER_API_KEY = process.env.USER_API_KEY || '';
+
+/**
+ * Middleware to verify user API key for write operations.
+ * Allows requests through if EITHER the user key matches OR the admin key matches.
+ * If no keys are configured, allows all requests (local/dev mode).
+ */
+export function requireUserKey(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void {
+  // If no API keys are configured at all, allow all requests (local/dev mode)
+  if (!USER_API_KEY && !ADMIN_API_KEY) {
+    next();
+    return;
+  }
+
+  const apiKey = req.headers['x-api-key'] as string;
+
+  // Admin key always grants access (admins can do everything)
+  if (ADMIN_API_KEY && apiKey === ADMIN_API_KEY) {
+    next();
+    return;
+  }
+
+  // If user key is configured, validate it
+  if (USER_API_KEY) {
+    if (!apiKey) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[USER_AUTH] 401 - Missing API key | IP: ${req.ip} | Path: ${req.path} | Method: ${req.method}`);
+      }
+      res.status(401).json({
+        success: false,
+        error: { message: 'User API key required' },
+      });
+      return;
+    }
+
+    if (apiKey !== USER_API_KEY) {
+      const providedMask = apiKey.slice(0, 4) + '*'.repeat(Math.max(0, apiKey.length - 8)) + apiKey.slice(-4);
+      console.log(`[USER_AUTH] 401 - Invalid API key | IP: ${req.ip} | Path: ${req.path} | Provided: "${providedMask}"`);
+      res.status(401).json({
+        success: false,
+        error: { message: 'Invalid user API key' },
+      });
+      return;
+    }
+  }
+
+  // If we got here: USER_API_KEY is not configured, so allow the request
+  next();
+}
+
 // Middleware to verify admin API key using timing-safe comparison
 export function requireAdminKey(
   req: Request,

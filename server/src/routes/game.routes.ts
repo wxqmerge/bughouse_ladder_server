@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { requireUserKey } from '../middleware/auth.middleware.js';
 import { readLadderFile, writeLadderFile, PlayerData, withTiming } from '../services/dataService.js';
 
 interface GameResult {
@@ -18,8 +19,8 @@ interface GameResult {
   result: string;
 }
 
-// Submit a single game result (no auth required - local use)
-router.post('/submit', async (req: Request, res: Response): Promise<void> => {
+// Submit a single game result (requires user or admin API key)
+router.post('/submit', requireUserKey, async (req: Request, res: Response): Promise<void> => {
   try {
     const { playerRank, round, result } = req.body as GameResult;
 
@@ -87,8 +88,8 @@ router.post('/submit', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-// Submit multiple game results (no auth required - local use)
-router.post('/batch', async (req: Request, res: Response): Promise<void> => {
+// Submit multiple game results (requires user or admin API key)
+router.post('/batch', requireUserKey, async (req: Request, res: Response): Promise<void> => {
   try {
     const { games } = req.body as { games: GameResult[] };
 
@@ -179,9 +180,9 @@ router.get('/player/:rank', async (req: Request, res: Response): Promise<void> =
   }
 });
 
-// Merge game results into ladder data and return updated player list
+// Merge game results into ladder data and return updated player list (requires user or admin API key)
 // POST /api/games/recalculate
-router.post('/recalculate', async (req: Request, res: Response): Promise<void> => {
+router.post('/recalculate', requireUserKey, async (req: Request, res: Response): Promise<void> => {
   try {
     const { games } = req.body as { 
       games?: GameResult[], 
