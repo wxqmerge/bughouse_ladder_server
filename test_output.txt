@@ -1,0 +1,16 @@
+
+> bughouse-ladder-client@1.0.1 test:run
+> vitest run
+
+3:59:05 PM [vite] warning: `esbuild` option was specified by "vite:react-babel" plugin. This option is deprecated, please use `oxc` instead.
+3:59:05 PM [vite] warning: `optimizeDeps.esbuildOptions` option was specified by "vite:react-babel" plugin. This option is deprecated, please use `optimizeDeps.rolldownOptions` instead.
+Both esbuild and oxc options were set. oxc options will be used and esbuild options will be ignored. The following esbuild options were set: `{ jsx: 'automatic', jsxImportSource: undefined }`
+
+ RUN  v4.1.4 D:/xampp/htdocs/bughouse_ladder_server
+
+
+ Test Files  9 passed (9)
+      Tests  88 passed | 2 skipped (90)
+   Start at  15:59:05
+   Duration  1.21s (transform 481ms, setup 987ms, import 540ms, tests 325ms, environment 4.46s)
+

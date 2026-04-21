@@ -4,37 +4,33 @@
 
 ## Overview
 
-This project uses **Vitest** for unit testing with **React Testing Library** for component tests.
+This project uses **Vitest** for testing across client and server. The root vitest config discovers tests in both `src/` and `server/test/`.
 
 ---
 
 ## Running Tests
 
-### Run All Tests Once (CI Mode)
+### All Tests (Root) — Client + Server
 ```bash
-npm run test:run
+npm run test:run      # Run once (CI mode)
+npm test              # Watch mode
+npm run test:coverage # Coverage report
 ```
 
 Expected output:
 ```
-Test Files  X passed (X)
- Tests      Y passed (Y)
+Test Files  9 passed (9)
+ Tests      88 passed | 2 skipped (90)
 Duration    ~Zs
 ```
 
-### Run Tests with Auto-Restart (Watch Mode)
+### Server Only
 ```bash
-npm test
+cd server && npm run test:run   # Run once
+cd server && npm test            # Watch mode
 ```
 
-Tests will automatically re-run when you modify source files.
-
-### Run Tests with Coverage Report
-```bash
-npm run test:coverage
-```
-
-Coverage report opens in browser at `coverage/index.html`.
+Server tests use `node` environment. Client tests use `jsdom`.
 
 ---
 
@@ -49,41 +45,48 @@ src/
 │   │   ├── ratingFormula.test.ts
 │   │   ├── newDay.test.ts
 │   │   ├── migration.test.ts
-│   │   └── utils.test.ts
+│   │   ├── utils.test.ts
+│   │   └── auth.test.ts        # Auth exports + file extension validation
+│   ├── simple.test.ts          # Basic smoke test
 │   └── setup.ts                # Vitest setup
-└── components/
-    └── *.test.tsx              # Component tests inline
+├── components/
+│   └── LadderForm.test.tsx     # Component rendering tests
+server/
+├── test/
+│   ├── adminLock.test.ts       # Admin lock acquire/release/force/refresh/status
+│   └── authRoutes.test.ts      # Auth middleware constants and signatures
+└── vitest.config.ts            # Server-only vitest config (node env)
 ```
 
 ---
 
 ## Current Test Coverage
 
-### Unit Tests (57 passing)
+**Total: 90 tests** across client and server. **88 passed, 2 skipped.**
+
+### Client Unit Tests (70 passed | 2 skipped)
+
+| File | Tests | Passed | Description |
+|------|-------|--------|-------------|
+| `newDay.test.ts` | 19 | 19 | Title progression and new day processing |
+| `migration.test.ts` | 13 | 13 | Local ↔ Server data migration |
+| `auth.test.ts` | 10 | 10 | Auth middleware exports + file extension validation |
+| `ratingFormula.test.ts` | 9 | 7 (+2 skipped) | Elo rating formula calculations |
+| `utils.test.ts` | 4 | 4 | Error message utilities |
+| `simple.test.ts` | 1 | 1 | Basic smoke test |
+
+### Client Component Tests (3 passed)
 
 | File | Tests | Description |
 |------|-------|-------------|
-| `ratingFormula.test.ts` | 7 | Elo rating formula calculations |
-| `newDay.test.ts` | 23 | Title progression and new day processing |
-| `migration.test.ts` | 13 | Local ↔ Server data migration |
-| `utils.test.ts` | 4 | Error message utilities |
-| `auth.test.ts` | 10 | Auth middleware exports + file extension validation |
+| `LadderForm.test.tsx` | 3 | Component rendering tests |
 
-### Component Tests
+### Server Tests (31 passed)
 
-| File | Description |
-|------|-------------|
-| `LadderForm.test.tsx` | Component rendering tests |
-
-### Running Server Tests
-
-The server has its own vitest setup. Run from the `server/` directory:
-
-```bash
-cd server && npm run test:run
-```
-
-Note: Server tests import client-side test files for shared logic (auth constants, file extensions).
+| File | Tests | Description |
+|------|-------|-------------|
+| `adminLock.test.ts` | 22 | Admin lock acquire/release/force/refresh/status/workflows |
+| `authRoutes.test.ts` | 9 | Auth middleware constants, exports, and function signatures |
 
 ---
 
@@ -108,7 +111,7 @@ it('should return 0.5 when ratings are equal', () => {
 
 ### 2. New Day Tests
 Tests title progression and player transformations:
-- Title cycling through mini games
+- Title cycling through mini games (BG_Game → Bishop_Game → Pillar_Game → Kings_Cross → Pawn_Game → Queen_Game)
 - Rating updates from nRating
 - Game count recalculation
 - Attendance tracking
@@ -118,23 +121,26 @@ Tests title progression and player transformations:
 ```typescript
 import { getNextTitle } from '../../../src/utils/constants';
 
-it('should progress from Kings_Cross to Pawn_Game', () => {
-  expect(getNextTitle('Kings_Cross')).toBe('Pawn_Game');
+it('should progress through all mini game titles in order', () => {
+  const titles = ['BG_Game', 'Bishop_Game', 'Pillar_Game', 'Kings_Cross', 'Pawn_Game', 'Queen_Game'];
+  for (let i = 0; i < titles.length; i++) {
+    expect(getNextTitle(titles[i])).toBe(titles[(i + 1) % titles.length]);
+  }
 });
 ```
 
 ### 3. Migration Tests
 Tests local ↔ server data migration:
 - Rank/name mismatch detection
-- Player list merging strategies
-- Non-result field preservation
+- Player list merging strategies (use-server, use-local, merge, dont-merge)
+- Non-result field preservation (all 13 fields)
 - Game results merging
 
 **Example:**
 ```typescript
 import { detectRankNameMismatches } from '../../../src/utils/migrationUtils';
 
-it('should detect mismatch when last names differ', () => {
+it('should detect mismatch when last names differ at same rank', () => {
   const localPlayers = [createPlayer({ rank: 1, lastName: 'Smith' })];
   const serverPlayers = [createPlayer({ rank: 1, lastName: 'Johnson' })];
   
@@ -143,11 +149,31 @@ it('should detect mismatch when last names differ', () => {
 });
 ```
 
+### 4. Auth Tests (Client)
+Tests auth middleware exports and file extension validation:
+- ADMIN_API_KEY and USER_API_KEY constants are defined
+- requireAdminKey and requireUserKey functions exist with correct signatures
+- File extensions (.tab, .xls, .txt) accepted for import; unsupported rejected
+
+### 5. Admin Lock Tests (Server)
+Tests in-memory admin lock service:
+- Acquire when free, reject when held by another client
+- Force override returns previous holder info
+- Release only works for lock owner
+- Refresh extends expiration for lock holder
+- Full acquire → refresh → release cycle
+- Expired locks treated as free
+
+### 6. Auth Routes Tests (Server)
+Tests auth middleware exports and function signatures:
+- ADMIN_API_KEY and USER_API_KEY constants exported from module
+- requireAdminKey and requireUserKey are Express middleware functions (3 params)
+
 ---
 
 ## Writing New Tests
 
-### Unit Test Template
+### Client Unit Test Template
 ```typescript
 import { describe, it, expect } from 'vitest';
 import { myFunction } from '../../../path/to/module';
@@ -158,6 +184,19 @@ describe('MyModule', () => {
       const result = myFunction(input);
       expect(result).toBe(expected);
     });
+  });
+});
+```
+
+### Server Test Template
+```typescript
+import { describe, it, expect } from 'vitest';
+import { myFunction } from '../src/services/myModule.js';
+
+describe('MyService', () => {
+  it('should do something', () => {
+    const result = myFunction(input);
+    expect(result).toBe(expected);
   });
 });
 ```
@@ -211,19 +250,25 @@ Tests run automatically in CI pipeline. All tests must pass for merges.
 - All unit tests must pass
 - No new test coverage regressions
 - Component tests should not have unhandled errors
+- Server tests must pass independently (`cd server && npm run test:run`)
 
 ---
 
 ## Debugging Tests
 
-### Run Single Test File
+### Run Single Test File (Client)
 ```bash
 npm test src/test/unit/ratingFormula.test.ts
 ```
 
-### Run Single Test
+### Run Single Test (Client)
 ```bash
 npm test -t "should return 0.5 when ratings are equal"
+```
+
+### Run Server Test File
+```bash
+cd server && npm run test:run test/adminLock.test.ts
 ```
 
 ### Debug in VS Code
@@ -235,10 +280,12 @@ npm test -t "should return 0.5 when ratings are equal"
 
 ## Test Configuration
 
-- **Framework:** Vitest v4.x
-- **Environment:** jsdom (browser simulation)
-- **Setup File:** `src/test/setup.ts`
-- **Config:** `vitest.config.ts`
+| Setting | Client | Server |
+|---------|--------|--------|
+| **Framework** | Vitest v4.x | Vitest v4.x |
+| **Environment** | jsdom (browser simulation) | node |
+| **Setup File** | `src/test/setup.ts` | None |
+| **Config** | `vitest.config.ts` | `server/vitest.config.ts` |
 
 ---
 
@@ -248,12 +295,14 @@ npm test -t "should return 0.5 when ratings are equal"
 2. **Prefer semantic queries**: `getByRole()`, `getByText()` over `query_selector`
 3. **Test behavior, not implementation**: Focus on what users see/do
 4. **Use descriptive test names**: `"should update rating when game is added"`
+5. **Reset shared state** in `beforeEach` for server tests with mutable state
 
 ---
 
 ## Notes
 
-- Tests run in **jsdom** environment (browser-like)
+- Client tests run in **jsdom** environment (browser-like)
+- Server tests run in **node** environment
 - Use `import.meta.env` for environment variables
 - Mock external dependencies with `vi.mock()`
 - Use `beforeEach`/`afterEach` for setup/teardown

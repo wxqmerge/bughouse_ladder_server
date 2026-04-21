@@ -7,7 +7,7 @@
 In development mode (`NODE_ENV != production`), failed admin API key attempts are logged with masked key comparison:
 
 ```
-[ADMIN_AUTH] 401 - Invalid API key | IP: ::1 | Path: /api/admin/lock | Provided: "6ccd****b0cf" (64 chars) | Expected: "CHANGE****CRYPTO" (62 chars)
+[ADMIN_AUTH] 401 - Invalid API key | IP: ::1 | Path: /api/admin-lock/acquire | Provided: "6ccd****b0cf" (64 chars) | Expected: "CHANGE****CRYPTO" (62 chars)
 ```
 
 Keys are masked (first 4 + last 4 visible, middle hidden). No logging occurs in production.
@@ -41,7 +41,7 @@ The Bughouse Chess Ladder uses a **minimal server architecture** - the server is
 
 **Configuration:**
 ```env
-CORS_ORIGIN=https://your-domain.com
+CORS_ORIGINS=https://your-domain.com
 ```
 
 **Behavior:**
@@ -82,7 +82,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 **Key Interaction:** Admin key grants all permissions (admin + write). Setting one key to the admin value covers everything. User key does NOT work for admin endpoints.
 
-### 3. Rate Limiting
+### 4. Rate Limiting
 
 **Purpose:** Prevent abuse and DoS attacks
 
@@ -96,7 +96,7 @@ RATE_LIMIT_WINDOW_MS=900000
 RATE_LIMIT_MAX_REQUESTS=100
 ```
 
-### 4. Helmet.js Security Headers
+### 5. Helmet.js Security Headers
 
 **Purpose:** Set secure HTTP headers
 
@@ -107,7 +107,7 @@ RATE_LIMIT_MAX_REQUESTS=100
 - `Strict-Transport-Security` (HTTPS only)
 - And more...
 
-### 5. Content Security Policy (Production Only)
+### 6. Content Security Policy (Production Only)
 
 **Purpose:** Prevent XSS attacks
 
@@ -122,7 +122,7 @@ RATE_LIMIT_MAX_REQUESTS=100
 | Variable | Description | Example |
 |----------|-------------|--------|
 | `NODE_ENV` | Environment mode | `production` |
-| `CORS_ORIGIN` | Allowed frontend domain | `https://omen.com` |
+| `CORS_ORIGINS` | Allowed frontend domains (comma-separated) | `https://omen.com` |
 
 ### Optional Variables
 
@@ -141,7 +141,7 @@ RATE_LIMIT_MAX_REQUESTS=100
 Before deploying to production:
 
 - [ ] Set `NODE_ENV=production`
-- [ ] Set `CORS_ORIGIN` to your domain (required)
+- [ ] Set `CORS_ORIGINS` to your domain(s) (required)
 - [ ] Generate `USER_API_KEY` if write protection needed (optional)
 - [ ] Generate `ADMIN_API_KEY` if admin endpoints protected (optional)
 - [ ] Configure SSL/TLS (via nginx or reverse proxy)
@@ -152,7 +152,7 @@ Before deploying to production:
 ```env
 PORT=3000
 NODE_ENV=production
-CORS_ORIGIN=https://omen.com
+CORS_ORIGINS=https://omen.com
 USER_API_KEY=change-this-to-a-random-key
 ADMIN_API_KEY=a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456
 ```
@@ -218,7 +218,7 @@ This setting is stored in the browser's localStorage and persists across session
 
 ```bash
 cd server
-node -e "require('dotenv').config(); console.log('CORS:', process.env.CORS_ORIGIN || '(not set)'); console.log('User Key:', process.env.USER_API_KEY ? 'Set' : '(not set)'); console.log('Admin Key:', process.env.ADMIN_API_KEY ? 'Set' : '(not set)')"
+node -e "require('dotenv').config(); console.log('CORS:', process.env.CORS_ORIGINS || '(not set)'); console.log('User Key:', process.env.USER_API_KEY ? 'Set' : '(not set)'); console.log('Admin Key:', process.env.ADMIN_API_KEY ? 'Set' : '(not set)')"
 ```
 
 ### Test CORS Configuration
