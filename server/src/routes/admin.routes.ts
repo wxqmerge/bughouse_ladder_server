@@ -18,15 +18,16 @@ const upload = multer({
     fileSize: 5 * 1024 * 1024, // 5MB limit
   },
   fileFilter: (req, file, cb) => {
-    if (file.mimetype === 'text/tab-separated-values' || path.extname(file.originalname) === '.tab') {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (file.mimetype === 'text/tab-separated-values' || ext === '.tab' || ext === '.xls') {
       cb(null, true);
     } else {
-      cb(new Error('Only .tab files are allowed'));
+      cb(new Error('Only .tab or .xls files are allowed'));
     }
   },
 });
 
-// Upload .tab file
+// Upload .tab or .xls file
 router.post('/upload', upload.single('file'), async (req: Request, res: Response): Promise<void> => {
   try {
     if (!req.file) {
