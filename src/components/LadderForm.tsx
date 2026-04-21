@@ -199,6 +199,33 @@ export default function LadderForm({
     "Bughouse Chess Ladder",
   );
   const [lastFile, setLastFile] = useState<File | null>(null);
+  const [emptyPlayerRow, setEmptyPlayerRow] = useState<{
+    firstName: string;
+    lastName: string;
+    group: string;
+    rating: number;
+    grade: string;
+    num_games: number;
+    attendance: number;
+    phone: string;
+    info: string;
+    school: string;
+    room: string;
+    gameResults: (string | null)[];
+  }>({
+    firstName: "",
+    lastName: "",
+    group: "",
+    rating: 0,
+    grade: "",
+    num_games: 0,
+    attendance: 0,
+    phone: "",
+    info: "",
+    school: "",
+    room: "",
+    gameResults: new Array(31).fill(null),
+  });
   const [currentError, setCurrentError] = useState<ValidationResult | null>(
     null,
   );
@@ -228,6 +255,13 @@ export default function LadderForm({
   } | null>(null);
   const [isAddPlayerDialogOpen, setIsAddPlayerDialogOpen] = useState(false);
   const [showBulkPasteDialog, setShowBulkPasteDialog] = useState(false);
+  const [pendingImport, setPendingImport] = useState<{
+    players: PlayerData[];
+    filename: string;
+    playerCount: number;
+    totalRoundsFilled: number;
+    totalGamesPlayed: number;
+  } | null>(null);
   const [currentMode, setCurrentMode] = useState<'local' | 'server_down' | 'server'>('local');
   const [debugMode, setDebugMode] = useState(false);
   // Enter Games mode state
@@ -658,24 +692,58 @@ export default function LadderForm({
           sortedGameResults[playerIndex] = gameResults;
         });
 
+     const totalRoundsFilled = loadedPlayers.reduce((sum, p) => 
+        sum + (p.gameResults || []).filter(r => r && r.trim() !== '').length, 0
+      );
+      const totalGamesPlayed = Math.floor(totalRoundsFilled / 2);
+
       localStorage.setItem(
           getKeyPrefix() + "ladder_players",
           JSON.stringify(loadedPlayers),
         );
-        setPlayers(loadedPlayers);
 
-        // Admin mode: push import directly to server via savePlayers
         if (isAdmin) {
-          log('[LOAD_FILE]', 'Admin mode - pushing imported data to server');
-          savePlayers(loadedPlayers).catch(err => console.error('[LOAD_FILE] Failed to sync:', err));
+          log('[LOAD_FILE]', 'Admin mode - showing import confirmation');
+          setPendingImport({
+            players: loadedPlayers,
+            filename: projectName,
+            playerCount: loadedPlayers.length,
+            totalRoundsFilled,
+            totalGamesPlayed,
+          });
+        } else {
+          setPlayers(loadedPlayers);
+          setSortBy(null);
         }
-
-        setSortBy(null);
       } else {
       }
     };
 
     reader.readAsText(fileToLoad);
+  };
+
+  const handleConfirmImport = async () => {
+    if (!pendingImport) return;
+    
+    log('[LOAD_FILE]', 'Admin mode - accepting import: ' + pendingImport.filename);
+    setPlayers(pendingImport.players);
+    setPendingImport(null);
+    
+    (window as any).__ladder_setStatus?.('Saving to server...');
+    try {
+      await savePlayers(pendingImport.players, true);
+      log('[LOAD_FILE]', '✓ Import saved to server');
+      (window as any).__ladder_setStatus?.(null);
+    } catch (err) {
+      log('[LOAD_FILE]', '✗ Failed to save import:', err);
+      (window as any).__ladder_setStatus?.('Failed to save to server');
+      setTimeout(() => (window as any).__ladder_setStatus?.(null), 3000);
+    }
+  };
+
+  const handleDeclineImport = () => {
+    log('[LOAD_FILE]', 'Admin mode - declined import: ' + pendingImport?.filename);
+    setPendingImport(null);
   };
 
   const checkGameErrors = (): {
@@ -2618,11 +2686,11 @@ export default function LadderForm({
             if (files.length > 0) {
               const file = files[0];
               const ext = file.name.split('.').pop()?.toLowerCase();
-              if (ext === 'tab' || ext === 'txt') {
+              if (ext === 'tab' || ext === 'txt' || ext === 'xls') {
                 setLastFile(file);
                 loadPlayers(file);
               } else {
-                alert('Please drop a .tab or .txt file');
+                alert('Please drop a .tab, .xls, or .txt file');
               }
             }
           }}
@@ -2639,7 +2707,7 @@ export default function LadderForm({
           }}
         >
           <div style={{ marginBottom: "0.5rem", fontSize: "1.5rem" }}>📄</div>
-          <p style={{ margin: 0, fontWeight: "500", color: "#374151" }}>Drop .tab file here</p>
+          <p style={{ margin: 0, fontWeight: "500", color: "#374151" }}>Drop .tab, .xls, or .txt file here</p>
           <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.75rem" }}>or use the Load File button above</p>
         </div>
       </div>
@@ -3626,6 +3694,128 @@ export default function LadderForm({
                 </tr>
               );
             })}
+            {isAdmin && (
+              <tr style={{ backgroundColor: "#f0f9ff" }}>
+                {Object.keys(emptyPlayerRow)
+                  .filter((_, i) => i < 13)
+                  .map((field, colIndex) => {
+                    const isEditable = field !== "rank";
+                    return (
+                      <td
+                        key={`empty-${colIndex}`}
+                        contentEditable={isEditable}
+                        suppressContentEditableWarning={true}
+                        onBlur={(e) => {
+                          if (!isEditable || !e.target.textContent) return;
+                          
+                          const value = e.target.textContent;
+                          setEmptyPlayerRow((prev) => {
+                            const updated = { ...prev, [field]: value };
+                            
+                            // When user enters a name (firstName or lastName), create real player and add new empty row
+                              if ((field === "firstName" || field === "lastName") && value.trim()) {
+                                const maxRank = players.reduce((max, p) => Math.max(max, p.rank || 0), 0);
+                                const newRank = maxRank + 1;
+                                
+                                const gameData = updated as typeof emptyPlayerRow & { rank?: number };
+                                const newPlayer: PlayerData = {
+                                  rank: newRank,
+                                  nRating: updated.rating || 0,
+                                  gameResults: updated.gameResults,
+                                  group: gameData.group,
+                                  lastName: gameData.lastName,
+                                  firstName: gameData.firstName,
+                                  rating: gameData.rating,
+                                  grade: gameData.grade,
+                                  num_games: gameData.num_games,
+                                  attendance: gameData.attendance,
+                                  phone: gameData.phone,
+                                  info: gameData.info,
+                                  school: gameData.school,
+                                  room: gameData.room,
+                                };
+                              
+                              const updatedPlayers = [...players, newPlayer].sort((a, b) => a.rank - b.rank);
+                              
+                              setPlayers(updatedPlayers);
+                              savePlayers(updatedPlayers).catch((err) => {
+                                console.error("Failed to save added player:", err);
+                              });
+                              
+                              // Reset empty row for next entry with auto-incremented rank hint
+                              return {
+                                firstName: "",
+                                lastName: "",
+                                group: "",
+                                rating: 0,
+                                grade: "",
+                                num_games: 0,
+                                attendance: 0,
+                                phone: "",
+                                info: "",
+                                school: "",
+                                room: "",
+                                gameResults: Array(31).fill(null),
+                              } as typeof emptyPlayerRow;
+                            }
+                            
+                            // Update numeric fields
+                            let result: typeof emptyPlayerRow = { ...updated };
+                            if (field === "rating" || field === "num_games" || field === "attendance") {
+                              const numVal = parseInt(value) || 0;
+                              result = { ...result, [field]: numVal };
+                            }
+                            
+                            return result;
+                          });
+                        }}
+                        style={{
+                          padding: "0.5rem 0.75rem",
+                          borderBottom: "2px solid #3b82f6",
+                          color: "#94a3b8",
+                          fontStyle: "italic",
+                          fontSize: "0.875rem",
+                        }}
+                      >
+                        {field === "rank" ? (
+                          <span style={{ color: "#3b82f6", fontWeight: 600 }}>
+                            {players.length + 1}
+                          </span>
+                        ) : field === "rating" || field === "num_games" || field === "attendance" ? (
+                          emptyPlayerRow[field as keyof typeof emptyPlayerRow]
+                        ) : (
+                          emptyPlayerRow[field as keyof typeof emptyPlayerRow] || ""
+                        )}
+                      </td>
+                    );
+                  })}
+                {/* Game result columns */}
+                {Array.from({ length: 31 }).map((_, roundIndex) => (
+                  <td
+                    key={`empty-round-${roundIndex}`}
+                    contentEditable={true}
+                    suppressContentEditableWarning={true}
+                    onBlur={(e) => {
+                      const value = e.target.textContent || "";
+                      setEmptyPlayerRow((prev) => {
+                        const newResults = [...prev.gameResults];
+                        newResults[roundIndex] = value.trim() || null;
+                        return { ...prev, gameResults: newResults };
+                      });
+                    }}
+                    style={{
+                      padding: "0.5rem 0.75rem",
+                      borderBottom: "2px solid #3b82f6",
+                      textAlign: "center",
+                      fontSize: getFontSize(),
+                      cursor: "text",
+                    }}
+                  >
+                    {emptyPlayerRow.gameResults[roundIndex] || "\u00A0"}
+                  </td>
+                ))}
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
@@ -3788,6 +3978,77 @@ export default function LadderForm({
           onClose={() => setShowBulkPasteDialog(false)}
           onApplyResults={handleApplyBulkResults}
         />
+      )}
+
+      {/* Import Confirmation Dialog (Admin mode) */}
+      {pendingImport && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              borderRadius: "0.5rem",
+              padding: "1.5rem",
+              maxWidth: "400px",
+              width: "90%",
+            }}
+          >
+            <h2 style={{ fontSize: "1.125rem", fontWeight: "600", color: "#374151", marginBottom: "1rem" }}>
+              Confirm File Import
+            </h2>
+            
+            <div style={{ marginBottom: "1rem", fontSize: "0.875rem", color: "#4b5563" }}>
+              <p style={{ margin: "0 0 0.5rem 0" }}><strong>File:</strong> {pendingImport.filename}</p>
+              <p style={{ margin: "0 0 0.5rem 0" }}><strong>Players:</strong> {pendingImport.playerCount}</p>
+              <p style={{ margin: "0 0 0.5rem 0" }}><strong>Rounds filled:</strong> {pendingImport.totalRoundsFilled}</p>
+              <p style={{ margin: "0" }}><strong>Games played:</strong> ~{pendingImport.totalGamesPlayed}</p>
+            </div>
+
+            <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
+              <button
+                onClick={handleDeclineImport}
+                style={{
+                  padding: "0.5rem 1rem",
+                  background: "#f3f4f6",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "0.25rem",
+                  cursor: "pointer",
+                  fontSize: "0.875rem",
+                  color: "#374151",
+                }}
+              >
+                Decline
+              </button>
+              <button
+                onClick={handleConfirmImport}
+                style={{
+                  padding: "0.5rem 1rem",
+                  background: "#10b981",
+                  border: "none",
+                  borderRadius: "0.25rem",
+                  cursor: "pointer",
+                  fontSize: "0.875rem",
+                  color: "white",
+                  fontWeight: "500",
+                }}
+              >
+                Accept & Save to Server
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       
       {/* CSS animation for retry spinner */}

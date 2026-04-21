@@ -68,7 +68,7 @@ export const clearUserSettings = (): void => {
 };
 
 /**
- * Load remote .tab file from URL
+ * Load remote .tab or .xls file from URL (both are tab-separated format)
  * Stores content in sessionStorage for the splash screen to pick up
  */
 export async function loadRemoteFile(fileUrl: string): Promise<{ success: boolean; filename?: string }> {
@@ -95,7 +95,7 @@ export async function loadRemoteFile(fileUrl: string): Promise<{ success: boolea
 /**
  * Load config from URL query params:
  *   ?config=1&server=http://host:port&key=abc123  → server connection
- *   ?config=3&file=http://host/file.tab           → remote file load
+ *   ?config=3&file=http://host/file.tab            → remote file load (.tab or .xls)
  */
 export async function loadConfigFromUrl(): Promise<boolean> {
   const url = new URL(window.location.href);
@@ -130,13 +130,13 @@ export async function loadConfigFromUrl(): Promise<boolean> {
     
     if (!fileUrl) {
       alert('Missing file URL. Use: ?config=3&file=http://host/file.tab');
+      
       return false;
     }
 
     const result = await loadRemoteFile(fileUrl);
     if (result.success) {
       alert(`Loaded file: ${result.filename}\n\nThe app will reload to apply.`);
-      // Reload so splash screen picks up the pending file
       setTimeout(() => window.location.reload(), 1000);
     } else {
       alert('Failed to load file from URL. Check the URL and try again.');
