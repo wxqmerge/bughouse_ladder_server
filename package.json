@@ -1,6 +1,6 @@
 {
   "name": "bughouse-ladder-client",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Bughouse Chess Ladder - React Frontend",
   "type": "module",
   "scripts": {
