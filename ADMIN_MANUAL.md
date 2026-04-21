@@ -24,8 +24,11 @@ This manual covers administrative functions for managing the Bughouse Chess Ladd
 | Mode | Description | Capabilities |
 |------|-------------|--------------|
 | **Local** | No server configured | Full admin access |
-| **Server (No API Key)** | Connected without admin key | Read-only, game entry only |
-| **Server (With API Key)** | Connected with admin API key | Full admin access |
+| **Server (No Key)** | Connected without any API key | Read-only, game entry only |
+| **Server (User Key)** | Connected with user API key | Can edit/save data |
+| **Server (Admin Key)** | Connected with admin API key | Full admin access + write operations |
+
+**Note:** Admin key grants all permissions (admin + write). User key only allows write operations, not admin features. One key set to the admin value covers everything.
 
 ---
 
@@ -112,16 +115,21 @@ http://your-domain.com/?config=3&file=http://server/ladder.tab
 
 All methods store settings in browser's localStorage for persistence.
 
-### Admin API Key Configuration
+### API Key Configuration
 
-**Required for:** Full admin access on shared servers
+**Required for:** Write operations (user key) and admin access (admin key)
 
 1. Obtain API key from server administrator
-2. Enter in Settings → Admin API Key field
+2. Enter in Settings → API Key field
 3. Save settings
-4. Toggle Admin Mode to enable admin features
+4. Toggle Admin Mode to enable admin features (requires admin key)
 
-**Security note:** The API key is stored in browser localStorage and sent with admin API requests.
+**Key types:**
+- **User key** — Can edit/save data, but no admin features
+- **Admin key** — Full access including admin features, also works for write operations
+- One key set to the admin value covers everything
+
+**Security note:** The API key is stored in browser localStorage and sent with API requests.
 
 ### Connection Status Indicators
 
@@ -138,7 +146,7 @@ All methods store settings in browser's localStorage for persistence.
 
 ### Loading Data Files
 
-**Format:** Tab-delimited text file (.tab)
+**Supported formats:** `.tab`, `.xls` (VB6 Excel files in .tab format), `.txt`
 
 #### Supported Formats
 
@@ -154,13 +162,14 @@ All methods store settings in browser's localStorage for persistence.
 #### Loading Procedure
 
 1. Ensure Admin Mode is enabled
-2. Go to **File → Load**
-3. Select .tab file
-4. Preview shows:
-   - Detected format
-   - Number of players
-   - Number of rounds with data
-5. Click "Load" to import
+2. Go to **File → Load** (or drag & drop .tab/.xls/.txt file)
+3. Select file
+4. In server mode, a confirmation dialog shows:
+   - Filename
+   - Player count
+   - Rounds filled
+   - Estimated games played
+5. Click **Accept & Save to Server** to push data, or **Decline** to restore from server
 
 #### Post-Load Actions
 
@@ -487,19 +496,32 @@ JSON.parse(localStorage.getItem('ladder_players'));
 
 ### Authentication Required
 
-All admin endpoints require the Admin API Key in the `X-API-Key` header.
+Admin endpoints require the Admin API Key in the `X-API-Key` header. (User key also accepted.)
 
 ### Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/admin/upload` | Upload .tab file |
+| POST | `/api/admin/upload` | Upload .tab/.xls file |
 | GET | `/api/admin/export` | Export current data |
 | POST | `/api/admin/process` | Process game results |
 | POST | `/api/admin/regenerate` | Regenerate ratings |
 | GET | `/api/admin/stats` | Get server statistics |
 | GET | `/api/admin/performance` | Get performance metrics |
 | POST | `/api/admin/performance/clear` | Clear performance data |
+
+### Write Operation Endpoints (Require User or Admin Key)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| PUT | `/api/ladder` | Bulk update players |
+| PUT | `/api/ladder/:rank` | Update single player |
+| DELETE | `/api/ladder/:rank/round/:roundIndex` | Clear cell |
+| POST | `/api/games/submit` | Submit game result |
+| POST | `/api/games/batch` | Batch submit games |
+| POST | `/api/games/recalculate` | Merge & recalculate |
+
+Without a valid key, only GET (read) endpoints are accessible.
 
 ### Example: Export via API
 
@@ -531,14 +553,13 @@ Admin endpoints have stricter rate limits:
 
 ### Access Control
 
-| Feature | Local Mode | Server (No Key) | Server (With Key) |
-|---------|------------|-----------------|-------------------|
-| View data | ✅ | ✅ | ✅ |
-| Enter games | ✅ | ✅ | ✅ |
-| Load files | ✅ | ❌ | ✅ |
-| Export data | ✅ | ❌ | ✅ |
-| Add players | ✅ | ❌ | ✅ |
-| Sort display | ✅ | ❌ | ✅ |
+| Feature | Local Mode | Server (No Key) | Server (User Key) | Server (Admin Key) |
+|---------|------------|-----------------|--------------------|--------------------|
+| View data | ✅ | ✅ | ✅ | ✅ |
+| Enter games | ✅ | ✅ | ✅ | ✅ |
+| Save/load files | ✅ | ❌ | ✅ | ✅ |
+| Admin features | ✅ | ❌ | ❌ | ✅ |
+| Upload .tab/.xls via admin | N/A | ❌ | ❌ | ✅ |
 
 ---
 

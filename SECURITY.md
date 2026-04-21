@@ -49,7 +49,20 @@ CORS_ORIGIN=https://your-domain.com
 - Production warning if `*` is used
 - Credentials (cookies) supported when needed
 
-### 2. Admin API Key Protection (Optional)
+### 2. User API Key Protection (Optional)
+
+**Purpose:** Protect write operations (PUT, POST, DELETE) from unauthorized changes
+
+**Configuration:**
+```env
+USER_API_KEY=<random-string>
+```
+
+**Protected Endpoints:** `PUT /api/ladder*`, `DELETE /api/ladder*`, `POST /api/games/*`
+
+**Behavior:** Without a valid key, users can only **view** data (GET requests). With a valid key, they can edit and save.
+
+### 3. Admin API Key Protection (Optional)
 
 **Purpose:** Protect admin endpoints from unauthorized access
 
@@ -67,7 +80,7 @@ ADMIN_API_KEY=<64-character-hex-key>
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-**Note:** Admin API key is optional. If not set, admin endpoints are publicly accessible (suitable for local/development use).
+**Key Interaction:** Admin key grants all permissions (admin + write). Setting one key to the admin value covers everything. User key does NOT work for admin endpoints.
 
 ### 3. Rate Limiting
 
@@ -116,6 +129,7 @@ RATE_LIMIT_MAX_REQUESTS=100
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `PORT` | Server port | `3000` |
+| `USER_API_KEY` | Write operation protection | None (open) |
 | `ADMIN_API_KEY` | Admin endpoint protection | None (open) |
 | `RATE_LIMIT_WINDOW_MS` | Rate limit window | `900000` (15 min) |
 | `RATE_LIMIT_MAX_REQUESTS` | Max requests per window | `100` (prod), `1000` (dev) |
@@ -128,7 +142,8 @@ Before deploying to production:
 
 - [ ] Set `NODE_ENV=production`
 - [ ] Set `CORS_ORIGIN` to your domain (required)
-- [ ] Generate `ADMIN_API_KEY` if using admin endpoints (optional)
+- [ ] Generate `USER_API_KEY` if write protection needed (optional)
+- [ ] Generate `ADMIN_API_KEY` if admin endpoints protected (optional)
 - [ ] Configure SSL/TLS (via nginx or reverse proxy)
 - [ ] Enable firewall rules
 
@@ -138,8 +153,19 @@ Before deploying to production:
 PORT=3000
 NODE_ENV=production
 CORS_ORIGIN=https://omen.com
+USER_API_KEY=change-this-to-a-random-key
 ADMIN_API_KEY=a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456
 ```
+
+### Single-Key Mode (Simpler)
+
+For setups where admin and regular users share one key, set both to the same value:
+```env
+USER_API_KEY=my-shared-key
+ADMIN_API_KEY=my-shared-key
+```
+
+Admin operations accept either key. Regular write operations accept either key. Admin-only endpoints require admin key (or user key in single-key mode).
 
 ---
 
@@ -167,7 +193,7 @@ Users configure the server URL through the **Settings menu** in the browser:
 1. Open the application
 2. Click **Menu → Settings**
 3. Enter server URL (e.g., `omen.com:3000`)
-4. Optionally enter API key if server has admin protection enabled
+4. Optionally enter API key — user key allows editing/saving, admin key grants full access
 5. Click **Save** - page reloads with new configuration
 
 This setting is stored in the browser's localStorage and persists across sessions.
@@ -192,7 +218,7 @@ This setting is stored in the browser's localStorage and persists across session
 
 ```bash
 cd server
-node -e "require('dotenv').config(); console.log('CORS:', process.env.CORS_ORIGIN || '(not set)'); console.log('Admin Key:', process.env.ADMIN_API_KEY ? 'Set' : '(not set)')"
+node -e "require('dotenv').config(); console.log('CORS:', process.env.CORS_ORIGIN || '(not set)'); console.log('User Key:', process.env.USER_API_KEY ? 'Set' : '(not set)'); console.log('Admin Key:', process.env.ADMIN_API_KEY ? 'Set' : '(not set)')"
 ```
 
 ### Test CORS Configuration
@@ -205,15 +231,21 @@ curl -H "Origin: http://evil.com" -v http://localhost:3000/api/ladder
 
 ---
 
-## No Authentication Required
+## Key-Based Access Control
 
-This application does **not** implement user authentication:
+This application uses optional API keys instead of user accounts:
 - No username/password login
 - No JWT tokens
 - No session management
 
+**Access levels:**
+1. **No key / wrong key** → Read-only (GET endpoints)
+2. **Valid user key** → Can edit/save data (PUT/POST/DELETE on ladder and games)
+3. **Admin key** → Full access including admin endpoints (/api/admin/*)
+
 Security is achieved through:
-1. Optional admin API key for sensitive endpoints
-2. CORS protection
-3. Rate limiting
-4. Network-level security (firewall, SSL)
+1. Optional user API key for write operations
+2. Optional admin API key for admin endpoints
+3. CORS protection
+4. Rate limiting
+5. Network-level security (firewall, SSL)

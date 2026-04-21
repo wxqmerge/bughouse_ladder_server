@@ -114,7 +114,7 @@ Open these URLs to configure clients automatically:
 |--------|------------|---------|
 | Server | `?config=1&server=http://host:port&key=yourkey` | Connect to server with API key |
 | Local mode | `?config=2` | Reset to local mode (no server) |
-| Remote file | `?config=3&file=http://host/file.tab` | Fetch and load .tab file from URL |
+| Remote file | `?config=3&file=http://host/file.tab` | Fetch and load .tab/.xls file from URL |
 
 **Example - Connect to production server:**
 ```
@@ -128,7 +128,7 @@ http://your-app-domain/?config=3&file=http://server/ladder.tab
 
 ### Drag & Drop (Local Files)
 
-On the splash screen, drag a `.tab` file onto the drop zone to load it directly. No server needed.
+On the splash screen, drag a `.tab`, `.xls`, or `.txt` file onto the drop zone to load it directly. No server needed.
 
 ## Features
 
@@ -142,7 +142,8 @@ On the splash screen, drag a `.tab` file onto the drop zone to load it directly.
 
 ### Security Features
 
-- Admin API key protection for admin endpoints (optional)
+- User API key for write operations (optional) — without key, read-only access
+- Admin API key for admin endpoints (optional) — admin key also grants write access
 - Rate limiting (100 API requests per 15 min)
 - CORS configuration with production warnings
 - Helmet.js security headers
@@ -259,25 +260,26 @@ If server is down:
 ## API Endpoints
 
 ### Ladder Data
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/ladder` | Get all ladder data (public) |
-| `GET` | `/api/ladder/:rank` | Get single player |
-| `PUT` | `/api/ladder/:rank` | Update player (authenticated) |
-| `PUT` | `/api/ladder` | Bulk update (admin only) |
-| `DELETE` | `/api/ladder/:rank/round/:roundIndex` | Remove game result |
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/api/ladder` | None | Get all ladder data (public) |
+| `GET` | `/api/ladder/:rank` | None | Get single player |
+| `PUT` | `/api/ladder/:rank` | User/Admin key | Update player |
+| `PUT` | `/api/ladder` | User/Admin key | Bulk update players |
+| `DELETE` | `/api/ladder/:rank/round/:roundIndex` | User/Admin key | Remove game result |
 
 ### Games
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/games/submit` | Submit game result (authenticated) |
-| `POST` | `/api/games/batch` | Batch submit games (authenticated) |
-| `GET` | `/api/games/player/:rank` | Get player's game results |
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/api/games/submit` | User/Admin key | Submit game result |
+| `POST` | `/api/games/batch` | User/Admin key | Batch submit games |
+| `POST` | `/api/games/recalculate` | User/Admin key | Merge results & recalculate |
+| `GET` | `/api/games/player/:rank` | None | Get player's game results |
 
-### Admin Endpoints *(requires API key)*
+### Admin Endpoints *(requires admin or user API key)*
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/api/admin/upload` | Upload .tab file |
+| `POST` | `/api/admin/upload` | Upload .tab/.xls file |
 | `GET` | `/api/admin/export` | Export as .tab file |
 | `POST` | `/api/admin/process` | Process game results |
 | `POST` | `/api/admin/regenerate` | Regenerate ratings |
@@ -309,6 +311,12 @@ CORS_ORIGIN=https://your-domain.com
 # Leave empty for local/development use
 # Generate with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ADMIN_API_KEY=
+
+# User API Key - OPTIONAL: Protects write operations (PUT/DELETE/POST)
+# Users without a valid key can only VIEW data (read-only)
+# Admin key also works here — one key covers all operations
+# Leave empty for local/development use
+USER_API_KEY=
 
 # Data
 TAB_FILE_PATH=./data/ladder.tab

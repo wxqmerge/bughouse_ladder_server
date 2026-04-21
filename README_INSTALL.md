@@ -16,7 +16,8 @@ This guide provides step-by-step instructions for deploying the Bughouse Chess L
 |-----------|---------------|
 | **Frontend** | All game entry, validation, rating calculation in browser |
 | **Server** | Stores/retrieves ladder data via REST API |
-| **No authentication** | Optional API key for admin endpoints only |
+| **User key** | Optional — protects write operations (PUT/POST/DELETE) |
+| **Admin key** | Optional — protects admin endpoints + also grants write access |
 
 Users configure the server URL through the **Settings menu** in the browser - no environment variables needed for most deployments.
 
@@ -95,6 +96,8 @@ cat > .env << EOF
 PORT=3000
 NODE_ENV=production
 CORS_ORIGIN=https://your-domain.com
+USER_API_KEY=
+ADMIN_API_KEY=
 EOF
 cd ..
 ```
@@ -172,14 +175,18 @@ NODE_ENV=production
 # REQUIRED: Your production domain (for CORS security)
 CORS_ORIGIN=https://your-domain.com
 
-# OPTIONAL: Admin API key for protecting /api/admin/* endpoints
-# Leave empty for local/development use
+# OPTIONAL: API keys for protecting operations
+# User key — protects write operations (PUT/POST/DELETE). Without key: read-only.
+# Admin key — protects admin endpoints + also grants write access.
+# Set one key to the same value for all-access, or separate them. Leave empty for local/dev.
+USER_API_KEY=
 ADMIN_API_KEY=
 ```
 
 **Key values explained:**
 - `CORS_ORIGIN` - **Required** - Your domain (e.g., `https://omen.com`). Prevents cross-site attacks.
-- `ADMIN_API_KEY` - Optional - Protects admin endpoints. Generate with: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+- `USER_API_KEY` - Optional — protects write operations. Admin key also works here.
+- `ADMIN_API_KEY` - Optional — protects admin endpoints. Generates with: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
 
 ### Step 6: Build Application
 
@@ -343,7 +350,8 @@ nohup NODE_ENV=production node dist/index.js > server.log 2>&1 &
 | `PORT` | No | Server port (default: 3000) |
 | `NODE_ENV` | Yes | Set to `production` |
 | `CORS_ORIGIN` | **Yes** | Your domain (e.g., `https://omen.com`) |
-| `ADMIN_API_KEY` | Optional | API key for admin endpoints |
+| `USER_API_KEY` | Optional | API key for write operations (PUT/POST/DELETE) |
+| `ADMIN_API_KEY` | Optional | API key for admin endpoints (/api/admin/*) |
 
 ### Client-Side Server Configuration
 
@@ -354,7 +362,7 @@ Users can configure the application in three ways:
 1. Open the application
 2. Click **Menu → Settings**
 3. Enter server URL (e.g., `omen.com:3000` or `http://localhost:3000`)
-4. Optionally enter API key if server has admin protection enabled
+4. Optionally enter API key — user key allows editing, admin key grants full admin access
 5. Click **Save** - page reloads with new configuration
 
 #### Method 2: URL-Based Setup (One-Click)
@@ -363,9 +371,9 @@ Share a single URL with users to auto-configure everything:
 
 | Config | URL Format | Purpose |
 |--------|------------|---------|
-| Server + API key | `?config=1&server=http://host:port&key=yourkey` | Full server connection |
+| Server + API key | `?config=1&server=http://host:port&key=yourkey` | Full server connection (user or admin key) |
 | Local mode | `?config=2` | Reset to local (no server) |
-| Remote file load | `?config=3&file=http://host/file.tab` | Fetch and load .tab from URL |
+| Remote file load | `?config=3&file=http://host/file.tab` | Fetch and load .tab/.xls from URL |
 
 **Example for production deployment:**
 ```
@@ -374,14 +382,20 @@ http://your-domain.com/?config=1&server=http://your-server:port&key=your-api-key
 
 #### Method 3: Drag & Drop (Local Files)
 
-On the splash screen, drag a `.tab` file onto the drop zone. No server needed — loads directly into local mode.
+On the splash screen, drag a `.tab`, `.xls`, or `.txt` file onto the drop zone. No server needed — loads directly into local mode.
 
 All settings are stored in the browser's localStorage and persist across sessions.
 
-### Generate Admin API Key (Optional)
+### Generate API Keys (Optional)
 
 ```bash
+# User API Key — protects write operations
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+
+# Admin API Key — protects admin endpoints
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+
+# Use the same key for both if you want one key to cover everything
 ```
 
 ---
@@ -612,7 +626,8 @@ sudo tail -f /var/log/nginx/error.log
 - [ ] Set `NODE_ENV=production`
 - [ ] Set `CORS_ORIGIN` to your production domain (required)
 - [ ] Configured SSL/TLS with Let's Encrypt
-- [ ] Generated `ADMIN_API_KEY` if using admin endpoints (optional)
+- [ ] Generated `USER_API_KEY` if write protection needed (optional)
+- [ ] Generated `ADMIN_API_KEY` if admin endpoints protected (optional)
 - [ ] Enabled firewall (UFW):
   ```bash
   sudo ufw allow 'Nginx Full'

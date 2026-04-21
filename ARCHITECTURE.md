@@ -135,12 +135,19 @@ subscribe(callback): Unsubscribe  // Subscribe to data changes
 
 **Endpoints:**
 ```typescript
-GET    /api/ladder                          // Fetch all players
-GET    /api/ladder/:rank                    // Fetch single player
-PUT    /api/ladder                          // Bulk update (merge on client)
-PUT    /api/ladder/:rank                    // Update single player
-DELETE /api/ladder/:rank/round/:roundIndex  // Clear cell
+GET    /api/ladder                          // Fetch all players (public)
+GET    /api/ladder/:rank                    // Fetch single player (public)
+PUT    /api/ladder                          // Bulk update (requires user/admin key)
+PUT    /api/ladder/:rank                    // Update single player (requires user/admin key)
+DELETE /api/ladder/:rank/round/:roundIndex  // Clear cell (requires user/admin key)
 ```
+
+#### Auth Middleware (auth.middleware.ts)
+**Purpose:** Key verification for API access
+
+**Middlewares:**
+- `requireAdminKey` — accepts admin key only (for /api/admin/* routes)
+- `requireUserKey` — accepts either user key or admin key (for write operations on ladder/games)
 
 #### DataService (server/src/services/dataService.ts)
 **Purpose:** File I/O with locking for concurrent access safety
@@ -456,15 +463,22 @@ The app supports one-click configuration via URL parameters:
 
 | Param | Purpose | Example |
 |-------|---------|---------|
-| `?config=1&server=...&key=...` | Connect to server | Sets server URL + API key in localStorage |
+| `?config=1&server=...&key=...` | Connect to server | Sets server URL + API key (user or admin) in localStorage |
 | `?config=2` | Reset to local mode | Clears all user settings |
-| `?config=3&file=...` | Load remote .tab file | Fetches file from URL, loads into app |
+| `?config=3&file=...` | Load remote file | Fetches .tab/.xls file from URL, loads into app |
 
 URL params are automatically cleared after application (using `history.replaceState`) so reloads don't re-apply.
 
 ### Drag & Drop
 
-Local `.tab` files can be loaded by dragging onto the splash screen drop zone. Uses the File API — no server upload required.
+Local `.tab`, `.xls`, or `.txt` files can be loaded by dragging onto the splash screen drop zone. Uses the File API — no server upload required.
+
+### File Import Confirmation (Server Mode)
+
+When loading a file in admin/server mode, a confirmation dialog appears before pushing to server:
+- Shows filename, player count, rounds filled, estimated games played
+- **Accept** → saves imported data to server
+- **Decline** → pulls fresh data from server (restores previous state)
 
 ---
 
