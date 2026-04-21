@@ -1,6 +1,6 @@
 # Bughouse Chess Ladder - Architecture Documentation
 
-**Version: 1.0.1**
+**Version: 1.0.2**
 
 Technical deep-dive for developers. For deployment see [README_INSTALL.md](./README_INSTALL.md), for security see [SECURITY.md](./SECURITY.md), for admin operations see [ADMIN_MANUAL.md](./ADMIN_MANUAL.md).
 
