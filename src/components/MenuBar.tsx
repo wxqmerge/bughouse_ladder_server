@@ -74,9 +74,10 @@ export default function MenuBar({
   serverUrl,
   hasAdminApiKey,
 }: MenuBarProps) {
-  // Admin mode is disabled if connected to server without admin API key
-  // Enabled if: no server (local mode) OR has admin API key configured
-  const adminModeDisabled = !!(serverUrl && serverUrl.trim() && !hasAdminApiKey);
+  // Admin mode disabled: connected to server WITH API key but not actually admin
+  // Enabled: no server URL (local mode) OR server unreachable (repair mode) OR has API key
+  const serverConfigured = !!(serverUrl && serverUrl.trim());
+  const adminModeDisabled = serverConfigured && !isServerDownMode() && !hasAdminApiKey;
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [isServerDown, setIsServerDown] = useState(false);
 
