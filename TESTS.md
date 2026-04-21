@@ -59,7 +59,7 @@ src/
 
 ## Current Test Coverage
 
-### Unit Tests (46 passing)
+### Unit Tests (57 passing)
 
 | File | Tests | Description |
 |------|-------|-------------|
@@ -67,12 +67,23 @@ src/
 | `newDay.test.ts` | 23 | Title progression and new day processing |
 | `migration.test.ts` | 13 | Local ↔ Server data migration |
 | `utils.test.ts` | 4 | Error message utilities |
+| `auth.test.ts` | 10 | Auth middleware exports + file extension validation |
 
 ### Component Tests
 
 | File | Description |
 |------|-------------|
 | `LadderForm.test.tsx` | Component rendering tests |
+
+### Running Server Tests
+
+The server has its own vitest setup. Run from the `server/` directory:
+
+```bash
+cd server && npm run test:run
+```
+
+Note: Server tests import client-side test files for shared logic (auth constants, file extensions).
 
 ---
 

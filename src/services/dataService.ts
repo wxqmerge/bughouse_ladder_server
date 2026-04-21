@@ -28,7 +28,7 @@ export interface DataServiceConfig {
 
 class DataService {
   private config: DataServiceConfig;
-  private pollInterval: number | null = null;
+  private pollInterval: ReturnType<typeof setInterval> | null = null;
   private subscribers: Set<() => void> = new Set();
 
   constructor(config: DataServiceConfig) {
