@@ -658,11 +658,17 @@ export default function LadderForm({
           sortedGameResults[playerIndex] = gameResults;
         });
 
-        localStorage.setItem(
+      localStorage.setItem(
           getKeyPrefix() + "ladder_players",
           JSON.stringify(loadedPlayers),
         );
         setPlayers(loadedPlayers);
+
+        // Admin mode: push import directly to server via savePlayers
+        if (isAdmin) {
+          log('[LOAD_FILE]', 'Admin mode - pushing imported data to server');
+          savePlayers(loadedPlayers).catch(err => console.error('[LOAD_FILE] Failed to sync:', err));
+        }
 
         setSortBy(null);
       } else {
@@ -1117,183 +1123,217 @@ export default function LadderForm({
     }
   }, [onSetRecalculateRef, recalculateRatings]);
 
-  /**
-   * Recalculate ratings AND save to server/localStorage in one operation
-   * This is the primary save operation for users
-   */
-  const recalculateAndSave = async () => {
-    log('[RECALC]', 'Starting recalculate_and_save');
+ /**
+    * Recalculate ratings AND save to server/localStorage in one operation
+    * This is the primary save operation for users
+    */
+   const recalculateAndSave = async () => {
+     log('[RECALC]', 'Starting recalculate_and_save');
 
-    // CRITICAL: Fetch fresh data from server before processing to avoid overwriting other clients' work
-    let playersToUse: PlayerData[] = players;
-    
-    log('[RECALC]', 'Fetching fresh data from server...');
-    try {
-      const userSettings = loadUserSettings();
-      const serverUrl = userSettings.server?.trim();
-      if (serverUrl) {
-        const response = await fetch(`${serverUrl}/api/ladder`);
-        if (response.ok) {
-          const data = await response.json();
-          const serverPlayers = data.data?.players || [];
-          
-          if (serverPlayers && serverPlayers.length > 0) {
-            playersToUse = mergeServerWithLocal(serverPlayers, players);
-            log('[RECALC]', 'Merged server data with local changes');
-          }
+     // Check for pending New Day operation (set by App.tsx before calling recalculate)
+     const pendingNewDayJson = localStorage.getItem(
+       getKeyPrefix() + "ladder_pending_newday",
+     );
+     if (pendingNewDayJson) {
+       console.log(
+         `>>> [RECALC COMPLETE] Pending New Day detected: ${pendingNewDayJson}`,
+       );
+       try {
+         const pendingNewDay = JSON.parse(pendingNewDayJson);
+         const reRank = pendingNewDay.reRank === true;
+         console.log(`>>> [NEW DAY] Processing with reRank=${reRank}`);
+
+         // Get current title and determine next title for mini-games
+         const currentTitle = getProjectName();
+         const normalizedTitle = String(currentTitle || "")
+           .toLowerCase()
+           .trim();
+         console.log(
+           `>>> [NEW DAY] Current title from storage: "${currentTitle}" (normalized: "${normalizedTitle}")`,
+         );
+         const nextTitle = (() => {
+           const index = MINI_GAMES.findIndex(
+             (game) => game.toLowerCase() === normalizedTitle,
+           );
+           console.log(
+             `>>> [NEW DAY] findIndex result: ${index} for "${currentTitle}" (normalized: "${normalizedTitle}")`,
+           );
+           if (index !== -1) {
+             return MINI_GAMES[(index + 1) % MINI_GAMES.length];
+           }
+           return currentTitle;
+         })();
+         console.log(`>>> [NEW DAY] Next title will be: "${nextTitle}"`);
+
+         // Apply New Day transformations to calculatedPlayers
+         const finalPlayers = processNewDayTransformations(
+           players,
+           reRank,
+         );
+
+         await savePlayers(finalPlayers);
+         setProjectNameStorage(nextTitle);
+         localStorage.removeItem(getKeyPrefix() + "ladder_pending_newday");
+         localStorage.removeItem(getKeyPrefix() + "ladder_settings");
+
+         if (shouldLog(10)) {
+           console.log(
+             `New Day complete - Title: ${nextTitle}, ReRank: ${reRank}\n`,
+           );
+         }
+
+         setPlayers(finalPlayers);
+
+         // Reload to apply changes
+         window.location.reload();
+         return;
+       } catch (err) {
+         console.error("Failed to process pending New Day:", err);
+         localStorage.removeItem(getKeyPrefix() + "ladder_pending_newday");
+       }
+     }
+
+     // Admin mode: calculate locally, then push to server atomically
+     if (isAdmin) {
+       log('[RECALC]', 'Admin mode - calculating locally and pushing to server');
+       
+       // Clear save status - all cells need to be re-saved after recalculation
+       clearAllSaveStatus();
+
+       // Build fresh matches from current UI state (no caching)
+       const result = checkGameErrorsWithPlayers(players);
+
+       // If there are errors, show the error dialog and return early
+       if (result.hasErrors && result.errors.length > 0) {
+         if (shouldLog(5)) {
+           console.log(`\n=== RECALC PAUSED ===`);
+           console.log(
+             `Found ${result.errors.length} errors - showing error dialog`,
+           );
+         }
+         return;
+       }
+
+       let matches: MatchData[] = result.matches;
+       let playerResultsByMatch: Map<string, PlayerMatchResult[]> | undefined =
+         result.playerResultsByMatch;
+
+       if (shouldLog(5)) {
+         console.log(`\n=== RECALC START ===`);
+         console.log(`Matches to process: ${matches.length}`);
+         let totalExisting = 0;
+         for (const p of players) {
+           const filled = p.gameResults.filter((r) => r !== null && r !== "");
+           totalExisting += filled.length;
+         }
+         console.log(`Total existing game results: ${totalExisting}`);
+       }
+
+       const processedPlayers = repopulateGameResults(
+         players,
+         matches,
+         31,
+         playerResultsByMatch,
+       );
+
+       if (shouldLog(5)) {
+         let totalAfterRepop = 0;
+         for (const p of processedPlayers) {
+           const filled = p.gameResults.filter((r) => r !== null && r !== "");
+           totalAfterRepop += filled.length;
+         }
+         console.log(`Total results after repopulation: ${totalAfterRepop}`);
+       }
+
+       const calculatedPlayers = calculateRatings(processedPlayers, matches);
+
+       // Save with waitForServer=true to wait for server confirmation
+       (window as any).__ladder_setStatus?.('Saving to server...');
+       log('[RECALC]', 'Saving to server...');
+       const saveResult = await savePlayers(calculatedPlayers, true);
+       
+       if (saveResult.success) {
+         if (saveResult.serverSynced) {
+           log('[RECALC]', '✓ Saved to server');
+           clearLocalChangesFlag();
+           clearPendingDeletes();
+         } else {
+           log('[RECALC]', '✓ Saved locally (server sync skipped)');
+         }
+       }
+       if (saveResult.error) {
+         log('[RECALC]', '⚠ Server save issue:', saveResult.error);
+       }
+       
+       setPlayers(calculatedPlayers);
+       log('[RECALC]', 'Recalculate_Save complete');
+       (window as any).__ladder_setStatus?.(null);
+       return;
+     }
+
+     // User mode: calculate locally, push full table to server, pull back fresh data
+      log('[RECALC]', 'User mode - calculating locally and syncing with server');
+      
+      clearAllSaveStatus();
+
+      const result = checkGameErrorsWithPlayers(players);
+
+      if (result.hasErrors && result.errors.length > 0) {
+        if (shouldLog(5)) {
+          console.log(`\n=== RECALC PAUSED ===`);
+          console.log(`Found ${result.errors.length} errors - showing error dialog`);
         }
-      }
-    } catch (error) {
-      log('[RECALC]', 'Failed to fetch fresh data, using local:', error);
-    }
-
-    // Clear save status - all cells need to be re-saved after recalculation
-    clearAllSaveStatus();
-
-    // Note: Not using batch mode since this is a single atomic operation
-
-    // Always build fresh matches from current UI state (no caching)
-    const result = checkGameErrorsWithPlayers(playersToUse);
-
-    // If there are errors, show the error dialog and return early
-    if (result.hasErrors && result.errors.length > 0) {
-      if (shouldLog(5)) {
-        console.log(`\n=== RECALC PAUSED ===`);
-        console.log(
-          `Found ${result.errors.length} errors - showing error dialog`,
-        );
-      }
-      return;
-    }
-
-    let matches: MatchData[] = result.matches;
-    let playerResultsByMatch: Map<string, PlayerMatchResult[]> | undefined =
-      result.playerResultsByMatch;
-
-    if (shouldLog(5)) {
-      console.log(`\n=== RECALC START ===`);
-      console.log(`Matches to process: ${matches.length}`);
-      // Count existing game results before clear
-      let totalExisting = 0;
-      for (const p of playersToUse) {
-        const filled = p.gameResults.filter((r) => r !== null && r !== "");
-        totalExisting += filled.length;
-      }
-      console.log(`Total existing game results: ${totalExisting}`);
-    }
-
-    const processedPlayers = repopulateGameResults(
-      playersToUse,
-      matches,
-      31,
-      playerResultsByMatch,
-    );
-
-    if (shouldLog(5)) {
-      // Count results after repopulation
-      let totalAfterRepop = 0;
-      for (const p of processedPlayers) {
-        const filled = p.gameResults.filter((r) => r !== null && r !== "");
-        totalAfterRepop += filled.length;
-      }
-      console.log(`Total results after repopulation: ${totalAfterRepop}`);
-    }
-
-    const calculatedPlayers = calculateRatings(processedPlayers, matches);
-
-    // Check for pending New Day operation (set by App.tsx before calling recalculate)
-    const pendingNewDayJson = localStorage.getItem(
-      getKeyPrefix() + "ladder_pending_newday",
-    );
-    if (pendingNewDayJson) {
-      console.log(
-        `>>> [RECALC COMPLETE] Pending New Day detected: ${pendingNewDayJson}`,
-      );
-      try {
-        const pendingNewDay = JSON.parse(pendingNewDayJson);
-        const reRank = pendingNewDay.reRank === true;
-        console.log(`>>> [NEW DAY] Processing with reRank=${reRank}`);
-
-        // Get current title and determine next title for mini-games
-        const currentTitle = getProjectName();
-        const normalizedTitle = String(currentTitle || "")
-          .toLowerCase()
-          .trim();
-        console.log(
-          `>>> [NEW DAY] Current title from storage: "${currentTitle}" (normalized: "${normalizedTitle}")`,
-        );
-        const nextTitle = (() => {
-          const index = MINI_GAMES.findIndex(
-            (game) => game.toLowerCase() === normalizedTitle,
-          );
-          console.log(
-            `>>> [NEW DAY] findIndex result: ${index} for "${currentTitle}" (normalized: "${normalizedTitle}")`,
-          );
-          if (index !== -1) {
-            return MINI_GAMES[(index + 1) % MINI_GAMES.length];
-          }
-          return currentTitle;
-        })();
-        console.log(`>>> [NEW DAY] Next title will be: "${nextTitle}"`);
-
-        // Apply New Day transformations to calculatedPlayers
-        const finalPlayers = processNewDayTransformations(
-          calculatedPlayers,
-          reRank,
-        );
-
-        await savePlayers(finalPlayers);
-        setProjectNameStorage(nextTitle);
-        localStorage.removeItem(getKeyPrefix() + "ladder_pending_newday");
-        localStorage.removeItem(getKeyPrefix() + "ladder_settings");
-
-        if (shouldLog(10)) {
-          console.log(
-            `New Day complete - Title: ${nextTitle}, ReRank: ${reRank}\n`,
-          );
-        }
-
-        setPlayers(finalPlayers);
-
-        // Reload to apply changes
-        window.location.reload();
         return;
-      } catch (err) {
-        console.error("Failed to process pending New Day:", err);
-        localStorage.removeItem(getKeyPrefix() + "ladder_pending_newday");
       }
-    }
 
-    // Show status while saving to server
-    (window as any).__ladder_setStatus?.('Saving to server...');
-    
-    log('[RECALC]', 'Saving to server...');
-    
-    // Save with waitForServer=true to wait for server confirmation
-    const saveResult = await savePlayers(calculatedPlayers, true);
-    
-    if (saveResult.success) {
-      if (saveResult.serverSynced) {
-        log('[RECALC]', '✓ Saved to server');
-        // Clear local changes flag after successful server sync
-        clearLocalChangesFlag();
-        // Clear pending deletes after successful server sync
-        clearPendingDeletes();
-      } else {
-        log('[RECALC]', '✓ Saved locally (server sync skipped)');
+      let matches: MatchData[] = result.matches;
+      let playerResultsByMatch: Map<string, PlayerMatchResult[]> | undefined = result.playerResultsByMatch;
+
+      if (shouldLog(5)) {
+        console.log(`\n=== RECALC START ===`);
+        console.log(`Matches to process: ${matches.length}`);
       }
-    }
-    if (saveResult.error) {
-      log('[RECALC]', '⚠ Server save issue:', saveResult.error);
-    }
-    
-    // Update UI with calculated players
-    setPlayers(calculatedPlayers);
-    
-    log('[RECALC]', 'Recalculate_Save complete');
-    
-    (window as any).__ladder_setStatus?.(null);
-  };
+
+      const processedPlayers = repopulateGameResults(players, matches, 31, playerResultsByMatch);
+      const calculatedPlayers = calculateRatings(processedPlayers, matches);
+
+      // Push full table to server
+      (window as any).__ladder_setStatus?.('Saving to server...');
+      log('[RECALC]', 'Pushing full table to server...');
+      await savePlayers(calculatedPlayers, true);
+      clearLocalChangesFlag();
+      clearPendingDeletes();
+
+      // Pull fresh data back from server to ensure UI matches server exactly
+      log('[RECALC]', 'Pulling fresh data from server...');
+      try {
+        const userSettings = loadUserSettings();
+        const serverUrl = userSettings.server?.trim();
+        
+        if (serverUrl) {
+          const response = await fetch(`${serverUrl}/api/ladder`);
+          if (response.ok) {
+            const data = await response.json();
+            const serverPlayers = data.data?.players || [];
+            if (serverPlayers && serverPlayers.length > 0) {
+              setPlayers(serverPlayers);
+              log('[RECALC]', '✓ Synced with server - UI refreshed from server data');
+            } else {
+              setPlayers(calculatedPlayers);
+            }
+          } else {
+            setPlayers(calculatedPlayers);
+          }
+        } else {
+          setPlayers(calculatedPlayers);
+        }
+      } catch {
+        setPlayers(calculatedPlayers);
+      }
+
+      log('[RECALC]', 'Recalculate_Save complete');
+      (window as any).__ladder_setStatus?.(null);
+    };
 
   /**
    * Refresh players from server/storage
