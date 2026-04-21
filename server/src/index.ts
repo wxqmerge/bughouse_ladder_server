@@ -209,6 +209,9 @@ async function startServer() {
   try {
     await initializeDefaultLadder();
     app.listen(PORT, () => {
+      const host = '0.0.0.0';
+      const serverUrl = `http://localhost:${PORT}`;
+      
       console.log('\n========================================');
       console.log('  BUGHOUSE CHESS LADDER SERVER');
       console.log('========================================\n');
@@ -217,6 +220,12 @@ async function startServer() {
       console.log(`✓ CORS Origins: ${process.env.CORS_ORIGINS || '*'}`);
       console.log(`✓ Admin API Key: ${process.env.ADMIN_API_KEY && !process.env.ADMIN_API_KEY.includes('CHANGE') ? 'Enabled (protected)' : '⚠️  Using DEFAULT/weak key!'}`);
       console.log(`✓ Rate Limit: ${isProduction ? '100' : '1000'} req/15min`);
+      console.log('');
+      
+      // Connection instructions for clients
+      console.log('CLIENT CONFIGURATION:');
+      console.log(`  Open this URL to configure a client:`);
+      console.log(`  http://your-host:${PORT}/?config=1&server=http://your-host:${PORT}&key=YOUR_API_KEY`);
       console.log('');
       
       if (process.env.NODE_ENV !== 'production') {
