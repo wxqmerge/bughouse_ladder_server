@@ -20,76 +20,25 @@ http://your-domain.com/?config=1&server=http://your-server:port&key=your-api-key
 #### Option 3: Load Local File
 Drag a `.tab`, `.xls`, or `.txt` file onto the splash screen (no server needed).
 
-#### API Key Access
-- **No keys configured on server:** All operations allowed (local/dev mode)
-- **User key configured, no/wrong key provided:** View-only access (GET only)
-- **Valid user key:** Can enter games and save results
-- **Admin key:** Full access including admin features (if admin mode enabled)
+### API Key Access
+
+| Key Status | What You Can Do |
+|-----------|-----------------|
+| No key / wrong key | View data only (read-only) |
+| Valid user key | Enter games and save results |
+| Admin key | Full access including admin features |
+
+See [SECURITY.md](./SECURITY.md) for key generation details.
+
+---
 
 ## Table of Contents
 
-1. [Overview](#overview)
-2. [Entering Game Results](#entering-game-results)
-3. [Game Result Formats](#game-result-formats)
-4. [Error Checking and Correction](#error-checking-and-correction)
-5. [Understanding Errors](#understanding-errors)
-6. [Bulk Operations](#bulk-operations)
-7. [Tips and Best Practices](#tips-and-best-practices)
-
----
-
-## Overview
-
-The Bughouse Chess Ladder tracks player ratings using the Elo rating system. Game results are entered in a compact format that encodes opponents and outcomes in a single cell.
-
-### Key Concepts
-
-- **Rank**: Each player is assigned a unique rank number (1, 2, 3, ...)
-- **Round**: Each game session is a round (round 1, round 2, etc.)
-- **Result String**: A compact notation describing who played whom and who won
-
----
-
-## Multi-Client Usage
-
-### Using Multiple Browsers Simultaneously
-
-The ladder application supports multiple users entering games from different browsers at the same time. This is useful when:
-- Tournament directors and scorekeepers work from separate computers
-- Multiple people enter games for different sections simultaneously
-- You want to review data on one screen while entering on another
-
-### How Synchronization Works
-
-**Automatic Updates (5-second delay)**
-- Changes made in Browser A appear in Browser B within 5 seconds
-- No manual refresh required
-- Works across different computers on the same network
-
-**Smart Merge on Save**
-- When you save, the system fetches latest data from server first
-- Your local unconfirmed entries are preserved and merged with server data
-- No work is lost when multiple people save around the same time
-
-**Example Scenario:**
-```
-Browser A: Enters game "4W5" → Saves
-Browser B: Automatically sees "4W5" within 5 seconds (no refresh needed)
-Browser B: Enters game "6W7" → Saves  
-Browser A: Automatically sees both games (merge preserves both)
-```
-
-### Best Practices for Multi-Client Use
-
-1. **Save frequently** - The merge happens on save, so save often to sync work
-2. **Don't edit same cells simultaneously** - While merge is smart, it's best to avoid two people editing the exact same round/player at once
-3. **Wait for underscore** - Cells show "_" suffix when saved (e.g., "4W5_"). Wait for this before assuming sync is complete.
-4. **Reconnect dialog** - If server goes down and comes back, the reconnect dialog will offer to merge your local changes with server data
-
-### Limitations
-
-- **Up to 5 second delay** - Polling-based sync means changes may take up to 5 seconds to appear on other clients
-- **Local-first merge** - Your unconfirmed local entries always win over server data (your work is preserved)
+1. [Entering Game Results](#entering-game-results)
+2. [Game Result Formats](#game-result-formats)
+3. [Error Checking and Correction](#error-checking-and-correction)
+4. [Bulk Operations](#bulk-operations)
+5. [Tips and Best Practices](#tips-and-best-practices)
 
 ---
 
@@ -97,82 +46,59 @@ Browser A: Automatically sees both games (merge preserves both)
 
 ### Method 1: Direct Cell Entry
 
-**Best for:** Entering one game result at a time
+Best for entering one game result at a time.
 
-1. Locate the player's row in the ladder
-2. Find the round number (column) where you want to enter the result
-3. Click on the cell
-4. Enter the result string in the dialog that appears
-5. Click "Save"
+1. Click on the cell (row = player rank, column = round)
+2. Enter the result string in the dialog
+3. Click "Save"
 
-**Example:** Player 5 played in round 1 against players 6, 7, and 8
-- Click on row 5, column 1
-- Enter: `5:6W7:8`
-- Click Save
+**Example:** Player 5 played against 6, 7, and 8 in round 1:
+- Click row 5, column 1 → Enter: `5:6W7:8` → Save
 
 ### Method 2: Enter Games Mode
 
-**Best for:** Systematically entering all games round by round
+Best for systematically entering all games round by round.
 
 1. Go to **Operations → Enter Games**
-2. A dialog opens showing the first empty cell
+2. Dialog shows the first empty cell
 3. Enter the result string
-4. Click "Enter_Recalculate_Save" to:
-   - Save the result
-   - Automatically recalculate ratings
-   - Jump to the next empty cell
-5. Repeat until all games are entered
+4. Click "Enter_Recalculate_Save" to save, recalculate ratings, and jump to next cell
+5. Repeat until all games entered
 
-**Keyboard shortcuts in Enter Games mode:**
+**Keyboard shortcuts:**
 - `Enter` or `Ctrl+S`: Save and move to next cell
 - `Escape` or `Ctrl+X`: Cancel and exit
 
 ### Method 3: Error Correction Entry
 
-**Best for:** Fixing invalid or conflicting results
-
-When errors are detected (automatically after recalculation or via Check Errors):
+Best for fixing invalid or conflicting results detected by Check Errors.
 
 1. Click "Continue with corrections" button
-2. The error dialog shows:
-   - The original invalid string
-   - The error message
-   - Which round and player is affected
-3. Enter the corrected result string
-4. Click "Submit Correction"
-5. Automatically moves to next error (if any)
+2. Dialog shows original string, error message, affected round/player
+3. Enter corrected result → click "Submit Correction"
+4. Automatically moves to next error (if any)
 
 ### Method 4: Bulk Paste
 
-**Best for:** Entering many results quickly from a spreadsheet or text file
+Best for entering many results quickly from a spreadsheet or text file.
 
-1. Prepare your results in a text editor or spreadsheet (e.g., LibreOffice Calc) with whitespace-separated values (spaces, tabs, or newlines all work)
-2. Copy the results to clipboard
-3. Go to **Operations → Paste Multiple Results**
-4. Or simply paste directly into any game result cell
-5. The system will:
-   - Detect multiple whitespace-separated results
-   - Apply the first result to current cell
-   - Store remaining results for subsequent entries
-
-**Example clipboard content:**
-```
-1:2W3:4	5:6L7:8	9:10D11:12
-```
-
-This will enter three separate game results in sequence.
+1. Prepare results in whitespace-separated format (spaces, tabs, or newlines):
+   ```
+   1:2W3:4	5:6L7:8	9:10D11:12
+   ```
+2. Copy to clipboard
+3. Go to **Operations → Paste Multiple Results** (or paste directly into any cell)
+4. System applies results sequentially to empty cells
 
 ---
 
 ## Game Result Formats
 
-### Format Overview
+### Overview
 
-Game results use a compact notation encoding:
-- **Player ranks** (who played)
-- **Results** (W = Win, L = Loss, D = Draw)
+Game results use a compact notation encoding player ranks and outcomes.
 
-**Important:** 4-player games are TEAM games. Two teams of two players play TWO games against each other. All teammates share the same results (e.g., both get W, or both get L).
+**Important:** 4-player games are TEAM games — two teams of two play against each other. All teammates share the same results.
 
 ### 2-Player Games
 
@@ -182,18 +108,18 @@ Format: A_R_B
 Meaning: Player A plays Player B, result _ applies to Player A
 
 Examples:
-  2W3  → Player 2 BEATS Player 3 (2 wins)
-  5L7  → Player 5 LOSES to Player 7 (7 wins)
+  2W3  → Player 2 BEATS Player 3
+  5L7  → Player 5 LOSES to Player 7
   3D8  → Player 3 DRAWS with Player 8
 ```
 
 #### Double Result (Two Games)
 ```
 Format: A_R1_R2_B
-Meaning: Player A plays Player B twice, results _1_ and _2_ apply to Player A
+Meaning: Player A plays Player B twice
 
 Examples:
-  3WL4  → Player 3 vs Player 4: Win then Loss (split)
+  3WL4  → Player 3 vs 4: Win then Loss (split)
   5WW6  → Player 5 BEATS Player 6 twice
   7LL8  → Player 7 LOSES both games to Player 8
 ```
@@ -206,30 +132,17 @@ Meaning:
   - Team 1: Players A and B (partners)
   - Team 2: Players C and D (partners)
   - _R_, _R1_, _R2_ = Result(s) for Team 1 (W/L/D)
-  - Two teams play TWO games against each other
-  - Single result = one game played; Double result = both games played
 
 Examples:
-  5:6W7:8  → 
-    Team of 5 & 6 plays ONE game against Team of 7 & 8
-    Team 5&6 WINS (Team 7&8 loses)
-
-  1:2LL3:4  →
-    Team of 1 & 2 plays TWO games against Team of 3 & 4
-    Team 1&2 LOSES both games (Team 3&4 wins both)
-
-  5:6WD7:8  →
-    Team of 5 & 6 plays TWO games against Team of 7 & 8
-    Team 5&6 WINS first game, DRAWS second game (split result)
-
-  9:10D11:12  →
-    Team of 9 & 10 draws with Team of 11 & 12 (one game)
-    All four players get Draw
+  5:6W7:8  → Team of 5&6 plays ONE game vs 7&8, Team 5&6 WINS
+  1:2LL3:4 → Team of 1&2 plays TWO games vs 3&4, Team 1&2 LOSES both
+  5:6WD7:8 → Team of 5&6 plays TWO games vs 7&8, wins first, draws second
+  9:10D11:12 → Teams draw (one game), all four players get Draw
 ```
 
-**Important:** In 4-player team games, teammates always share the same result(s). If you enter `1:2LL3:4`, both players 1 and 2 get two Losses, and both players 3 and 4 get two Wins.
+**Important:** Teammates always share the same result(s). If you enter `1:2LL3:4`, both players 1 and 2 get two Losses.
 
-### Result Codes Reference
+### Result Codes
 
 | Code | Meaning |
 |------|--------|
@@ -243,101 +156,45 @@ Examples:
 
 ### Automatic Error Detection
 
-Errors are automatically checked when you:
+Errors are checked when you:
 - Click **Operations → Recalculate_Save**
 - Enter games in Enter Games mode
 - Import data from a file
 
 ### Manual Error Check
 
-To check for errors without recalculating:
-
 1. Go to **Operations → Check Errors**
 2. Review the error report
 3. Click "Continue with corrections" to fix errors
 
-### Types of Checks Performed
+### Types of Checks
 
-1. **Format Validation**: Is the result string properly formatted?
-2. **Player Existence**: Do all referenced player ranks exist?
-3. **Result Consistency**: Do paired players have matching results?
-4. **Logical Validity**: Are results logically consistent (e.g., someone must lose if someone wins)?
-
----
-
-## Understanding Errors
+1. **Format Validation** — Is the result string properly formatted?
+2. **Player Existence** — Do all referenced player ranks exist?
+3. **Result Consistency** — Do paired players have matching results?
+4. **Logical Validity** — Are results logically consistent?
 
 ### Error Code Reference
 
-#### Format Errors
+| Error | Meaning | Fix |
+|-------|---------|-----|
+| 1 | Invalid characters | Use only digits, W, L, D, colons |
+| 2 | Incomplete 2-player game | Add opponent: `5W6` |
+| 3 | Incomplete 4-player game | Complete format: `1:2W3:4` |
+| 4 | Missing result code | Add team result: `1:2W3:4` |
+| 5 | Player doesn't exist | Use valid rank or add player |
+| 6 | Duplicate player in game | Player can't play themselves |
+| 7 | Mismatched opponent results | One must lose if other wins |
+| 9 | Teammates with different results | Teammates must have same result |
+| 10 | Conflicting results | Check all players' records |
 
-| Error | Meaning | Example | Fix |
-|-------|---------|---------|-----|
-| **1** | Invalid characters | `ABC` | Use only digits, W, L, D, and colons |
-| **2** | Incomplete 2-player game | `5W` | Add opponent: `5W6` |
-| **3** | Incomplete 4-player game | `1:2W3:` | Complete the format: `1:2W3:4` |
-| **4** | Missing result code | `1:2:3:4` | Add team result: `1:2W3:4` |
+### Common Scenarios
 
-#### Player Reference Errors
+**Opponent entered wrong result:** If you entered `5W6` but Player 6 entered `6W5`, one entry must be corrected. If you won: keep `5W6`, change Player 6 to `6L5`.
 
-| Error | Meaning | Example | Fix |
-|-------|---------|---------|-----|
-| **5** | Player doesn't exist | `15W6` (only 10 players) | Use valid rank or add player |
-| **6** | Duplicate player in game | `3:4W3:5` | Player can't play themselves |
+**Wrong player rank:** Entered `15W6` but only 10 players exist. Change to valid rank or add the player via **Operations → Add Player**.
 
-#### Consistency Errors
-
-| Error | Meaning | Example | Fix |
-|-------|---------|---------|-----|
-| **7** | Mismatched opponent results | P1: `1W2`, P2: `2W1` | One must lose if other wins |
-| **8** | Invalid double result | `1WW2` when only 1 game played | Check number of games |
-| **9** | Teammates with different results | P5: `5:6W7:8`, P6: `5:6L7:8` | Teammates must have same result |
-
-#### Logic Errors
-
-| Error | Meaning | Example | Fix |
-|-------|---------|---------|-----|
-| **9** | Impossible result combination | Both players show Win | Results must be opposite |
-| **10** | Conflicting results | Multiple entries for same game | Check all players' records |
-
-### Reading Error Messages
-
-When an error occurs, the dialog shows:
-
-```
-Correction Required - Round 3 of 8
-
-Original String: 5W6L7
-Error: Invalid result combination
-
-Enter corrected result string:
-[                    ]
-```
-
-### Common Error Scenarios
-
-#### Scenario 1: Opponent Entered Wrong Result
-
-**Problem:** You entered `5W6` but Player 6 entered `6W5`
-
-**Solution:**
-1. One entry must be corrected
-2. If you won: Keep `5W6`, change Player 6's entry to `6L5`
-3. If Player 6 won: Change your entry to `5L6`, keep `6W5`
-
-#### Scenario 2: Wrong Player Rank
-
-**Problem:** Entered `15W6` but only 10 players exist
-
-**Solution:**
-- If meant Player 5: Change to `5W6`
-- If Player 15 is new: Add player via **Operations → Add Player**
-
-#### Scenario 3: Incomplete 4-Player Entry
-
-**Problem:** Entered `1:2W3` (missing last player)
-
-**Solution:** Complete as `1:2W3:4`
+**Incomplete 4-player entry:** Entered `1:2W3` (missing last player). Complete as `1:2W3:4`.
 
 ---
 
@@ -345,70 +202,37 @@ Enter corrected result string:
 
 ### Paste Multiple Results
 
-**Use case:** You have results in a spreadsheet (e.g., LibreOffice Calc) or text file
-
-**Steps:**
-1. Format results as whitespace-separated values (spaces, tabs, or newlines all work):
-   ```
-   1:2W3:4 5:6W7:8 9:10W11:12
-   ```
-   Or on separate lines:
-   ```
-   1:2W3:4
-   5:6W7:8
-   9:10W11:12
-   ```
-2. Copy to clipboard
-3. Go to **Operations → Paste Multiple Results**
-4. Click "Paste" in the dialog
-5. Results are applied sequentially to empty cells
+Format results as whitespace-separated values:
+```
+1:2W3:4 5:6W7:8 9:10W11:12
+```
+Or on separate lines. Go to **Operations → Paste Multiple Results** and click "Paste."
 
 ### Enter Games Mode (Full Walkthrough)
 
-**Use case:** Entering an entire round or tournament
-
-**Steps:**
-1. Click **Operations → Enter Games**
-2. Dialog shows: "Entering: Round 1 for Player 1"
-3. Enter result: `1:2W3:4`
-4. Click "Enter_Recalculate_Save"
-5. Automatically jumps to next empty cell
-6. Continue until all cells filled
-7. Press Escape when done
-
-### Clear All Matching Cells
-
-**Use case:** You entered wrong results for a specific game and want to clear them
-
-**Steps:**
-1. Open the error dialog for any cell with that result
-2. Click "Clear All Matching Cells (Ctrl+C)"
-3. All cells containing the same result are cleared
-4. Re-enter correct results
+Click **Operations → Enter Games**, enter results, click "Enter_Recalculate_Save" — automatically jumps to next empty cell. Press Escape when done.
 
 ---
 
 ## Tips and Best Practices
 
-### Entry Tips
+1. **Read the ErrorDialog feedback** — After entering a result, the dialog shows player names and parsed result. Verify it matches your intent.
 
-1. **Read the ErrorDialog feedback** - After entering a result, the dialog shows player names and the parsed result (e.g., "Daniel Smith (5) won against Seth Acosta (6)"). Verify this matches what you intended to enter.
+2. **Team games: all teammates share results** — If you enter `1:2LL3:4`, both players 1 and 2 get two Losses.
 
-2. **Team games: all teammates share the same results** - In 4-player team games (format `A:B_W_C:D` or `A:B_WL_C:D`), both teammates get the same result(s). If you enter `1:2LL3:4`, both players 1 and 2 get two Losses.
+3. **Use Enter Games mode for batches** — More efficient than cell-by-cell entry.
 
-3. **Use Enter Games mode for batches** - More efficient than cell-by-cell entry
+4. **Save frequently** — Changes are auto-saved locally, but recalculation saves to server and enables multi-client sync.
 
-4. **Save frequently** - Changes are auto-saved locally, but recalculation saves to server and enables multi-client sync
+5. **Check errors after each round** — Catch mistakes early before they compound.
 
-5. **Check errors after each round** - Catch mistakes early before they compound
+6. **Multi-client: wait for underscore** — Cells show "_" suffix when saved to server (e.g., "4W5_"). This confirms the entry is synced.
 
-6. **Multi-client: wait for underscore** - When working across multiple browsers, cells show "_" suffix when saved to server (e.g., "4W5_"). This confirms the entry is synced and visible to other clients.
-
-### Common Mistakes to Avoid
+### Common Mistakes
 
 | Mistake | Consequence | Prevention |
 |---------|-------------|------------|
-| Entering `5W6` when you lost | Ratings wrong by double the amount | Double-check W/L before saving |
+| Entering `5W6` when you lost | Ratings wrong by double | Double-check W/L before saving |
 | Wrong player rank | Error or wrong player affected | Verify ranks before entering |
 | Forgetting colon in 4-player | Format error | Remember: `A:B_W_C:D` |
 | Both players entering Win | Consistency error | Results must be opposite |
@@ -421,14 +245,13 @@ Enter corrected result string:
 | `Ctrl+S` | Save current entry |
 | `Ctrl+C` | Clear cell |
 | `Ctrl+X` | Close dialog |
-| `Ctrl+N` | Next error (in correction mode) |
-| `Ctrl+P` | Previous error (in correction mode) |
+| `Ctrl+N` | Next error (correction mode) |
+| `Ctrl+P` | Previous error (correction mode) |
 | `Escape` | Close dialog |
 
 ### Verification Checklist
 
 After entering games for a round:
-
 - [ ] All players who played have an entry
 - [ ] No format errors remain
 - [ ] Opponent results are consistent (if you Win, they Lose)
@@ -439,8 +262,7 @@ After entering games for a round:
 
 ## Quick Reference Cards
 
-### 2-Player Format Quick Reference
-
+### 2-Player Format
 ```
 You Win:     YourRank W OpponentRank    Example: 5W7
 You Lose:    YourRank L OpponentRank    Example: 5L7
@@ -452,24 +274,15 @@ Win Both:    YourRank WW OpponentRank   Example: 5WW7
 Lose Both:   YourRank LL OpponentRank   Example: 5LL7
 ```
 
-### 4-Player Format Quick Reference
-
+### 4-Player Format
 ```
-Format: P1:P2_Result_P3:P4 or P1:P2_Result1_Result2_P3:P4
+Format: P1:P2_Result_P3:P4 or P1:P2_R1_R2_P3:P4
 
-Where:
-  P1, P2 = Your team (partners)
-  P3, P4 = Opponent team
-  Result(s) = Team result(s) for your team (W/L/D, or two results)
-
-Two teams play TWO games - enter one or two results:
-
-Examples:
-  You are Player 5, your partner is 6:
-    One game, your team wins:   5:6W7:8  (Players 5,6 get Win; Players 7,8 get Loss)
-    Two games, your team loses both: 5:6LL7:8  (Players 5,6 get two Losses; Players 7,8 get two Wins)
-    Two games, split result:     5:6WL7:8  (Player 5,6 win first, lose second)
-    One game, teams draw:        5:6D7:8  (All four players get Draw)
+You are Player 5, partner is 6:
+  One game, your team wins:   5:6W7:8
+  Two games, your team loses both: 5:6LL7:8
+  Two games, split result:    5:6WL7:8
+  One game, teams draw:       5:6D7:8
 ```
 
 ---
@@ -477,51 +290,23 @@ Examples:
 ## Examples by Scenario
 
 ### Example 1: Simple 2-Player Game
-
 **Situation:** Player 3 beats Player 7
+- Entry for Player 3: `3W7`
+- Entry for Player 7: `7L3`
 
-**Entry for Player 3:** `3W7`
-**Entry for Player 7:** `7L3`
-
-### Example 2: 4-Player Team Game (Your Team Wins One Game)
-
-**Situation:** Team of Players 1&2 plays ONE game against Team of Players 5&6. Team 1&2 wins.
-
-**Entries (all players enter the same thing):**
+### Example 2: 4-Player Team Game (Your Team Wins)
+**Situation:** Team 1&2 plays ONE game against Team 5&6. Team 1&2 wins.
 - Player 1: `1:2W5:6`
 - Player 2: `1:2W5:6`
 - Player 5: `1:2L5:6`
 - Player 6: `1:2L5:6`
 
-### Example 2b: 4-Player Team Game (Two Games, One Team Wins Both)
-
-**Situation:** Team of Players 1&2 plays TWO games against Team of Players 5&6. Team 1&2 wins both.
-
-**Entries (all players enter the same thing):**
-- Player 1: `1:2WW5:6`
-- Player 2: `1:2WW5:6`
-- Player 5: `1:2LL5:6`
-- Player 6: `1:2LL5:6`
-
-**Note:** All teammates share the same result(s)! Both players on a team get identical results.
-
 ### Example 3: 4-Player Team Game (Draw)
+**Situation:** Team 3&4 plays against Team 7&8. Teams draw.
+- All four players enter: `3:4D7:8`
 
-**Situation:** Team of Players 3&4 plays against Team of Players 7&8. Teams draw.
-
-**Entries (all players enter the same thing):**
-- Player 3: `3:4D7:8`
-- Player 4: `3:4D7:8`
-- Player 7: `3:4D7:8`
-- Player 8: `3:4D7:8`
-
-**Note:** In a draw, all four players get Draw.
-
-### Example 4: Correction Scenario
-
+### Example 4: Correction
 **Situation:** You entered `5W7` but realized you actually lost
-
-**Steps:**
 1. Click the cell containing `5W7`
 2. Change to `5L7`
 3. Click Save
@@ -532,25 +317,17 @@ Examples:
 ## Troubleshooting
 
 ### "Player X doesn't exist"
-
-**Cause:** Referenced a rank that hasn't been added yet
-
-**Fix:** Add the player via **Operations → Add Player**, then re-enter the game
+Referenced a rank that hasn't been added yet. Add the player via **Operations → Add Player**, then re-enter the game.
 
 ### "Conflicting results"
-
-**Cause:** Two players entered incompatible results for the same game
-
-**Fix:** Check both players' entries and correct one of them
+Two players entered incompatible results for the same game. Check both entries and correct one.
 
 ### Ratings seem wrong after recalculation
-
-**Possible causes:**
 1. Wrong W/L entered (most common)
 2. Wrong opponent rank
 3. Missing opponent entry
 
-**Fix:** Use **Operations → Check Errors**, then review recent entries
+Fix: Use **Operations → Check Errors**, then review recent entries.
 
 ---
 
