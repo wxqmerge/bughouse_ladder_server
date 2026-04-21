@@ -95,7 +95,7 @@ cp .env.example .env
 cat > .env << EOF
 PORT=3000
 NODE_ENV=production
-CORS_ORIGIN=https://your-domain.com
+CORS_ORIGINS=https://your-domain.com
 USER_API_KEY=
 ADMIN_API_KEY=
 EOF
@@ -172,8 +172,8 @@ Edit `server/.env`:
 PORT=3000
 NODE_ENV=production
 
-# REQUIRED: Your production domain (for CORS security)
-CORS_ORIGIN=https://your-domain.com
+# REQUIRED: Your production domain(s) for CORS security, comma-separated
+CORS_ORIGINS=https://your-domain.com
 
 # OPTIONAL: API keys for protecting operations
 # User key — protects write operations (PUT/POST/DELETE). Without key: read-only.
@@ -184,9 +184,9 @@ ADMIN_API_KEY=
 ```
 
 **Key values explained:**
-- `CORS_ORIGIN` - **Required** - Your domain (e.g., `https://omen.com`). Prevents cross-site attacks.
+- `CORS_ORIGINS` - **Required** - Your domain(s) (e.g., `https://omen.com`), comma-separated. Prevents cross-site attacks.
 - `USER_API_KEY` - Optional — protects write operations. Admin key also works here.
-- `ADMIN_API_KEY` - Optional — protects admin endpoints. Generates with: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+- `ADMIN_API_KEY` - Optional — protects admin endpoints. Generate with: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
 
 ### Step 6: Build Application
 
@@ -349,7 +349,7 @@ nohup NODE_ENV=production node dist/index.js > server.log 2>&1 &
 |----------|-----------|-------------|
 | `PORT` | No | Server port (default: 3000) |
 | `NODE_ENV` | Yes | Set to `production` |
-| `CORS_ORIGIN` | **Yes** | Your domain (e.g., `https://omen.com`) |
+| `CORS_ORIGINS` | **Yes** | Your domain(s) (e.g., `https://omen.com`), comma-separated |
 | `USER_API_KEY` | Optional | API key for write operations (PUT/POST/DELETE) |
 | `ADMIN_API_KEY` | Optional | API key for admin endpoints (/api/admin/*) |
 
@@ -360,7 +360,7 @@ Users can configure the application in three ways:
 #### Method 1: Settings Dialog (Interactive)
 
 1. Open the application
-2. Click **Menu → Settings**
+2. Click **Operations → Settings**
 3. Enter server URL (e.g., `omen.com:3000` or `http://localhost:3000`)
 4. Optionally enter API key — user key allows editing, admin key grants full admin access
 5. Click **Save** - page reloads with new configuration
@@ -565,16 +565,16 @@ sudo chmod 600 /var/www/bughouse-ladder/server/.env
 
 ### CORS Errors in Browser
 
-Check that `CORS_ORIGIN` in `server/.env` matches your domain exactly:
+Check that `CORS_ORIGINS` in `server/.env` matches your domain exactly:
 
 ```env
 # Correct - must match browser's origin
-CORS_ORIGIN=https://your-domain.com  
-CORS_ORIGIN=https://omen.com
+CORS_ORIGINS=https://your-domain.com  
+CORS_ORIGINS=https://omen.com
 
 # Wrong - trailing slash, http instead of https
-CORS_ORIGIN=https://your-domain.com/
-CORS_ORIGIN=http://your-domain.com
+CORS_ORIGINS=https://your-domain.com/
+CORS_ORIGINS=http://your-domain.com
 ```
 
 ---
@@ -624,7 +624,7 @@ sudo tail -f /var/log/nginx/error.log
 ## Security Checklist
 
 - [ ] Set `NODE_ENV=production`
-- [ ] Set `CORS_ORIGIN` to your production domain (required)
+- [ ] Set `CORS_ORIGINS` to your production domain(s) (required)
 - [ ] Configured SSL/TLS with Let's Encrypt
 - [ ] Generated `USER_API_KEY` if write protection needed (optional)
 - [ ] Generated `ADMIN_API_KEY` if admin endpoints protected (optional)
