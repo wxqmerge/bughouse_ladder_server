@@ -844,12 +844,13 @@ export function processGameResults(
 export function calculateRatings(
   playersList: PlayerData[],
   matches: MatchData[],
+  _kFactorOverride?: number,
 ): PlayerData[] {
   let kFactor = 20;
-  // Since this is now in shared, we can't rely on localStorage directly.
-  // However, for the client-side version of this shared function,
-  // we'll keep it for now or assume it's passed in.
-  if (typeof localStorage !== "undefined") {
+  // Use override if provided (server-side), otherwise read from localStorage (client-side)
+  if (_kFactorOverride !== undefined) {
+    kFactor = _kFactorOverride;
+  } else if (typeof localStorage !== "undefined") {
     try {
       const savedSettings = localStorage.getItem("ladder_settings");
       if (savedSettings) {

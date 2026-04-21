@@ -1,6 +1,12 @@
 import { Router, Request, Response } from 'express';
 import { readLadderFile, writeLadderFile, PlayerData, withTiming } from '../services/dataService.js';
 
+interface GameResult {
+  playerRank: number;
+  round: number;
+  result: string;
+}
+
 const router = Router();
 
 // All game processing logic will be imported from shared in a separate file
@@ -169,6 +175,55 @@ router.get('/player/:rank', async (req: Request, res: Response): Promise<void> =
     res.status(500).json({
       success: false,
       error: { message: 'Failed to fetch game results' },
+    });
+  }
+});
+
+// Merge game results into ladder data and return updated player list
+// POST /api/games/recalculate
+router.post('/recalculate', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { games } = req.body as { 
+      games?: GameResult[], 
+    };
+
+    // Read current ladder data from disk
+    const ladderData = await withTiming('readLadderFile(recalculate)', readLadderFile);
+    
+    // Apply any new game results provided in the request body
+    if (games && games.length > 0) {
+      for (const game of games) {
+        const playerIndex = ladderData.players.findIndex((p: PlayerData) => p.rank === game.playerRank);
+        
+        if (playerIndex === -1) continue;
+        
+        const player = ladderData.players[playerIndex];
+        if (!player.gameResults) {
+          player.gameResults = new Array(31).fill(null);
+        }
+        while (player.gameResults.length <= game.round) {
+          player.gameResults.push(null);
+        }
+        player.gameResults[game.round] = game.result;
+        ladderData.players[playerIndex] = player;
+      }
+    }
+
+    // Write updated data back to disk
+    await withTiming('writeLadderFile(recalculate)', () => writeLadderFile(ladderData));
+
+    res.json({
+      success: true,
+      data: {
+        message: 'Game results merged',
+        players: ladderData.players,
+      },
+    });
+  } catch (error) {
+    console.error('Error merging game results:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to merge game results' },
     });
   }
 });

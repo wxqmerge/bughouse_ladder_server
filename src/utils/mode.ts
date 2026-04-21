@@ -75,9 +75,9 @@ export async function testServerConnection(): Promise<boolean> {
   const timeoutId = setTimeout(() => controller.abort(), 3000);
   
   try {
-    // Try a lightweight request to test connectivity
+    // Use GET instead of HEAD - Express doesn't handle HEAD on custom routes
     const response = await fetch(`${apiUrl}/health`, {
-      method: 'HEAD',
+      method: 'GET',
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
@@ -89,7 +89,7 @@ export async function testServerConnection(): Promise<boolean> {
       const controller2 = new AbortController();
       const timeoutId2 = setTimeout(() => controller2.abort(), 3000);
       const response = await fetch(apiUrl, {
-        method: 'HEAD',
+        method: 'GET',
         signal: controller2.signal,
       });
       clearTimeout(timeoutId2);
