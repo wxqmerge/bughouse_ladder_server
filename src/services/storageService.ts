@@ -11,7 +11,7 @@ import { PlayerData } from '../../shared/types';
 import { log } from '../utils/log';
 import { dataService, DataServiceMode } from './dataService';
 import { getProgramMode } from '../utils/mode';
-import { loadUserSettings } from './userSettingsStorage';
+import { loadUserSettings, normalizeServerUrl } from './userSettingsStorage';
 
 /**
  * Get the storage key prefix based on current mode
@@ -853,15 +853,8 @@ export function getServerUrl(): string | null {
     const userSettingsJson = localStorage.getItem('bughouse-ladder-user-settings');
     if (!userSettingsJson) return null;
     const userSettings = JSON.parse(userSettingsJson);
-    let serverUrl = userSettings.server?.trim();
-    if (!serverUrl) return null;
-    // Normalize backslashes to forward slashes (Windows-style paths)
-    serverUrl = serverUrl.replace(/\\/g, '/');
-    // Ensure URL has protocol
-    if (!serverUrl.startsWith('http://') && !serverUrl.startsWith('https://')) {
-      serverUrl = `http://${serverUrl}`;
-    }
-    return serverUrl;
+    const serverUrl = normalizeServerUrl(userSettings.server || '');
+    return serverUrl || null;
   } catch (error) {
     console.error('[ADMIN_LOCK] Failed to get server URL:', error);
     return null;
@@ -1060,15 +1053,10 @@ function notifyServerOfLockAction(action: 'acquire' | 'release' | 'force', clien
       return;
     }
     const userSettings = JSON.parse(userSettingsJson);
-    let serverUrl = userSettings.server?.trim();
+    const serverUrl = normalizeServerUrl(userSettings.server || '');
     if (!serverUrl) {
       console.log('[ADMIN_LOCK_NOTIFY] No server URL configured (local mode?)');
       return;
-    }
-    serverUrl = serverUrl.replace(/\\/g, '/');
-    // Ensure URL has protocol
-    if (!serverUrl.startsWith('http://') && !serverUrl.startsWith('https://')) {
-      serverUrl = `http://${serverUrl}`;
     }
     const url = `${serverUrl}/api/admin-lock/lock`;
     console.log(`[ADMIN_LOCK_NOTIFY] Sending ${action} to ${url}`);

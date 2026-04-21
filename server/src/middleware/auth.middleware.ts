@@ -43,7 +43,7 @@ export function requireUserKey(
   if (USER_API_KEY) {
     if (!apiKey) {
       if (process.env.NODE_ENV !== 'production') {
-        console.log(`[USER_AUTH] 401 - Missing API key | IP: ${req.ip} | Path: ${req.path} | Method: ${req.method}`);
+        console.log(`[USER_AUTH] 401 - Missing API key | IP: ${req.ip} | Path: ${req.path}`);
       }
       res.status(401).json({
         success: false,
@@ -53,8 +53,7 @@ export function requireUserKey(
     }
 
     if (apiKey !== USER_API_KEY) {
-      const providedMask = apiKey.slice(0, 4) + '*'.repeat(Math.max(0, apiKey.length - 8)) + apiKey.slice(-4);
-      console.log(`[USER_AUTH] 401 - Invalid API key | IP: ${req.ip} | Path: ${req.path} | Provided: "${providedMask}"`);
+      console.log(`[USER_AUTH] 401 - Invalid API key | IP: ${req.ip} | Path: ${req.path}`);
       res.status(401).json({
         success: false,
         error: { message: 'Invalid user API key' },
@@ -83,8 +82,8 @@ export function requireAdminKey(
   
   if (!apiKey) {
     if (process.env.NODE_ENV !== 'production') {
-      console.log(`[ADMIN_AUTH] 401 - Missing API key | IP: ${req.ip} | Path: ${req.path} | Method: ${req.method}`);
-    }
+        console.log(`[ADMIN_AUTH] 401 - Missing API key | IP: ${req.ip} | Path: ${req.path}`);
+      }
     res.status(401).json({
       success: false,
       error: { message: 'Admin API key required' },
@@ -107,9 +106,7 @@ export function requireAdminKey(
       providedBuffer.copy(paddedProvided);
       
       if (!crypto.timingSafeEqual(paddedKey, paddedProvided)) {
-        const providedMask = apiKey.slice(0, 4) + '*'.repeat(Math.max(0, apiKey.length - 8)) + apiKey.slice(-4);
-        const expectedMask = ADMIN_API_KEY.slice(0, 4) + '*'.repeat(Math.max(0, ADMIN_API_KEY.length - 8)) + ADMIN_API_KEY.slice(-4);
-        console.log(`[ADMIN_AUTH] 401 - Invalid API key | IP: ${req.ip} | Path: ${req.path} | Provided: "${providedMask}" (${apiKey.length} chars) | Expected: "${expectedMask}" (${ADMIN_API_KEY.length} chars)`);
+        console.log(`[ADMIN_AUTH] 401 - Invalid API key | IP: ${req.ip} | Path: ${req.path}`);
         res.status(401).json({
           success: false,
           error: { message: 'Invalid admin API key' },
@@ -117,9 +114,7 @@ export function requireAdminKey(
         return;
       }
     } else if (!crypto.timingSafeEqual(keyBuffer, providedBuffer)) {
-      const providedMask = apiKey.slice(0, 4) + '*'.repeat(Math.max(0, apiKey.length - 8)) + apiKey.slice(-4);
-      const expectedMask = ADMIN_API_KEY.slice(0, 4) + '*'.repeat(Math.max(0, ADMIN_API_KEY.length - 8)) + ADMIN_API_KEY.slice(-4);
-      console.log(`[ADMIN_AUTH] 401 - Invalid API key | IP: ${req.ip} | Path: ${req.path} | Provided: "${providedMask}" (${apiKey.length} chars) | Expected: "${expectedMask}" (${ADMIN_API_KEY.length} chars)`);
+      console.log(`[ADMIN_AUTH] 401 - Invalid API key | IP: ${req.ip} | Path: ${req.path}`);
       res.status(401).json({
         success: false,
         error: { message: 'Invalid admin API key' },

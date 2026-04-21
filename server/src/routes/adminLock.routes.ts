@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { requireAdminKey } from '../middleware/auth.middleware.js';
 import {
   tryAcquireAdminLock,
   forceAcquireAdminLock,
@@ -8,6 +9,9 @@ import {
 } from '../services/adminLock.service.js';
 
 const router = Router();
+
+// Admin lock endpoints require admin authentication
+router.use(requireAdminKey);
 
 /**
  * Try to acquire admin lock
