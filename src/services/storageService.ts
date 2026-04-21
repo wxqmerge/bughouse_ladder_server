@@ -883,23 +883,30 @@ export async function tryAcquireAdminLock(clientName?: string): Promise<boolean>
   const name = clientName || getClientName(clientId);
 
   try {
-    const response = await fetch(`${serverUrl}/api/admin-lock/acquire`, {
+    const url = `${serverUrl}/api/admin-lock/acquire`;
+    log('[ADMIN_LOCK]', `Attempting to acquire: ${url} | clientId=${clientId} | name=${name}`);
+    
+    const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ clientId, clientName: name }),
     });
 
+    log('[ADMIN_LOCK]', `Server responded: ${response.status}`);
+    
     const data = await response.json();
 
     if (data.success) {
       log('[ADMIN_LOCK]', `Acquired lock: ${name}`);
       return true;
     } else {
-      log('[ADMIN_LOCK]', `Failed to acquire - held by ${data.heldBy?.clientName}`);
+      log('[ADMIN_LOCK]', `Failed to acquire (${response.status}) - held by ${data.heldBy?.clientName || 'unknown'}`);
       return false;
     }
   } catch (error) {
-    console.error('[ADMIN_LOCK] Failed to acquire lock:', error);
+    const err = error as Error;
+    console.error('[ADMIN_LOCK] Failed to acquire lock - fetch threw:', err.message, '| URL:', serverUrl);
+    log('[ADMIN_LOCK]', `Fetch error: ${err.message}`);
     return false;
   }
 }
@@ -919,12 +926,17 @@ export async function forceAcquireAdminLock(clientName?: string): Promise<boolea
   const name = clientName || getClientName(clientId);
 
   try {
-    const response = await fetch(`${serverUrl}/api/admin-lock/force`, {
+    const url = `${serverUrl}/api/admin-lock/force`;
+    log('[ADMIN_LOCK]', `Attempting force acquire: ${url} | clientId=${clientId} | name=${name}`);
+    
+    const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ clientId, clientName: name }),
     });
 
+    log('[ADMIN_LOCK]', `Force acquire responded: ${response.status}`);
+    
     const data = await response.json();
 
     if (data.success) {
@@ -935,9 +947,12 @@ export async function forceAcquireAdminLock(clientName?: string): Promise<boolea
       }
       return true;
     }
+    log('[ADMIN_LOCK]', `Force acquire failed: ${JSON.stringify(data)}`);
     return false;
   } catch (error) {
-    console.error('[ADMIN_LOCK] Failed to force acquire lock:', error);
+    const err = error as Error;
+    console.error('[ADMIN_LOCK] Force acquire failed - fetch threw:', err.message, '| URL:', serverUrl);
+    log('[ADMIN_LOCK]', `Force acquire fetch error: ${err.message}`);
     return false;
   }
 }
@@ -952,14 +967,25 @@ export async function releaseAdminLock(): Promise<void> {
   const clientId = getClientId();
 
   try {
-    await fetch(`${serverUrl}/api/admin-lock/release`, {
+    const url = `${serverUrl}/api/admin-lock/release`;
+    log('[ADMIN_LOCK]', `Releasing lock: ${url} | clientId=${clientId}`);
+    
+    const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ clientId }),
     });
-    log('[ADMIN_LOCK]', `Released lock`);
+
+    log('[ADMIN_LOCK]', `Release responded: ${response.status}`);
+    
+    if (response.ok) {
+      log('[ADMIN_LOCK]', `Released lock`);
+    } else {
+      console.warn('[ADMIN_LOCK] Release failed with status:', response.status);
+    }
   } catch (error) {
-    console.error('[ADMIN_LOCK] Failed to release lock:', error);
+    const err = error as Error;
+    console.error('[ADMIN_LOCK] Failed to release lock - fetch threw:', err.message, '| URL:', serverUrl);
   }
 }
 

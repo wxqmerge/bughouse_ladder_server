@@ -22,7 +22,7 @@ import { shouldLog } from "../utils/debug";
 import { getVersionString, isLocalMode, isServerDownMode, getProgramMode, testServerConnection } from "../utils/mode";
 import { log } from "../utils/log";
 import { loadUserSettings } from "../services/userSettingsStorage";
-import { getKeyPrefix, startBatch, endBatch, saveToServer, clearAllSaveStatus, isCellSaved, markCellAsSaved, markLocalChanges, getHasLocalChanges, clearLocalChangesFlag, getPendingDeletes, clearPendingDeletes, queueDelete, isAdminLocked, tryAcquireAdminLock, forceAcquireAdminLock, releaseAdminLock, refreshAdminLock, getAdminLockInfo, ADMIN_LOCK_REFRESH_INTERVAL, getClientId, getServerUrl } from "../services/storageService";
+import { getKeyPrefix, startBatch, endBatch, saveToServer, clearAllSaveStatus, isCellSaved, markCellAsSaved, markLocalChanges, getHasLocalChanges, clearLocalChangesFlag, getPendingDeletes, clearPendingDeletes, queueDelete, isAdminLocked, tryAcquireAdminLock, forceAcquireAdminLock, releaseAdminLock, getAdminLockInfo, getClientId, getServerUrl } from "../services/storageService";
 import { normalizeServerUrl } from "../services/userSettingsStorage";
 import {
   getPlayers,
@@ -188,9 +188,6 @@ export default function LadderForm({
     "50%" | "70%" | "100%" | "140%" | "200%"
   >("100%");
   const [isAdmin, setIsAdmin] = useState(false);
-  const [adminLockInfo, setAdminLockInfo] = useState<{ locked: boolean; holderName?: string; expiresAt?: number }>(
-    { locked: false }
-  );
   const [showOverrideDialog, setShowOverrideDialog] = useState(false);
   const [overrideLockHolder, setOverrideLockHolder] = useState<string | null>(null);
   const [overrideTimeout, setOverrideTimeout] = useState<number>(0);
@@ -354,47 +351,7 @@ export default function LadderForm({
     return () => clearInterval(interval);
   }, []);
 
-  // Admin lock: Refresh lock periodically while in admin mode
-  useEffect(() => {
-    if (!isAdmin) return;
-    
-    const refreshInterval = setInterval(async () => {
-      try {
-        await refreshAdminLock();
-      } catch (error) {
-        console.error('[ADMIN_LOCK] Failed to refresh lock:', error);
-      }
-    }, ADMIN_LOCK_REFRESH_INTERVAL);
-    
-    return () => clearInterval(refreshInterval);
-  }, [isAdmin]);
-
-  // Admin lock: Monitor for lock status changes from other clients
-  useEffect(() => {
-    const checkLockStatus = async () => {
-      try {
-        const info = await getAdminLockInfo();
-        setAdminLockInfo(info);
-        
-        // If we're in admin mode but lost the lock, exit admin mode
-        if (isAdmin && !info.locked) {
-          log('[ADMIN_LOCK]', 'Lost admin lock - exiting admin mode');
-          setIsAdmin(false);
-        }
-      } catch (error) {
-        console.error('[ADMIN_LOCK] Failed to check lock status:', error);
-      }
-    };
-    
-    // Initial check
-    checkLockStatus();
-    
-    const checkInterval = setInterval(checkLockStatus, 2000); // Check every 2 seconds
-    
-    return () => clearInterval(checkInterval);
-  }, [isAdmin]);
-
-  // Admin lock: Release lock on unmount
+  // Admin lock: Release lock on unmount when exiting admin mode
   useEffect(() => {
     return () => {
       if (isAdmin) {
@@ -2305,11 +2262,21 @@ export default function LadderForm({
     
     if (!isAdmin) {
       // Attempting to enter admin mode
+      
+      // Local mode: no server configured, always allow immediately
+      const serverUrl = getServerUrl();
+      if (!serverUrl) {
+        console.log('[ADMIN_LOCK] Local mode - entering admin mode directly');
+        setIsAdmin(true);
+        return;
+      }
+      
+      // Server mode: check lock status
       const lockInfo = await getAdminLockInfo();
       
       // Check if server is unreachable first
       if (lockInfo.serverReachable === false) {
-        alert("Cannot reach admin server. Please check:\n\n- Server URL is correct\n- Server is running\n- Network connection is active\n\nServer: " + (getServerUrl() || 'unknown'));
+        alert("Cannot reach admin server. Please check:\n\n- Server URL is correct\n- Server is running\n- Network connection is active\n\nServer: " + (serverUrl || 'unknown'));
         return;
       }
       
@@ -2321,22 +2288,44 @@ export default function LadderForm({
         return;
       }
       
-      // Try to acquire lock
+      // Try to acquire lock normally first
       const acquired = await tryAcquireAdminLock();
       if (acquired) {
         setIsAdmin(true);
       } else {
-        // Lock acquisition failed - show override dialog
+        // Acquisition failed - check what's happening and offer force acquire
         const lockInfo2 = await getAdminLockInfo();
+        
+        if (lockInfo2.serverReachable === false) {
+          alert("Cannot reach admin server. Please check:\n\n- Server URL is correct\n- Server is running\n- Network connection is active");
+          return;
+        }
+        
         if (lockInfo2.locked && lockInfo2.holderId !== myClientId) {
+          // Another user holds it - show override dialog
           setOverrideLockHolder(lockInfo2.holderName || "Another user");
-          setOverrideTimeout(Math.ceil((lockInfo2.expiresAt! - Date.now()) / 1000));
-          setShowOverrideDialog(true);
-        } else {
-          if (lockInfo2.serverReachable === false) {
-            alert("Cannot reach admin server. Please check:\n\n- Server URL is correct\n- Server is running\n- Network connection is active");
+          const expiresAt = lockInfo2.expiresAt;
+          if (expiresAt && expiresAt > Date.now()) {
+            setOverrideTimeout(Math.ceil((expiresAt - Date.now()) / 1000));
           } else {
-            alert("Failed to acquire admin lock. Please try again.");
+            setOverrideTimeout(0); // Lock expired or no expiry info
+          }
+          setShowOverrideDialog(true);
+        } else if (lockInfo2.locked && lockInfo2.holderId === myClientId) {
+          // We hold the lock but acquire failed - force it
+          const forced = await forceAcquireAdminLock();
+          if (forced) {
+            setIsAdmin(true);
+          } else {
+            alert("Failed to reacquire admin lock. Try refreshing the page.");
+          }
+        } else {
+          // No lock held - try force acquire as last resort
+          const forced = await forceAcquireAdminLock();
+          if (forced) {
+            setIsAdmin(true);
+          } else {
+            alert("Failed to acquire admin lock. Check the browser console for details.");
           }
         }
       }
