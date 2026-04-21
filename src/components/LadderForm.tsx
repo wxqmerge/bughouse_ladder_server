@@ -741,9 +741,42 @@ export default function LadderForm({
     }
   };
 
-  const handleDeclineImport = () => {
+  const handleDeclineImport = async () => {
     log('[LOAD_FILE]', 'Admin mode - declined import: ' + pendingImport?.filename);
     setPendingImport(null);
+    
+    (window as any).__ladder_setStatus?.('Restoring from server...');
+    try {
+      const userSettings = loadUserSettings();
+      const serverUrl = userSettings.server?.trim();
+      
+      if (serverUrl) {
+        const response = await fetch(`${serverUrl}/api/ladder`, {
+          headers: {},
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          const serverPlayers = data.data?.players || [];
+          
+          if (serverPlayers && serverPlayers.length > 0) {
+            setPlayers(serverPlayers.map((p: PlayerData) => ({
+              ...p,
+              gameResults: p.gameResults || new Array(31).fill(null),
+            })));
+            log('[LOAD_FILE]', '✓ Restored from server');
+          } else {
+            log('[LOAD_FILE]', '⚠ Server returned empty data after decline');
+          }
+        } else {
+          log('[LOAD_FILE]', '⚠ Failed to restore from server (status ' + response.status + ')');
+        }
+      }
+    } catch (err) {
+      log('[LOAD_FILE]', '✗ Failed to restore from server:', err);
+    }
+    
+    (window as any).__ladder_setStatus?.(null);
   };
 
   const checkGameErrors = (): {
