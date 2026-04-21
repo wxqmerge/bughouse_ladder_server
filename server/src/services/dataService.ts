@@ -3,6 +3,25 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { withTiming as performanceWithTiming } from '../utils/performance.js';
 
+// Server-side PlayerData - kept inline due to NodeNext module resolution constraints
+// Canonical definition is in shared/types/index.ts
+export interface PlayerData {
+  rank: number;
+  group: string;
+  lastName: string;
+  firstName: string;
+  rating: number;
+  nRating: number;
+  grade: string;
+  num_games: number;
+  attendance: number | string;
+  info: string;
+  phone: string;
+  school: string;
+  room: string;
+  gameResults: (string | null)[];
+}
+
 // Timestamp utility
 function getTimestamp(): string {
   const now = new Date();
@@ -38,23 +57,6 @@ const TAB_FILE_PATH = process.env.TAB_FILE_PATH
 initializeDefaultLadder().catch(err => 
   log('[SERVER]', 'Failed to initialize default ladder:', err)
 );
-
-export interface PlayerData {
-  rank: number;
-  group: string;
-  lastName: string;
-  firstName: string;
-  rating: number;
-  nRating: number;
-  grade: string;
-  num_games: number;
-  attendance: number | string;
-  info: string;
-  phone: string;
-  school: string;
-  room: string;
-  gameResults: (string | null)[];
-}
 
 export interface LadderData {
   header: string[];
