@@ -2,6 +2,8 @@
 
 **Version: 1.0.1**
 
+Technical deep-dive for developers. For deployment see [README_INSTALL.md](./README_INSTALL.md), for security see [SECURITY.md](./SECURITY.md), for admin operations see [ADMIN_MANUAL.md](./ADMIN_MANUAL.md).
+
 ## System Overview
 
 A modern client-server reimplementation of the VB6 Bughouse Chess Ladder, featuring multi-client synchronization while maintaining compatibility with the original data format and business logic.
@@ -371,6 +373,27 @@ WAIT! Browser B should FETCH FIRST too:
 
 ---
 
+## Configuration Reference
+
+### Polling Configuration
+
+| Parameter | Default | Location | Description |
+|-----------|---------|----------|-------------|
+| Interval | 5000ms | App.tsx | Time between poll cycles |
+| Hash algorithm | JSON.stringify | DataService.ts | Change detection method |
+| Cache mode | true | storageService.ts | Poll fetch doesn't trigger sync |
+
+### Merge Configuration
+
+| Priority Level | Source | Condition |
+|----------------|--------|-----------|
+| 1 (Highest) | Local unconfirmed | cell exists AND !endsWith('_') |
+| 2 | Pending deletes | cell in getPendingDeletes() |
+| 3 | Server confirmed | server cell endsWith('_') |
+| 4 (Lowest) | Server default | fallback |
+
+---
+
 ## File Format Specifications
 
 ### ladder.tab (Source of Truth)
@@ -517,6 +540,21 @@ When loading a file in admin/server mode, a confirmation dialog appears before p
 1. **Polling load:** 10 browsers × 1 hour → Monitor server CPU/memory
 2. **Large ladder:** 200 players × 31 rounds → Measure poll response time
 3. **Hash collision:** Verify hash uniqueness with different game result combinations
+
+---
+
+---
+
+## Documentation Index
+
+| Document | Audience | Focus |
+|----------|----------|-------|
+| [README.md](./README.md) | Everyone | Quick start, API reference, architecture overview |
+| [README_INSTALL.md](./README_INSTALL.md) | DevOps/Deployers | Production deployment, nginx, systemd |
+| [USER_MANUAL.md](./USER_MANUAL.md) | End users | Game entry, error correction, result formats |
+| [ADMIN_MANUAL.md](./ADMIN_MANUAL.md) | Admins | Player management, ratings, backups, troubleshooting |
+| [SECURITY.md](./SECURITY.md) | Everyone | API keys, CORS, rate limiting, access control |
+| [TESTS.md](./TESTS.md) | Developers | Test suite documentation |
 
 ---
 
