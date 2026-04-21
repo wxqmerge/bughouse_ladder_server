@@ -276,7 +276,7 @@ If server is down:
 | `POST` | `/api/games/recalculate` | User/Admin key | Merge results & recalculate |
 | `GET` | `/api/games/player/:rank` | None | Get player's game results |
 
-### Admin Endpoints *(requires admin or user API key)*
+### Admin Endpoints *(requires admin API key only)*
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `POST` | `/api/admin/upload` | Upload .tab/.xls file |
@@ -286,6 +286,15 @@ If server is down:
 | `GET` | `/api/admin/stats` | Server statistics |
 | `GET` | `/api/admin/performance` | Performance metrics |
 | `POST` | `/api/admin/performance/clear` | Clear performance data |
+
+### Admin Lock *(no auth required)*
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/admin-lock/acquire` | Acquire edit lock |
+| `POST` | `/api/admin-lock/force` | Force override lock |
+| `POST` | `/api/admin-lock/release` | Release edit lock |
+| `POST` | `/api/admin-lock/refresh` | Refresh lock expiration |
+| `GET` | `/api/admin-lock/status` | Get lock status |
 
 ### Health Check
 | Method | Endpoint | Description |
@@ -303,8 +312,8 @@ If server is down:
 PORT=3000
 NODE_ENV=production
 
-# CORS Origin - Your production domain (required for security)
-CORS_ORIGIN=https://your-domain.com
+# CORS Origins - Your production domain(s), comma-separated
+CORS_ORIGINS=https://your-domain.com
 
 # Admin API Key - OPTIONAL: Protects admin endpoints (/api/admin/*)
 # Requests must include header: X-API-Key: <this-value>

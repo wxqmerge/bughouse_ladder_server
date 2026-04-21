@@ -21,7 +21,8 @@ http://your-domain.com/?config=1&server=http://your-server:port&key=your-api-key
 Drag a `.tab`, `.xls`, or `.txt` file onto the splash screen (no server needed).
 
 #### API Key Access
-- **No key or wrong key:** View-only access to the ladder data
+- **No keys configured on server:** All operations allowed (local/dev mode)
+- **User key configured, no/wrong key provided:** View-only access (GET only)
 - **Valid user key:** Can enter games and save results
 - **Admin key:** Full access including admin features (if admin mode enabled)
 

@@ -332,8 +332,8 @@ After successful recalculation:
 #### What Changes
 
 1. **Title Progression**
-   - Kings_Cross → Pawn_Game → Queen_Game → Bishop_Game → Pillar_Game → BG_Game → Bughouse Ladder → Ladder
-   - Cycles back to start after completion
+    - BG_Game → Bishop_Game → Pillar_Game → Kings_Cross → Pawn_Game → Queen_Game → (cycles)
+    - Cycles back to BG_Game after completing all titles
 
 2. **Rating Finalization**
     - "New Rating" moves to "Previous Rating"
@@ -547,9 +547,9 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 ### Rate Limiting
 
-Admin endpoints have stricter rate limits:
-- 10 authentication attempts per 15 minutes
-- 100 API requests per 15 minutes (production)
+General API endpoints (including admin):
+- 100 requests per 15 minutes (production)
+- 1000 requests per 15 minutes (development)
 
 ### Access Control
 
