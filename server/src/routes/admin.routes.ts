@@ -3,7 +3,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
 import { requireAdminKey } from '../middleware/auth.middleware.js';
-import { readLadderFile, writeLadderFile, ensureDataDirectory, PlayerData, generateTabContent, withTiming } from '../services/dataService.js';
+import { readLadderFile, writeLadderFile, ensureDataDirectory, PlayerData, generateTabContent, createBackup, rotateBackups, withTiming, getBackupList, restoreBackup, deleteBackup, log } from '../services/dataService.js';
 import { getSlowOperations, clearSlowOperations, generatePerformanceReport } from '../utils/performance.js';
 
 const router = Router();
@@ -54,6 +54,12 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
       return;
     }
 
+    // Create backup before overwriting
+    const backupPath = await createBackup();
+    if (backupPath) {
+      await rotateBackups();
+    }
+    
     // Write to ladder file
     const ladderPath = process.env.TAB_FILE_PATH || path.join(__dirname, '../../data/ladder.tab');
     await withTiming(`writeFile(${ladderPath})`, () => fs.writeFile(ladderPath, content, 'utf-8'));
@@ -123,6 +129,12 @@ router.post('/regenerate', async (req: Request, res: Response): Promise<void> =>
   try {
     const ladderData = await withTiming('readLadderFile(regenerate)', readLadderFile);
     const content = generateTabContent(ladderData);
+    
+    // Create backup before overwriting
+    const backupPath = await createBackup();
+    if (backupPath) {
+      await rotateBackups();
+    }
     
     const ladderPath = process.env.TAB_FILE_PATH || path.join(__dirname, '../../data/ladder.tab');
     await withTiming(`writeFile(regenerate)`, () => fs.writeFile(ladderPath, content, 'utf-8'));
@@ -205,6 +217,101 @@ router.post('/performance/clear', async (req: Request, res: Response): Promise<v
     res.status(500).json({
       success: false,
       error: { message: 'Failed to clear performance data' },
+    });
+  }
+});
+
+// List available backups
+router.get('/backups', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const backups = await getBackupList();
+    
+    res.json({
+      success: true,
+      data: {
+        count: backups.length,
+        maxBackups: 20,
+        backups,
+      },
+    });
+  } catch (error) {
+    console.error('Backups list error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to list backups' },
+    });
+  }
+});
+
+// Restore from a specific backup
+router.post('/backups/restore/:filename', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const filename = req.params.filename;
+    
+    if (!filename || !filename.endsWith('.tab')) {
+      res.status(400).json({
+        success: false,
+        error: { message: 'Invalid backup filename' },
+      });
+      return;
+    }
+
+    const restored = await restoreBackup(filename);
+    
+    if (restored) {
+      res.json({
+        success: true,
+        data: {
+          message: `Restored from backup: ${filename}`,
+          filename,
+        },
+      });
+    } else {
+      res.status(404).json({
+        success: false,
+        error: { message: `Backup not found: ${filename}` },
+      });
+    }
+  } catch (error) {
+    console.error('Restore backup error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to restore backup' },
+    });
+  }
+});
+
+// Delete a specific backup
+router.delete('/backups/:filename', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const filename = req.params.filename;
+    
+    if (!filename || !filename.endsWith('.tab')) {
+      res.status(400).json({
+        success: false,
+        error: { message: 'Invalid backup filename' },
+      });
+      return;
+    }
+
+    const deleted = await deleteBackup(filename);
+    
+    if (deleted) {
+      res.json({
+        success: true,
+        data: { message: `Deleted backup: ${filename}` },
+      });
+    } else {
+      res.status(404).json({
+        success: false,
+        error: { message: `Backup not found: ${filename}` },
+      });
+    }
+  } catch (error) {
+    console.error('Delete backup error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to delete backup' },
     });
   }
 });
