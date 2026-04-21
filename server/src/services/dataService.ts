@@ -35,7 +35,7 @@ function getTimestamp(): string {
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${ms}`;
 }
 
-function log(category: string, message: string, ...args: any[]): void {
+export function log(category: string, message: string, ...args: any[]): void {
   console.log(`[${getTimestamp()}] ${category}`, message, ...args);
 }
 
@@ -53,10 +53,23 @@ const __dirname = path.dirname(__filename);
 const TAB_FILE_PATH = process.env.TAB_FILE_PATH 
   || path.join(__dirname, '../../data/ladder.tab');
 
+const BACKUP_DIR = process.env.BACKUP_DIR
+  || path.join(__dirname, '../../data/backups');
+
+const MAX_BACKUPS = 20;
+
 // Initialize on module load
 initializeDefaultLadder().catch(err => 
   log('[SERVER]', 'Failed to initialize default ladder:', err)
 );
+
+export interface BackupInfo {
+  version: number;
+  filename: string;
+  path: string;
+  timestamp: string;
+  date: string;
+}
 
 export interface LadderData {
   header: string[];
@@ -233,6 +246,13 @@ export async function writeLadderFile(ladderData: LadderData): Promise<void> {
     
     try {
       log('[SERVER]', `Writing ${ladderData.players.length} players to ${TAB_FILE_PATH}`);
+      
+      // Create backup before write
+      const backupPath = await createBackup();
+      if (backupPath) {
+        await rotateBackups();
+      }
+      
       const content = generateTabContent(ladderData);
       await fs.writeFile(TAB_FILE_PATH, content, 'utf-8');
     } finally {
@@ -270,5 +290,156 @@ export async function initializeDefaultLadder(): Promise<void> {
       await fs.writeFile(TAB_FILE_PATH, '', 'utf-8');
       log('[SERVER]', `Created default ladder file at ${TAB_FILE_PATH}`);
     }
+  }
+}
+
+// ── Backup System ──────────────────────────────────────────────────
+
+function getBackupFileName(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  const h = String(date.getHours()).padStart(2, '0');
+  const min = String(date.getMinutes()).padStart(2, '0');
+  const s = String(date.getSeconds()).padStart(2, '0');
+  return `ladder_backup_${y}${m}${d}_${h}${min}${s}.tab`;
+}
+
+export async function getBackupList(): Promise<BackupInfo[]> {
+  try {
+    await fs.access(BACKUP_DIR);
+  } catch {
+    return [];
+  }
+
+  const files = await fs.readdir(BACKUP_DIR);
+  const backups: BackupInfo[] = [];
+
+  for (const file of files) {
+    if (!file.startsWith('ladder_backup_') || !file.endsWith('.tab')) continue;
+    
+    const filePath = path.join(BACKUP_DIR, file);
+    const stats = await fs.stat(filePath);
+    
+    // Extract date from filename: ladder_backup_YYYYMMDD_HHMMSS.tab
+    const match = file.match(/ladder_backup_(\d{8})_(\d{6})\.tab$/);
+    if (!match) continue;
+    
+    const dateStr = match[1];
+    const timeStr = match[2];
+    const timestamp = `${dateStr.slice(0,4)}-${dateStr.slice(4,6)}-${dateStr.slice(6,8)} ${timeStr.slice(0,2)}:${timeStr.slice(2,4)}:${timeStr.slice(4,6)}`;
+    
+    backups.push({
+      version: 0,
+      filename: file,
+      path: filePath,
+      timestamp,
+      date: stats.mtime.toISOString(),
+    });
+  }
+
+  // Sort by filename (which embeds timestamp) descending - newest first
+  backups.sort((a, b) => b.filename.localeCompare(a.filename));
+  
+  // Assign version numbers (1 = most recent backup that would be created next)
+  for (let i = 0; i < backups.length; i++) {
+    backups[i].version = i + 1;
+  }
+
+  return backups;
+}
+
+export async function createBackup(): Promise<string | null> {
+  try {
+    await ensureBackupDirectory();
+    
+    // Only backup if ladder.tab exists and has content
+    try {
+      const stats = await fs.stat(TAB_FILE_PATH);
+      if (stats.size === 0) return null;
+    } catch {
+      return null;
+    }
+
+    const timestamp = new Date();
+    const fileName = getBackupFileName(timestamp);
+    const backupPath = path.join(BACKUP_DIR, fileName);
+    
+    await fs.copyFile(TAB_FILE_PATH, backupPath);
+    log('[SERVER]', `Created backup: ${fileName}`);
+    return backupPath;
+  } catch (error) {
+    log('[SERVER]', `Failed to create backup: ${(error as Error).message}`);
+    return null;
+  }
+}
+
+export async function ensureBackupDirectory(): Promise<void> {
+  try {
+    await fs.access(BACKUP_DIR);
+  } catch {
+    await fs.mkdir(BACKUP_DIR, { recursive: true });
+  }
+}
+
+export async function restoreBackup(filename: string): Promise<boolean> {
+  const backupPath = path.join(BACKUP_DIR, filename);
+  
+  try {
+    await fs.access(backupPath);
+  } catch {
+    log('[SERVER]', `Backup not found: ${filename}`);
+    return false;
+  }
+
+  try {
+    const content = await fs.readFile(backupPath, 'utf-8');
+    await fs.writeFile(TAB_FILE_PATH, content, 'utf-8');
+    log('[SERVER]', `Restored from backup: ${filename}`);
+    return true;
+  } catch (error) {
+    log('[SERVER]', `Failed to restore backup ${filename}: ${(error as Error).message}`);
+    return false;
+  }
+}
+
+export async function deleteBackup(filename: string): Promise<boolean> {
+  const backupPath = path.join(BACKUP_DIR, filename);
+  
+  try {
+    await fs.unlink(backupPath);
+    log('[SERVER]', `Deleted backup: ${filename}`);
+    return true;
+  } catch {
+    log('[SERVER]', `Failed to delete backup: ${filename}`);
+    return false;
+  }
+}
+
+export async function rotateBackups(): Promise<void> {
+  try {
+    const backups = await getBackupList();
+    
+    if (backups.length > MAX_BACKUPS) {
+      // Sort ascending (oldest first), delete excess
+      const sorted = [...backups].sort((a, b) => a.filename.localeCompare(b.filename));
+      const toDelete = sorted.slice(0, sorted.length - MAX_BACKUPS);
+      
+      for (const backup of toDelete) {
+        await fs.unlink(backup.path);
+        log('[SERVER]', `Rotated out old backup: ${backup.filename}`);
+      }
+    }
+  } catch (error) {
+    log('[SERVER]', `Backup rotation failed: ${(error as Error).message}`);
+  }
+}
+
+// Create backup before write and rotate after
+export async function createPreWriteBackup(): Promise<void> {
+  await ensureBackupDirectory();
+  const backupPath = await createBackup();
+  if (backupPath) {
+    await rotateBackups();
   }
 }
