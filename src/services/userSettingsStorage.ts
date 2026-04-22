@@ -67,6 +67,39 @@ export const clearUserSettings = (): void => {
   console.log('[UserSettings] Cleared user settings');
 };
 
+const LAST_WORKING_CONFIG_KEY = 'bughouse-ladder-last-working-config';
+
+export interface LastWorkingConfig {
+  server: string;
+  apiKey: string;
+}
+
+export function saveLastWorkingConfig(server: string, apiKey: string): void {
+  try {
+    localStorage.setItem(LAST_WORKING_CONFIG_KEY, JSON.stringify({ server, apiKey }));
+    console.log('[UserSettings] Saved last working config:', { server, hasKey: !!apiKey });
+  } catch (error) {
+    console.error('[UserSettings] Failed to save last working config:', error);
+  }
+}
+
+export function getLastWorkingConfig(): LastWorkingConfig | null {
+  try {
+    const stored = localStorage.getItem(LAST_WORKING_CONFIG_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (error) {
+    console.error('[UserSettings] Failed to load last working config:', error);
+  }
+  return null;
+}
+
+export function clearLastWorkingConfig(): void {
+  localStorage.removeItem(LAST_WORKING_CONFIG_KEY);
+  console.log('[UserSettings] Cleared last working config');
+}
+
 /**
  * Load remote .tab or .xls file from URL (both are tab-separated format)
  * Stores content in sessionStorage for the splash screen to pick up
@@ -121,7 +154,7 @@ export async function loadConfigFromUrl(): Promise<boolean> {
       debugMode: false,
     });
 
-    alert(`Connected!\n\nServer: ${normalized}\nAPI Key: ${apiKey ? '***' + apiKey.slice(-4) : '(empty)'}`);
+    console.log('[Config] Server config loaded from URL:', { server: normalized, hasKey: !!apiKey });
   }
   
   // Remote file load: ?config=3&file=http://host/file.tab
@@ -146,6 +179,7 @@ export async function loadConfigFromUrl(): Promise<boolean> {
   // Local mode reset: ?config=2 (no parameters)
   else if (configType === '2') {
     clearUserSettings();
+    clearLastWorkingConfig();
     sessionStorage.removeItem('pendingFileLoad');
     sessionStorage.removeItem('pendingFileContent');
     sessionStorage.removeItem('pendingFileName');

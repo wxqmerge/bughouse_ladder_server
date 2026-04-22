@@ -22,9 +22,8 @@ import { shouldLog } from "../utils/debug";
 import { getVersionString, isLocalMode, isServerDownMode, getProgramMode, testServerConnection } from "../utils/mode";
 import { log } from "../utils/log";
 import { mergeServerWithLocal as _mergeServerWithLocal } from "../utils/mergeUtils";
-import { loadUserSettings } from "../services/userSettingsStorage";
+import { loadUserSettings, saveUserSettings, saveLastWorkingConfig, normalizeServerUrl } from "../services/userSettingsStorage";
 import { getKeyPrefix, startBatch, endBatch, saveToServer, clearAllSaveStatus, isCellSaved, markCellAsSaved, markLocalChanges, getHasLocalChanges, clearLocalChangesFlag, getPendingDeletes, clearPendingDeletes, queueDelete, isAdminLocked, tryAcquireAdminLock, forceAcquireAdminLock, releaseAdminLock, getAdminLockInfo, getClientId, getServerUrl } from "../services/storageService";
-import { normalizeServerUrl } from "../services/userSettingsStorage";
 import {
   getPlayers,
   savePlayers,
@@ -3023,7 +3022,13 @@ export default function LadderForm({
               <button
                 onClick={() => {
                   console.log('[ServerDownDialog] Proceeding in local mode');
+                  if (splashServerUrl.trim()) {
+                    saveLastWorkingConfig(splashServerUrl.trim(), splashApiKey);
+                    saveUserSettings({ server: '', apiKey: '', debugMode: false });
+                    console.log('[ServerDownDialog] Saved last working config, clearing server URL for local mode');
+                  }
                   setShowServerDownBlockingDialog(false);
+                  setTimeout(() => window.location.reload(), 300);
                 }}
                 style={{
                   padding: "0.875rem 1.5rem",
