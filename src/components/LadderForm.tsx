@@ -3759,50 +3759,54 @@ export default function LadderForm({
                             // Compute new rank from current players
                             const maxRank = players.reduce((max, p) => Math.max(max, p.rank || 0), 0);
                             const rankedPlayer = { ...newPlayer, rank: maxRank + 1 };
-                            const updatedPlayers = [...players, rankedPlayer].sort((a, b) => a.rank - b.rank);
+                            const updatedPlayers = [...players, rankedPlayer];
                             
                             console.log('[EMPTY ROW] maxRank:', maxRank, 'newRank:', maxRank + 1);
                             console.log('[EMPTY ROW] new player object:', JSON.stringify(rankedPlayer));
                             console.log('[EMPTY ROW] updatedPlayers length:', updatedPlayers.length);
                             
                             setPlayers(updatedPlayers);
-                            savePlayers(updatedPlayers).catch((err) => {
-                              console.error("Failed to save added player:", err);
-                            });
+                             savePlayers(updatedPlayers, true).catch((err) => {
+                               console.error("Failed to save added player:", err);
+                             });
                             
-                         // Reset emptyPlayerRow state (not enough for contentEditable cells - React
-                          // skips updating their textContent after they've been made editable)
-                          console.log('[EMPTY ROW] Resetting empty player row');
-                          setEmptyPlayerRow({
-                            firstName: "",
-                            lastName: "",
-                            group: "",
-                            rating: 0,
-                            nRating: 0,
-                            grade: "",
-                            num_games: 0,
-                            attendance: 0,
-                            phone: "",
-                            info: "",
-                            school: "",
-                            room: "",
-                            gameResults: Array(31).fill(null),
-                          });
-                          
-                          // Clear all empty row cells directly in DOM (React doesn't update contentEditable textContent)
-                          document.querySelectorAll('[data-empty-cell]').forEach((cell) => {
-                            cell.textContent = '';
-                          });
-                          console.log('[EMPTY ROW] Cleared all empty row cells in DOM');
-                          
-                          // Move focus to group field of the new empty row
-                          const groupCell = document.querySelector('[data-empty-cell="1"]') as HTMLElement;
-                          if (groupCell) {
-                            groupCell.focus();
-                            console.log('[EMPTY ROW] Focused group cell for next player entry');
-                          }
-                          
-                          return; // Skip setEmptyPlayerRow update since we already called it above
+                         // Reset emptyPlayerRow state and ref (not enough for contentEditable cells - React
+                           // skips updating their textContent after they've been made editable)
+                           console.log('[EMPTY ROW] Resetting empty player row');
+                           const emptyReset = {
+                             firstName: "",
+                             lastName: "",
+                             group: "",
+                             rating: 0,
+                             nRating: 0,
+                             grade: "",
+                             num_games: 0,
+                             attendance: 0,
+                             phone: "",
+                             info: "",
+                             school: "",
+                             room: "",
+                             gameResults: Array(31).fill(null),
+                           } as typeof emptyPlayerRow;
+                           setEmptyPlayerRow(emptyReset);
+                           
+                           // Also update the ref so subsequent blur handlers see clean state
+                           emptyPlayerRowRef.current = emptyReset;
+                           
+                           // Clear all empty row cells directly in DOM (React doesn't update contentEditable textContent)
+                           document.querySelectorAll('[data-empty-cell]').forEach((cell) => {
+                             cell.textContent = '';
+                           });
+                           console.log('[EMPTY ROW] Cleared all empty row cells in DOM');
+                           
+                           // Move focus to group field of the new empty row
+                           const groupCell = document.querySelector('[data-empty-cell="1"]') as HTMLElement;
+                           if (groupCell) {
+                             groupCell.focus();
+                             console.log('[EMPTY ROW] Focused group cell for next player entry');
+                           }
+                           
+                           return; // Skip setEmptyPlayerRow update since we already called it above
                           }
                           
                           // Normal case: just update the empty row field
@@ -4066,7 +4070,34 @@ export default function LadderForm({
               <p style={{ margin: "0 0 0.5rem 0" }}><strong>File:</strong> {pendingImport.filename}</p>
               <p style={{ margin: "0 0 0.5rem 0" }}><strong>Players:</strong> {pendingImport.playerCount}</p>
               <p style={{ margin: "0 0 0.5rem 0" }}><strong>Rounds filled:</strong> {pendingImport.totalRoundsFilled}</p>
-              <p style={{ margin: "0" }}><strong>Games played:</strong> ~{pendingImport.totalGamesPlayed}</p>
+              <p style={{ margin: "0 0 0.5rem 0" }}><strong>Games played:</strong> ~{pendingImport.totalGamesPlayed}</p>
+            </div>
+
+            <div style={{ maxHeight: "300px", overflowY: "auto", border: "1px solid #e5e7eb", borderRadius: "0.25rem", marginBottom: "1rem" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8rem" }}>
+                <thead>
+                  <tr style={{ backgroundColor: "#f9fafb", position: "sticky", top: 0 }}>
+                    <th style={{ padding: "0.375rem 0.5rem", textAlign: "left", borderBottom: "1px solid #e5e7eb", fontWeight: 600 }}>Rank</th>
+                    <th style={{ padding: "0.375rem 0.5rem", textAlign: "left", borderBottom: "1px solid #e5e7eb", fontWeight: 600 }}>Group</th>
+                    <th style={{ padding: "0.375rem 0.5rem", textAlign: "left", borderBottom: "1px solid #e5e7eb", fontWeight: 600 }}>Last Name</th>
+                    <th style={{ padding: "0.375rem 0.5rem", textAlign: "left", borderBottom: "1px solid #e5e7eb", fontWeight: 600 }}>First Name</th>
+                    <th style={{ padding: "0.375rem 0.5rem", textAlign: "center", borderBottom: "1px solid #e5e7eb", fontWeight: 600 }}>Rating</th>
+                    <th style={{ padding: "0.375rem 0.5rem", textAlign: "center", borderBottom: "1px solid #e5e7eb", fontWeight: 600 }}>Games</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendingImport.players.map((p, idx) => (
+                    <tr key={idx} style={{ backgroundColor: idx % 2 === 0 ? "transparent" : "#f9fafb" }}>
+                      <td style={{ padding: "0.375rem 0.5rem", borderBottom: "1px solid #f3f4f6", textAlign: "center" }}>{p.rank}</td>
+                      <td style={{ padding: "0.375rem 0.5rem", borderBottom: "1px solid #f3f4f6" }}>{p.group || ""}</td>
+                      <td style={{ padding: "0.375rem 0.5rem", borderBottom: "1px solid #f3f4f6" }}>{p.lastName || ""}</td>
+                      <td style={{ padding: "0.375rem 0.5rem", borderBottom: "1px solid #f3f4f6" }}>{p.firstName || ""}</td>
+                      <td style={{ padding: "0.375rem 0.5rem", borderBottom: "1px solid #f3f4f6", textAlign: "center" }}>{p.rating || ""}</td>
+                      <td style={{ padding: "0.375rem 0.5rem", borderBottom: "1px solid #f3f4f6", textAlign: "center" }}>{p.num_games || p.attendance || 0}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
 
             <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
