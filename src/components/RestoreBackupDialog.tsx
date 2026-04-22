@@ -1,10 +1,22 @@
 import { useState, useEffect } from "react";
 import { AlertTriangle, Check, Trash2, Loader2 } from "lucide-react";
 
+interface PlayerData {
+  rank: number;
+  group: string;
+  lastName: string;
+  firstName: string;
+  rating: number;
+  nRating: number;
+  gameResults?: (string | null)[];
+}
+
 interface BackupFile {
   filename: string;
-  size: number;
-  modified: string;
+  date: string;
+  timestamp: string;
+  playerCount?: number;
+  filledRounds?: number;
 }
 
 interface RestoreBackupDialogProps {
@@ -21,10 +33,42 @@ export default function RestoreBackupDialog({
   const [restoring, setRestoring] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [previewPlayers, setPreviewPlayers] = useState<Record<string, PlayerData[]>>({});
+  const [previewLoading, setPreviewLoading] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     loadBackups();
   }, []);
+
+  const loadBackupPreview = async (filename: string) => {
+    if (previewPlayers[filename]) return;
+    
+    setPreviewLoading(prev => ({ ...prev, [filename]: true }));
+    try {
+      const userSettings = JSON.parse(localStorage.getItem("bughouse-ladder-user-settings") || "{}");
+      const serverUrl = (userSettings.server || "").trim();
+      
+      const response = await fetch(`${serverUrl}/api/admin/backups/restore/${encodeURIComponent(filename)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      if (!response.ok) return;
+
+      const restoreData = await response.json();
+
+      const fetchResponse = await fetch(`${serverUrl}/api/ladder`);
+      if (fetchResponse.ok) {
+        const fetchData = await fetchResponse.json();
+        const serverPlayers = fetchData.data?.players || [];
+        setPreviewPlayers(prev => ({ ...prev, [filename]: serverPlayers }));
+      }
+    } catch (err) {
+      console.error("Failed to load backup preview:", err);
+    } finally {
+      setPreviewLoading(prev => ({ ...prev, [filename]: false }));
+    }
+  };
 
   const loadBackups = async () => {
     try {
@@ -47,7 +91,13 @@ export default function RestoreBackupDialog({
       }
 
       const data = await response.json();
-      setBackups(data.data?.backups || []);
+      const backupsList = data.data?.backups || [];
+      setBackups(backupsList);
+
+      // Load preview for each backup
+      for (const backup of backupsList) {
+        await loadBackupPreview(backup.filename);
+      }
     } catch (err: any) {
       setError(err.message || "Failed to load backups");
     } finally {
@@ -56,33 +106,10 @@ export default function RestoreBackupDialog({
   };
 
   const handleRestore = async (filename: string) => {
-    if (!window.confirm(`Restore from backup?\n\nThis will replace current data with ${filename}`)) {
-      return;
-    }
-
     setRestoring(filename);
     try {
-      const userSettings = JSON.parse(localStorage.getItem("bughouse-ladder-user-settings") || "{}");
-      const serverUrl = (userSettings.server || "").trim();
-
-      const response = await fetch(`${serverUrl}/api/admin/backups/restore/${filename}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
-      if (data.success) {
-        onRestore(filename);
-      } else {
-        setError(data.error?.message || "Restore failed");
-        setRestoring(null);
-      }
-    } catch (err: any) {
-      setError(err.message || "Restore failed");
+      await onRestore(filename);
+    } finally {
       setRestoring(null);
     }
   };
@@ -112,12 +139,6 @@ export default function RestoreBackupDialog({
     } finally {
       setDeleting(null);
     }
-  };
-
-  const formatSize = (bytes: number): string => {
-    if (bytes < 1024) return bytes + " B";
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
-    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
   };
 
   const formatDate = (dateStr: string): string => {
@@ -212,17 +233,51 @@ export default function RestoreBackupDialog({
               <thead>
                 <tr style={{ backgroundColor: "#f9fafb" }}>
                   <th style={{ padding: "0.5rem", textAlign: "left", borderBottom: "1px solid #e5e7eb", fontWeight: 600 }}>Backup</th>
-                  <th style={{ padding: "0.5rem", textAlign: "left", borderBottom: "1px solid #e5e7eb", fontWeight: 600 }}>Date</th>
-                  <th style={{ padding: "0.5rem", textAlign: "center", borderBottom: "1px solid #e5e7eb", fontWeight: 600 }}>Size</th>
+                  <th style={{ padding: "0.5rem", textAlign: "left", borderBottom: "1px solid #e5e7eb", fontWeight: 600 }}>Timestamp</th>
+                  <th style={{ padding: "0.5rem", textAlign: "center", borderBottom: "1px solid #e5e7eb", fontWeight: 600, width: "200px" }}>Game Results</th>
                   <th style={{ padding: "0.5rem", textAlign: "center", borderBottom: "1px solid #e5e7eb", fontWeight: 600 }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {backups.map((backup) => (
+                 {backups.map((backup) => (
                   <tr key={backup.filename} style={{ borderTop: "1px solid #f3f4f6" }}>
                     <td style={{ padding: "0.5rem" }}>{backup.filename}</td>
-                    <td style={{ padding: "0.5rem", color: "#6b7280" }}>{formatDate(backup.modified)}</td>
-                    <td style={{ padding: "0.5rem", textAlign: "center", color: "#6b7280" }}>{formatSize(backup.size)}</td>
+                    <td style={{ padding: "0.5rem", color: "#6b7280" }}>{formatDate(backup.timestamp)}</td>
+                    <td style={{ padding: "0.5rem", textAlign: "center" }}>
+                      {previewLoading[backup.filename] ? (
+                        <Loader2 size={14} style={{ animation: "spin 1s linear infinite", display: "inline-block" }} />
+                      ) : previewPlayers[backup.filename] && previewPlayers[backup.filename].length > 0 ? (
+                        <div style={{ maxHeight: "60px", overflowX: "auto", overflowY: "hidden" }}>
+                          {previewPlayers[backup.filename].filter((p) => (p.gameResults || []).some((r) => r && r.trim() !== "")).slice(0, 3).map((p) => (
+                            <div key={p.rank} style={{ fontSize: "0.7rem", marginBottom: "0.125rem" }}>
+                              <span style={{ color: "#6b7280", marginRight: "0.25rem" }}>P{p.rank}</span>
+                              <span style={{ display: "inline-flex", gap: "0.125rem", whiteSpace: "nowrap" }}>
+                                {(p.gameResults || []).filter((r) => r && r.trim() !== "").map((result, rIdx) => {
+                                  const origIdx = (p.gameResults || []).indexOf(result);
+                                  return (
+                                    <span key={origIdx} style={{ 
+                                      padding: "0 0.25rem",
+                                      backgroundColor: "#e0f2fe",
+                                      borderRadius: "0.125rem",
+                                      fontSize: "0.65rem",
+                                    }}>
+                                      {(result || "").replace(/_+$/, "")}
+                                    </span>
+                                  );
+                                })}
+                              </span>
+                            </div>
+                          ))}
+                          {previewPlayers[backup.filename].some((p) => (p.gameResults || []).some((r) => r && r.trim() !== "")) && (
+                            <div style={{ fontSize: "0.65rem", color: "#9ca3af" }}>
+                              +{previewPlayers[backup.filename].filter(p => (p.gameResults || []).some(r => r && r.trim() !== '')).length - 3} more
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <span style={{ fontSize: "0.75rem", color: "#9ca3af" }}>No results</span>
+                      )}
+                    </td>
                     <td style={{ padding: "0.5rem", textAlign: "center" }}>
                       <div style={{ display: "flex", gap: "0.25rem", justifyContent: "center" }}>
                         <button
