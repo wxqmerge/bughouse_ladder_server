@@ -76,8 +76,9 @@ export interface LastWorkingConfig {
 
 export function saveLastWorkingConfig(server: string, apiKey: string): void {
   try {
-    localStorage.setItem(LAST_WORKING_CONFIG_KEY, JSON.stringify({ server, apiKey }));
-    console.log('[UserSettings] Saved last working config:', { server, hasKey: !!apiKey });
+    const normalizedServer = normalizeServerUrl(server);
+    localStorage.setItem(LAST_WORKING_CONFIG_KEY, JSON.stringify({ server: normalizedServer, apiKey }));
+    console.log('[UserSettings] Saved last working config:', { server: normalizedServer, hasKey: !!apiKey });
   } catch (error) {
     console.error('[UserSettings] Failed to save last working config:', error);
   }
