@@ -176,6 +176,8 @@ interface LadderFormProps {
   setTriggerWalkthrough?: (show: boolean) => void;
   onSetRecalculateRef?: (ref: () => void) => void;
   onSetRefreshPlayersRef?: (ref: () => void) => void;
+  showServerDownBlocking?: boolean;
+  onDismissServerDown?: () => void;
 }
 
 export default function LadderForm({
@@ -184,6 +186,8 @@ export default function LadderForm({
   setTriggerWalkthrough,
   onSetRecalculateRef,
   onSetRefreshPlayersRef,
+  showServerDownBlocking = false,
+  onDismissServerDown,
 }: LadderFormProps = {}) {
   const [players, setPlayers] = useState<PlayerData[]>([]);
   const [zoomLevel, setZoomLevel] = useState<
@@ -283,8 +287,6 @@ export default function LadderForm({
   const [splashApiKey, setSplashApiKey] = useState('');
   const [hadExistingUserSettings, setHadExistingUserSettings] = useState(false);
   const [hasLocalPlayerData, setHasLocalPlayerData] = useState(false);
-  // Blocking dialog shown at startup when server is unreachable
-  const [showServerDownBlockingDialog, setShowServerDownBlockingDialog] = useState(false);
   const [isRetryingConnection, setIsRetryingConnection] = useState(false);
   const [retryErrorMessage, setRetryErrorMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -352,30 +354,7 @@ export default function LadderForm({
     }
   }, []);
 
-  // Check if we should show blocking dialog (server configured but unreachable)
-  useEffect(() => {
-    const checkServerStatus = async () => {
-      const userSettingsJson = localStorage.getItem('bughouse-ladder-user-settings');
-      if (!userSettingsJson) return;
-      
-      const userSettings = JSON.parse(userSettingsJson);
-      const serverUrl = userSettings.server?.trim() || '';
-      
-      // Only check if server is configured
-      if (!serverUrl) return;
-      
-      // Check if server is reachable
-      const isReachable = await testServerConnection();
-      
-      // Show blocking dialog if server is unreachable (regardless of local data)
-      if (!isReachable) {
-        console.log('[LadderForm] Server unreachable - showing blocking dialog');
-        setShowServerDownBlockingDialog(true);
-      }
-    };
-    
-    checkServerStatus();
-  }, []);
+
 
 
 
@@ -467,6 +446,9 @@ export default function LadderForm({
             });
             
             if (response.ok) {
+              // Save this as the last working config
+              saveLastWorkingConfig(serverUrl, splashApiKey);
+              
               const data = await response.json();
               const serverPlayers = data.data?.players || [];
               
@@ -2808,7 +2790,7 @@ export default function LadderForm({
       
       if (isReachable) {
         console.log('[ServerDownDialog] Server is now reachable!');
-        setShowServerDownBlockingDialog(false);
+        onDismissServerDown?.();
         // Reload to reconnect properly
         setTimeout(() => window.location.reload(), 500);
       } else {
@@ -2822,7 +2804,7 @@ export default function LadderForm({
   };
 
   // Server-down blocking dialog - shown at startup when server is unreachable
-  if (showServerDownBlockingDialog) {
+  if (showServerDownBlocking) {
     const userSettingsJson = localStorage.getItem('bughouse-ladder-user-settings');
     let configuredServerUrl = '';
     if (userSettingsJson) {
@@ -3027,7 +3009,7 @@ export default function LadderForm({
                     saveUserSettings({ server: '', apiKey: '', debugMode: false });
                     console.log('[ServerDownDialog] Saved last working config, clearing server URL for local mode');
                   }
-                  setShowServerDownBlockingDialog(false);
+                  onDismissServerDown?.();
                   setTimeout(() => window.location.reload(), 300);
                 }}
                 style={{
@@ -3047,7 +3029,7 @@ export default function LadderForm({
               <button
                 onClick={() => {
                   console.log('[ServerDownDialog] Opening settings, hiding blocking dialog');
-                  setShowServerDownBlockingDialog(false);
+                  onDismissServerDown?.();
                   setShowSettings?.(true);
                 }}
                 style={{
