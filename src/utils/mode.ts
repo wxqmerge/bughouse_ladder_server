@@ -1,3 +1,5 @@
+import { loadUserSettings, saveLastWorkingConfig } from '../services/userSettingsStorage';
+
 // Connection state tracking
 let connectionState: {
   configuredForServer: boolean;
@@ -81,6 +83,10 @@ export async function testServerConnection(): Promise<boolean> {
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
+    if (response.ok) {
+      const settings = loadUserSettings();
+      saveLastWorkingConfig(apiUrl, settings.apiKey);
+    }
     return response.ok;
   } catch (error) {
     clearTimeout(timeoutId);
@@ -93,6 +99,10 @@ export async function testServerConnection(): Promise<boolean> {
         signal: controller2.signal,
       });
       clearTimeout(timeoutId2);
+      if (response.ok || response.status === 404) {
+        const settings = loadUserSettings();
+        saveLastWorkingConfig(apiUrl, settings.apiKey);
+      }
       return response.ok || response.status === 404; // 404 means server is up
     } catch {
       return false;
@@ -180,8 +190,7 @@ export function getProgramMode(): ProgramMode {
   return 'local'; // Local mode
 }
 
-// Initialize on module load
-initializeConnectionState();
+
 
 /**
  * Gets the version string with mode indicator
