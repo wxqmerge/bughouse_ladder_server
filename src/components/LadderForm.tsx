@@ -35,6 +35,7 @@ import {
   getZoomLevel,
   setZoomLevel as setZoomLevelStorage,
 } from "../services/storageService";
+import RestoreBackupDialog from "./RestoreBackupDialog";
 import "../css/index.css";
 
 export const loadSampleData = () => {
@@ -260,6 +261,7 @@ export default function LadderForm({
   } | null>(null);
   const [isAddPlayerDialogOpen, setIsAddPlayerDialogOpen] = useState(false);
   const [showBulkPasteDialog, setShowBulkPasteDialog] = useState(false);
+  const [showRestoreBackupDialog, setShowRestoreBackupDialog] = useState(false);
   const [pendingImport, setPendingImport] = useState<{
     players: PlayerData[];
     filename: string;
@@ -779,6 +781,44 @@ export default function LadderForm({
       }
     } catch (err) {
       log('[LOAD_FILE]', '✗ Failed to restore from server:', err);
+    }
+    
+    (window as any).__ladder_setStatus?.(null);
+  };
+
+  const handleRestoreBackup = async (filename: string) => {
+    console.log('[RESTORE_BACKUP]', 'Restored from backup:', filename);
+    setShowRestoreBackupDialog(false);
+    
+    (window as any).__ladder_setStatus?.('Loading data from server...');
+    try {
+      const userSettings = loadUserSettings();
+      const serverUrl = userSettings.server?.trim();
+      
+      if (serverUrl) {
+        const response = await fetch(`${serverUrl}/api/ladder`, {
+          headers: {},
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          const serverPlayers = data.data?.players || [];
+          
+          if (serverPlayers && serverPlayers.length > 0) {
+            setPlayers(serverPlayers.map((p: PlayerData) => ({
+              ...p,
+              gameResults: p.gameResults || new Array(31).fill(null),
+            })));
+            log('[RESTORE_BACKUP]', '✓ Data loaded from server');
+          } else {
+            log('[RESTORE_BACKUP]', '⚠ Server returned empty data');
+          }
+        } else {
+          log('[RESTORE_BACKUP]', '⚠ Failed to fetch ladder data (status ' + response.status + ')');
+        }
+      }
+    } catch (err) {
+      log('[RESTORE_BACKUP]', '✗ Failed to load data from server:', err);
     }
     
     (window as any).__ladder_setStatus?.(null);
@@ -3118,6 +3158,7 @@ export default function LadderForm({
         onOpenSettings={() => setShowSettings?.(true)}
         onAddPlayer={handleAddPlayer}
         onEnterGames={handleEnterGamesMenu}
+        onRestoreBackup={isAdmin ? () => setShowRestoreBackupDialog(true) : undefined}
         isAdmin={isAdmin}
         projectName={projectName}
         onSetTitle={(newTitle) => {
@@ -3139,6 +3180,7 @@ export default function LadderForm({
           onAddPlayer={handleAddPlayer}
           onBulkPaste={handleBulkPaste}
           onEnterGames={handleEnterGamesMenu}
+          onRestoreBackup={isAdmin ? () => setShowRestoreBackupDialog(true) : undefined}
           isAdmin={isAdmin}
           isWide={zoomLevel === "140%"}
           zoomLevel={zoomLevel}
@@ -4034,6 +4076,14 @@ export default function LadderForm({
           players={players}
           onClose={() => setShowBulkPasteDialog(false)}
           onApplyResults={handleApplyBulkResults}
+        />
+      )}
+
+      {/* Restore Backup Dialog */}
+      {showRestoreBackupDialog && (
+        <RestoreBackupDialog
+          onClose={() => setShowRestoreBackupDialog(false)}
+          onRestore={handleRestoreBackup}
         />
       )}
 
