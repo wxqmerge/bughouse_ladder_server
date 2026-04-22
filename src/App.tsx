@@ -9,6 +9,7 @@ import type { PlayerData } from "./utils/hashUtils";
 import { getNextTitle, processNewDayTransformations } from "./utils/constants";
 import {
   updateConnectionState,
+  initializeConnectionState,
   startPeriodicChecks,
   stopPeriodicChecks,
   onModeChange,
@@ -49,6 +50,8 @@ function App() {
   // Track mode transitions properly to avoid false positives on initial load
   const [initialDetectionDone, setInitialDetectionDone] = useState(false);
   const [lastKnownMode, setLastKnownMode] = useState<'local' | 'server_down' | 'dev' | 'server' | null>(null);
+  // Show server-down blocking dialog on first load if server is unreachable
+  const [showServerDownBlocking, setShowServerDownBlocking] = useState(false);
   const [status, setStatus] = useState<string | null>("Initializing...");
   const recalculateRef = useRef<(() => void) | undefined>(undefined);
   const refreshPlayersRef = useRef<(() => void) | undefined>(undefined);
@@ -61,90 +64,92 @@ function App() {
     };
   }, []);
 
-  // Load URL-based config on mount (async - runs before other init)
+  // Load URL-based config, initialize connection state, and test connectivity on mount
   useEffect(() => {
-    loadConfigFromUrl().catch(console.error);
-  }, []);
+    const init = async () => {
+      // Step 1: Load URL params (saves server+key to localStorage)
+      await loadConfigFromUrl();
 
-  // Test server connectivity and check for migration on mount
-  useEffect(() => {
-    // Initial connectivity test
-    setStatus("Checking server connection...");
-    updateConnectionState()
-      .then(async () => {
-        setStatus(null); // Clear status after connection check
-        
-        // Start polling for data updates in server mode (every 5 seconds)
-        const mode = getProgramMode();
-        if (mode !== 'local' && mode !== 'server_down') {
-          console.log('[APP] Initializing data sync...');
-          // Initialize hash from current server state
-          await dataService.initializeHash();
-          console.log('[APP] Starting data polling (5 second interval)');
-          dataService.startPolling(5000);
-          
-          // Subscribe to data changes and notify LadderForm
-          const unsubscribe = dataService.subscribe(() => {
-            console.log('[APP] Data changed - notifying LadderForm');
-            if (refreshPlayersRef.current) {
-              refreshPlayersRef.current();
-            }
-          });
-          
-          // Store unsubscribe for cleanup
-          (window as any).__ladder_dataServiceUnsubscribe = unsubscribe;
+      // Step 2: Initialize connection state from localStorage (now has fresh config)
+      initializeConnectionState();
+
+      // Step 3: Test server connectivity
+      setStatus("Checking server connection...");
+      updateConnectionState()
+        .then(async () => {
+          setStatus(null);
+
+          const mode = getProgramMode();
+          setInitialDetectionDone(true);
+          setLastKnownMode(mode as 'local' | 'server_down' | 'dev' | 'server');
+
+          // Show blocking dialog on first load if server is unreachable
+          if (mode === 'server_down') {
+            console.log('[APP] Server unreachable on initial load - showing blocking dialog');
+            setShowServerDownBlocking(true);
+          }
+
+          // Start polling for data updates in server mode (every 5 seconds)
+          if (mode !== 'local' && mode !== 'server_down') {
+            console.log('[APP] Initializing data sync...');
+            await dataService.initializeHash();
+            console.log('[APP] Starting data polling (5 second interval)');
+            dataService.startPolling(5000);
+
+            const unsubscribe = dataService.subscribe(() => {
+              console.log('[APP] Data changed - notifying LadderForm');
+              if (refreshPlayersRef.current) {
+                refreshPlayersRef.current();
+              }
+            });
+            (window as any).__ladder_dataServiceUnsubscribe = unsubscribe;
+          }
+        })
+        .catch(console.error);
+
+      // Step 4: Set up mode change callback
+      onModeChange((newMode: string, oldMode: string) => {
+        console.log(`[MODE CHANGE] ${oldMode} -> ${newMode}`);
+
+        if (!initialDetectionDone) {
+          setLastKnownMode(newMode as 'local' | 'server_down' | 'dev' | 'server');
+          setInitialDetectionDone(true);
+          return;
         }
-      })
-      .catch(console.error);
-    
-    // Set up mode change callback
-    onModeChange((newMode: string, oldMode: string) => {
-      console.log(`[MODE CHANGE] ${oldMode} -> ${newMode}`);
-      
-      if (!initialDetectionDone) {
-        // First detection - just record, don't show dialog
+
+        const wasServer = lastKnownMode === 'server' || lastKnownMode === 'dev';
+        const isNowServer = newMode === 'server' || newMode === 'dev';
+        const wasServerDown = lastKnownMode === 'server_down';
+
         setLastKnownMode(newMode as 'local' | 'server_down' | 'dev' | 'server');
-        setInitialDetectionDone(true);
-        return;
+
+        if ((wasServerDown && isNowServer) || (wasServer && !isNowServer)) {
+          setShowReconnectDialog(true);
+        }
+      });
+
+      // Step 5: Start periodic checks (every 10 seconds)
+      startPeriodicChecks();
+
+      // Step 6: Check for migration needs
+      const migrationCheck = checkMigrationNeeded();
+      if (migrationCheck.needed) {
+        setShowMigrationDialog(true);
+      } else {
+        storeCurrentMode(migrationCheck.toMode);
       }
-      
-      // Now we can detect ACTUAL transitions (not initial state)
-      const wasServer = lastKnownMode === 'server' || lastKnownMode === 'dev';
-      const isNowServer = newMode === 'server' || newMode === 'dev';
-      const wasServerDown = lastKnownMode === 'server_down';
-      
-      setLastKnownMode(newMode as 'local' | 'server_down' | 'dev' | 'server');
-      
-      // Show reconnect dialog on REAL transitions only:
-      // 1. Transitioning from server_down to server/dev (reconnection with possible local changes)
-      // 2. Transitioning from server/dev to server_down (disconnection notification)
-      if ((wasServerDown && isNowServer) || (wasServer && !isNowServer)) {
-        setShowReconnectDialog(true);
-      }
-    });
-    
-    // Start periodic checks (every 10 seconds)
-    startPeriodicChecks();
-    
-    // Check for migration needs
-    const migrationCheck = checkMigrationNeeded();
-    if (migrationCheck.needed) {
-      setShowMigrationDialog(true);
-    } else {
-      // Store current mode for future comparisons
-      storeCurrentMode(migrationCheck.toMode);
-    }
-    
+    };
+
+    init();
+
     return () => {
       stopPeriodicChecks();
-      
-      // Stop polling on unmount
+
       const mode = getProgramMode();
       if (mode !== 'local' && mode !== 'server_down') {
         console.log('[APP] Stopping data polling');
         dataService.stopPolling();
-        
-        // Unsubscribe from data changes
+
         if ((window as any).__ladder_dataServiceUnsubscribe) {
           (window as any).__ladder_dataServiceUnsubscribe();
           (window as any).__ladder_dataServiceUnsubscribe = null;
@@ -361,6 +366,8 @@ function App() {
         setTriggerWalkthrough={setTriggerWalkthrough}
         onSetRecalculateRef={handleSetRecalculateRef}
         onSetRefreshPlayersRef={handleSetRefreshPlayersRef}
+        showServerDownBlocking={showServerDownBlocking}
+        onDismissServerDown={() => setShowServerDownBlocking(false)}
       />
       {showSettings && (
         <Settings
