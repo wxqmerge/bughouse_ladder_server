@@ -573,7 +573,7 @@ export default function LadderForm({
     initializeData();
   }, []);
 
-  const loadPlayers = (file?: File) => {
+ const loadPlayers = (file?: File) => {
     const fileToLoad = file || lastFile;
 
     if (!fileToLoad) {
@@ -608,7 +608,14 @@ export default function LadderForm({
 
         if (!line) continue;
 
-        if (line.startsWith("Group")) continue;
+        if (line.startsWith("Group")) {
+          // Validate header Round 1 column
+          const headerCols = line.split("\t");
+          if (headerCols[13] && headerCols[13].trim() !== "1") {
+            alert(`Warning: Header Round 1 column contains "${headerCols[13]}" instead of "1". The file may be corrupted, have missing columns, or have been edited incorrectly. Please verify the data carefully.`);
+          }
+          continue;
+        }
 
         let cols = line.split("\t");
         if (cols[0].length > 2) {
@@ -2545,7 +2552,7 @@ export default function LadderForm({
     const filename = `${titlePart}_${timestamp}.tab`;
 
     const headerLine =
-      "Group\tLast Name\tFirst Name\tRating\tRnk\tN Rate\tGr\tGms\tPhone\tInfo\tSchool\tRoom\t1\t2\t3\t4\t5\t6\t7\t8\t9\t10\t11\t12\t13\t14\t15\t16\t17\t18\t19\t20\t21\t22\t23\t24\t25\t26\t27\t28\t29\t30\t31\Version 1.21";
+      "Group\tLast Name\tFirst Name\tRating\tRnk\tN Rate\tGr\tGms\tAttendance\tPhone\tInfo\tSchool\tRoom\t1\t2\t3\t4\t5\t6\t7\t8\t9\t10\t11\t12\t13\t14\t15\t16\t17\t18\t19\t20\t21\t22\t23\t24\t25\t26\t27\t28\t29\t30\t31\Version 1.21";
 
     let output = headerLine + "\n";
 
@@ -2554,7 +2561,7 @@ export default function LadderForm({
 
       output += `${player.group || ""}\t${player.lastName || ""}\t${player.firstName || ""}\t${player.rating || ""}\t${player.rank}\t${player.nRating || ""}\t${player.grade || ""}\t${player.num_games || 0}\t${player.attendance || ""}\t${player.phone || ""}\t${player.info || ""}\t${player.school || ""}\t${player.room || ""}`;
 
-      output += gameResults.map((r) => r || "").join("\t");
+      output += "\t" + gameResults.map((r) => r || "").join("\t");
       output += "\n";
     });
 
@@ -3342,14 +3349,24 @@ export default function LadderForm({
         }
       `}</style>
 
+      <style>{`
+        .ladder-table thead th {
+          position: sticky;
+          top: 0;
+          z-index: 10;
+        }
+      `}</style>
+
       <div
         style={{
           overflow: "auto",
+          maxHeight: "calc(100vh - 250px)",
           border: "1px solid #cbd5e1",
           borderRadius: "0.5rem",
         }}
       >
         <table
+          className="ladder-table"
           style={{
             width: "100%",
             borderCollapse: "collapse",
@@ -3641,10 +3658,11 @@ export default function LadderForm({
                                       targetPlayer.rank = parseInt(value) || 0;
                                       break;
                                   }
-                                }
-                                return updatedPlayers;
-                              });
-                              savePlayers(
+                                   e.target.textContent = value;
+                                 }
+                                 return updatedPlayers;
+                               });
+                               savePlayers(
                                 players.map((p) =>
                                   p.rank === player.rank
                                     ? ({
@@ -3735,13 +3753,14 @@ export default function LadderForm({
                               newGameResults[gCol] = value;
 
                               return prevPlayers.map((p) =>
-                                p.rank === player.rank
-                                  ? { ...p, gameResults: newGameResults }
-                                  : p,
-                              );
-                            });
-                          }
-                        }}
+                                 p.rank === player.rank
+                                   ? { ...p, gameResults: newGameResults }
+                                   : p,
+                               );
+                             });
+                             e.target.textContent = value;
+                           }
+                         }}
                         style={{
                           padding: "0.5rem 0.75rem",
                           borderBottom: "1px solid #e2e8f0",
@@ -3838,6 +3857,9 @@ export default function LadderForm({
                           }
                           
                           console.log('[EMPTY ROW] after update:', JSON.stringify(result));
+                           
+                           // Sync DOM cell value — React doesn't update contentEditable textContent during re-renders
+                           e.target.textContent = value;
                           
                           // When both firstName and lastName are filled, create player and reset row
                           if ((result.firstName || "").trim() && (result.lastName || "").trim()) {
