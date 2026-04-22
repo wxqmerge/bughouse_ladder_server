@@ -3347,7 +3347,7 @@ export default function LadderForm({
       <div
         style={{
           overflow: "auto",
-          maxHeight: "calc(100vh - 250px)",
+          maxHeight: "calc(100dvh - 80px)",
           border: "1px solid #cbd5e1",
           borderRadius: "0.5rem",
         }}
