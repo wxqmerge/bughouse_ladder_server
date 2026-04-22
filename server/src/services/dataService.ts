@@ -197,6 +197,16 @@ export async function readLadderFile(): Promise<LadderData> {
       players.push(player);
     }
 
+    // Assign sequential ranks to any players with rank 0 (missing/empty rank field)
+    let nextRank = 1;
+    for (const player of players) {
+      if (player.rank === 0) {
+        player.rank = nextRank;
+      } else {
+        nextRank = Math.max(nextRank, player.rank + 1);
+      }
+    }
+
     return { header, players, rawLines: dataLines };
   } finally {
     releaseLock();
