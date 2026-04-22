@@ -128,9 +128,10 @@ export async function readLadderFile(): Promise<LadderData> {
       dataLines = lines;
     }
     
-    // Parse player data - supports both formats:
-    // New format (LadderForm): Rnk|Group|Last Name|First Name|Prev Rating|New Rating|Gr|Gms|Attendance|Phone|Info
-    // Old format (VB6 ladder): Group|Last Name|First Name|Rating|Rnk|N Rate|Gr|[blank]|X|Phone|Info|School|Room|[games]|Version
+    // Detect format by header content: new LadderForm format has "Gms" column, old VB6 doesn't
+    const isNewFormat = header.includes('Gms');
+    
+    // Parse player data
     const players: PlayerData[] = [];
     
     for (let i = 0; i < dataLines.length; i++) {
@@ -142,33 +143,37 @@ export async function readLadderFile(): Promise<LadderData> {
         continue;
       }
       
-      // Detect format by checking first field
-      const isNewFormat = !isNaN(parseInt(fields[0])); // First field is a number (rank)
-      
       let player: PlayerData;
       
       if (isNewFormat) {
-        // New LadderForm format
+        // New LadderForm format:
+        // Group(0)|Last Name(1)|First Name(2)|Rating(3)|Rnk(4)|N Rate(5)|Gr(6)|Gms(7)|Attendance(8)|Phone(9)|Info(10)|School(11)|Room(12)|Games...(13+)
+        const gameResults: (string | null)[] = [];
+        for (let r = 0; r < 31; r++) {
+          const fieldIndex = 13 + r;
+          const value = fields[fieldIndex]?.trim() || '';
+          gameResults.push(value || null);
+        }
+        
         player = {
-          rank: parseInt(fields[0]) || 0,
-          group: fields[1] || '',
-          lastName: fields[2] || '',
-          firstName: fields[3] || '',
-          rating: parseInt(fields[4]) || 0, // Previous Rating
-          nRating: parseInt(fields[5]) || 0, // New Rating
-          grade: fields[6] || '', // Gr
-          num_games: parseInt(fields[7]) || 0, // Gms
-          attendance: fields[8] || '', // Attendance
-          phone: fields[9] || '', // Phone
-          info: fields[10] || '', // Info
-          school: '',
-          room: '',
-          gameResults: [],
+          rank: parseInt(fields[4]) || 0,
+          group: fields[0] || '',
+          lastName: fields[1] || '',
+          firstName: fields[2] || '',
+          rating: parseInt(fields[3]) || 0,
+          nRating: parseInt(fields[5]) || 0,
+          grade: fields[6] || '',
+          num_games: parseInt(fields[7]) || 0,
+          attendance: fields[8] || '',
+          phone: fields[9] || '',
+          info: fields[10] || '',
+          school: fields[11] || '',
+          room: fields[12] || '',
+          gameResults: gameResults,
         };
       } else {
-        // Old VB6 ladder format
-        // Fields: 0=Group, 1=Last, 2=First, 3=Rating, 4=Rnk, 5=NRate, 6=Gr, 7=blank, 8=X, 9=Phone, 10=Info, 11=School, 12=Room
-        // Fields 13-43: Game results for rounds 1-31
+        // Old VB6 ladder format:
+        // Group(0)|Last Name(1)|First Name(2)|Rating(3)|Rnk(4)|N Rate(5)|Gr(6)|blank(7)|X(8)|Phone(9)|Info(10)|School(11)|Room(12)|Games...(13+)
         const gameResults: (string | null)[] = [];
         for (let r = 0; r < 31; r++) {
           const fieldIndex = 13 + r;
@@ -184,7 +189,7 @@ export async function readLadderFile(): Promise<LadderData> {
           rating: parseInt(fields[3]) || 0,
           nRating: 0,
           grade: fields[6] || '',
-          num_games: (fields[8] === 'X') ? 1 : 0,
+          num_games: gameResults.filter(r => r !== null && r !== '').length || 0,
           attendance: '',
           phone: fields[9] || '',
           info: fields[10] || '',
@@ -215,27 +220,25 @@ export async function readLadderFile(): Promise<LadderData> {
 }
 
 export function generateTabContent(ladderData: LadderData): string {
-  // Output format matches VB6 ladder headers:
-  // Group|Last Name|First Name|Rating|Rnk|N Rate|Gr|[blank]|X|Phone|Info|School|Room|[games]|Version
+  // Output format matches LadderForm export (new LadderForm format with Gms preserved)
   
-  const headerLine = 'Group\tLast Name\tFirst Name\tRating\tRnk\tN Rate\tGr\t\tX\tPhone\tInfo\tSchool\tRoom\t1\t2\t3\t4\t5\t6\t7\t8\t9\t10\t11\t12\t13\t14\t15\t16\t17\t18\t19\t20\t21\t22\t23\t24\t25\t26\t27\t28\t29\t30\t31\tVersion 1.21';
+  const headerLine = 'Group\tLast Name\tFirst Name\tRating\tRnk\tN Rate\tGr\tGms\tAttendance\tPhone\tInfo\tSchool\tRoom\t1\t2\t3\t4\t5\t6\t7\t8\t9\t10\t11\t12\t13\t14\t15\t16\t17\t18\t19\t20\t21\t22\t23\t24\t25\t26\t27\t28\t29\t30\t31\tVersion 1.21';
   
   const playerLines = ladderData.players.map(player => {
-    // Base fields in VB6 ladder order
     const baseFields = [
-      player.group, // Group
-      player.lastName, // Last Name
-      player.firstName, // First Name
-      player.rating.toString(), // Rating
-      player.rank.toString(), // Rnk (PRESERVED from input - NOT recalculated)
-      player.nRating.toString(), // N Rate
-      player.grade, // Gr
-      '', // blank column
-      'X', // X column
-      player.phone, // Phone
-      player.info, // Info
-      player.school, // School
-      player.room, // Room
+      player.group || '', // Group
+      player.lastName || '', // Last Name
+      player.firstName || '', // First Name
+      player.rating?.toString() || '0', // Rating
+      player.rank?.toString() || '0', // Rnk
+      player.nRating?.toString() || '0', // N Rate
+      player.grade || '', // Gr
+      (player.num_games ?? 0).toString(), // Gms - preserved from input
+      player.attendance?.toString() || '', // Attendance
+      player.phone || '', // Phone
+      player.info || '', // Info
+      player.school || '', // School
+      player.room || '', // Room
     ];
     
     // Add game result columns (1-31)
