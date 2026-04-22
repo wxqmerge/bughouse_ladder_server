@@ -205,6 +205,7 @@ export default function LadderForm({
     lastName: string;
     group: string;
     rating: number;
+    nRating: number;
     grade: string;
     num_games: number;
     attendance: number;
@@ -218,6 +219,7 @@ export default function LadderForm({
     lastName: "",
     group: "",
     rating: 0,
+    nRating: 0,
     grade: "",
     num_games: 0,
     attendance: 0,
@@ -227,6 +229,8 @@ export default function LadderForm({
     room: "",
     gameResults: new Array(31).fill(null),
   });
+  const emptyPlayerRowRef = useRef(emptyPlayerRow);
+  emptyPlayerRowRef.current = emptyPlayerRow;
   const [currentError, setCurrentError] = useState<ValidationResult | null>(
     null,
   );
@@ -3453,7 +3457,7 @@ export default function LadderForm({
                       rowIndex % 2 >= 1 ? "#f8fafc" : "transparent",
                   }}
                 >
-                  {Object.keys(player)
+                  {["rank","group","lastName","firstName","rating","nRating","grade","num_games","attendance","phone","info","school","room"]
                     .filter((_, i) => i < (isAdmin ? 13 : 6))
                     .map((field, col) => {
                       const isEditable = isAdmin && field !== "rank";
@@ -3666,80 +3670,108 @@ export default function LadderForm({
                 </tr>
               );
             })}
-            {isAdmin && (
-              <tr style={{ backgroundColor: "#f0f9ff" }}>
-                {Object.keys(emptyPlayerRow)
-                  .filter((_, i) => i < 13)
-                  .map((field, colIndex) => {
-                    const isEditable = field !== "rank";
-                    return (
+               {isAdmin && (
+               <tr style={{ backgroundColor: "#f0f9ff" }}>
+                 {["rank","group","lastName","firstName","rating","nRating","grade","num_games","attendance","phone","info","school","room"].map((field, colIndex) => {
+                     const isEditable = field !== "rank";
+                     return (
                       <td
-                        key={`empty-${colIndex}`}
-                        contentEditable={isEditable}
-                        suppressContentEditableWarning={true}
-                        onBlur={(e) => {
+                         key={`empty-${colIndex}`}
+                         data-empty-cell={colIndex}
+                         contentEditable={isEditable}
+                         suppressContentEditableWarning={true}
+                         onKeyDown={(e) => {
+                           if (e.key === "Enter") {
+                             e.preventDefault();
+                             const nextCol = colIndex + 1;
+                             const nextCell = document.querySelector(`[data-empty-cell="${nextCol}"]`) as HTMLElement;
+                             if (nextCell) {
+                               nextCell.focus();
+                             }
+                           } else if (e.key === "Escape") {
+                             e.preventDefault();
+                             e.currentTarget.blur();
+                           }
+                         }}
+                         onBlur={(e) => {
                           if (!isEditable || !e.target.textContent) return;
                           
+                          console.log('[EMPTY ROW] onBlur triggered, field:', field, 'value:', e.target.textContent);
+                          console.log('[EMPTY ROW] current emptyPlayerRowRef:', JSON.stringify(emptyPlayerRowRef.current));
+                          console.log('[EMPTY ROW] current players count:', players.length);
+                          
                           const value = e.target.textContent;
-                          setEmptyPlayerRow((prev) => {
-                            const updated = { ...prev, [field]: value };
+                          
+                          // Build updated state using ref to get latest values across all fields
+                          const currentValues = { ...emptyPlayerRowRef.current };
+                          const updated = { ...currentValues, [field]: value };
+                          
+                          let result: typeof emptyPlayerRow = { ...updated };
+                          if (field === "rating" || field === "nRating" || field === "num_games" || field === "attendance") {
+                            const numVal = parseInt(value) || 0;
+                            result = { ...result, [field]: numVal };
+                          }
+                          
+                          console.log('[EMPTY ROW] after update:', JSON.stringify(result));
+                          
+                          // When both firstName and lastName are filled, create player and reset row
+                          if ((result.firstName || "").trim() && (result.lastName || "").trim()) {
+                            console.log('[EMPTY ROW] Both names filled - creating player');
+                            const gameData = result as typeof emptyPlayerRow & { rank?: number };
+                            const newPlayer: PlayerData = {
+                              rank: 0,
+                              nRating: result.nRating || 0,
+                              gameResults: result.gameResults,
+                              group: gameData.group,
+                              lastName: gameData.lastName,
+                              firstName: gameData.firstName,
+                              rating: gameData.rating,
+                              grade: gameData.grade,
+                              num_games: gameData.num_games,
+                              attendance: gameData.attendance,
+                              phone: gameData.phone,
+                              info: gameData.info,
+                              school: gameData.school,
+                              room: gameData.room,
+                            };
                             
-                            // When user enters a name (firstName or lastName), create real player and add new empty row
-                              if ((field === "firstName" || field === "lastName") && value.trim()) {
-                                const maxRank = players.reduce((max, p) => Math.max(max, p.rank || 0), 0);
-                                const newRank = maxRank + 1;
-                                
-                                const gameData = updated as typeof emptyPlayerRow & { rank?: number };
-                                const newPlayer: PlayerData = {
-                                  rank: newRank,
-                                  nRating: updated.rating || 0,
-                                  gameResults: updated.gameResults,
-                                  group: gameData.group,
-                                  lastName: gameData.lastName,
-                                  firstName: gameData.firstName,
-                                  rating: gameData.rating,
-                                  grade: gameData.grade,
-                                  num_games: gameData.num_games,
-                                  attendance: gameData.attendance,
-                                  phone: gameData.phone,
-                                  info: gameData.info,
-                                  school: gameData.school,
-                                  room: gameData.room,
-                                };
-                              
-                              const updatedPlayers = [...players, newPlayer].sort((a, b) => a.rank - b.rank);
-                              
-                              setPlayers(updatedPlayers);
-                              savePlayers(updatedPlayers).catch((err) => {
-                                console.error("Failed to save added player:", err);
-                              });
-                              
-                              // Reset empty row for next entry with auto-incremented rank hint
-                              return {
-                                firstName: "",
-                                lastName: "",
-                                group: "",
-                                rating: 0,
-                                grade: "",
-                                num_games: 0,
-                                attendance: 0,
-                                phone: "",
-                                info: "",
-                                school: "",
-                                room: "",
-                                gameResults: Array(31).fill(null),
-                              } as typeof emptyPlayerRow;
-                            }
+                            // Compute new rank from current players
+                            const maxRank = players.reduce((max, p) => Math.max(max, p.rank || 0), 0);
+                            const rankedPlayer = { ...newPlayer, rank: maxRank + 1 };
+                            const updatedPlayers = [...players, rankedPlayer].sort((a, b) => a.rank - b.rank);
                             
-                            // Update numeric fields
-                            let result: typeof emptyPlayerRow = { ...updated };
-                            if (field === "rating" || field === "num_games" || field === "attendance") {
-                              const numVal = parseInt(value) || 0;
-                              result = { ...result, [field]: numVal };
-                            }
+                            console.log('[EMPTY ROW] maxRank:', maxRank, 'newRank:', maxRank + 1);
+                            console.log('[EMPTY ROW] new player object:', JSON.stringify(rankedPlayer));
+                            console.log('[EMPTY ROW] updatedPlayers length:', updatedPlayers.length);
                             
-                            return result;
-                          });
+                            setPlayers(updatedPlayers);
+                            savePlayers(updatedPlayers).catch((err) => {
+                              console.error("Failed to save added player:", err);
+                            });
+                            
+                            // Reset emptyPlayerRow directly from event handler (NOT inside a state updater)
+                            console.log('[EMPTY ROW] Resetting empty player row');
+                            setEmptyPlayerRow({
+                              firstName: "",
+                              lastName: "",
+                              group: "",
+                              rating: 0,
+                              nRating: 0,
+                              grade: "",
+                              num_games: 0,
+                              attendance: 0,
+                              phone: "",
+                              info: "",
+                              school: "",
+                              room: "",
+                              gameResults: Array(31).fill(null),
+                            });
+                            
+                            return; // Skip setEmptyPlayerRow update since we already called it above
+                          }
+                          
+                          // Normal case: just update the empty row field
+                          setEmptyPlayerRow(result);
                         }}
                         style={{
                           padding: "0.5rem 0.75rem",
@@ -3753,7 +3785,7 @@ export default function LadderForm({
                           <span style={{ color: "#3b82f6", fontWeight: 600 }}>
                             {players.length + 1}
                           </span>
-                        ) : field === "rating" || field === "num_games" || field === "attendance" ? (
+                        ) : field === "rating" || field === "nRating" || field === "num_games" || field === "attendance" ? (
                           emptyPlayerRow[field as keyof typeof emptyPlayerRow]
                         ) : (
                           emptyPlayerRow[field as keyof typeof emptyPlayerRow] || ""
@@ -3765,8 +3797,22 @@ export default function LadderForm({
                 {Array.from({ length: 31 }).map((_, roundIndex) => (
                   <td
                     key={`empty-round-${roundIndex}`}
+                    data-empty-cell={13 + roundIndex}
                     contentEditable={true}
                     suppressContentEditableWarning={true}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        const nextCol = 13 + roundIndex + 1;
+                        const nextCell = document.querySelector(`[data-empty-cell="${nextCol}"]`) as HTMLElement;
+                        if (nextCell) {
+                          nextCell.focus();
+                        }
+                      } else if (e.key === "Escape") {
+                        e.preventDefault();
+                        e.currentTarget.blur();
+                      }
+                    }}
                     onBlur={(e) => {
                       const value = e.target.textContent || "";
                       setEmptyPlayerRow((prev) => {
