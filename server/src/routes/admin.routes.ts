@@ -221,6 +221,36 @@ router.post('/performance/clear', async (req: Request, res: Response): Promise<v
   }
 });
 
+// Preview a specific backup file content
+router.get('/backups/preview/:filename', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const filename = req.params.filename;
+    
+    if (!filename || !filename.endsWith('.tab')) {
+      res.status(400).json({
+        success: false,
+        error: { message: 'Invalid backup filename' },
+      });
+      return;
+    }
+
+    const dataDir = path.join(__dirname, '../../data');
+    const filePath = path.join(dataDir, 'backups', filename);
+    
+    const content = await fs.readFile(filePath, 'utf-8');
+    res.json({
+      success: true,
+      data: { content },
+    });
+  } catch (error) {
+    console.error('Preview backup error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to read backup file' },
+    });
+  }
+});
+
 // List available backups
 router.get('/backups', async (req: Request, res: Response): Promise<void> => {
   try {

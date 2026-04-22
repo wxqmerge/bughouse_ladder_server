@@ -36,6 +36,7 @@ import {
   setZoomLevel as setZoomLevelStorage,
 } from "../services/storageService";
 import RestoreBackupDialog from "./RestoreBackupDialog";
+import PreviewDialog from "./PreviewDialog";
 import "../css/index.css";
 
 export const loadSampleData = () => {
@@ -268,6 +269,10 @@ export default function LadderForm({
     playerCount: number;
     totalRoundsFilled: number;
     totalGamesPlayed: number;
+  } | null>(null);
+  const [pendingRestore, setPendingRestore] = useState<{
+    players: PlayerData[];
+    backupFilename: string;
   } | null>(null);
   const [currentMode, setCurrentMode] = useState<'local' | 'server_down' | 'server'>('local');
   const [debugMode, setDebugMode] = useState(false);
@@ -787,15 +792,26 @@ export default function LadderForm({
   };
 
   const handleRestoreBackup = async (filename: string) => {
-    console.log('[RESTORE_BACKUP]', 'Restored from backup:', filename);
+    console.log('[RESTORE_BACKUP]', 'Selected backup:', filename);
     setShowRestoreBackupDialog(false);
     
-    (window as any).__ladder_setStatus?.('Loading data from server...');
+    (window as any).__ladder_setStatus?.('Restoring from backup...');
     try {
       const userSettings = loadUserSettings();
       const serverUrl = userSettings.server?.trim();
       
       if (serverUrl) {
+        // Restore the backup on server first
+        const restoreResponse = await fetch(`${serverUrl}/api/admin/backups/restore/${encodeURIComponent(filename)}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        });
+        
+        if (!restoreResponse.ok) {
+          throw new Error(`HTTP ${restoreResponse.status}`);
+        }
+        
+        // Fetch the restored data to show preview
         const response = await fetch(`${serverUrl}/api/ladder`, {
           headers: {},
         });
@@ -805,22 +821,61 @@ export default function LadderForm({
           const serverPlayers = data.data?.players || [];
           
           if (serverPlayers && serverPlayers.length > 0) {
-            setPlayers(serverPlayers.map((p: PlayerData) => ({
+            const restoredPlayers = serverPlayers.map((p: PlayerData) => ({
               ...p,
               gameResults: p.gameResults || new Array(31).fill(null),
-            })));
-            log('[RESTORE_BACKUP]', '✓ Data loaded from server');
+            }));
+            log('[RESTORE_BACKUP]', '✓ Backup data loaded for preview');
+            
+            if (isAdmin) {
+              setPendingRestore({
+                players: restoredPlayers,
+                backupFilename: filename,
+              });
+            } else {
+              setPlayers(restoredPlayers);
+              await savePlayers(restoredPlayers, true);
+              log('[RESTORE_BACKUP]', '✓ Backup applied and saved (user mode)');
+            }
           } else {
-            log('[RESTORE_BACKUP]', '⚠ Server returned empty data');
+            log('[RESTORE_BACKUP]', '⚠ Server returned empty data after restore');
           }
         } else {
           log('[RESTORE_BACKUP]', '⚠ Failed to fetch ladder data (status ' + response.status + ')');
         }
       }
     } catch (err) {
-      log('[RESTORE_BACKUP]', '✗ Failed to load data from server:', err);
+      log('[RESTORE_BACKUP]', '✗ Failed to restore backup:', err);
+      (window as any).__ladder_setStatus?.('Failed to restore from backup');
+      setTimeout(() => (window as any).__ladder_setStatus?.(null), 3000);
+    } finally {
+      (window as any).__ladder_setStatus?.(null);
     }
+  };
+
+  const handleConfirmRestore = async () => {
+    if (!pendingRestore) return;
     
+    log('[RESTORE_BACKUP]', 'Admin mode - confirming restore: ' + pendingRestore.backupFilename);
+    setPlayers(pendingRestore.players);
+    setPendingRestore(null);
+    
+    (window as any).__ladder_setStatus?.('Saving backup to server...');
+    try {
+      await savePlayers(pendingRestore.players, true);
+      log('[RESTORE_BACKUP]', '✓ Backup restore confirmed and saved');
+      (window as any).__ladder_setStatus?.(null);
+    } catch (err) {
+      log('[RESTORE_BACKUP]', '✗ Failed to save backup restore:', err);
+      (window as any).__ladder_setStatus?.('Failed to save to server');
+      setTimeout(() => (window as any).__ladder_setStatus?.(null), 3000);
+    }
+  };
+
+  const handleDeclineRestore = () => {
+    log('[RESTORE_BACKUP]', 'Admin mode - declined restore: ' + pendingRestore?.backupFilename);
+    setPendingRestore(null);
+    setShowRestoreBackupDialog(true);
     (window as any).__ladder_setStatus?.(null);
   };
 
@@ -1436,6 +1491,13 @@ export default function LadderForm({
    * Called when polling detects data changes from other clients
    */
   const refreshPlayers = async () => {
+    // In admin mode, skip server refresh when local data is pending confirmation
+    // (e.g., file import or backup restore preview) — local data should win
+    if (pendingImport || pendingRestore) {
+      log('[REFRESH]', 'Skipped — pending confirmation dialog');
+      return;
+    }
+    
     try {
       log('[REFRESH]', 'Refreshing players from server');
       
@@ -4089,100 +4151,35 @@ export default function LadderForm({
 
       {/* Import Confirmation Dialog (Admin mode) */}
       {pendingImport && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(0, 0, 0, 0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: "white",
-              borderRadius: "0.5rem",
-              padding: "1.5rem",
-              maxWidth: "400px",
-              width: "90%",
-            }}
-          >
-            <h2 style={{ fontSize: "1.125rem", fontWeight: "600", color: "#374151", marginBottom: "1rem" }}>
-              Confirm File Import
-            </h2>
-            
-            <div style={{ marginBottom: "1rem", fontSize: "0.875rem", color: "#4b5563" }}>
-              <p style={{ margin: "0 0 0.5rem 0" }}><strong>File:</strong> {pendingImport.filename}</p>
-              <p style={{ margin: "0 0 0.5rem 0" }}><strong>Players:</strong> {pendingImport.playerCount}</p>
-              <p style={{ margin: "0 0 0.5rem 0" }}><strong>Rounds filled:</strong> {pendingImport.totalRoundsFilled}</p>
-              <p style={{ margin: "0 0 0.5rem 0" }}><strong>Games played:</strong> ~{pendingImport.totalGamesPlayed}</p>
-            </div>
+        <PreviewDialog
+          title="Confirm File Import"
+          players={pendingImport.players}
+          extraInfo={[
+            { label: "File", value: pendingImport.filename },
+            { label: "Players", value: pendingImport.playerCount },
+            { label: "Rounds filled", value: pendingImport.totalRoundsFilled },
+            { label: "Games played", value: `~${pendingImport.totalGamesPlayed}` },
+          ]}
+          cancelLabel="Decline"
+          confirmLabel="Accept & Save to Server"
+          onCancel={handleDeclineImport}
+          onConfirm={handleConfirmImport}
+        />
+      )}
 
-            <div style={{ maxHeight: "300px", overflowY: "auto", border: "1px solid #e5e7eb", borderRadius: "0.25rem", marginBottom: "1rem" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8rem" }}>
-                <thead>
-                  <tr style={{ backgroundColor: "#f9fafb", position: "sticky", top: 0 }}>
-                    <th style={{ padding: "0.375rem 0.5rem", textAlign: "left", borderBottom: "1px solid #e5e7eb", fontWeight: 600 }}>Rank</th>
-                    <th style={{ padding: "0.375rem 0.5rem", textAlign: "left", borderBottom: "1px solid #e5e7eb", fontWeight: 600 }}>Group</th>
-                    <th style={{ padding: "0.375rem 0.5rem", textAlign: "left", borderBottom: "1px solid #e5e7eb", fontWeight: 600 }}>Last Name</th>
-                    <th style={{ padding: "0.375rem 0.5rem", textAlign: "left", borderBottom: "1px solid #e5e7eb", fontWeight: 600 }}>First Name</th>
-                    <th style={{ padding: "0.375rem 0.5rem", textAlign: "center", borderBottom: "1px solid #e5e7eb", fontWeight: 600 }}>Rating</th>
-                    <th style={{ padding: "0.375rem 0.5rem", textAlign: "center", borderBottom: "1px solid #e5e7eb", fontWeight: 600 }}>Games</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pendingImport.players.map((p, idx) => (
-                    <tr key={idx} style={{ backgroundColor: idx % 2 === 0 ? "transparent" : "#f9fafb" }}>
-                      <td style={{ padding: "0.375rem 0.5rem", borderBottom: "1px solid #f3f4f6", textAlign: "center" }}>{p.rank}</td>
-                      <td style={{ padding: "0.375rem 0.5rem", borderBottom: "1px solid #f3f4f6" }}>{p.group || ""}</td>
-                      <td style={{ padding: "0.375rem 0.5rem", borderBottom: "1px solid #f3f4f6" }}>{p.lastName || ""}</td>
-                      <td style={{ padding: "0.375rem 0.5rem", borderBottom: "1px solid #f3f4f6" }}>{p.firstName || ""}</td>
-                      <td style={{ padding: "0.375rem 0.5rem", borderBottom: "1px solid #f3f4f6", textAlign: "center" }}>{p.rating || ""}</td>
-                      <td style={{ padding: "0.375rem 0.5rem", borderBottom: "1px solid #f3f4f6", textAlign: "center" }}>{p.num_games || p.attendance || 0}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
-              <button
-                onClick={handleDeclineImport}
-                style={{
-                  padding: "0.5rem 1rem",
-                  background: "#f3f4f6",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "0.25rem",
-                  cursor: "pointer",
-                  fontSize: "0.875rem",
-                  color: "#374151",
-                }}
-              >
-                Decline
-              </button>
-              <button
-                onClick={handleConfirmImport}
-                style={{
-                  padding: "0.5rem 1rem",
-                  background: "#10b981",
-                  border: "none",
-                  borderRadius: "0.25rem",
-                  cursor: "pointer",
-                  fontSize: "0.875rem",
-                  color: "white",
-                  fontWeight: "500",
-                }}
-              >
-                Accept & Save to Server
-              </button>
-            </div>
-          </div>
-        </div>
+      {pendingRestore && (
+        <PreviewDialog
+          title="Confirm Backup Restore"
+          players={pendingRestore.players}
+          extraInfo={[
+            { label: "Backup", value: pendingRestore.backupFilename },
+            { label: "Players", value: pendingRestore.players.length },
+          ]}
+          cancelLabel="Cancel"
+          confirmLabel="Restore & Save"
+          onCancel={handleDeclineRestore}
+          onConfirm={handleConfirmRestore}
+        />
       )}
       
       {/* CSS animation for retry spinner */}
