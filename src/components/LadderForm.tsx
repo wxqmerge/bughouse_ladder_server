@@ -3460,15 +3460,33 @@ export default function LadderForm({
                   {["rank","group","lastName","firstName","rating","nRating","grade","num_games","attendance","phone","info","school","room"]
                     .filter((_, i) => i < (isAdmin ? 13 : 6))
                     .map((field, col) => {
-                      const isEditable = isAdmin && field !== "rank";
+                      const isEditable = isAdmin;
                       return (
                         <td
                           key={`${rowIndex}-${col}`}
                           contentEditable={isEditable}
                           suppressContentEditableWarning={true}
                           onBlur={(e) => {
-                            if (isEditable && e.target.textContent) {
-                              const value = e.target.textContent;
+                            if (isEditable && e.target.textContent !== undefined) {
+                              const value = e.target.textContent || "";
+                              
+                              // If clearing rank, delete the entire player row
+                              if (field === "rank" && !value.trim()) {
+                                setPlayers((prevPlayers) => {
+                                  const filtered = prevPlayers.filter(
+                                    (p) => p.rank !== player.rank,
+                                  );
+                                  console.log('[EMPTY ROW] Deleted player row:', player.rank, 'by clearing rank');
+                                  return filtered;
+                                });
+                                savePlayers(
+                                  players.filter((p) => p.rank !== player.rank),
+                                ).catch((err) => {
+                                  console.error("Failed to save after row delete:", err);
+                                });
+                                return;
+                              }
+                              
                               setPlayers((prevPlayers) => {
                                 const updatedPlayers = [...prevPlayers];
                                 const targetPlayer = updatedPlayers.find(
@@ -3514,6 +3532,9 @@ export default function LadderForm({
                                       break;
                                     case "room":
                                       targetPlayer.room = value;
+                                      break;
+                                    case "rank":
+                                      targetPlayer.rank = parseInt(value) || 0;
                                       break;
                                   }
                                 }
@@ -3749,25 +3770,39 @@ export default function LadderForm({
                               console.error("Failed to save added player:", err);
                             });
                             
-                            // Reset emptyPlayerRow directly from event handler (NOT inside a state updater)
-                            console.log('[EMPTY ROW] Resetting empty player row');
-                            setEmptyPlayerRow({
-                              firstName: "",
-                              lastName: "",
-                              group: "",
-                              rating: 0,
-                              nRating: 0,
-                              grade: "",
-                              num_games: 0,
-                              attendance: 0,
-                              phone: "",
-                              info: "",
-                              school: "",
-                              room: "",
-                              gameResults: Array(31).fill(null),
-                            });
-                            
-                            return; // Skip setEmptyPlayerRow update since we already called it above
+                         // Reset emptyPlayerRow state (not enough for contentEditable cells - React
+                          // skips updating their textContent after they've been made editable)
+                          console.log('[EMPTY ROW] Resetting empty player row');
+                          setEmptyPlayerRow({
+                            firstName: "",
+                            lastName: "",
+                            group: "",
+                            rating: 0,
+                            nRating: 0,
+                            grade: "",
+                            num_games: 0,
+                            attendance: 0,
+                            phone: "",
+                            info: "",
+                            school: "",
+                            room: "",
+                            gameResults: Array(31).fill(null),
+                          });
+                          
+                          // Clear all empty row cells directly in DOM (React doesn't update contentEditable textContent)
+                          document.querySelectorAll('[data-empty-cell]').forEach((cell) => {
+                            cell.textContent = '';
+                          });
+                          console.log('[EMPTY ROW] Cleared all empty row cells in DOM');
+                          
+                          // Move focus to group field of the new empty row
+                          const groupCell = document.querySelector('[data-empty-cell="1"]') as HTMLElement;
+                          if (groupCell) {
+                            groupCell.focus();
+                            console.log('[EMPTY ROW] Focused group cell for next player entry');
+                          }
+                          
+                          return; // Skip setEmptyPlayerRow update since we already called it above
                           }
                           
                           // Normal case: just update the empty row field
