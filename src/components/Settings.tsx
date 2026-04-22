@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import "../css/index.css";
 import { getKeyPrefix } from "../services/storageService";
-import { loadUserSettings, saveUserSettings, normalizeServerUrl, type UserSettings } from "../services/userSettingsStorage";
+import { loadUserSettings, saveUserSettings, normalizeServerUrl, getLastWorkingConfig, type UserSettings } from "../services/userSettingsStorage";
 
 interface SettingsProps {
   onClose: () => void;
@@ -43,6 +43,7 @@ export default function Settings({
   const [serverUrl, setServerUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [debugMode, setDebugMode] = useState(false);
+  const [lastWorkingConfig, setLastWorkingConfig] = useState<{ server: string; apiKey: string } | null>(null);
 
   useEffect(() => {
     const savedSettings = localStorage.getItem(
@@ -64,6 +65,11 @@ export default function Settings({
     setServerUrl(normalizeServerUrl(userSettings.server) || '');
     setApiKey(userSettings.apiKey || '');
     setDebugMode(userSettings.debugMode || false);
+    
+    const lwc = getLastWorkingConfig();
+    if (lwc) {
+      setLastWorkingConfig({ ...lwc });
+    }
   }, []);
 
   const handleSave = () => {
@@ -94,13 +100,11 @@ export default function Settings({
       : 'Local mode';
     alert(`Settings saved successfully!\n\n${mode}`);
     
-    // Reload if server URL changed
-    if (userSettings.server !== loadUserSettings().server || !userSettings.server.trim()) {
-      setTimeout(() => {
-        console.log('[Settings] Reloading to apply server configuration...');
-        window.location.reload();
-      }, 500);
-    }
+    // Reload to apply server configuration changes
+    setTimeout(() => {
+      console.log('[Settings] Reloading to apply server configuration...');
+      window.location.reload();
+    }, 500);
   };
 
   const handleClearAll = () => {
@@ -500,6 +504,33 @@ export default function Settings({
           
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
             <div>
+              {lastWorkingConfig && (
+                <button
+                  onClick={() => {
+                    setServerUrl(lastWorkingConfig.server);
+                    setApiKey(lastWorkingConfig.apiKey);
+                  }}
+                  style={{
+                    width: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "0.375rem",
+                    padding: "0.375rem 0.75rem",
+                    backgroundColor: "#e0f2fe",
+                    color: "#0369a1",
+                    border: "1px solid #bae6fd",
+                    borderRadius: "0.375rem",
+                    cursor: "pointer",
+                    fontSize: "0.75rem",
+                    fontWeight: "500",
+                    marginBottom: "0.5rem",
+                  }}
+                >
+                  <RotateCcw size={12} />
+                  Restore Last Server Config
+                </button>
+              )}
               <label
                 htmlFor="serverUrl"
                 style={{
