@@ -22,6 +22,7 @@ interface MobileMenuProps {
   onOpenSettings: () => void;
   onAddPlayer?: () => void;
   onEnterGames?: () => void;
+  onRestoreBackup?: () => void;
   isAdmin: boolean;
   projectName?: string;
   onSetTitle?: (title: string) => void;
@@ -46,6 +47,7 @@ export default function MobileMenu({
   onOpenSettings,
   onAddPlayer,
   onEnterGames,
+  onRestoreBackup,
   isAdmin,
   projectName,
   onSetTitle,
@@ -143,6 +145,15 @@ export default function MobileMenu({
             label: "Add Player",
             onClick: () => handleItemClick(onAddPlayer),
             dataMenuItem: "Add Player",
+          },
+        ]
+      : []),
+    ...(isAdmin && onRestoreBackup
+      ? [
+          {
+            label: "Restore Backup",
+            onClick: () => handleItemClick(onRestoreBackup),
+            dataMenuItem: "Restore Backup",
           },
         ]
       : []),

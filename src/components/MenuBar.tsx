@@ -35,6 +35,7 @@ interface MenuBarProps {
   onAddPlayer?: () => void;
   onBulkPaste?: () => void;
   onEnterGames?: () => void;
+  onRestoreBackup?: () => void;
   isAdmin: boolean;
   isWide: boolean;
   zoomLevel: "50%" | "70%" | "100%" | "140%" | "200%";
@@ -65,6 +66,7 @@ export default function MenuBar({
   onAddPlayer,
   onBulkPaste,
   onEnterGames,
+  onRestoreBackup,
   isAdmin,
   zoomLevel,
   projectName,
@@ -253,6 +255,20 @@ export default function MenuBar({
             dataMenuItem: isAdmin ? "Exit Admin Mode" : "Admin Mode",
           },
         ]),
+    // Restore Backup - admin only, before Settings
+    ...(!adminModeDisabled && onRestoreBackup
+      ? [
+          {
+            icon: <History size={16} />,
+            label: "Restore Backup",
+            onClick: () => {
+              onRestoreBackup();
+              closeAllMenus();
+            },
+            dataMenuItem: "Restore Backup",
+          },
+        ]
+      : []),
     // Settings - always accessible, moved to bottom of Operations
     {
       icon: <SettingsIcon size={16} />,
