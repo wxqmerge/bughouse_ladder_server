@@ -3578,230 +3578,171 @@ export default function LadderForm({
                       rowIndex % 2 >= 1 ? "#f8fafc" : "transparent",
                   }}
                 >
-                  {["rank","group","lastName","firstName","rating","nRating","grade","num_games","attendance","phone","info","school","room"]
-                    .filter((_, i) => i < (isAdmin ? 13 : 6))
-                    .map((field, col) => {
-                      const isEditable = isAdmin;
-                      return (
-                        <td
-                          key={`${rowIndex}-${col}`}
-                          contentEditable={isEditable}
-                          suppressContentEditableWarning={true}
-                          onBlur={(e) => {
-                            if (isEditable && e.target.textContent !== undefined) {
-                              const value = e.target.textContent || "";
-                              
-                              // If clearing rank, delete the entire player row
-                              if (field === "rank" && !value.trim()) {
-                                setPlayers((prevPlayers) => {
-                                  const filtered = prevPlayers.filter(
-                                    (p) => p.rank !== player.rank,
-                                  );
-                                  console.log('[EMPTY ROW] Deleted player row:', player.rank, 'by clearing rank');
-                                  return filtered;
-                                });
-                                savePlayers(
-                                  players.filter((p) => p.rank !== player.rank),
-                                ).catch((err) => {
-                                  console.error("Failed to save after row delete:", err);
-                                });
-                                return;
-                              }
-                              
-                              setPlayers((prevPlayers) => {
-                                const updatedPlayers = [...prevPlayers];
-                                const targetPlayer = updatedPlayers.find(
-                                  (p) => p.rank === player.rank,
-                                );
-                                if (targetPlayer) {
-                                  switch (field) {
-                                    case "group":
-                                      targetPlayer.group = value;
-                                      break;
-                                    case "lastName":
-                                      targetPlayer.lastName = value;
-                                      break;
-                                    case "firstName":
-                                      targetPlayer.firstName = value;
-                                      break;
-                                    case "rating":
-                                      targetPlayer.rating =
-                                        parseInt(value) || 0;
-                                      break;
-                                    case "nRating":
-                                      targetPlayer.nRating =
-                                        parseInt(value) || 0;
-                                      break;
-                                    case "grade":
-                                      targetPlayer.grade = value;
-                                      break;
-                                    case "num_games":
-                                      targetPlayer.num_games =
-                                        parseInt(value) || 0;
-                                      break;
-                                    case "attendance":
-                                      targetPlayer.attendance = value;
-                                      break;
-                                    case "phone":
-                                      targetPlayer.phone = value;
-                                      break;
-                                    case "info":
-                                      targetPlayer.info = value;
-                                      break;
-                                    case "school":
-                                      targetPlayer.school = value;
-                                      break;
-                                    case "room":
-                                      targetPlayer.room = value;
-                                      break;
-                                    case "rank":
-                                      targetPlayer.rank = parseInt(value) || 0;
-                                      break;
-                                  }
-                                   e.target.textContent = value;
-                                 }
-                                 return updatedPlayers;
-                               });
-                               savePlayers(
-                                players.map((p) =>
-                                  p.rank === player.rank
-                                    ? ({
-                                        ...p,
-                                        [field]:
-                                          field === "rating" ||
-                                          field === "nRating" ||
-                                          field === "games"
-                                            ? parseInt(e.target.textContent)
-                                            : e.target.textContent,
-                                      } as any)
-                                    : p,
-                                )
-                              ).catch((err) => {
-                                console.error("Failed to save cell edit:", err);
-                              });
-                            }
-                          }}
-                          style={{
-                            padding: "0.5rem 0.75rem",
-                            borderBottom: "1px solid #e2e8f0",
-                            verticalAlign: "middle",
-                            borderRight: "1px solid #e2e8f0",
-                            backgroundColor:
-                              rowIndex % 2 >= 1 ? "#f8fafc" : "transparent",
-                          }}
-                        >
-                          {field === "rank" && player.rank}
-                          {field === "group" && player.group}
-                          {field === "lastName" && player.lastName}
-                          {field === "firstName" && player.firstName}
-                          {field === "rating" && player.rating !== undefined
-                            ? player.rating
-                            : ""}
-                          {field === "nRating" && player.nRating !== undefined
-                            ? player.nRating
-                            : ""}
-                          {field === "grade" && player.grade}
-                          {field === "num_games" && player.num_games}
-                          {field === "attendance" && player.attendance}
-                          {field === "phone" && player.phone}
-                          {field === "info" && player.info}
-                          {field === "school" && player.school}
-                          {field === "room" && player.room}
-                        </td>
-                      );
-                    })}
-                  {gameResults.map((result, gCol) => {
-                    const isEditable = isAdmin;
-                    return (
-                      <td
-                        key={`game-${player.rank}-${gCol}`}
-                        contentEditable={isEditable}
-                        suppressContentEditableWarning={true}
-                        onClick={() => {
-                          if (!isAdmin) {
-                            const result = players.find(p => p.rank === player.rank)?.gameResults?.[gCol] || '';
-                            
-                            // Check if confirmed (ends with "_")
-                            if (result.endsWith('_')) {
-                              // Find first empty cell
-                              const emptyCell = findFirstEmptyCell();
-                              if (emptyCell) {
-                                setEntryCell(emptyCell);
-                                return; // Skip opening dialog for confirmed cell
-                              }
-                              // If no empty cell found, fall through to edit confirmed cell
-                            }
-                            
-                            setEntryCell({
-                              playerRank: player.rank,
-                              round: gCol,
-                            });
-                          }
-                        }}
-                        onBlur={(e) => {
-                          if (isEditable && e.target.textContent) {
-                            const value = e.target.textContent;
-                            setPlayers((prevPlayers) => {
-                              const targetPlayer = prevPlayers.find(
-                                (p) => p.rank === player.rank,
-                              );
-                              if (!targetPlayer) return prevPlayers;
-
-                              const newGameResults = [
-                                ...targetPlayer.gameResults,
-                              ];
-                              newGameResults[gCol] = value;
-
-                              return prevPlayers.map((p) =>
-                                 p.rank === player.rank
-                                   ? { ...p, gameResults: newGameResults }
-                                   : p,
-                               );
-                             });
-                             e.target.textContent = value;
-                           }
+                 {["rank","group","lastName","firstName","rating","nRating","grade","num_games","attendance","phone","info","school","room"]
+                     .filter((_, i) => i < (isAdmin ? 13 : 6))
+                     .map((field, col) => {
+                       const cellValue = field === "rank" ? player.rank : 
+                                         field === "group" ? player.group :
+                                         field === "lastName" ? player.lastName :
+                                         field === "firstName" ? player.firstName :
+                                         field === "rating" ? (player.rating || "") :
+                                         field === "nRating" ? (player.nRating || "") :
+                                         field === "grade" ? player.grade :
+                                         field === "num_games" ? player.num_games :
+                                         field === "attendance" ? player.attendance :
+                                         field === "phone" ? player.phone :
+                                         field === "info" ? player.info :
+                                         field === "school" ? player.school :
+                                         field === "room" ? player.room : "";
+                       return (
+                         <td
+                           key={`${rowIndex}-${col}`}
+                           style={{
+                             padding: "0.5rem 0.75rem",
+                             borderBottom: "1px solid #e2e8f0",
+                             verticalAlign: "middle",
+                             borderRight: "1px solid #e2e8f0",
+                             backgroundColor:
+                               rowIndex % 2 >= 1 ? "#f8fafc" : "transparent",
+                           }}
+                         >
+                           {isAdmin ? (
+                             <span
+                               contentEditable={true}
+                               suppressContentEditableWarning={true}
+                               onBlur={(e) => {
+                                 const value = e.target.textContent || "";
+                                 setPlayers((prevPlayers) => {
+                                   const updatedPlayers = [...prevPlayers];
+                                   const targetPlayer = updatedPlayers.find(
+                                     (p) => p.rank === player.rank,
+                                   );
+                                   if (!targetPlayer) return prevPlayers;
+                                   switch (field) {
+                                     case "group": targetPlayer.group = value; break;
+                                     case "lastName": targetPlayer.lastName = value; break;
+                                     case "firstName": targetPlayer.firstName = value; break;
+                                     case "rating": targetPlayer.rating = parseInt(value) || 0; break;
+                                     case "nRating": targetPlayer.nRating = parseInt(value) || 0; break;
+                                     case "grade": targetPlayer.grade = value; break;
+                                     case "num_games": targetPlayer.num_games = parseInt(value) || 0; break;
+                                     case "attendance": targetPlayer.attendance = value; break;
+                                     case "phone": targetPlayer.phone = value; break;
+                                     case "info": targetPlayer.info = value; break;
+                                     case "school": targetPlayer.school = value; break;
+                                     case "room": targetPlayer.room = value; break;
+                                     case "rank": targetPlayer.rank = parseInt(value) || 0; break;
+                                   }
+                                   return updatedPlayers;
+                                 });
+                               }}
+                             >
+                               {cellValue}
+                             </span>
+                           ) : (
+                             cellValue
+                           )}
+                         </td>
+                       );
+                     })}
+                 {gameResults.map((result, gCol) => {
+                     const displayValue = getCellDisplayValue(player.rank, gCol, result);
+                     const tempResult = tempGameResult &&
+                         tempGameResult.playerRank === player.rank &&
+                         tempGameResult.round === gCol
+                       ? tempGameResult.resultString
+                       : "";
+                     return (
+                       <td
+                         key={`game-${player.rank}-${gCol}`}
+                         style={{
+                           padding: "0.5rem 0.75rem",
+                           borderBottom: "1px solid #e2e8f0",
+                           verticalAlign: "middle",
+                           borderRight: "1px solid #e2e8f0",
+                           backgroundColor:
+                             entryCell &&
+                             entryCell.playerRank === player.rank &&
+                             entryCell.round === gCol
+                               ? "#fef3c7"
+                               : rowIndex % 2 >= 1
+                                 ? "#f8fafc"
+                                 : "transparent",
+                           fontSize: getFontSize(),
+                           cursor: isAdmin ? "default" : "pointer",
+                           borderColor:
+                             entryCell &&
+                             entryCell.playerRank === player.rank &&
+                             entryCell.round === gCol
+                               ? "#f59e0b"
+                               : tempGameResult &&
+                                   tempGameResult.playerRank === player.rank &&
+                                   tempGameResult.round === gCol
+                                 ? "#3b82f6"
+                                 : "#e2e8f0",
                          }}
-                        style={{
-                          padding: "0.5rem 0.75rem",
-                          borderBottom: "1px solid #e2e8f0",
-                          verticalAlign: "middle",
-                          borderRight: "1px solid #e2e8f0",
-                          backgroundColor:
-                            entryCell &&
-                            entryCell.playerRank === player.rank &&
-                            entryCell.round === gCol
-                              ? "#fef3c7"
-                              : rowIndex % 2 >= 1
-                                ? "#f8fafc"
-                                : "transparent",
-                          fontSize: getFontSize(),
-                          cursor: isAdmin ? "default" : "pointer",
-                          borderColor:
-                            entryCell &&
-                            entryCell.playerRank === player.rank &&
-                            entryCell.round === gCol
-                              ? "#f59e0b"
-                              : tempGameResult &&
-                                  tempGameResult.playerRank === player.rank &&
-                                  tempGameResult.round === gCol
-                                ? "#3b82f6"
-                                : "#e2e8f0",
-                        }}
-                      >
-                        {getCellDisplayValue(player.rank, gCol, result)}
-                        {tempGameResult &&
-                        tempGameResult.playerRank === player.rank &&
-                        tempGameResult.round === gCol
-                          ? tempGameResult.resultString
-                          : ""}
-                      </td>
-                    );
-                  })}
+                       >
+                         {isAdmin ? (
+                           <span
+                             contentEditable={true}
+                             suppressContentEditableWarning={true}
+                             onBlur={(e) => {
+                               const value = e.target.textContent;
+                               setPlayers((prevPlayers) => {
+                                 const targetPlayer = prevPlayers.find(
+                                   (p) => p.rank === player.rank,
+                                 );
+                                 if (!targetPlayer) return prevPlayers;
+
+                                 const newGameResults = [
+                                   ...targetPlayer.gameResults,
+                                 ];
+                                 newGameResults[gCol] = value;
+
+                                 return prevPlayers.map((p) =>
+                                   p.rank === player.rank
+                                     ? { ...p, gameResults: newGameResults }
+                                     : p,
+                                 );
+                               });
+                             }}
+                           >
+                             {displayValue}{tempResult}
+                           </span>
+                         ) : (
+                           <span
+                             style={{ cursor: "pointer" }}
+                             onClick={() => {
+                               const result = players.find(p => p.rank === player.rank)?.gameResults?.[gCol] || '';
+                               
+                               // Check if confirmed (ends with "_")
+                               if (result.endsWith('_')) {
+                                 // Find first empty cell
+                                 const emptyCell = findFirstEmptyCell();
+                                 if (emptyCell) {
+                                   setEntryCell(emptyCell);
+                                   return; // Skip opening dialog for confirmed cell
+                                 }
+                                 // If no empty cell found, fall through to edit confirmed cell
+                               }
+                               
+                               setEntryCell({
+                                 playerRank: player.rank,
+                                 round: gCol,
+                               });
+                             }}
+                           >
+                             {displayValue}{tempResult}
+                           </span>
+                         )}
+                       </td>
+                     );
+                   })}
                   {Array.from({
                     length: Math.max(0, 20 - gameResults.length),
                   }).map((_, emptyCol) => (
                     <td
-                      key={`empty-${player.rank}-${emptyCol}`}
+                      key={`empty-${player.rank}-${emptyCol}-${isAdmin}`}
                       style={{
                         padding: "0.5rem 0.75rem",
                         borderBottom: "1px solid #e2e8f0",
@@ -3820,7 +3761,7 @@ export default function LadderForm({
                      const isEditable = field !== "rank";
                      return (
                       <td
-                         key={`empty-${colIndex}`}
+                         key={`empty-${colIndex}-${isAdmin}`}
                          data-empty-cell={colIndex}
                          contentEditable={isEditable}
                          suppressContentEditableWarning={true}
@@ -3857,11 +3798,8 @@ export default function LadderForm({
                           }
                           
                           console.log('[EMPTY ROW] after update:', JSON.stringify(result));
-                           
-                           // Sync DOM cell value — React doesn't update contentEditable textContent during re-renders
-                           e.target.textContent = value;
                           
-                          // When both firstName and lastName are filled, create player and reset row
+                        // When both firstName and lastName are filled, create player and reset row
                           if ((result.firstName || "").trim() && (result.lastName || "").trim()) {
                             console.log('[EMPTY ROW] Both names filled - creating player');
                             const gameData = result as typeof emptyPlayerRow & { rank?: number };
@@ -3961,7 +3899,7 @@ export default function LadderForm({
                 {/* Game result columns */}
                 {Array.from({ length: 31 }).map((_, roundIndex) => (
                   <td
-                    key={`empty-round-${roundIndex}`}
+                    key={`empty-round-${roundIndex}-${isAdmin}`}
                     data-empty-cell={13 + roundIndex}
                     contentEditable={true}
                     suppressContentEditableWarning={true}
