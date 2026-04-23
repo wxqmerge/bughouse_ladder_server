@@ -55,7 +55,7 @@ export function processNewDayTransformations(
 
     return {
       ...player,
-      rating: player.nRating || 0,
+      rating: (player.trophyEligible !== false ? player.nRating : 0),
       num_games: gameCount,
       attendance: newAttendance,
       gameResults: Array(31).fill(null),

@@ -60,6 +60,7 @@ export default function AddPlayerDialog({
       lastName,
       firstName,
       rating: rating ? parseInt(rating) : 0,
+      trophyEligible: true,
       grade,
       phone,
       info,

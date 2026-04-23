@@ -9,6 +9,7 @@ export interface PlayerData {
   firstName: string;
   rating: number;
   nRating: number;
+  trophyEligible: boolean;
   grade: string;
   num_games: number;
   attendance: number | string;

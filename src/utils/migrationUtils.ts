@@ -198,7 +198,8 @@ export function mergePlayerLists(
       mergedPlayer.lastName = localPlayer.lastName;
       mergedPlayer.firstName = localPlayer.firstName;
       mergedPlayer.rating = localPlayer.rating;
-      mergedPlayer.nRating = localPlayer.nRating;
+      mergedPlayer.nRating = Math.abs(localPlayer.nRating);
+      mergedPlayer.trophyEligible = localPlayer.trophyEligible !== undefined ? localPlayer.trophyEligible : true;
       mergedPlayer.grade = localPlayer.grade;
       mergedPlayer.num_games = localPlayer.num_games;
       mergedPlayer.attendance = localPlayer.attendance;

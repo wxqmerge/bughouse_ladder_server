@@ -53,7 +53,8 @@ export function mergeServerWithLocal(
     
     return { 
       ...sp, 
-      nRating: localPlayer.nRating !== undefined ? localPlayer.nRating : sp.nRating,
+      nRating: Math.abs(localPlayer.nRating !== undefined ? localPlayer.nRating : sp.nRating),
+      trophyEligible: localPlayer.trophyEligible !== undefined ? localPlayer.trophyEligible : true,
       gameResults: mergedGameResults,
     };
   });

@@ -866,6 +866,15 @@ export function calculateRatings(
   const EloKfactor = kFactor;
   const playersCopy = playersList.map((p) => ({ ...p }));
 
+  // Snapshot effective ratings and trophy eligibility before Elo loop starts mutating nRating
+  const effectiveRatings = new Map<number, number>();
+  const savedEligibility = new Map<number, boolean>();
+  for (const p of playersCopy) {
+    const eff = p.nRating > 0 ? p.nRating : p.rating;
+    effectiveRatings.set(p.rank, Math.abs(eff));
+    savedEligibility.set(p.rank, p.trophyEligible);
+  }
+
   // Track per-player stats for performance rating calculation
   interface PlayerGameStats {
     score: number;
@@ -875,8 +884,8 @@ export function calculateRatings(
   const gameStats = new Map<number, PlayerGameStats>();
 
   function getOpponentRating(player: PlayerData): number {
-    // Use nRating if available and non-zero, else fall back to rating
-    return Math.abs(player.nRating > 0 ? player.nRating : player.rating);
+    const cached = effectiveRatings.get(player.rank);
+    return cached !== undefined ? cached : Math.abs(player.rating);
   }
 
   for (const match of matches) {
@@ -916,10 +925,10 @@ export function calculateRatings(
     let actualP1 = 0.5;
     let actualP2 = 0.5;
 
-    if (match.score1 === 1) {
+    if (match.score1 === 3) {
       actualP1 = 1;
       actualP2 = 0;
-    } else if (match.score1 === 3) {
+    } else if (match.score1 === 1) {
       actualP1 = 0;
       actualP2 = 1;
     }
@@ -935,31 +944,50 @@ export function calculateRatings(
       p2Rating + EloKfactor * (actualP2 - expectedP2),
     );
 
-    p1.nRating = Math.max(0, p1NewRating);
-    p2.nRating = Math.max(0, p2NewRating);
+    p1.trophyEligible = p1NewRating >= 0;
+    p2.trophyEligible = p2NewRating >= 0;
+    p1.nRating = Math.abs(p1NewRating);
+    p2.nRating = Math.abs(p2NewRating);
   }
 
-  // Post-loop: compute performance rating and apply blending for players with < 10 games
+  // Post-loop: restore saved eligibility for players who didn't play today
+  // Only compute fresh eligibility for players who participated in matches
   for (const player of playersCopy) {
     const stats = gameStats.get(player.rank);
     if (!stats || stats.gamesToday === 0) {
+      player.trophyEligible = savedEligibility.get(player.rank) ?? true;
       continue;
     }
 
-    const avgOpponentRating =
-      stats.opponentRatings.reduce((a, b) => a + b, 0) / stats.gamesToday;
+    const selfEffectiveRating = effectiveRatings.get(player.rank) ?? Math.abs(player.rating);
+    const totalRatings = stats.opponentRatings.reduce((a, b) => a + b, 0) + selfEffectiveRating;
+    const avgRating = totalRatings / (stats.opponentRatings.length + 1);
 
-    let perfRating = avgOpponentRating + 400 * (stats.score / stats.gamesToday - 0.5);
+    const winRate = stats.score / stats.gamesToday;
+    let perfRating: number;
+    if (winRate > 0.5) {
+      perfRating = avgRating + 200;
+    } else if (winRate < 0.5) {
+      perfRating = avgRating - 200;
+    } else {
+      perfRating = avgRating;
+    }
 
-    perfRating = Math.max(100, Math.min(9999, perfRating));
+    perfRating = Math.max(-9999, Math.min(9999, perfRating));
 
-    if (player.num_games < 10) {
+    if (player.num_games === 0) {
+      const perfRounded = Math.round(perfRating);
+      player.trophyEligible = perfRounded >= 0;
+      player.nRating = Math.abs(perfRounded);
+    } else if (player.num_games < 10) {
       const totalGames = player.num_games + stats.gamesToday;
       const blendedRating =
         perfBlendingFactor *
-        ((player.rating * player.num_games + perfRating * stats.gamesToday) /
+        ((Math.abs(player.rating) * player.num_games + perfRating * stats.gamesToday) /
           totalGames);
-      player.nRating = Math.max(0, Math.round(blendedRating));
+      const clampedBlended = Math.max(-9999, Math.min(9999, Math.round(blendedRating)));
+      player.trophyEligible = clampedBlended >= 0;
+      player.nRating = Math.abs(clampedBlended);
     }
   }
 
