@@ -20,6 +20,7 @@ function createPlayer(
     firstName: `F${rank}`,
     rating,
     nRating,
+    trophyEligible: nRating >= 0,
     grade: '5',
     num_games,
     attendance: 0,
@@ -69,7 +70,7 @@ describe('calculateRatings', () => {
       ];
 
       const matches: MatchData[] = [
-        createMatch(1, 2, 1), // Player 1 wins
+        createMatch(1, 2, 3), // Player 1 wins (W=score=3)
       ];
 
       const result = calculateRatings(players, matches);
@@ -107,9 +108,9 @@ describe('calculateRatings', () => {
       ];
 
       const matches: MatchData[] = [
-        createMatch(1, 2, 1), // Player 1 wins
-        createMatch(1, 2, 1), // Player 1 wins again
-        createMatch(1, 2, 3), // Player 2 wins once
+        createMatch(1, 2, 3), // Player 1 wins (W=score=3)
+        createMatch(1, 2, 3), // Player 1 wins again
+        createMatch(1, 2, 1), // Player 2 wins once (L=score=1 for player 1)
       ];
 
       const result = calculateRatings(players, matches);
@@ -132,8 +133,8 @@ describe('calculateRatings', () => {
         createPlayer(2, 1200, 9),
       ];
 
-      const matches: MatchData[] = [
-        createMatch(1, 2, 1), // 1 game today, player 1 wins
+    const matches: MatchData[] = [
+        createMatch(1, 2, 3), // 1 game today, player 1 wins (W=score=3)
       ];
 
       const result = calculateRatings(players, matches);
@@ -152,10 +153,10 @@ describe('calculateRatings', () => {
       ];
 
       const matches: MatchData[] = [
-        createMatch(1, 2, 1),
-        createMatch(1, 2, 1),
-        createMatch(1, 2, 1),
-        createMatch(1, 2, 1),
+        createMatch(1, 2, 3),
+        createMatch(1, 2, 3),
+        createMatch(1, 2, 3),
+        createMatch(1, 2, 3),
       ];
 
       const result = calculateRatings(players, matches);
@@ -173,15 +174,15 @@ describe('calculateRatings', () => {
       ];
 
       const matches: MatchData[] = [
-        createMatch(1, 2, 1), // Player 1 wins against lower-rated opponent
+        createMatch(1, 2, 3), // Player 1 wins (W=score=3) against lower-rated opponent
       ];
 
       const result = calculateRatings(players, matches);
 
-      // Opponent rating for perf calc uses rating (1100) since nRating=0
-      // perfRating = 1100 + 400*(1 - 0.5) = 1300
-      // blended = 0.99 * ((1300*5 + 1300*1)/6) = 0.99 * 1300 = 1287
-      expect(result[0].nRating).toBeCloseTo(1287, 0);
+      // avgRating = (1300 + 1100) / 2 = 1200
+      // perfRating = 1200 + 200 = 1400 (winner)
+      // blended = 0.99 * ((1300*5 + 1400*1)/6) = 0.99 * 1316.67 = 1304
+      expect(result[0].nRating).toBeCloseTo(1304, 0);
     });
 
     it('should use nRating when available (not zero)', () => {
@@ -191,7 +192,7 @@ describe('calculateRatings', () => {
       ];
 
       const matches: MatchData[] = [
-        createMatch(1, 2, 1),
+        createMatch(1, 2, 3),
       ];
 
       const result = calculateRatings(players, matches);
@@ -224,7 +225,7 @@ describe('calculateRatings', () => {
 
       // Only players 1 and 2 play
       const matches: MatchData[] = [
-        createMatch(1, 2, 1),
+        createMatch(1, 2, 3), // Player 1 wins
       ];
 
       const result = calculateRatings(players, matches);
@@ -242,9 +243,9 @@ describe('calculateRatings', () => {
       ];
 
       const matches: MatchData[] = [
-        createMatch(1, 2, 1),
-        createMatch(1, 2, 1),
-        createMatch(1, 2, 1),
+        createMatch(1, 2, 3), // Player 1 wins (W=score=3) against much higher rated opponent
+        createMatch(1, 2, 3),
+        createMatch(1, 2, 3),
       ];
 
       const result = calculateRatings(players, matches);
@@ -257,16 +258,16 @@ describe('calculateRatings', () => {
     });
 
     it('should clamp performance rating to reasonable bounds', () => {
-      // Player loses all games against equal-rated opponents → perfRating would be low
+      // Player 2 wins all games against equal-rated opponents → perfRating would be high
       const players = [
         createPlayer(1, 1200, 3),
         createPlayer(2, 1200, 3),
       ];
 
       const matches: MatchData[] = [
-        createMatch(1, 2, 3), // Player 2 wins all 3 times (score1=3)
-        createMatch(1, 2, 3),
-        createMatch(1, 2, 3),
+        createMatch(1, 2, 1), // Player 2 wins (L=score=1 for player 1)
+        createMatch(1, 2, 1),
+        createMatch(1, 2, 1),
       ];
 
       const result = calculateRatings(players, matches);
@@ -285,7 +286,7 @@ describe('calculateRatings', () => {
       ];
 
       const matches: MatchData[] = [
-        createMatch(1, 2, 1), // Player 1 wins
+        createMatch(1, 2, 3), // Player 1 wins (W=score=3)
       ];
 
       const result = calculateRatings(players, matches);
@@ -304,7 +305,7 @@ describe('calculateRatings', () => {
       ];
 
       const matches: MatchData[] = [
-        createMatch(1, 2, 1),
+        createMatch(1, 2, 3), // Player 1 wins (W=score=3)
       ];
 
       const result = calculateRatings(players, matches);
@@ -322,9 +323,9 @@ describe('calculateRatings', () => {
       ];
 
       const matches: MatchData[] = [
-        createMatch(1, 2, 1),
-        createMatch(1, 2, 1),
-        createMatch(1, 2, 1),
+        createMatch(1, 2, 3),
+        createMatch(1, 2, 3),
+        createMatch(1, 2, 3),
       ];
 
       const result = calculateRatings(players, matches);
@@ -342,9 +343,9 @@ describe('calculateRatings', () => {
       ];
 
       const matches: MatchData[] = [
-        createMatch(1, 2, 1),
-        createMatch(1, 2, 1),
-        createMatch(1, 2, 1),
+        createMatch(1, 2, 3),
+        createMatch(1, 2, 3),
+        createMatch(1, 2, 3),
       ];
 
       const resultWithNoDampening = calculateRatings(players, matches);
@@ -372,7 +373,7 @@ describe('calculateRatings', () => {
       ];
 
       const matches: MatchData[] = [
-        createMatch(1, 2, 1),
+        createMatch(1, 2, 3), // Player 1 wins (W=score=3)
       ];
 
       // kFactor=100 = very volatile
@@ -400,7 +401,7 @@ describe('calculateRatings', () => {
       ];
 
       const matches: MatchData[] = [
-        createMatch(1, 2, 1),
+        createMatch(1, 2, 3), // Player 1 wins (W=score=3)
       ];
 
       // First iteration
@@ -408,7 +409,7 @@ describe('calculateRatings', () => {
       const result1 = calculateRatings(players1, matches);
 
       // Second iteration (use previous nRating as new rating)
-      const players2 = result1.map(p => ({ ...p, rating: p.nRating, nRating: 0 }));
+      const players2 = result1.map(p => ({ ...p, rating: p.nRating, nRating: 0, trophyEligible: true }));
       const result2 = calculateRatings(players2, matches);
 
       // Ratings should converge (changes get smaller)
@@ -417,6 +418,83 @@ describe('calculateRatings', () => {
 
       // With >= 10 games, standard Elo applies, so changes should be consistent
       expect(change2).toBeLessThanOrEqual(change1 + 5); // Allow small variance from rounding
+    });
+  });
+
+  describe('trophyEligible', () => {
+    it('should set trophyEligible=true for players with positive Elo result', () => {
+      const players = [
+        createPlayer(1, 1200, 5, 1200),
+        createPlayer(2, 1100, 5, 1100),
+      ];
+      const matches = [createMatch(1, 2, 3)]; // player 1 wins
+      
+      const result = calculateRatings(players, matches);
+      
+      expect(result[0].trophyEligible).toBe(true);
+    });
+
+    it('should set trophyEligible=true for zero Elo result (draw)', () => {
+      const players = [
+        createPlayer(1, 1200, 5, 1200),
+        createPlayer(2, 1200, 5, 1200),
+      ];
+      const matches = [createMatch(1, 2, 2)]; // draw
+      
+      const result = calculateRatings(players, matches);
+      
+      expect(result[0].trophyEligible).toBe(true);
+    });
+
+    it('should store abs(nRating) regardless of eligibility', () => {
+      const players = [
+        createPlayer(1, 1200, 5, 1200),
+        createPlayer(2, 1100, 5, 1100),
+      ];
+      const matches = [createMatch(1, 2, 3)]; // player 1 wins
+      
+      const result = calculateRatings(players, matches);
+      
+      expect(result[0].nRating).toBeGreaterThan(0); // abs value, never negative
+    });
+
+    it('should set trophyEligible based on perf rating when num_games=0', () => {
+      const players = [
+        createPlayer(1, 1200, 0, 1200),
+        createPlayer(2, 1100, 0, 1100),
+        createPlayer(3, 1000, 0, 1000),
+      ];
+      const matches = [createMatch(1, 2, 3), createMatch(1, 3, 3)]; // player 1 wins all
+      
+      const result = calculateRatings(players, matches);
+      
+      expect(result[0].trophyEligible).toBe(true);
+      expect(result[0].nRating).toBeGreaterThan(1200);
+    });
+
+    it('should set trophyEligible for players with no games today', () => {
+      const players = [
+        createPlayer(1, 1200, 5, 1200),
+        createPlayer(2, 1100, 5, 1100),
+      ];
+      const matches: MatchData[] = []; // no matches
+      
+      const result = calculateRatings(players, matches);
+      
+      expect(result[0].trophyEligible).toBe(true);
+    });
+
+    it('should set trophyEligible based on blended rating when num_games < 10', () => {
+      const players = [
+        createPlayer(1, 1200, 3, 1200),
+        createPlayer(2, 1100, 3, 1100),
+        createPlayer(3, 1000, 3, 1000),
+      ];
+      const matches = [createMatch(1, 2, 3)]; // player 1 wins
+      
+      const result = calculateRatings(players, matches);
+      
+      expect(result[0].trophyEligible).toBe(true);
     });
   });
 });

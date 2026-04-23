@@ -8,6 +8,7 @@ interface PlayerData {
   firstName: string;
   rating: number;
   nRating: number;
+  trophyEligible?: boolean;
   gameResults?: (string | null)[];
 }
 

@@ -158,6 +158,7 @@ export const loadSampleData = () => {
       firstName: firstNames[index],
       rating: 1000 + Math.floor(pseudoRandom2(index * 17) * 400),
       nRating: 1000 + Math.floor(pseudoRandom2(index * 31) * 400),
+      trophyEligible: true,
       grade: `${(index % 7) + 1}th`,
       num_games: numGames,
       attendance: numGames,
@@ -211,6 +212,7 @@ export default function LadderForm({
     group: string;
     rating: number;
     nRating: number;
+    trophyEligible: boolean;
     grade: string;
     num_games: number;
     attendance: number;
@@ -225,6 +227,7 @@ export default function LadderForm({
     group: "",
     rating: 0,
     nRating: 0,
+    trophyEligible: true,
     grade: "",
     num_games: 0,
     attendance: 0,
@@ -609,13 +612,18 @@ export default function LadderForm({
         // const lastChar = cols[cols.length - 1];
         // const hasTail = lastChar === '' ? cols.length - 1 : cols.length;
 
+        const ratingStr = String(cols[3] || "").trim();
+        const isNegRating = ratingStr.startsWith("-");
+        const nRateStr = String(cols[5] || "").trim();
+
         const player: PlayerData = {
           rank: cols[4] ? parseInt(cols[4]) : 0,
           group: cols[0] && cols[0].trim() !== "" ? cols[0].trim() : "",
           lastName: cols[1] !== null ? cols[1] : "",
           firstName: cols[2] !== null ? cols[2] : "",
-          rating: cols[3] ? parseInt(String(cols[3]).trim() || "-1") : -1,
-          nRating: 0,
+          rating: Math.abs(parseInt(ratingStr)) || 0,
+          nRating: Math.abs(parseInt(nRateStr)) || 0,
+          trophyEligible: !isNegRating,
           grade: cols[6] !== null ? cols[6] : "N/A",
           num_games:
             cols[7] !== null && !isNaN(parseInt(cols[7]))
@@ -653,7 +661,16 @@ export default function LadderForm({
 
       if (loadedPlayers.length > 0) {
         const numRounds = 31;
-        localStorage.clear();
+        const keysToRemove = [
+          getKeyPrefix() + "ladder_players",
+          getKeyPrefix() + "ladder_project_name",
+          getKeyPrefix() + "ladder_settings",
+          getKeyPrefix() + "ladder_saved_cells",
+          getKeyPrefix() + "ladder_zoom_level",
+          "ladder_ladder_players",
+          "ladder_server_ladder_players",
+        ];
+        keysToRemove.forEach((k) => localStorage.removeItem(k));
 
         if (sortBy === "rank") {
           loadedPlayers.sort((a, b) => a.rank - b.rank);
@@ -1118,41 +1135,33 @@ export default function LadderForm({
   };
 
   const recalculateRatings = async () => {
-    if (shouldLog(10)) {
-      console.log(
-        `>>> [BUTTON PRESSED] Recalculate Ratings - ${players.length} players`,
-      );
-    }
+    console.log(`>>> [BUTTON PRESSED] Recalculate Ratings - ${players.length} players, isAdmin=${isAdmin}`);
 
-    (window as any).__ladder_setStatus?.(`Recalculating ratings...`);
+    try {
+      (window as any).__ladder_setStatus?.(`Recalculating ratings...`);
 
-    // Clear save status - all cells need to be re-saved after recalculation
-    clearAllSaveStatus();
+      // Clear save status - all cells need to be re-saved after recalculation
+      clearAllSaveStatus();
 
-    // Start batch mode - defer server sync until all operations complete
-    startBatch();
+      // Start batch mode - defer server sync until all operations complete
+      startBatch();
 
-    // Always build fresh matches from current UI state (no caching)
-    const result = checkGameErrors();
+      // Always build fresh matches from current UI state (no caching)
+      console.log('[RECALC] Checking game errors...');
+      const result = checkGameErrors();
+      console.log(`[RECALC] Errors: ${result.hasErrors ? result.errors.length : 'none'}, Matches: ${result.matches.length}`);
 
-    // If there are errors, show the error dialog and return early
-    if (result.hasErrors && result.errors.length > 0) {
-      if (shouldLog(5)) {
-        console.log(`\n=== RECALC PAUSED ===`);
-        console.log(
-          `Found ${result.errors.length} errors - showing error dialog`,
-        );
+      // If there are errors, show the error dialog and return early
+      if (result.hasErrors && result.errors.length > 0) {
+        console.log(`=== RECALC PAUSED === Found ${result.errors.length} errors - showing error dialog`);
+        return;
       }
-      return;
-    }
 
-    let matches: MatchData[] = result.matches;
-    let playerResultsByMatch: Map<string, PlayerMatchResult[]> | undefined =
-      result.playerResultsByMatch;
+      let matches: MatchData[] = result.matches;
+      let playerResultsByMatch: Map<string, PlayerMatchResult[]> | undefined =
+        result.playerResultsByMatch;
 
-    if (shouldLog(5)) {
-      console.log(`\n=== RECALC START ===`);
-      console.log(`Matches to process: ${matches.length}`);
+      console.log(`\n=== RECALC START === Matches to process: ${matches.length}`);
       // Count existing game results before clear
       let totalExisting = 0;
       for (const p of players) {
@@ -1160,100 +1169,108 @@ export default function LadderForm({
         totalExisting += filled.length;
       }
       console.log(`Total existing game results: ${totalExisting}`);
-    }
 
-    const processedPlayers = repopulateGameResults(
-      players,
-      matches,
-      31,
-      playerResultsByMatch,
-    );
+      console.log('[RECALC] Repopulating game results...');
+      const processedPlayers = repopulateGameResults(
+        players,
+        matches,
+        31,
+        playerResultsByMatch,
+      );
 
-    if (shouldLog(5)) {
-      // Count results after repopulation
       let totalAfterRepop = 0;
       for (const p of processedPlayers) {
         const filled = p.gameResults.filter((r) => r !== null && r !== "");
         totalAfterRepop += filled.length;
       }
       console.log(`Total results after repopulation: ${totalAfterRepop}`);
-    }
 
-    const calculatedPlayers = calculateRatings(processedPlayers, matches);
+      console.log('[RECALC] Calculating ratings...');
+      const calculatedPlayers = calculateRatings(processedPlayers, matches);
+      console.log('[RECALC] Ratings calculated.');
 
-    // Check for pending New Day operation (set by App.tsx before calling recalculate)
-    const pendingNewDayJson = localStorage.getItem(
-      getKeyPrefix() + "ladder_pending_newday",
-    );
-    if (pendingNewDayJson) {
-      console.log(
-        `>>> [RECALC COMPLETE] Pending New Day detected: ${pendingNewDayJson}`,
+      // Check for pending New Day operation (set by App.tsx before calling recalculate)
+      const pendingNewDayJson = localStorage.getItem(
+        getKeyPrefix() + "ladder_pending_newday",
       );
-      try {
-        const pendingNewDay = JSON.parse(pendingNewDayJson);
-        const reRank = pendingNewDay.reRank === true;
-        console.log(`>>> [NEW DAY] Processing with reRank=${reRank}`);
-
-        // Get current title and determine next title for mini-games
-        const currentTitle = getProjectName();
-        const normalizedTitle = String(currentTitle || "")
-          .toLowerCase()
-          .trim();
+      if (pendingNewDayJson) {
         console.log(
-          `>>> [NEW DAY] Current title from storage: "${currentTitle}" (normalized: "${normalizedTitle}")`,
+          `>>> [RECALC COMPLETE] Pending New Day detected: ${pendingNewDayJson}`,
         );
-        const nextTitle = (() => {
-          const index = MINI_GAMES.findIndex(
-            (game) => game.toLowerCase() === normalizedTitle,
-          );
+        try {
+          const pendingNewDay = JSON.parse(pendingNewDayJson);
+          const reRank = pendingNewDay.reRank === true;
+          console.log(`>>> [NEW DAY] Processing with reRank=${reRank}`);
+
+          // Get current title and determine next title for mini-games
+          const currentTitle = getProjectName();
+          const normalizedTitle = String(currentTitle || "")
+            .toLowerCase()
+            .trim();
           console.log(
-            `>>> [NEW DAY] findIndex result: ${index} for "${currentTitle}" (normalized: "${normalizedTitle}")`,
+            `>>> [NEW DAY] Current title from storage: "${currentTitle}" (normalized: "${normalizedTitle}")`,
           );
-          if (index !== -1) {
-            return MINI_GAMES[(index + 1) % MINI_GAMES.length];
+          const nextTitle = (() => {
+            const index = MINI_GAMES.findIndex(
+              (game) => game.toLowerCase() === normalizedTitle,
+            );
+            console.log(
+              `>>> [NEW DAY] findIndex result: ${index} for "${currentTitle}" (normalized: "${normalizedTitle}")`,
+            );
+            if (index !== -1) {
+              return MINI_GAMES[(index + 1) % MINI_GAMES.length];
+            }
+            return currentTitle;
+          })();
+          console.log(`>>> [NEW DAY] Next title will be: "${nextTitle}"`);
+
+          // Apply New Day transformations to calculatedPlayers
+          const finalPlayers = processNewDayTransformations(
+            calculatedPlayers,
+            reRank,
+          );
+
+          await savePlayers(finalPlayers);
+          setProjectNameStorage(nextTitle);
+          localStorage.removeItem(getKeyPrefix() + "ladder_pending_newday");
+          localStorage.removeItem(getKeyPrefix() + "ladder_settings");
+
+          if (shouldLog(10)) {
+            console.log(
+              `New Day complete - Title: ${nextTitle}, ReRank: ${reRank}\n`,
+            );
           }
-          return currentTitle;
-        })();
-        console.log(`>>> [NEW DAY] Next title will be: "${nextTitle}"`);
 
-        // Apply New Day transformations to calculatedPlayers
-        const finalPlayers = processNewDayTransformations(
-          calculatedPlayers,
-          reRank,
-        );
+          setPlayers(finalPlayers);
 
-        await savePlayers(finalPlayers);
-        setProjectNameStorage(nextTitle);
-        localStorage.removeItem(getKeyPrefix() + "ladder_pending_newday");
-        localStorage.removeItem(getKeyPrefix() + "ladder_settings");
-
-        if (shouldLog(10)) {
-          console.log(
-            `New Day complete - Title: ${nextTitle}, ReRank: ${reRank}\n`,
-          );
+          // Reload to apply changes
+          window.location.reload();
+          return;
+        } catch (err) {
+          console.error("Failed to process pending New Day:", err);
+          localStorage.removeItem(getKeyPrefix() + "ladder_pending_newday");
         }
-
-        setPlayers(finalPlayers);
-
-        // Reload to apply changes
-        window.location.reload();
-        return;
-      } catch (err) {
-        console.error("Failed to process pending New Day:", err);
-        localStorage.removeItem(getKeyPrefix() + "ladder_pending_newday");
       }
-    }
 
-    setPlayers(calculatedPlayers);
-    await savePlayers(calculatedPlayers);
-    if (shouldLog(10)) {
-      console.log("Rating calculation complete\n");
-    }
+      console.log('[RECALC] Setting players and saving...');
+      setPlayers(calculatedPlayers);
+      await savePlayers(calculatedPlayers);
+      if (shouldLog(10)) {
+        console.log("Rating calculation complete\n");
+      }
 
-    // End batch mode - triggers single server sync with all accumulated changes
-    await endBatch();
-    
-    (window as any).__ladder_setStatus?.(null);
+      // End batch mode - triggers single server sync with all accumulated changes
+      console.log('[RECALC] Ending batch mode...');
+      await endBatch();
+      
+      console.log('[RECALC] Recalculate complete.');
+      (window as any).__ladder_setStatus?.(null);
+    } catch (err) {
+      console.error('[RECALC] ERROR:', err);
+      console.error('[RECALC] Stack:', err instanceof Error ? err.stack : 'N/A');
+      (window as any).__ladder_setStatus?.('Recalculate failed - see console');
+      setTimeout(() => (window as any).__ladder_setStatus?.(null), 5000);
+    }
   };
 
   useEffect(() => {
@@ -2429,7 +2446,8 @@ export default function LadderForm({
       const newPlayer: PlayerData = {
         ...playerData,
         rank: newRank,
-        nRating: playerData.rating || 0,
+        nRating: Math.abs(playerData.rating || 0),
+        trophyEligible: true,
         gameResults: new Array(31).fill(null),
       };
 
@@ -2577,7 +2595,7 @@ export default function LadderForm({
     players.forEach((player) => {
       const gameResults = player.gameResults || new Array(31).fill(null);
 
-      output += `${player.group || ""}\t${player.lastName || ""}\t${player.firstName || ""}\t${player.rating || ""}\t${player.rank}\t${player.nRating || ""}\t${player.grade || ""}\t${player.num_games || 0}\t${player.attendance || ""}\t${player.phone || ""}\t${player.info || ""}\t${player.school || ""}\t${player.room || ""}`;
+      output += `${player.group || ""}\t${player.lastName || ""}\t${player.firstName || ""}\t${player.trophyEligible !== false ? player.rating : "-" + player.rating}\t${player.rank}\t${player.trophyEligible !== false ? player.nRating : "-" + player.nRating}\t${player.grade || ""}\t${player.num_games || 0}\t${player.attendance || ""}\t${player.phone || ""}\t${player.info || ""}\t${player.school || ""}\t${player.room || ""}`;
 
       output += "\t" + gameResults.map((r) => r || "").join("\t");
       output += "\n";
@@ -3475,9 +3493,23 @@ export default function LadderForm({
                   color: "white",
                 }}
               >
-                New Rating
-              </th>
-              {isAdmin && (
+                 New Rating
+               </th>
+               <th
+                 key="head-trophy"
+                 style={{
+                   padding: "0.5rem 0.75rem",
+                   textAlign: "center",
+                   fontWeight: "500",
+                   borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
+                   backgroundColor: "#0f172a",
+                   color: "white",
+                   width: "40px",
+                 }}
+               >
+                 T
+               </th>
+               {isAdmin && (
                 <>
                   <th
                     key="head-grade"
@@ -3514,9 +3546,10 @@ export default function LadderForm({
                       borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
                       backgroundColor: "#0f172a",
                       color: "white",
+                      width: "60px",
                     }}
                   >
-                    Attendance
+                    Attend
                   </th>
                   <th
                     key="head-phone"
@@ -3540,9 +3573,10 @@ export default function LadderForm({
                       borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
                       backgroundColor: "#0f172a",
                       color: "white",
+                      width: "30px",
                     }}
                   >
-                    Info
+                    I
                   </th>
                   <th
                     key="head-school"
@@ -3553,9 +3587,10 @@ export default function LadderForm({
                       borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
                       backgroundColor: "#0f172a",
                       color: "white",
+                      width: "30px",
                     }}
                   >
-                    School
+                    S
                   </th>
                   <th
                     key="head-room"
@@ -3566,9 +3601,10 @@ export default function LadderForm({
                       borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
                       backgroundColor: "#0f172a",
                       color: "white",
+                      width: "30px",
                     }}
                   >
-                    Room
+                    R
                   </th>
                 </>
               )}
@@ -3606,21 +3642,23 @@ export default function LadderForm({
                      .filter((_, i) => i < (isAdmin ? 13 : 6))
                      .map((field, col) => {
                        const cellValue = field === "rank" ? player.rank : 
-                                         field === "group" ? player.group :
-                                         field === "lastName" ? player.lastName :
-                                         field === "firstName" ? player.firstName :
-                                         field === "rating" ? (player.rating || "") :
-                                         field === "nRating" ? (player.nRating || "") :
-                                         field === "grade" ? player.grade :
-                                         field === "num_games" ? player.num_games :
-                                         field === "attendance" ? player.attendance :
-                                         field === "phone" ? player.phone :
-                                         field === "info" ? player.info :
-                                         field === "school" ? player.school :
-                                         field === "room" ? player.room : "";
-                       return (
-                         <td
-                           key={`${rowIndex}-${col}`}
+                                          field === "group" ? player.group :
+                                          field === "lastName" ? player.lastName :
+                                          field === "firstName" ? player.firstName :
+                                          field === "rating" ? (player.rating || "") :
+                                          field === "nRating" ? (player.nRating || "") :
+                                          field === "grade" ? player.grade :
+                                          field === "num_games" ? player.num_games :
+                                          field === "attendance" ? player.attendance :
+                                          field === "phone" ? player.phone :
+                                          field === "info" ? player.info :
+                                          field === "school" ? player.school :
+                                          field === "room" ? player.room : "";
+                        if (field === "nRating") {
+                          return (
+                            <>
+                              <td
+                                key={`${rowIndex}-${col}`}
                            style={{
                              padding: "0.5rem 0.75rem",
                              borderBottom: "1px solid #e2e8f0",
@@ -3635,41 +3673,97 @@ export default function LadderForm({
                                contentEditable={true}
                                suppressContentEditableWarning={true}
                                onBlur={(e) => {
-                                 const value = e.target.textContent || "";
-                                 setPlayers((prevPlayers) => {
-                                   const updatedPlayers = [...prevPlayers];
-                                   const targetPlayer = updatedPlayers.find(
-                                     (p) => p.rank === player.rank,
-                                   );
-                                   if (!targetPlayer) return prevPlayers;
-                                   switch (field) {
-                                     case "group": targetPlayer.group = value; break;
-                                     case "lastName": targetPlayer.lastName = value; break;
-                                     case "firstName": targetPlayer.firstName = value; break;
-                                     case "rating": targetPlayer.rating = parseInt(value) || 0; break;
-                                     case "nRating": targetPlayer.nRating = parseInt(value) || 0; break;
-                                     case "grade": targetPlayer.grade = value; break;
-                                     case "num_games": targetPlayer.num_games = parseInt(value) || 0; break;
-                                     case "attendance": targetPlayer.attendance = value; break;
-                                     case "phone": targetPlayer.phone = value; break;
-                                     case "info": targetPlayer.info = value; break;
-                                     case "school": targetPlayer.school = value; break;
-                                     case "room": targetPlayer.room = value; break;
-                                     case "rank": targetPlayer.rank = parseInt(value) || 0; break;
-                                   }
-                                   return updatedPlayers;
-                                 });
-                               }}
+                                  const value = e.target.textContent || "";
+                                  setPlayers((prevPlayers) => {
+                                    const updatedPlayers = [...prevPlayers];
+                                    const targetPlayer = updatedPlayers.find(
+                                      (p) => p.rank === player.rank,
+                                    );
+                                    if (!targetPlayer) return prevPlayers;
+                                    const val = parseInt(value) || 0;
+                                    targetPlayer.nRating = Math.abs(val);
+                                    targetPlayer.trophyEligible = true;
+                                    return updatedPlayers;
+                                  });
+                                }}
                              >
                                {cellValue}
                              </span>
                            ) : (
-                             cellValue
-                           )}
-                         </td>
-                       );
-                     })}
-                 {gameResults.map((result, gCol) => {
+                              cellValue
+                            )}
+                          </td>
+                          <td
+                            key={`${rowIndex}-trophy`}
+                            style={{
+                              padding: "0.5rem 0.75rem",
+                              borderBottom: "1px solid #e2e8f0",
+                              verticalAlign: "middle",
+                              borderRight: "1px solid #e2e8f0",
+                              backgroundColor: rowIndex % 2 >= 1 ? "#f8fafc" : "transparent",
+                              textAlign: "center",
+                              width: "40px",
+                            }}
+                          >
+                            {player.trophyEligible !== false ? "+" : "-"}
+                          </td>
+                        </>
+                      );
+                    }
+                    const narrowFields = ["attendance", "info", "school", "room"];
+                     const cellWidth = isAdmin && narrowFields.includes(field) ? "40px" : undefined;
+                     return (
+                       <td
+                         key={`${rowIndex}-${col}`}
+                         style={{
+                           padding: "0.5rem 0.75rem",
+                           borderBottom: "1px solid #e2e8f0",
+                           verticalAlign: "middle",
+                           borderRight: "1px solid #e2e8f0",
+                           backgroundColor:
+                             rowIndex % 2 >= 1 ? "#f8fafc" : "transparent",
+                           width: cellWidth,
+                         }}
+                       >
+                        {isAdmin ? (
+                          <span
+                            contentEditable={true}
+                            suppressContentEditableWarning={true}
+                            onBlur={(e) => {
+                              const value = e.target.textContent || "";
+                              setPlayers((prevPlayers) => {
+                                const updatedPlayers = [...prevPlayers];
+                                const targetPlayer = updatedPlayers.find(
+                                  (p) => p.rank === player.rank,
+                                );
+                                if (!targetPlayer) return prevPlayers;
+                                switch (field) {
+                                  case "group": targetPlayer.group = value; break;
+                                  case "lastName": targetPlayer.lastName = value; break;
+                                  case "firstName": targetPlayer.firstName = value; break;
+                                  case "rating": targetPlayer.rating = parseInt(value) || 0; break;
+                                  case "grade": targetPlayer.grade = value; break;
+                                  case "num_games": targetPlayer.num_games = parseInt(value) || 0; break;
+                                  case "attendance": targetPlayer.attendance = value; break;
+                                  case "phone": targetPlayer.phone = value; break;
+                                  case "info": targetPlayer.info = value; break;
+                                  case "school": targetPlayer.school = value; break;
+                                  case "room": targetPlayer.room = value; break;
+                                  case "rank": targetPlayer.rank = parseInt(value) || 0; break;
+                                }
+                                return updatedPlayers;
+                              });
+                            }}
+                          >
+                            {cellValue}
+                          </span>
+                        ) : (
+                          cellValue
+                        )}
+                      </td>
+                    );
+                  })}
+                {gameResults.map((result, gCol) => {
                      const displayValue = getCellDisplayValue(player.rank, gCol, result);
                      const tempResult = tempGameResult &&
                          tempGameResult.playerRank === player.rank &&
@@ -3811,10 +3905,11 @@ export default function LadderForm({
                           if ((result.firstName || "").trim() && (result.lastName || "").trim()) {
                             console.log('[EMPTY ROW] Both names filled - creating player');
                             const gameData = result as typeof emptyPlayerRow & { rank?: number };
-                            const newPlayer: PlayerData = {
-                              rank: 0,
-                              nRating: result.nRating || 0,
-                              gameResults: result.gameResults,
+                          const newPlayer: PlayerData = {
+                               rank: 0,
+                               nRating: Math.abs(result.nRating || 0),
+                               trophyEligible: true,
+                               gameResults: result.gameResults,
                               group: gameData.group,
                               lastName: gameData.lastName,
                               firstName: gameData.firstName,
@@ -3845,13 +3940,14 @@ export default function LadderForm({
                          // Reset emptyPlayerRow state and ref (not enough for contentEditable cells - React
                            // skips updating their textContent after they've been made editable)
                            console.log('[EMPTY ROW] Resetting empty player row');
-                           const emptyReset = {
-                             firstName: "",
-                             lastName: "",
-                             group: "",
-                             rating: 0,
-                             nRating: 0,
-                             grade: "",
+                          const emptyReset = {
+                              firstName: "",
+                              lastName: "",
+                              group: "",
+                              rating: 0,
+                              nRating: 0,
+                              trophyEligible: true,
+                              grade: "",
                              num_games: 0,
                              attendance: 0,
                              phone: "",
