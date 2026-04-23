@@ -840,6 +840,7 @@ export function processGameResults(
 
 /**
  * Calculate Elo ratings based on game results
+ * Uses blended performance rating for players with fewer than 10 games.
  */
 export function calculateRatings(
   playersList: PlayerData[],
@@ -847,14 +848,17 @@ export function calculateRatings(
   _kFactorOverride?: number,
 ): PlayerData[] {
   let kFactor = 20;
-  // Use override if provided (server-side), otherwise read from localStorage (client-side)
+  let perfBlendingFactor = 0.99;
+
   if (_kFactorOverride !== undefined) {
     kFactor = _kFactorOverride;
   } else if (typeof localStorage !== "undefined") {
     try {
       const savedSettings = localStorage.getItem("ladder_settings");
       if (savedSettings) {
-        kFactor = JSON.parse(savedSettings).kFactor ?? 20;
+        const parsed = JSON.parse(savedSettings);
+        kFactor = parsed.kFactor ?? 20;
+        perfBlendingFactor = parsed.performanceBlendingFactor ?? 0.99;
       }
     } catch {}
   }
@@ -862,11 +866,44 @@ export function calculateRatings(
   const EloKfactor = kFactor;
   const playersCopy = playersList.map((p) => ({ ...p }));
 
+  // Track per-player stats for performance rating calculation
+  interface PlayerGameStats {
+    score: number;
+    opponentRatings: number[];
+    gamesToday: number;
+  }
+  const gameStats = new Map<number, PlayerGameStats>();
+
+  function getOpponentRating(player: PlayerData): number {
+    // Use nRating if available and non-zero, else fall back to rating
+    return Math.abs(player.nRating > 0 ? player.nRating : player.rating);
+  }
+
   for (const match of matches) {
     const p1 = playersCopy.find((p) => p.rank === match.player1);
     const p2 = playersCopy.find((p) => p.rank === match.player2);
 
     if (!p1 || !p2) continue;
+
+    // Track opponent ratings (use current nRating or rating)
+    const p1OppRating = getOpponentRating(p2);
+    const p2OppRating = getOpponentRating(p1);
+
+    // Initialize game stats
+    if (!gameStats.has(p1.rank)) {
+      gameStats.set(p1.rank, { score: 0, opponentRatings: [], gamesToday: 0 });
+    }
+    if (!gameStats.has(p2.rank)) {
+      gameStats.set(p2.rank, { score: 0, opponentRatings: [], gamesToday: 0 });
+    }
+
+    const stats1 = gameStats.get(p1.rank)!;
+    const stats2 = gameStats.get(p2.rank)!;
+
+    stats1.gamesToday++;
+    stats2.gamesToday++;
+    stats1.opponentRatings.push(p1OppRating);
+    stats2.opponentRatings.push(p2OppRating);
 
     const p1Rating = Math.abs(p1.rating);
     const p2Rating = Math.abs(p2.rating);
@@ -887,6 +924,10 @@ export function calculateRatings(
       actualP2 = 1;
     }
 
+    // Accumulate score for performance rating
+    stats1.score += actualP1;
+    stats2.score += actualP2;
+
     const p1NewRating = Math.round(
       p1Rating + EloKfactor * (actualP1 - expectedP1),
     );
@@ -896,6 +937,30 @@ export function calculateRatings(
 
     p1.nRating = Math.max(0, p1NewRating);
     p2.nRating = Math.max(0, p2NewRating);
+  }
+
+  // Post-loop: compute performance rating and apply blending for players with < 10 games
+  for (const player of playersCopy) {
+    const stats = gameStats.get(player.rank);
+    if (!stats || stats.gamesToday === 0) {
+      continue;
+    }
+
+    const avgOpponentRating =
+      stats.opponentRatings.reduce((a, b) => a + b, 0) / stats.gamesToday;
+
+    let perfRating = avgOpponentRating + 400 * (stats.score / stats.gamesToday - 0.5);
+
+    perfRating = Math.max(100, Math.min(9999, perfRating));
+
+    if (player.num_games < 10) {
+      const totalGames = player.num_games + stats.gamesToday;
+      const blendedRating =
+        perfBlendingFactor *
+        ((player.rating * player.num_games + perfRating * stats.gamesToday) /
+          totalGames);
+      player.nRating = Math.max(0, Math.round(blendedRating));
+    }
   }
 
   return playersCopy;
