@@ -469,8 +469,14 @@ export async function savePlayers(players: PlayerData[], waitForServer = false, 
   
   const playerJson = JSON.stringify(players);
   
-  if (dataService.getMode() === DataServiceMode.LOCAL) {
-    // Local mode: use localStorage directly - mark all cells as saved
+  const mode = dataService.getMode();
+  const userSettings = loadUserSettings();
+  const serverUrl = userSettings.server?.trim() || '';
+  
+  console.log('[savePlayers] Mode:', mode, 'Server URL configured:', !!serverUrl);
+  
+  if (mode === DataServiceMode.LOCAL && !serverUrl) {
+    // Local mode with no server: use localStorage directly - mark all cells as saved
     localStorage.setItem('ladder_ladder_players', playerJson);
     // Mark all non-empty cells as saved in local mode
     for (const player of players) {
