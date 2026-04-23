@@ -1332,83 +1332,113 @@ export default function LadderForm({
        }
      }
 
-     // Admin mode: calculate locally, then push to server atomically
-     if (isAdmin) {
-       log('[RECALC]', 'Admin mode - calculating locally and pushing to server');
-       
-       // Clear save status - all cells need to be re-saved after recalculation
-       clearAllSaveStatus();
+    // Admin mode: fetch fresh server data, merge with local, then push back atomically
+      if (isAdmin) {
+        log('[RECALC]', 'Admin mode - fetching server data and calculating');
+        
+        // Clear save status - all cells need to be re-saved after recalculation
+        clearAllSaveStatus();
 
-       // Build fresh matches from current UI state (no caching)
-       const result = checkGameErrorsWithPlayers(players);
+        // Fetch fresh data from server before calculating to avoid losing user-reported games
+        const serverUrl = loadUserSettings().server?.trim();
+        let mergePlayers: PlayerData[] = players;
 
-       // If there are errors, show the error dialog and return early
-       if (result.hasErrors && result.errors.length > 0) {
-         if (shouldLog(5)) {
-           console.log(`\n=== RECALC PAUSED ===`);
-           console.log(
-             `Found ${result.errors.length} errors - showing error dialog`,
-           );
-         }
-         return;
-       }
+        if (serverUrl) {
+          try {
+            const response = await fetch(`${serverUrl}/api/ladder`);
+            if (response.ok) {
+              const data = await response.json();
+              const serverPlayers = data.data?.players || [];
+              
+              // Merge: take gameResults + player data from server, keep local nRatings and admin edits
+              mergePlayers = serverPlayers.map((sp: PlayerData) => {
+                const localPlayer = players.find(lp => lp.rank === sp.rank);
+                return {
+                  ...sp,
+                  nRating: localPlayer?.nRating !== undefined ? localPlayer.nRating : sp.nRating,
+                  gameResults: sp.gameResults || new Array(31).fill(null),
+                };
+              });
+              
+              log('[RECALC]', `Merged ${mergePlayers.length} players from server for recalc`);
+            } else {
+              log('[RECALC]', 'Server fetch failed during merge, using local players');
+            }
+          } catch (error) {
+            log('[RECALC]', 'Error fetching server data during merge:', error);
+          }
+        }
 
-       let matches: MatchData[] = result.matches;
-       let playerResultsByMatch: Map<string, PlayerMatchResult[]> | undefined =
-         result.playerResultsByMatch;
+        // Build fresh matches from merged UI state (no caching)
+        const result = checkGameErrorsWithPlayers(mergePlayers);
 
-       if (shouldLog(5)) {
-         console.log(`\n=== RECALC START ===`);
-         console.log(`Matches to process: ${matches.length}`);
-         let totalExisting = 0;
-         for (const p of players) {
-           const filled = p.gameResults.filter((r) => r !== null && r !== "");
-           totalExisting += filled.length;
-         }
-         console.log(`Total existing game results: ${totalExisting}`);
-       }
+        // If there are errors, show the error dialog and return early
+        if (result.hasErrors && result.errors.length > 0) {
+          if (shouldLog(5)) {
+            console.log(`\n=== RECALC PAUSED ===`);
+            console.log(
+              `Found ${result.errors.length} errors - showing error dialog`,
+            );
+          }
+          return;
+        }
 
-       const processedPlayers = repopulateGameResults(
-         players,
-         matches,
-         31,
-         playerResultsByMatch,
-       );
+        let matches: MatchData[] = result.matches;
+        let playerResultsByMatch: Map<string, PlayerMatchResult[]> | undefined =
+          result.playerResultsByMatch;
 
-       if (shouldLog(5)) {
-         let totalAfterRepop = 0;
-         for (const p of processedPlayers) {
-           const filled = p.gameResults.filter((r) => r !== null && r !== "");
-           totalAfterRepop += filled.length;
-         }
-         console.log(`Total results after repopulation: ${totalAfterRepop}`);
-       }
+        if (shouldLog(5)) {
+          console.log(`\n=== RECALC START ===`);
+          console.log(`Matches to process: ${matches.length}`);
+          let totalExisting = 0;
+          for (const p of mergePlayers) {
+            const filled = p.gameResults.filter((r) => r !== null && r !== "");
+            totalExisting += filled.length;
+          }
+          console.log(`Total existing game results: ${totalExisting}`);
+        }
 
-       const calculatedPlayers = calculateRatings(processedPlayers, matches);
+        const processedPlayers = repopulateGameResults(
+          mergePlayers,
+          matches,
+          31,
+          playerResultsByMatch,
+        );
 
-       // Save with waitForServer=true to wait for server confirmation
-       (window as any).__ladder_setStatus?.('Saving to server...');
-       log('[RECALC]', 'Saving to server...');
-       const saveResult = await savePlayers(calculatedPlayers, true);
-       
-       if (saveResult.success) {
-         if (saveResult.serverSynced) {
-           log('[RECALC]', '✓ Saved to server');
-           clearLocalChangesFlag();
-           clearPendingDeletes();
-         } else {
-           log('[RECALC]', '✓ Saved locally (server sync skipped)');
-         }
-       }
-       if (saveResult.error) {
-         log('[RECALC]', '⚠ Server save issue:', saveResult.error);
-       }
-       
-       setPlayers(calculatedPlayers);
-       log('[RECALC]', 'Recalculate_Save complete');
-       (window as any).__ladder_setStatus?.(null);
-       return;
-     }
+        if (shouldLog(5)) {
+          let totalAfterRepop = 0;
+          for (const p of processedPlayers) {
+            const filled = p.gameResults.filter((r) => r !== null && r !== "");
+            totalAfterRepop += filled.length;
+          }
+          console.log(`Total results after repopulation: ${totalAfterRepop}`);
+        }
+
+        const calculatedPlayers = calculateRatings(processedPlayers, matches);
+
+        // Save with waitForServer=true to wait for server confirmation
+        (window as any).__ladder_setStatus?.('Saving to server...');
+        log('[RECALC]', 'Saving to server...');
+        const saveResult = await savePlayers(calculatedPlayers, true);
+        
+        if (saveResult.success) {
+          if (saveResult.serverSynced) {
+            log('[RECALC]', '✓ Saved to server');
+            clearLocalChangesFlag();
+            clearPendingDeletes();
+          } else {
+            log('[RECALC]', '✓ Saved locally (server sync skipped)');
+          }
+        }
+        if (saveResult.error) {
+          log('[RECALC]', '⚠ Server save issue:', saveResult.error);
+        }
+        
+        setPlayers(calculatedPlayers);
+        log('[RECALC]', 'Recalculate_Save complete');
+        (window as any).__ladder_setStatus?.(null);
+        return;
+      }
 
      // User mode: calculate locally, push full table to server, pull back fresh data
       log('[RECALC]', 'User mode - calculating locally and syncing with server');
@@ -2024,7 +2054,14 @@ export default function LadderForm({
     });
     
     setPlayers(updatedPlayers);
-    savePlayers(updatedPlayers).catch((err) => {
+    const saveTarget = isAdmin ? true : false;
+    savePlayers(updatedPlayers, saveTarget).then((result) => {
+      if (result.success && result.serverSynced) {
+        console.log(`[CLEAR CELL] ✓ Cleared ${cellsToClear.length} matching cells with value "${cellValue}" — saved to server`);
+      } else if (result.success) {
+        console.log(`[CLEAR CELL] ✓ Cleared ${cellsToClear.length} matching cells with value "${cellValue}" — saved locally`);
+      }
+    }).catch((err) => {
       console.error("Failed to save cleared cell:", err);
     });
 
@@ -3669,62 +3706,46 @@ export default function LadderForm({
                                  : "#e2e8f0",
                          }}
                        >
-                         {isAdmin ? (
-                           <span
-                             contentEditable={true}
-                             suppressContentEditableWarning={true}
-                             onBlur={(e) => {
-                               const value = e.target.textContent;
-                               setPlayers((prevPlayers) => {
-                                 const targetPlayer = prevPlayers.find(
-                                   (p) => p.rank === player.rank,
-                                 );
-                                 if (!targetPlayer) return prevPlayers;
-
-                                 const newGameResults = [
-                                   ...targetPlayer.gameResults,
-                                 ];
-                                 newGameResults[gCol] = value;
-
-                                 return prevPlayers.map((p) =>
-                                   p.rank === player.rank
-                                     ? { ...p, gameResults: newGameResults }
-                                     : p,
-                                 );
-                               });
-                             }}
-                           >
-                             {displayValue}{tempResult}
-                           </span>
-                         ) : (
-                           <span
-                             style={{ cursor: "pointer" }}
-                             onClick={() => {
-                               const result = players.find(p => p.rank === player.rank)?.gameResults?.[gCol] || '';
-                               
-                               // Check if confirmed (ends with "_")
-                               if (result.endsWith('_')) {
-                                 // Find first empty cell
-                                 const emptyCell = findFirstEmptyCell();
-                                 if (emptyCell) {
-                                   setEntryCell(emptyCell);
-                                   return; // Skip opening dialog for confirmed cell
-                                 }
-                                 // If no empty cell found, fall through to edit confirmed cell
-                               }
-                               
-                               setEntryCell({
-                                 playerRank: player.rank,
-                                 round: gCol,
-                               });
-                             }}
-                           >
-                             {displayValue}{tempResult}
-                           </span>
-                         )}
-                       </td>
-                     );
-                   })}
+                          {isAdmin ? (
+                            // Admin mode: always allow editing any game result cell
+                            <span
+                              style={{ cursor: "pointer" }}
+                              onClick={() => {
+                                setEntryCell({
+                                  playerRank: player.rank,
+                                  round: gCol,
+                                });
+                              }}
+                            >
+                              {displayValue}{tempResult}
+                            </span>
+                          ) : (
+                            // User mode: skip confirmed cells, go to first empty cell
+                            <span
+                              style={{ cursor: "pointer" }}
+                              onClick={() => {
+                                const result = players.find(p => p.rank === player.rank)?.gameResults?.[gCol] || '';
+                                
+                                if (result.endsWith('_')) {
+                                  const emptyCell = findFirstEmptyCell();
+                                  if (emptyCell) {
+                                    setEntryCell(emptyCell);
+                                    return;
+                                  }
+                                }
+                                
+                                setEntryCell({
+                                  playerRank: player.rank,
+                                  round: gCol,
+                                });
+                              }}
+                            >
+                              {displayValue}{tempResult}
+                            </span>
+                          )}
+                        </td>
+                      );
+                    })}
                   {Array.from({
                     length: Math.max(0, 20 - gameResults.length),
                   }).map((_, emptyCol) => (
