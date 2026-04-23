@@ -38,6 +38,7 @@ export default function Settings({
   const [showRatings, setShowRatings] = useState(true);
   const [debugLevel, setDebugLevel] = useState(5);
   const [kFactor, setKFactor] = useState(20);
+  const [performanceBlendingFactor, setPerformanceBlendingFactor] = useState(0.99);
   
   // Server settings state
   const [serverUrl, setServerUrl] = useState('');
@@ -55,6 +56,7 @@ export default function Settings({
         setShowRatings(parsedSettings.showRatings ?? true);
         setDebugLevel(parsedSettings.debugLevel ?? 5);
         setKFactor(parsedSettings.kFactor ?? 20);
+        setPerformanceBlendingFactor(parsedSettings.performanceBlendingFactor ?? 0.99);
       } catch (err) {
         console.error("Failed to parse settings:", err);
       }
@@ -78,6 +80,7 @@ export default function Settings({
       showRatings: [showRatings, showRatings, showRatings, showRatings],
       debugLevel: debugLevel,
       kFactor: Math.max(1, Math.min(100, kFactor || 20)),
+      performanceBlendingFactor: Math.max(0.5, Math.min(1.5, performanceBlendingFactor || 0.99)),
     };
     localStorage.setItem(
       getKeyPrefix() + "ladder_settings",
@@ -331,6 +334,51 @@ export default function Settings({
                 }}
               >
                 Higher = faster rating changes (1-100)
+              </p>
+            </div>
+
+            <div style={{ marginBottom: "1.5rem" }}>
+              <label
+                htmlFor="performanceBlendingFactor"
+                style={{
+                  display: "block",
+                  fontSize: "0.875rem",
+                  fontWeight: "500",
+                  color: "#374151",
+                  marginBottom: "0.5rem",
+                }}
+              >
+                Performance Blending Factor
+              </label>
+              <input
+                type="number"
+                id="performanceBlendingFactor"
+                min="0.5"
+                max="1.5"
+                step="0.01"
+                value={performanceBlendingFactor}
+                onChange={(e) =>
+                  setPerformanceBlendingFactor(
+                    Math.max(0.5, Math.min(1.5, parseFloat(e.target.value) || 0.99)),
+                  )
+                }
+                style={{
+                  width: "100%",
+                  padding: "0.5rem",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "0.25rem",
+                  fontSize: "0.875rem",
+                  boxSizing: "border-box",
+                }}
+              />
+              <p
+                style={{
+                  fontSize: "0.75rem",
+                  color: "#6b7280",
+                  marginTop: "0.25rem",
+                }}
+              >
+                Dampening multiplier for players with fewer than 10 games (0.5-1.5, default 0.99)
               </p>
             </div>
           </div>
