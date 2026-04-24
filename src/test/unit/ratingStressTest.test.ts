@@ -4,11 +4,9 @@
  * Rating Stress Test — Tournament Simulation
  *
  * Generates pseudo-random tournaments with Elo-weighted results,
- * processes games in batches with recalc + New Day after each batch,
+ * processes games in batches with recalc after each batch,
  * and measures rating convergence via RSS (root-mean-square deviation).
- *
- * Double-pass averaging should produce lower RSS than single-pass,
- * proving the VB6 single-pass approach has a convergence problem.
+ * All tests use double-pass averaging.
  */
 
 import { describe, it, afterAll } from 'vitest';
@@ -224,7 +222,7 @@ function generateBatchGames(
 }
 
 // ─── Simulation ───────────────────────────────────────────────────────
-function runSimulation(config: StressConfig, doublePass: boolean): StressResult {
+function runSimulation(config: StressConfig): StressResult {
   const rng = mulberry32(config.seed);
   let numPlayers = config.players;
   const totalRounds = Math.min(31, Math.max(20, Math.floor(numPlayers / 5) * 5));
@@ -273,14 +271,14 @@ function runSimulation(config: StressConfig, doublePass: boolean): StressResult 
 
     // Recalc from scratch with all matches seen so far
     // num_games=0 → init rating uses nRating/rating directly
-    const result = calculateRatings(players, allMatches, { doublePass });
+    const result = calculateRatings(players, allMatches);
 
     // RSS from nRating vs start ratings
     rssHistory.push(computeRss(result.players, startRatings));
   }
 
   // Final recalc on all matches
-  const finalResult = calculateRatings(players, allMatches, { doublePass });
+  const finalResult = calculateRatings(players, allMatches);
 
   // Repopulate game results from ALL matches
   const withResults = repopulateGameResults(finalResult.players, allMatches, 31);
@@ -309,10 +307,10 @@ function runSimulation(config: StressConfig, doublePass: boolean): StressResult 
   }));
 
   // Final two recalcs on all matches to measure drift
-  const final1Result = calculateRatings(finalPlayers, allMatches, { doublePass: false });
+  const final1Result = calculateRatings(finalPlayers, allMatches);
   const final1Rss = computeRss(final1Result.players, startRatings);
 
-  const final2Result = calculateRatings(final1Result.players, allMatches, { doublePass: false });
+  const final2Result = calculateRatings(final1Result.players, allMatches);
   const final2Rss = computeRss(final2Result.players, startRatings);
 
   const ngLabel = config.numGamesMode === 'new' ? 'ng0' : config.numGamesMode === 'mixed' ? 'ng0-10' : 'ng20';
@@ -365,7 +363,7 @@ describe('Rating Stress Test', () => {
   for (const config of configs) {
     const ngLabel = config.numGamesMode === 'new' ? 'ng0' : config.numGamesMode === 'mixed' ? 'ng0-10' : 'ng20';
     it(`${config.label}_${ngLabel}`, () => {
-      const result = runSimulation(config, true);
+      const result = runSimulation(config);
       results.push(result);
       const finalRss = result.rssHistory[result.rssHistory.length - 1] ?? 0;
       console.log(`  ${config.label}_${ngLabel}: FinalRSS=${finalRss.toFixed(2)}, F1=${result.final1.toFixed(2)}, F2=${result.final2.toFixed(2)}`);

@@ -857,7 +857,7 @@ export interface CalculateRatingsResult {
   players: PlayerData[];
   /** Debug trace (only present when debugMode is true) */
   trace?: CalculateRatingsDebugTrace;
-  /** Per-pass nRating results when doublePass is enabled */
+  /** Per-pass nRating results (double-pass averaging) */
   pass1NRating?: Map<number, number>;
   pass2NRating?: Map<number, number>;
 }
@@ -1125,8 +1125,7 @@ function calculateRatingsSinglePass(
 
 /**
  * Main entry point for rating calculation.
- *
- * When doublePass is true (default):
+ * Always runs double-pass averaging:
  *   Pass 1: compute nRating from original player state
  *   Pass 2: recompute using pass 1 nRating as input (affects num_games=0 players)
  *   Average: nRating = round((pass1 + pass2) / 2)
@@ -1141,12 +1140,9 @@ export function calculateRatings(
     kFactorOverride?: number;
     /** When true: prints step-by-step VB6-equivalent trace + returns trace object */
     debugMode?: boolean;
-    /** When true (default): run twice and average nRating results for convergence */
-    doublePass?: boolean;
   },
 ): CalculateRatingsResult {
   const debugMode = options?.debugMode ?? false;
-  const doublePass = options?.doublePass ?? true; // default ON
   const dbg = new DebugLogger(debugMode);
   const trace: CalculateRatingsDebugTrace = {
     kFactor: 0,
@@ -1177,7 +1173,7 @@ export function calculateRatings(
     matches,
     kFactor,
     debugMode,
-    doublePass ? "[PASS 1] " : "",
+    "[PASS 1] ",
   );
 
   const pass1NRating = new Map<number, number>();
@@ -1197,23 +1193,6 @@ export function calculateRatings(
       });
     }
     trace.matches = pass1.matchTraces;
-  }
-
-  if (!doublePass) {
-    // Single-pass mode — return pass 1 results directly
-    if (debugMode) {
-      for (const p of pass1.players) {
-        trace.final.push({
-          rank: p.rank,
-          played: pass1.playedToday.has(p.rank),
-          nRating: p.nRating,
-        });
-      }
-    }
-    return {
-      players: pass1.players,
-      trace: debugMode ? trace : undefined,
-    };
   }
 
   // === PASS 2 ===
