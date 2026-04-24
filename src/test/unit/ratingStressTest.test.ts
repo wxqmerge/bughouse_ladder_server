@@ -47,7 +47,6 @@ interface PlayerDetail {
 
 interface StressResult {
   config: string;
-  doublePass: boolean;
   final1: number;
   final2: number;
   rssHistory: number[];
@@ -320,8 +319,7 @@ function runSimulation(config: StressConfig, doublePass: boolean): StressResult 
 
   const ngLabel = config.numGamesMode === 'new' ? 'ng0' : config.numGamesMode === 'mixed' ? 'ng0-10' : 'ng20';
   return {
-    config: `${config.label}_${ngLabel}_${doublePass ? 'dp' : 'sp'}`,
-    doublePass,
+    config: `${config.label}_${ngLabel}`,
     final1: final1Rss,
     final2: final2Rss,
     rssHistory,
@@ -368,18 +366,11 @@ describe('Rating Stress Test', () => {
 
   for (const config of configs) {
     const ngLabel = config.numGamesMode === 'new' ? 'ng0' : config.numGamesMode === 'mixed' ? 'ng0-10' : 'ng20';
-    it(`Single-pass: ${config.label}_${ngLabel}`, () => {
-      const result = runSimulation(config, false);
-      results.push(result);
-      const finalRss = result.rssHistory[result.rssHistory.length - 1] ?? 0;
-      console.log(`  [SP] ${config.label}_${ngLabel}: FinalRSS=${finalRss.toFixed(2)}, F1=${result.final1.toFixed(2)}, F2=${result.final2.toFixed(2)}`);
-    });
-
-    it(`Double-pass: ${config.label}_${ngLabel}`, () => {
+    it(`${config.label}_${ngLabel}`, () => {
       const result = runSimulation(config, true);
       results.push(result);
       const finalRss = result.rssHistory[result.rssHistory.length - 1] ?? 0;
-      console.log(`  [DP] ${config.label}_${ngLabel}: FinalRSS=${finalRss.toFixed(2)}, F1=${result.final1.toFixed(2)}, F2=${result.final2.toFixed(2)}`);
+      console.log(`  ${config.label}_${ngLabel}: FinalRSS=${finalRss.toFixed(2)}, F1=${result.final1.toFixed(2)}, F2=${result.final2.toFixed(2)}`);
     });
   }
 
