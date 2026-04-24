@@ -185,10 +185,10 @@ function generateBatchGames(
     const side0 = shuffled.slice(i, i + groupSize / 2);
     const side1 = shuffled.slice(i + groupSize / 2, i + groupSize);
 
-    // Elo expected: 2p uses abs diff, 4p uses signed average diff
+    // Elo expected: signed diff so expected < 0.5 when side0 is weaker
     const side0Avg = side0.reduce((s, p) => s + p.rating, 0) / side0.length;
     const side1Avg = side1.reduce((s, p) => s + p.rating, 0) / side1.length;
-    const rawDiff = groupSize === 2 ? Math.abs(side0Avg - side1Avg) : side0Avg - side1Avg;
+    const rawDiff = side0Avg - side1Avg;
     const clampedDiff = Math.min(Math.abs(rawDiff), 400) * Math.sign(rawDiff);
     const expected = 1 / (1 + Math.pow(10, -clampedDiff / 400));
     const result = determineResult(expected, rng);
