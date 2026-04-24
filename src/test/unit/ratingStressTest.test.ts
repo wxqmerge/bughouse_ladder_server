@@ -34,6 +34,7 @@ interface StressConfig {
   gameType: '2p' | '4p';
   seed: number;
   label: string;
+  numGamesMode: 'new' | 'mixed' | 'experienced';
 }
 
 interface PlayerDetail {
@@ -174,6 +175,7 @@ function generateBatchGames(
   rng: () => number,
 ): MatchData[] {
   const games: MatchData[] = [];
+  const groupSize = gameType === '2p' ? 2 : 4;
 
   // Fisher-Yates shuffle
   const shuffled = [...players];
@@ -182,49 +184,36 @@ function generateBatchGames(
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
 
-  if (gameType === '2p') {
-    // Pair consecutive players (even count guaranteed)
-    for (let i = 0; i < shuffled.length; i += 2) {
-      const p1 = shuffled[i];
-      const p2 = shuffled[i + 1];
+  for (let i = 0; i < shuffled.length; i += groupSize) {
+    const side0 = shuffled.slice(i, i + groupSize / 2);
+    const side1 = shuffled.slice(i + groupSize / 2, i + groupSize);
 
-      const diff = Math.abs(p1.rating - p2.rating);
-      const clampedDiff = Math.min(diff, 400);
-      const expected = 1 / (1 + Math.pow(10, -clampedDiff / 400));
+    // Elo expected: 2p uses abs diff, 4p uses signed average diff
+    const side0Avg = side0.reduce((s, p) => s + p.rating, 0) / side0.length;
+    const side1Avg = side1.reduce((s, p) => s + p.rating, 0) / side1.length;
+    const rawDiff = groupSize === 2 ? Math.abs(side0Avg - side1Avg) : side0Avg - side1Avg;
+    const clampedDiff = Math.min(Math.abs(rawDiff), 400) * Math.sign(rawDiff);
+    const expected = 1 / (1 + Math.pow(10, -clampedDiff / 400));
+    const result = determineResult(expected, rng);
 
-      const result = determineResult(expected, rng);
-
+    if (groupSize === 2) {
+      // 2p: player1 vs player2
       games.push({
-        player1: p1.rank,
-        player2: p2.rank,
+        player1: side0[0].rank,
+        player2: side1[0].rank,
         player3: 0,
         player4: 0,
         score1: result.score1,
         score2: result.score2,
         side0Won: result.score1 > result.score2,
       });
-    }
-  } else {
-    // Group of 4 (count must be multiple of 4)
-    for (let i = 0; i < shuffled.length; i += 4) {
-      const p1 = shuffled[i];
-      const p2 = shuffled[i + 1];
-      const p3 = shuffled[i + 2];
-      const p4 = shuffled[i + 3];
-
-      const side0Avg = (p1.rating + p2.rating) / 2;
-      const side1Avg = (p3.rating + p4.rating) / 2;
-      const diff = side0Avg - side1Avg;
-      const clampedDiff = Math.min(Math.abs(diff), 400) * Math.sign(diff);
-      const expected = 1 / (1 + Math.pow(10, -clampedDiff / 400));
-
-      const result = determineResult(expected, rng);
-
+    } else {
+      // 4p: side0 (player1, player2) vs side1 (player3, player4)
       games.push({
-        player1: p1.rank,
-        player2: p2.rank,
-        player3: p3.rank,
-        player4: p4.rank,
+        player1: side0[0].rank,
+        player2: side0[1].rank,
+        player3: side1[0].rank,
+        player4: side1[1].rank,
         score1: result.score1,
         score2: result.score2,
         side0Won: result.score1 > result.score2,
@@ -248,7 +237,19 @@ function runSimulation(config: StressConfig, doublePass: boolean): StressResult 
   const players: PlayerData[] = [];
   for (let i = 0; i < numPlayers; i++) {
     const rating = 100 + (1800 - 100) * (i / (numPlayers - 1));
-    players.push(createPlayer(i + 1, Math.round(rating), rng)); // rank starts at 1
+    const p = createPlayer(i + 1, Math.round(rating), rng);
+    // Set num_games based on mode:
+    // 'new' = 0 (blending formula for all games)
+    // 'mixed' = 0-10 (transition from blending to Elo at game 10)
+    // 'experienced' = 20 (Elo formula from game 1)
+    if (config.numGamesMode === 'new') {
+      p.num_games = 0;
+    } else if (config.numGamesMode === 'mixed') {
+      p.num_games = Math.floor((i / (numPlayers - 1)) * 10); // 0 to 10
+    } else {
+      p.num_games = 20;
+    }
+    players.push(p);
   }
 
   const startPlayers = JSON.parse(JSON.stringify(players));
@@ -257,59 +258,51 @@ function runSimulation(config: StressConfig, doublePass: boolean): StressResult 
   for (const p of players) {
     startRatings.set(p.rank, p.rating);
   }
-  const rssHistory: number[] = [];
-  let currentPlayers = players;
-  const allMatches: MatchData[] = [];
-  const gamesPlayed = new Map<number, number>();
-  let endPlayers: PlayerData[] | null = null;
 
+  // All players start with num_games=0 (single-day tournament, no New Day)
+  // Each recalc processes all matches from scratch using init rating logic
+  const rssHistory: number[] = [];
+  const allMatches: MatchData[] = [];
+
+  // Generate all rounds first, tracking RSS after each batch
   for (let round = 0; round < totalRounds; round++) {
-    const batchGames = generateBatchGames(currentPlayers, config.gameType, rng);
+    const batchGames = generateBatchGames(players, config.gameType, rng);
     if (batchGames.length === 0) break;
 
     allMatches.push(...batchGames);
 
-    // Count games per player
-    for (const m of batchGames) {
-      gamesPlayed.set(m.player1, (gamesPlayed.get(m.player1) ?? 0) + 1);
-      gamesPlayed.set(m.player2, (gamesPlayed.get(m.player2) ?? 0) + 1);
-      if (m.player3 > 0) gamesPlayed.set(m.player3, (gamesPlayed.get(m.player3) ?? 0) + 1);
-      if (m.player4 > 0) gamesPlayed.set(m.player4, (gamesPlayed.get(m.player4) ?? 0) + 1);
-    }
+    // Recalc from scratch with all matches seen so far
+    // num_games=0 → init rating uses nRating/rating directly
+    const result = calculateRatings(players, allMatches, { doublePass });
 
-    // Update num_games so calculateRatings reads from rating column
-    for (const p of currentPlayers) {
-      p.num_games = gamesPlayed.get(p.rank) ?? 0;
-    }
-
-    const result = calculateRatings(currentPlayers, allMatches, { doublePass });
-
-    // Repopulate game results from ALL matches (preserves game history)
-    const withResults = repopulateGameResults(result.players, allMatches, 31);
-
-    // Capture end state: rating unchanged (start ratings), nRating = new calculated ratings
-    endPlayers = withResults.map(p => ({
-      ...p,
-      num_games: gamesPlayed.get(p.rank) ?? 0,
-    }));
-
-    currentPlayers = withResults;
-
-    // RSS from nRating (the new calculated ratings) vs start ratings
-    let rss = 0;
-    for (const p of currentPlayers) {
-      const startR = startRatings.get(p.rank) ?? 0;
-      const diff = p.nRating - startR;
-      rss += diff * diff;
-    }
-    rssHistory.push(Math.sqrt(rss / currentPlayers.length));
+    // RSS from nRating vs start ratings
+    rssHistory.push(computeRss(result.players, startRatings));
   }
 
-  // Validate and clean any invalid game result entries
-  const cleanPlayers = cleanInvalidResults(endPlayers || currentPlayers);
+  // Final recalc on all matches
+  const finalResult = calculateRatings(players, allMatches, { doublePass });
 
-  // Use cleaned end state for player details
-  const finalPlayers = cleanPlayers;
+  // Repopulate game results from ALL matches
+  const withResults = repopulateGameResults(finalResult.players, allMatches, 31);
+
+  // Validate and clean any invalid game result entries
+  const cleanPlayers = cleanInvalidResults(withResults);
+
+  // Count games per player from matches
+  const gamesPlayed = new Map<number, number>();
+  for (const m of allMatches) {
+    gamesPlayed.set(m.player1, (gamesPlayed.get(m.player1) ?? 0) + 1);
+    gamesPlayed.set(m.player2, (gamesPlayed.get(m.player2) ?? 0) + 1);
+    if (m.player3 > 0) gamesPlayed.set(m.player3, (gamesPlayed.get(m.player3) ?? 0) + 1);
+    if (m.player4 > 0) gamesPlayed.set(m.player4, (gamesPlayed.get(m.player4) ?? 0) + 1);
+  }
+
+  // Set num_games for output (reflects games played this tournament day)
+  const finalPlayers = cleanPlayers.map(p => ({
+    ...p,
+    num_games: gamesPlayed.get(p.rank) ?? 0,
+  }));
+
   const playerDetails: PlayerDetail[] = finalPlayers.map(p => ({
     rank: p.rank,
     startR: startRatings.get(p.rank) ?? 0,
@@ -319,14 +312,15 @@ function runSimulation(config: StressConfig, doublePass: boolean): StressResult 
   }));
 
   // Final two recalcs on all matches to measure drift
-  const final1Result = calculateRatings(currentPlayers, allMatches, { doublePass: false });
-  const final1Rss = computeRssFromNRating(final1Result.players, startRatings);
+  const final1Result = calculateRatings(finalPlayers, allMatches, { doublePass: false });
+  const final1Rss = computeRss(final1Result.players, startRatings);
 
   const final2Result = calculateRatings(final1Result.players, allMatches, { doublePass: false });
-  const final2Rss = computeRssFromNRating(final2Result.players, startRatings);
+  const final2Rss = computeRss(final2Result.players, startRatings);
 
+  const ngLabel = config.numGamesMode === 'new' ? 'ng0' : config.numGamesMode === 'mixed' ? 'ng0-10' : 'ng20';
   return {
-    config: `${config.label}_${doublePass ? 'dp' : 'sp'}`,
+    config: `${config.label}_${ngLabel}_${doublePass ? 'dp' : 'sp'}`,
     doublePass,
     final1: final1Rss,
     final2: final2Rss,
@@ -337,19 +331,10 @@ function runSimulation(config: StressConfig, doublePass: boolean): StressResult 
   };
 }
 
-function computeRss(players: PlayerData[], startRatings: Map<number, number>): number {
+function computeRss(players: PlayerData[], startRatings: Map<number, number>, useNRating = true): number {
   let rss = 0;
   for (const p of players) {
-    const diff = p.rating - (startRatings.get(p.rank) ?? 0);
-    rss += diff * diff;
-  }
-  return Math.sqrt(rss / players.length);
-}
-
-function computeRssFromNRating(players: PlayerData[], startRatings: Map<number, number>): number {
-  let rss = 0;
-  for (const p of players) {
-    const diff = p.nRating - (startRatings.get(p.rank) ?? 0);
+    const diff = (useNRating ? p.nRating : p.rating) - (startRatings.get(p.rank) ?? 0);
     rss += diff * diff;
   }
   return Math.sqrt(rss / players.length);
@@ -360,16 +345,20 @@ const configs: StressConfig[] = [];
 
 const playerCounts = [20, 50, 100];
 const gameTypes: Array<'2p' | '4p'> = ['2p', '4p'];
+const numGamesModes: Array<'new' | 'mixed' | 'experienced'> = ['new', 'mixed', 'experienced'];
 
 let seed = 42;
 for (const p of playerCounts) {
   for (const g of gameTypes) {
-    configs.push({
-      players: p,
-      gameType: g,
-      seed: seed++,
-      label: `${p}p_${g}`,
-    });
+    for (const ng of numGamesModes) {
+      configs.push({
+        players: p,
+        gameType: g,
+        seed: seed++,
+        label: `${p}p_${g}`,
+        numGamesMode: ng,
+      });
+    }
   }
 }
 
@@ -378,18 +367,19 @@ describe('Rating Stress Test', () => {
   const results: StressResult[] = [];
 
   for (const config of configs) {
-    it(`Single-pass: ${config.label}`, () => {
+    const ngLabel = config.numGamesMode === 'new' ? 'ng0' : config.numGamesMode === 'mixed' ? 'ng0-10' : 'ng20';
+    it(`Single-pass: ${config.label}_${ngLabel}`, () => {
       const result = runSimulation(config, false);
       results.push(result);
       const finalRss = result.rssHistory[result.rssHistory.length - 1] ?? 0;
-      console.log(`  [SP] ${config.label}: FinalRSS=${finalRss.toFixed(2)}, F1=${result.final1.toFixed(2)}, F2=${result.final2.toFixed(2)}`);
+      console.log(`  [SP] ${config.label}_${ngLabel}: FinalRSS=${finalRss.toFixed(2)}, F1=${result.final1.toFixed(2)}, F2=${result.final2.toFixed(2)}`);
     });
 
-    it(`Double-pass: ${config.label}`, () => {
+    it(`Double-pass: ${config.label}_${ngLabel}`, () => {
       const result = runSimulation(config, true);
       results.push(result);
       const finalRss = result.rssHistory[result.rssHistory.length - 1] ?? 0;
-      console.log(`  [DP] ${config.label}: FinalRSS=${finalRss.toFixed(2)}, F1=${result.final1.toFixed(2)}, F2=${result.final2.toFixed(2)}`);
+      console.log(`  [DP] ${config.label}_${ngLabel}: FinalRSS=${finalRss.toFixed(2)}, F1=${result.final1.toFixed(2)}, F2=${result.final2.toFixed(2)}`);
     });
   }
 
