@@ -585,8 +585,8 @@ describe('calculateRatings', () => {
       expect(matchTrace.playerUpdates[1].formula).toBe('blend');
       expect(matchTrace.playerUpdates[1].opposingPerfRating).toBe(800);
 
-      // Check perf ratings
-      expect(matchTrace.perfRatings).toEqual([800, 1600]);
+      // Check perf ratings (opponent-based: side 0's perfRating = side1 + 400, side 1's = side0 - 400)
+      expect(matchTrace.perfRatings).toEqual([1600, 800]);
     });
 
     it('should trace 4-player game with cross-side blending', () => {
@@ -605,10 +605,10 @@ describe('calculateRatings', () => {
 
       const matchTrace = result.trace!.matches[0];
 
-      // 4-player: perfs cancel, perfRating = original side rating
-      expect(matchTrace.perfRatings).toEqual([1200, 1000]);
+      // 4-player: perfs cancel, perfRating = opponent's side rating
+      expect(matchTrace.perfRatings).toEqual([1000, 1200]);
 
-      // Cross-side: side 0 blends with perfRating1 (1000), side 1 with perfRating0 (1200)
+      // Same-side: side 0 blends with perfRating0 (1000), side 1 with perfRating1 (1200)
       expect(matchTrace.playerUpdates[0].opposingPerfRating).toBe(1000);
       expect(matchTrace.playerUpdates[2].opposingPerfRating).toBe(1200);
     });

@@ -974,13 +974,8 @@ function calculateRatingsSinglePass(
 
         let perfRating0: number;
         let perfRating1: number;
-        if (is4Player) {
-          perfRating0 = side0;
-          perfRating1 = side1;
-        } else {
-          perfRating0 = side0 - 800 * wldPerfs;
-          perfRating1 = side1 + 800 * wldPerfs;
-        }
+        perfRating0 = side1 + 800 * wldPerfs0;
+        perfRating1 = side0 + 800 * wldPerfs1;
 
         perfRating0 = Math.max(0, perfRating0);
         perfRating1 = Math.max(0, perfRating1);
@@ -1046,13 +1041,13 @@ function calculateRatingsSinglePass(
             );
           } else {
             update.formula = "blend";
-            update.opposingPerfRating = perfRating1;
-            const blended = (nratingBefore * games + perfRating1) / (games + 1);
+            update.opposingPerfRating = perfRating0;
+            const blended = (nratingBefore * games + perfRating0) / (games + 1);
             update.nRatingAfterRaw = blended;
             update.nRatingAfter = Math.abs(blended);
             currentRating.set(player.rank, Math.abs(blended));
             dbg.log(
-              `  P${player.rank} [side 0, ${games} games]: BLEND → (${nratingBefore.toFixed(1)} × ${games} + ${perfRating1.toFixed(1)}) / ${games + 1} = ${blended.toFixed(1)} → abs = ${Math.abs(blended).toFixed(1)}`,
+              `  P${player.rank} [side 0, ${games} games]: BLEND → (${nratingBefore.toFixed(1)} × ${games} + ${perfRating0.toFixed(1)}) / ${games + 1} = ${blended.toFixed(1)} → abs = ${Math.abs(blended).toFixed(1)}`,
             );
           }
 
@@ -1088,13 +1083,13 @@ function calculateRatingsSinglePass(
             );
           } else {
             update.formula = "blend";
-            update.opposingPerfRating = perfRating0;
-            const blended = (nratingBefore * games + perfRating0) / (games + 1);
+            update.opposingPerfRating = perfRating1;
+            const blended = (nratingBefore * games + perfRating1) / (games + 1);
             update.nRatingAfterRaw = blended;
             update.nRatingAfter = Math.abs(blended);
             currentRating.set(player.rank, Math.abs(blended));
             dbg.log(
-              `  P${player.rank} [side 1, ${games} games]: BLEND → (${nratingBefore.toFixed(1)} × ${games} + ${perfRating0.toFixed(1)}) / ${games + 1} = ${blended.toFixed(1)} → abs = ${Math.abs(blended).toFixed(1)}`,
+              `  P${player.rank} [side 1, ${games} games]: BLEND → (${nratingBefore.toFixed(1)} × ${games} + ${perfRating1.toFixed(1)}) / ${games + 1} = ${blended.toFixed(1)} → abs = ${Math.abs(blended).toFixed(1)}`,
             );
           }
 
