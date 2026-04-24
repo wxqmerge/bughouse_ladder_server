@@ -11,6 +11,12 @@ import {
   UpdatePlayerGameDataResult,
   ValidationResultResult
 } from "../types";
+import { 
+  CalculateRatingsDebugTrace, 
+  MatchDebugTrace, 
+  PlayerDebugUpdate,
+  DebugLogger 
+} from "./debugUtils";
 
 // Local debug function for shared module (no localStorage dependency)
 function shouldLog(_threshold: number): boolean {
@@ -772,6 +778,7 @@ export function processGameResults(
         player4: parsedPlayersList[3], // BUG FIX: was [4]
         score1: player1Score,
         score2: player2Score,
+        side0Won: player1Score === 3,
       });
     }
   }
@@ -842,26 +849,31 @@ export function processGameResults(
  * Calculate Elo ratings based on game results
  * VB6-matching implementation with inline blending and correct performance formula.
  */
-export function calculateRatings(
+/**
+ * Result of calculateRatings — includes players and optional debug trace.
+ */
+export interface CalculateRatingsResult {
+  /** Updated player list */
+  players: PlayerData[];
+  /** Debug trace (only present when debugMode is true) */
+  trace?: CalculateRatingsDebugTrace;
+  /** Per-pass nRating results when doublePass is enabled */
+  pass1NRating?: Map<number, number>;
+  pass2NRating?: Map<number, number>;
+}
+
+/**
+ * Internal single-pass calculation.
+ * Returns the updated players copy and the currentRating map.
+ */
+function calculateRatingsSinglePass(
   playersList: PlayerData[],
   matches: MatchData[],
-  _kFactorOverride?: number,
-): PlayerData[] {
-  let kFactor = 20;
-
-  if (_kFactorOverride !== undefined) {
-    kFactor = _kFactorOverride;
-  } else if (typeof localStorage !== "undefined") {
-    try {
-      const savedSettings = localStorage.getItem("ladder_settings");
-      if (savedSettings) {
-        const parsed = JSON.parse(savedSettings);
-        kFactor = parsed.kFactor ?? 20;
-      }
-    } catch {}
-  }
-
-  const EloKfactor = kFactor;
+  EloKfactor: number,
+  debugMode: boolean,
+  passLabel?: string,
+): { players: PlayerData[]; currentRating: Map<number, number>; playedToday: Set<number>; matchTraces: MatchDebugTrace[] } {
+  const dbg = new DebugLogger(debugMode);
   const playersCopy = playersList.map((p) => ({ ...p }));
 
   // Default trophyEligible to true for backward compatibility with old data
@@ -876,25 +888,28 @@ export function calculateRatings(
   const currentRating = new Map<number, number>();
   const playedToday = new Set<number>();
 
-  for (const p of playersCopy) {
-    // VB6 line 1439: num_games(i) = Val(Chess.TextMatrix(i, Games_field))
-    careerGames.set(p.rank, p.num_games);
-    // VB6 lines 1440-1447:
-    //   perf = Val(Chess.TextMatrix(i, rating_field))
-    //   If num_games(i) = 0 Then perf = Val(Chess.TextMatrix(i, nrating_field))
-    //   If perf > 1200 Then perf = 1200
-    //   nrating(i) = Abs(perf)
-    let initRating: number;
-    if (p.num_games === 0) {
-      initRating = p.nRating > 0 ? p.nRating : p.rating;
-      if (initRating > 1200) initRating = 1200;
-    } else {
-      initRating = p.rating;
+  const label = passLabel ?? "";
+  dbg.group(`${label}[INIT] VB6 lines 1422-1449 — k_val = ${EloKfactor}`, () => {
+    for (const p of playersCopy) {
+      careerGames.set(p.rank, p.num_games);
+      let initRating: number;
+      if (p.num_games === 0) {
+        initRating = p.nRating > 0 ? p.nRating : p.rating;
+        if (initRating > 1200) initRating = 1200;
+      } else {
+        initRating = p.rating;
+      }
+      const nrating = Math.abs(initRating);
+      currentRating.set(p.rank, nrating);
+
+      dbg.log(
+        `P${p.rank}: num_games=${p.num_games}, rating=${p.rating}, nRating=${p.nRating} → nrating=${nrating}`,
+      );
     }
-    currentRating.set(p.rank, Math.abs(initRating));
-  }
+  });
 
   // Process each match inline (VB6: match processing loop)
+  const matchTraces: MatchDebugTrace[] = [];
   for (const match of matches) {
     const p1 = playersCopy.find((p) => p.rank === match.player1);
     const p2 = playersCopy.find((p) => p.rank === match.player2);
@@ -904,146 +919,349 @@ export function calculateRatings(
     const p4Rank = match.player4;
     const is4Player = p3Rank > 0 && p4Rank > 0;
 
-    // VB6 ladder.frm lines 1479-1485: compute side ratings
-    //   If players(1) > 0 Then (4-player):
-    //     sides(0) = (nrating(players(0)) + nrating(players(1))) / 2
-    //     sides(1) = (nrating(players(4)) + nrating(players(3))) / 2
-    //   Else (2-player):
-    //     sides(0) = nrating(players(0))
-    //     sides(1) = nrating(players(3))
-    let side0 = currentRating.get(p1.rank)!;
-    let side1 = currentRating.get(p2.rank)!;
-    if (is4Player) {
-      const p3 = playersCopy.find((p) => p.rank === p3Rank);
-      const p4 = playersCopy.find((p) => p.rank === p4Rank);
-      if (p3 && p4) {
-        side0 = (currentRating.get(p1.rank)! + currentRating.get(p2.rank)!) / 2;
-        side1 = (currentRating.get(p3.rank)! + currentRating.get(p4.rank)!) / 2;
-      }
-    }
+    const scores: number[] = [match.score1, is4Player ? match.score2 : 0];
+    const matchTrace: MatchDebugTrace = {
+      match: `${match.player1}:${match.player2}${is4Player ? match.score1 + "" + match.score2 : match.score1}${match.player3 > 0 ? ":" + match.player3 + match.player4 : ""}`,
+      players: [match.player1, match.player2, 0, match.player3, match.player4],
+      scores,
+      sideRatings: [0, 0],
+      expected: 0,
+      wldPerfs: [0, 0],
+      perfRatings: [0, 0],
+      eloPerfs: [0, 0],
+      playerUpdates: [],
+    };
 
-    // VB6 ladder.frm line 1486: perf = formula(sides(0), sides(1))
-    const expected = formula(side0, side1);
-    const scoreDiff = match.score1 - match.score2;
-
-    // VB6 common.bas line 90: result_string = "OLDWXYZ__________"
-    //   O=0, L=1, D=2, W=3 (InStr position - 1)
-    // 2-player: scores(0) = result, scores(1) = 0 (only 1 result char)
-    // 4-player: scores(0) = side 0 result, scores(1) = side 1 result (both > 0)
-    // wldPerfs = ±0.5 for win/loss, 0 for draw (matches VB6 first-loop perfs(0))
-    const wldPerfs = scoreDiff / 4; // ±0.5 or 0
-
-    // === ELO PERFS (used for >9 games Elo accumulation) ===
-    // VB6 ladder.frm lines 1487-1501: first loop (W/L/D component)
-    //   2-player: only myplayer=0 runs (scores(1)=0) → perfs = (±0.5, ∓0.5)
-    //   4-player: both run → W/L/D cancels → perfs = (0, 0)
-    // VB6 ladder.frm lines 1514-1519: second loop (expected score differential)
-    //   2-player: only myplayer=0 runs → adds (0.5-expected) ONCE
-    //   4-player: both run → adds (0.5-expected) TWICE
-    // Final perfs:
-    //   2-player: perfs(0) = wldPerfs + (0.5 - expected), perfs(1) = -wldPerfs + (expected - 0.5)
-    //   4-player: perfs(0) = 2*(0.5 - expected), perfs(1) = 2*(expected - 0.5)
-    let eloPerfs0: number;
-    let eloPerfs1: number;
-    if (is4Player) {
-      // VB6 4-player: W/L/D cancels in first loop, second loop runs twice
-      eloPerfs0 = 2 * (0.5 - expected);
-      eloPerfs1 = 2 * (expected - 0.5);
-    } else {
-      // VB6 2-player: scores(1)=0, only myplayer=0 runs in both loops
-      eloPerfs0 = wldPerfs + (0.5 - expected);
-      eloPerfs1 = -wldPerfs + (expected - 0.5);
-    }
-
-    // === PERF RATING (used for <10 games blending) ===
-    // VB6 ladder.frm lines 1502-1513: uses perfs from AFTER first loop, BEFORE second
-    // 2-player (scores(1)=0): no doubling/halving
-    //   sides(0) = side0 + 800*perfs(1) = side0 - 800*wldPerfs
-    //   sides(1) = side1 + 800*perfs(0) = side1 + 800*wldPerfs
-    // 4-player (scores(1)>0): double, add 800*perfs (which is 0), halve
-    //   sides(0) = (side0*2 + 800*0) / 2 = side0
-    //   sides(1) = (side1*2 + 800*0) / 2 = side1
-    let perfRating0: number;
-    let perfRating1: number;
-    if (is4Player) {
-      // VB6 4-player: perfs=(0,0) after first loop → no adjustment
-      perfRating0 = side0;
-      perfRating1 = side1;
-    } else {
-      // VB6 2-player: perfs=(wldPerfs, -wldPerfs) after first loop
-      perfRating0 = side0 - 800 * wldPerfs;
-      perfRating1 = side1 + 800 * wldPerfs;
-    }
-
-    // Clamp performance ratings to 0 (VB6: If sides(0) < 0 Then sides(0) = 0)
-    perfRating0 = Math.max(0, perfRating0);
-    perfRating1 = Math.max(0, perfRating1);
-
-    // VB6 common.bas line 91: players(-1 To 4) array layout:
-    //   players(0), players(1) = side 0 members
-    //   players(3), players(4) = side 1 members
-    //   2-player: players(1)=0, players(4)=0 (only players(0) and players(3) set)
-    const side0Players = is4Player
-      ? [p1, p2].filter(Boolean)
-      : [p1];
-    const side1Players = is4Player
-      ? [p3Rank > 0 && p4Rank > 0
-        ? playersCopy.find((p) => p.rank === p3Rank)
-        : null,
-        p3Rank > 0 && p4Rank > 0
-        ? playersCopy.find((p) => p.rank === p4Rank)
-        : null,
-      ].filter(Boolean) as PlayerData[]
-      : [p2];
-
-  // VB6 ladder.frm lines 1521-1533: update each player
-    //   myside=0 → players(0), players(1); myside=1 → players(3), players(4)
-    //   >9 games: nrating += perfs(myside) * k_val (line 1526)
-    //   <=9 games: nrating = (nrating * num_games + sides(1-myside)) / (num_games+1) (line 1528)
-    //   nrating = Abs(nrating) (line 1530), num_games++ (line 1531)
-    for (const player of side0Players) {
-        const games = careerGames.get(player.rank)!;
-        playedToday.add(player.rank);
-        if (games > 9) {
-          // VB6 line 1526: nrating += perfs(0) * k_val
-          currentRating.set(player.rank, currentRating.get(player.rank)! + eloPerfs0 * EloKfactor);
-        } else {
-          // VB6 line 1528: sides(1-0) = sides(1) = perfRating1 (cross-side blending)
-          const blended = (currentRating.get(player.rank)! * games + perfRating1) / (games + 1);
-          currentRating.set(player.rank, Math.abs(blended));
+    dbg.group(
+      `${label}[MATCH] VB6 lines 1474-1535 — ${is4Player ? "4-player" : "2-player"}`,
+      () => {
+        let side0 = currentRating.get(p1.rank)!;
+        let side1 = currentRating.get(p2.rank)!;
+        if (is4Player) {
+          const p3 = playersCopy.find((p) => p.rank === p3Rank);
+          const p4 = playersCopy.find((p) => p.rank === p4Rank);
+          if (p3 && p4) {
+            side0 = (currentRating.get(p1.rank)! + currentRating.get(p2.rank)!) / 2;
+            side1 = (currentRating.get(p3.rank)! + currentRating.get(p4.rank)!) / 2;
+          }
         }
-        careerGames.set(player.rank, games + 1);
-      }
-      for (const player of side1Players) {
-        const games = careerGames.get(player.rank)!;
-        playedToday.add(player.rank);
-        if (games > 9) {
-          // VB6 line 1526: nrating += perfs(1) * k_val
-          currentRating.set(player.rank, currentRating.get(player.rank)! + eloPerfs1 * EloKfactor);
+
+       dbg.log(`sides(0)=${side0.toFixed(1)}, sides(1)=${side1.toFixed(1)}`);
+        matchTrace.sideRatings = [side0, side1];
+
+        // VB6 ladder.frm line 1486: perf = formula(sides(0), sides(1))
+        const expected = formula(side0, side1);
+        matchTrace.expected = expected;
+        dbg.log(`expected = formula(${side0}, ${side1}) = ${expected.toFixed(6)}`);
+
+        const scoreDiff = match.score1 - match.score2;
+        const wldPerfs = scoreDiff / 4;
+
+        let wldPerfs0 = 0;
+        let wldPerfs1 = 0;
+        if (is4Player) {
+          wldPerfs0 = 0;
+          wldPerfs1 = 0;
         } else {
-          // VB6 line 1528: sides(1-1) = sides(0) = perfRating0 (cross-side blending)
-          const blended = (currentRating.get(player.rank)! * games + perfRating0) / (games + 1);
-          currentRating.set(player.rank, Math.abs(blended));
+          wldPerfs0 = wldPerfs;
+          wldPerfs1 = -wldPerfs;
         }
-        careerGames.set(player.rank, games + 1);
-      }
+
+        dbg.log(
+          `FIRST LOOP (W/L/D): perfs=(${wldPerfs0.toFixed(2)}, ${wldPerfs1.toFixed(2)})`,
+        );
+        matchTrace.wldPerfs = [wldPerfs0, wldPerfs1];
+
+        let perfRating0: number;
+        let perfRating1: number;
+        if (is4Player) {
+          perfRating0 = side0;
+          perfRating1 = side1;
+        } else {
+          perfRating0 = side0 - 800 * wldPerfs;
+          perfRating1 = side1 + 800 * wldPerfs;
+        }
+
+        perfRating0 = Math.max(0, perfRating0);
+        perfRating1 = Math.max(0, perfRating1);
+        matchTrace.perfRatings = [perfRating0, perfRating1];
+
+        dbg.log(
+          `PERF RATING (for blending): sides=(${perfRating0.toFixed(1)}, ${perfRating1.toFixed(1)})`,
+        );
+
+        let eloPerfs0: number;
+        let eloPerfs1: number;
+        if (is4Player) {
+          eloPerfs0 = wldPerfs0 + 2 * (0.5 - expected);
+          eloPerfs1 = wldPerfs1 + 2 * (expected - 0.5);
+        } else {
+          eloPerfs0 = wldPerfs0 + (0.5 - expected);
+          eloPerfs1 = wldPerfs1 + (expected - 0.5);
+        }
+        matchTrace.eloPerfs = [eloPerfs0, eloPerfs1];
+
+        dbg.log(
+          `SECOND LOOP (expected diff): eloPerfs=(${eloPerfs0.toFixed(4)}, ${eloPerfs1.toFixed(4)})`,
+        );
+
+        const side0Players = is4Player
+          ? [p1, p2].filter(Boolean)
+          : [p1];
+        const side1Players = is4Player
+          ? [p3Rank > 0 && p4Rank > 0
+            ? playersCopy.find((p) => p.rank === p3Rank)
+            : null,
+            p3Rank > 0 && p4Rank > 0
+            ? playersCopy.find((p) => p.rank === p4Rank)
+            : null,
+          ].filter(Boolean) as PlayerData[]
+          : [p2];
+
+        for (const player of side0Players) {
+          const games = careerGames.get(player.rank)!;
+          const nratingBefore = currentRating.get(player.rank)!;
+          playedToday.add(player.rank);
+
+          const update: PlayerDebugUpdate = {
+            rank: player.rank,
+            mySide: 0,
+            numGamesBefore: games,
+            nRatingBefore: nratingBefore,
+            formula: games > 9 ? "elo" : "blend",
+            nRatingAfterRaw: 0,
+            nRatingAfter: 0,
+            numGamesAfter: games + 1,
+          };
+
+          if (games > 9) {
+            update.formula = "elo";
+            update.kFactor = EloKfactor;
+            const raw = nratingBefore + eloPerfs0 * EloKfactor;
+            update.nRatingAfterRaw = raw;
+            update.nRatingAfter = Math.abs(raw);
+            currentRating.set(player.rank, Math.abs(raw));
+            dbg.log(
+              `  P${player.rank} [side 0, ${games} games]: ELO → ${nratingBefore.toFixed(1)} + ${eloPerfs0.toFixed(4)} × ${EloKfactor} = ${raw.toFixed(1)} → abs = ${Math.abs(raw).toFixed(1)}`,
+            );
+          } else {
+            update.formula = "blend";
+            update.opposingPerfRating = perfRating1;
+            const blended = (nratingBefore * games + perfRating1) / (games + 1);
+            update.nRatingAfterRaw = blended;
+            update.nRatingAfter = Math.abs(blended);
+            currentRating.set(player.rank, Math.abs(blended));
+            dbg.log(
+              `  P${player.rank} [side 0, ${games} games]: BLEND → (${nratingBefore.toFixed(1)} × ${games} + ${perfRating1.toFixed(1)}) / ${games + 1} = ${blended.toFixed(1)} → abs = ${Math.abs(blended).toFixed(1)}`,
+            );
+          }
+
+          matchTrace.playerUpdates.push(update);
+          careerGames.set(player.rank, games + 1);
+        }
+
+        for (const player of side1Players) {
+          const games = careerGames.get(player.rank)!;
+          const nratingBefore = currentRating.get(player.rank)!;
+          playedToday.add(player.rank);
+
+          const update: PlayerDebugUpdate = {
+            rank: player.rank,
+            mySide: 1,
+            numGamesBefore: games,
+            nRatingBefore: nratingBefore,
+            formula: games > 9 ? "elo" : "blend",
+            nRatingAfterRaw: 0,
+            nRatingAfter: 0,
+            numGamesAfter: games + 1,
+          };
+
+          if (games > 9) {
+            update.formula = "elo";
+            update.kFactor = EloKfactor;
+            const raw = nratingBefore + eloPerfs1 * EloKfactor;
+            update.nRatingAfterRaw = raw;
+            update.nRatingAfter = Math.abs(raw);
+            currentRating.set(player.rank, Math.abs(raw));
+            dbg.log(
+              `  P${player.rank} [side 1, ${games} games]: ELO → ${nratingBefore.toFixed(1)} + ${eloPerfs1.toFixed(4)} × ${EloKfactor} = ${raw.toFixed(1)} → abs = ${Math.abs(raw).toFixed(1)}`,
+            );
+          } else {
+            update.formula = "blend";
+            update.opposingPerfRating = perfRating0;
+            const blended = (nratingBefore * games + perfRating0) / (games + 1);
+            update.nRatingAfterRaw = blended;
+            update.nRatingAfter = Math.abs(blended);
+            currentRating.set(player.rank, Math.abs(blended));
+            dbg.log(
+              `  P${player.rank} [side 1, ${games} games]: BLEND → (${nratingBefore.toFixed(1)} × ${games} + ${perfRating0.toFixed(1)}) / ${games + 1} = ${blended.toFixed(1)} → abs = ${Math.abs(blended).toFixed(1)}`,
+            );
+          }
+
+          matchTrace.playerUpdates.push(update);
+          careerGames.set(player.rank, games + 1);
+        }
+      },
+    );
+
+    matchTraces.push(matchTrace);
   }
 
-  // VB6 ladder.frm lines 1600-1610: write nRating to UI
-  //   If isvalid(i) Then
-  //     If rating_field < 0 Then nrating_field = Str$(-Int(nrating(i)))
-  //     Else nrating_field = Str$(Int(nrating(i)))
-  //   Else nrating_field = "0"
-  // rating column is NOT changed during recalc — only updated during New Day (lines 1611-1627)
-  for (const p of playersCopy) {
-    if (playedToday.has(p.rank)) {
-      p.nRating = Math.round(currentRating.get(p.rank)!);
-    } else {
-      p.nRating = 0;
+  // Write nRating to player objects
+  dbg.group(`${label}[WRITE BACK] VB6 lines 1600-1610`, () => {
+    for (const p of playersCopy) {
+      if (playedToday.has(p.rank)) {
+        p.nRating = Math.round(currentRating.get(p.rank)!);
+        dbg.log(`P${p.rank}: played → nRating = ${p.nRating}`);
+      } else {
+        p.nRating = 0;
+        dbg.log(`P${p.rank}: did NOT play → nRating = 0`);
+      }
     }
+  });
+
+  return { players: playersCopy, currentRating, playedToday, matchTraces };
+}
+
+/**
+ * Main entry point for rating calculation.
+ *
+ * When doublePass is true (default):
+ *   Pass 1: compute nRating from original player state
+ *   Pass 2: recompute using pass 1 nRating as input (affects num_games=0 players)
+ *   Average: nRating = round((pass1 + pass2) / 2)
+ *
+ * This dampens extreme swings for new players and helps ratings converge.
+ */
+export function calculateRatings(
+  playersList: PlayerData[],
+  matches: MatchData[],
+  options?: {
+    /** Override K-factor (default: from settings or 20) */
+    kFactorOverride?: number;
+    /** When true: prints step-by-step VB6-equivalent trace + returns trace object */
+    debugMode?: boolean;
+    /** When true (default): run twice and average nRating results for convergence */
+    doublePass?: boolean;
+  },
+): CalculateRatingsResult {
+  const debugMode = options?.debugMode ?? false;
+  const doublePass = options?.doublePass ?? true; // default ON
+  const dbg = new DebugLogger(debugMode);
+  const trace: CalculateRatingsDebugTrace = {
+    kFactor: 0,
+    init: [],
+    matches: [],
+    final: [],
+  };
+
+  let kFactor = 20;
+
+  if (options?.kFactorOverride !== undefined) {
+    kFactor = options.kFactorOverride;
+  } else if (typeof localStorage !== "undefined") {
+    try {
+      const savedSettings = localStorage.getItem("ladder_settings");
+      if (savedSettings) {
+        const parsed = JSON.parse(savedSettings);
+        kFactor = parsed.kFactor ?? 20;
+      }
+    } catch {}
   }
 
-  return playersCopy;
+  trace.kFactor = kFactor;
+
+  // === PASS 1 ===
+  const pass1 = calculateRatingsSinglePass(
+    playersList,
+    matches,
+    kFactor,
+    debugMode,
+    doublePass ? "[PASS 1] " : "",
+  );
+
+  const pass1NRating = new Map<number, number>();
+  for (const p of pass1.players) {
+    pass1NRating.set(p.rank, p.nRating);
+  }
+
+  // Populate trace from pass 1 (for debugMode)
+  if (debugMode) {
+    for (const p of playersList) {
+      trace.init.push({
+        rank: p.rank,
+        numGames: p.num_games,
+        rating: p.rating,
+        nRating: p.nRating,
+        initNRating: Math.abs(p.num_games === 0 ? (p.nRating > 0 ? p.nRating : p.rating) : p.rating),
+      });
+    }
+    trace.matches = pass1.matchTraces;
+  }
+
+  if (!doublePass) {
+    // Single-pass mode — return pass 1 results directly
+    if (debugMode) {
+      for (const p of pass1.players) {
+        trace.final.push({
+          rank: p.rank,
+          played: pass1.playedToday.has(p.rank),
+          nRating: p.nRating,
+        });
+      }
+    }
+    return {
+      players: pass1.players,
+      trace: debugMode ? trace : undefined,
+    };
+  }
+
+  // === PASS 2 ===
+  // Feed pass 1 nRating into pass 2. For num_games=0 players, pass 1 nRating
+  // becomes the init value (capped at 1200), producing a different second-pass result.
+  // For num_games>0 players, init is still from rating column (same as pass 1).
+  const pass2 = calculateRatingsSinglePass(
+    pass1.players,
+    matches,
+    kFactor,
+    debugMode,
+    "[PASS 2] ",
+  );
+
+  const pass2NRating = new Map<number, number>();
+  for (const p of pass2.players) {
+    pass2NRating.set(p.rank, p.nRating);
+  }
+
+  // === AVERAGE ===
+  dbg.group("[AVERAGE] (pass1 + pass2) / 2", () => {
+    for (const p of pass2.players) {
+      const n1 = pass1NRating.get(p.rank) ?? 0;
+      const n2 = pass2NRating.get(p.rank) ?? 0;
+      if (pass1.playedToday.has(p.rank)) {
+        p.nRating = Math.round((n1 + n2) / 2);
+        dbg.log(`P${p.rank}: (${n1} + ${n2}) / 2 = ${p.nRating}`);
+      } else {
+        p.nRating = 0;
+        dbg.log(`P${p.rank}: did NOT play → nRating = 0`);
+      }
+
+      if (debugMode) {
+        trace.final.push({
+          rank: p.rank,
+          played: pass1.playedToday.has(p.rank),
+          nRating: p.nRating,
+        });
+      }
+    }
+  });
+
+  return {
+    players: pass2.players,
+    trace: debugMode ? trace : undefined,
+    pass1NRating,
+    pass2NRating,
+  };
 }
 
 /**
