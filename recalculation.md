@@ -165,25 +165,24 @@ Used when the same 4-player game is entered from different players' perspectives
 - kFactor defaults to 20, read from localStorage `ladder_settings.kFactor`
 - perfBlendingFactor defaults to 0.99, read from localStorage `ladder_settings.performanceBlendingFactor`
 
-### 4.2 Effective Rating Snapshot (before Elo loop)
+### 4.2 Effective Ratings
 
 ```typescript
 effectiveRatings.set(p.rank, Math.abs(p.nRating > 0 ? p.nRating : p.rating));
 ```
 
-This snapshot is critical: it captures each player's rating **before** the Elo loop starts mutating nRating values. Without this, earlier matches in the loop would use partially-updated ratings for later matches, creating asymmetry (e.g., Player A's rating used for B's calculation would differ from B's rating used for A's if they played multiple rounds).
+A map stores each player's effective rating (`nRating > 0 ? nRating : rating`, absolute-valued) for lookup during the Elo loop. **nRating is updated in-place** as matches are processed — this means asymmetry exists: if Player A plays Player B early, then Player C plays Player B later, C sees B's already-updated nRating. This matches the VB6 original behavior and is intentional — the Elo formula is symmetric per-match (expected score depends on both ratings equally), so partial updates don't cause bias, only different match ordering across sessions.
 
 ### 4.3 Elo Loop
 
 Iterates over all validated matches:
 
 1. Find p1 and p2 players
-2. Look up effective ratings via `getOpponentRating()` (uses snapshot map, falls back to `Math.abs(player.rating)`)
+2. Look up effective ratings via `getOpponentRating()` (uses effectiveRatings map for efficiency, falls back to `Math.abs(player.rating)`)
 3. Compute expected scores using Elo formula: `1 / (1 + 10^(|oppRating - myRating| / 400))`
 4. Determine actual scores: score=3 → actual=1/0, score=1 → actual=0/1, else 0.5/0.5
 5. Accumulate per-player stats: `score`, `opponentRatings[]`, `gamesToday`
-6. Update nRating: `nRating = round(rating + EloK * (actual - expected))`
-7. **Note:** Current code uses `Math.max(0, ...)` — clamps to 0 minimum (TODO: should allow negatives for trophy ineligibility signal)
+6. Update nRating: `nRating = abs(round(rating + EloK * (actual - expected)))` — stored as absolute value; trophyEligible is preserved from file I/O time
 
 ### 4.4 Performance Rating (post-loop)
 
@@ -203,11 +202,11 @@ For each player with games today:
 
 | Condition | Formula |
 |---|---|
-| `num_games === 0` | `nRating = round(perfRating)` — raw performance rating, no damping |
-| `num_games < 10` | **Blended:** `(perfBlendingFactor * ((rating * num_games + perfRating * gamesToday) / (num_games + gamesToday)))` |
+| `num_games === 0` | `nRating = abs(round(perfRating))` — raw performance rating, no damping |
+| `num_games < 10` | **Blended:** `abs(round(perfBlendingFactor * ((abs(rating) * num_games + perfRating * gamesToday) / (num_games + gamesToday))))` |
 | `num_games >= 10` | No change — keeps Elo-calculated nRating from the loop |
 
-The blending factor (default 0.99) slightly dampens the performance component for new players, pulling the blended rating closer to their historical rating.
+The blending factor (default 0.99) slightly dampens the performance component for new players, pulling the blended rating closer to their historical rating. All nRating values stored as absolute value; trophyEligible tracks sign separately.
 
 ### 4.6 Elo Formula
 
@@ -217,7 +216,7 @@ formula(myRating: number, opponentsRating: number): number {
 }
 ```
 
-Uses absolute values of ratings — negative ratings are treated as their magnitude for Elo calculations.
+Uses absolute values of ratings — nRating is always stored as abs value, trophyEligible determines file sign.
 
 ---
 

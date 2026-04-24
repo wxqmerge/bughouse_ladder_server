@@ -866,13 +866,18 @@ export function calculateRatings(
   const EloKfactor = kFactor;
   const playersCopy = playersList.map((p) => ({ ...p }));
 
-  // Snapshot effective ratings and trophy eligibility before Elo loop starts mutating nRating
+  // Default trophyEligible to true for backward compatibility with old data
+  for (const p of playersCopy) {
+    if (p.trophyEligible === undefined) {
+      p.trophyEligible = true;
+    }
+  }
+
+  // Snapshot effective ratings before Elo loop starts mutating nRating
   const effectiveRatings = new Map<number, number>();
-  const savedEligibility = new Map<number, boolean>();
   for (const p of playersCopy) {
     const eff = p.nRating > 0 ? p.nRating : p.rating;
     effectiveRatings.set(p.rank, Math.abs(eff));
-    savedEligibility.set(p.rank, p.trophyEligible);
   }
 
   // Track per-player stats for performance rating calculation
@@ -944,18 +949,15 @@ export function calculateRatings(
       p2Rating + EloKfactor * (actualP2 - expectedP2),
     );
 
-    p1.trophyEligible = p1NewRating >= 0;
-    p2.trophyEligible = p2NewRating >= 0;
     p1.nRating = Math.abs(p1NewRating);
     p2.nRating = Math.abs(p2NewRating);
   }
 
-  // Post-loop: restore saved eligibility for players who didn't play today
-  // Only compute fresh eligibility for players who participated in matches
+  // Post-loop: compute performance rating and blending for nRating only.
+  // trophyEligible is determined by old_rating sign at file I/O time and preserved through recalculation.
   for (const player of playersCopy) {
     const stats = gameStats.get(player.rank);
     if (!stats || stats.gamesToday === 0) {
-      player.trophyEligible = savedEligibility.get(player.rank) ?? true;
       continue;
     }
 
@@ -976,9 +978,7 @@ export function calculateRatings(
     perfRating = Math.max(-9999, Math.min(9999, perfRating));
 
     if (player.num_games === 0) {
-      const perfRounded = Math.round(perfRating);
-      player.trophyEligible = perfRounded >= 0;
-      player.nRating = Math.abs(perfRounded);
+      player.nRating = Math.abs(Math.round(perfRating));
     } else if (player.num_games < 10) {
       const totalGames = player.num_games + stats.gamesToday;
       const blendedRating =
@@ -986,7 +986,6 @@ export function calculateRatings(
         ((Math.abs(player.rating) * player.num_games + perfRating * stats.gamesToday) /
           totalGames);
       const clampedBlended = Math.max(-9999, Math.min(9999, Math.round(blendedRating)));
-      player.trophyEligible = clampedBlended >= 0;
       player.nRating = Math.abs(clampedBlended);
     }
   }
