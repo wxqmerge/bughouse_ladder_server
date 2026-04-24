@@ -278,6 +278,59 @@ cd server && npm run test:run test/adminLock.test.ts
 
 ---
 
+## Stress Test — Rating Convergence
+
+The stress test simulates tournaments with seeded PRNG and Elo-weighted game results to measure rating convergence via RSS (root-mean-square deviation from starting ratings).
+
+### Running the Stress Test
+
+```bash
+# Run with verbose output (shows console RSS per config)
+npx vitest run src/test/unit/ratingStressTest.test.ts --reporter=verbose
+```
+
+### What It Does
+
+1. Creates N players with spread ratings (40-point intervals around 1200)
+2. Generates matches each round using Elo probability + 10% draw rate
+3. Processes batches of games: recalc → simulated New Day → measure RSS
+4. After all rounds, runs two final single-pass recalcs on the last batch to measure remaining drift
+5. Writes reports to `src/test/unit/reports/`
+
+### Output
+
+**Console** — per-config summary:
+```
+  [SP] 20p_2p: FinalRSS=1095.41, F1=1081.81, F2=1072.02
+  [DP] 20p_2p: FinalRSS=1095.14, F1=1081.65, F2=1071.89
+```
+
+**`reports/summary.tsv`** — all configs in TSV format:
+```
+Config    Final1    Final2    RSS_1    RSS_2    RSS_3    ...
+20p_2p_sp 1081.81   1072.02   801.45   921.32   1018.11  ...
+20p_2p_dp 1081.65   1071.89   801.37   924.14   1017.36  ...
+```
+
+**`reports/20p_*.tab`** — full ladder format (.tab) for 20-player configs. `Rating` column shows original starting ratings (unchanged), `N Rate` shows new calculated ratings, columns 1-31 populated with game result strings (e.g. `0W13_`, `0L11_`, `0D8_`)
+
+### Configs
+
+| Players | Game Types | Modes | Total |
+|---------|-----------|-------|-------|
+| 20, 50, 100 | 2p, 4p | SP, DP | 12 |
+
+- **SP** = single-pass (VB6 behavior)
+- **DP** = double-pass averaging (convergence fix)
+- Double-pass only affects `num_games === 0` players; once all players have game history, SP and DP converge
+
+### Interpreting Results
+
+- **RSS history** should trend upward as games accumulate, then stabilize
+- **Final1 vs Final2** shows remaining drift — lower difference = better convergence
+- 4p games generally show lower RSS than 2p (side averaging dampens swings)
+
+
 ## Test Configuration
 
 | Setting | Client | Server |
