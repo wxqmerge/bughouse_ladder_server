@@ -231,8 +231,8 @@ function generateBatchGames(
     const side1Avg = side1.reduce((s, p) => s + p.rating, 0) / side1.length;
     const rawDiff = side0Avg - side1Avg;
 
-    // Skip match if side rating gap exceeds 800 — prevent unrealistic pairings
-    if (Math.abs(rawDiff) > 800) continue;
+    // Skip match if side rating gap exceeds 600 — prevent unrealistic pairings
+    if (Math.abs(rawDiff) > 600) continue;
 
     const expected = 1 / (1 + Math.pow(10, -rawDiff / 400));
     const result = determineResult(expected, rng);
@@ -461,12 +461,25 @@ describe('Rating Stress Test — Quick 1 Round', () => {
     }
   }
 
+  const quickResults: StressResult[] = [];
+
   for (const config of quickConfigs) {
     const ngLabel = config.numGamesMode === 'new' ? 'ng0' : config.numGamesMode === 'mixed' ? 'ng0-10' : 'ng20';
     it(`1r_${config.label}_${ngLabel}`, () => {
       const result = runSimulation(config);
+      quickResults.push(result);
       const finalRss = result.rssHistory[result.rssHistory.length - 1] ?? 0;
       console.log(`  1r_${config.label}_${ngLabel}: FinalRSS=${finalRss.toFixed(2)}, F1=${result.final1.toFixed(2)}, F2=${result.final2.toFixed(2)}`);
     });
   }
+
+  afterAll(() => {
+    const outDir = path.join(__dirname, 'reports');
+    fs.mkdirSync(outDir, { recursive: true });
+    for (const result of quickResults) {
+      const fileName = `1r_${result.config}.tab`;
+      fs.writeFileSync(path.join(outDir, fileName), generateLadderTab(result.endPlayers));
+    }
+    console.log(`\nQuick reports written to ${outDir}/`);
+  });
 });
