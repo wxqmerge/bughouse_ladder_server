@@ -13,17 +13,26 @@ Each test:
 
 ### Pairing Strategy
 
-- **2p**: Fisher-Yates shuffle each round, consecutive pairing. Matches with >600-point rating gap are skipped.
-- **4p**: Round-robin ends-inward pairs, merged with shifting offset each round. Same 600-point cap.
-- **Rounds**: Default 20, capped at `players - 1` to avoid duplicate matchups
+- **Sort by start rating**: Players sorted by their starting ratings (not current), so pairing is stable across rounds
+- **2p**: Fisher-Yates shuffle each round, consecutive pairing
+- **4p**: Same shuffle, groups of 4 split into two sides of 2
+- **600-point filter**: Uses **start ratings** (not current) to determine if a matchup is realistic. Prevents drift-based skips where ratings diverge during the tournament.
+- **Rounds**: Default 20, capped at `players - 1` to allow full round-robin completion
 - **Dedup**: Tracks opposing pairs per player — same pair can't face each other twice
+
+### Dual Results
+
+30% of games (both 2p and 4p) are **dual result** — two independent game outcomes computed separately:
+- Each game calls `determineResult()` independently with the same Elo probability
+- wldPerfs accumulate ±0.5 per game (range: -1.0 to +1.0 for dual, -0.5 to +0.5 for single)
+- 4p Elo expected multiplier is 2× for dual results, 1× for single
 
 ### numGames Modes
 
 | Mode | `num_games` | Blending |
 |---|---|---|
 | `new` (ng0) | 0 | Full blending with initial rating cap (1800) |
-| `mixed` (ng0-10) | 0 or 20 (50/50) | Mixed blending behavior |
+| `mixed` (ng0-10) | 0-10 random | Transition from blending to Elo at game 10 |
 | `experienced` (ng20) | 20 | Incremental Elo accumulation (no blending) |
 
 ## Running Tests
@@ -42,7 +51,7 @@ Runs 4 quick tests (20p, 1 round each). Useful for fast iteration.
 npx vitest run ratingStressTest
 ```
 
-Runs all 22 tests across 3 player counts (20, 50, 100), 2 game types (2p, 4p), and 3 experience modes (ng0, ng0-10, ng20).
+Runs all 18 tests across 3 player counts (20, 50, 100), 2 game types (2p, 4p), and 3 experience modes (ng0, ng0-10, ng20).
 
 ### With Verbose Output
 
@@ -90,15 +99,16 @@ Measures how far final ratings are from starting ratings. Lower = better converg
 ### Expected Behavior
 
 - 2p produces more results per player than 4p (2 opponents per match vs 4)
-- Players at rating extremes have fewer games (600-point cap filters matchups)
+- Players at rating extremes have fewer games (600-point cap filters matchups based on start ratings)
 - ng0 tests show higher RSS due to blending with initial ratings
 - ng20 tests show RSS near 0 — experienced players converge to true skill
+- 30% dual results add variance — dual wins/losses produce larger perfRating swings
 
 ## Test Configurations
 
 | Players | Game Type | numGames | Rounds | Label |
 |---|---|---|---|---|
-| 20, 50, 100 | 2p, 4p | new, mixed, experienced | 20 (cap: N-1) | `{N}p_{2p|4p}_{ng0|ng0-10|ng20}` |
+| 20, 50, 100 | 2p, 4p | new, mixed, experienced | 20 (cap: N-1) | `{N}p_{2p\|4p}_{ng0\|ng0-10\|ng20}` |
 
 ## Key Files
 

@@ -19,8 +19,8 @@ npm run test:coverage # Coverage report
 
 Expected output:
 ```
-Test Files  9 passed (9)
- Tests      88 passed | 2 skipped (90)
+Test Files  13 passed (13)
+ Tests      226 passed | 2 skipped (228)
 Duration    ~Zs
 ```
 
@@ -62,9 +62,9 @@ server/
 
 ## Current Test Coverage
 
-**Total: 90 tests** across client and server. **88 passed, 2 skipped.**
+**Total: 228 tests** across client and server. **226 passed, 2 skipped.**
 
-### Client Unit Tests (70 passed | 2 skipped)
+### Client Unit Tests
 
 | File | Tests | Passed | Description |
 |------|-------|--------|-------------|
@@ -74,6 +74,8 @@ server/
 | `ratingFormula.test.ts` | 9 | 7 (+2 skipped) | Elo rating formula calculations |
 | `utils.test.ts` | 4 | 4 | Error message utilities |
 | `simple.test.ts` | 1 | 1 | Basic smoke test |
+| `calculateRatings.test.ts` | 30 | 30 | Rating calculation: blending, Elo, 4p, dual results, double-pass |
+| `ratingStressTest.test.ts` | 22 | 22 | Tournament simulation: 20/50/100 players, 2p/4p, ng0/mixed/ng20 |
 
 ### Client Component Tests (3 passed)
 
@@ -291,25 +293,24 @@ npx vitest run src/test/unit/ratingStressTest.test.ts --reporter=verbose
 
 ### What It Does
 
-1. Creates N players with spread ratings (40-point intervals around 1200)
-2. Generates matches each round using Elo probability + 10% draw rate
-3. Processes batches of games: recalc → simulated New Day → measure RSS
-4. After all rounds, runs two final single-pass recalcs on the last batch to measure remaining drift
-5. Writes reports to `src/test/unit/reports/`
+1. Creates N players with ratings spread from 100 to 1800
+2. Sorts by **start rating** (not current), Fisher-Yates shuffle each round
+3. Generates matches with 30% dual results (two independent game outcomes)
+4. 600-point filter uses **start ratings** to prevent drift-based skips
+5. Processes all matches with double-pass averaging recalcs
+6. Writes reports to `src/test/unit/reports/`
 
 ### Output
 
 **Console** — per-config summary:
 ```
-  [SP] 20p_2p: FinalRSS=1095.41, F1=1081.81, F2=1072.02
-  [DP] 20p_2p: FinalRSS=1095.14, F1=1081.65, F2=1071.89
+  20p_2p_ng0: FinalRSS=192.89, F1=203.29, F2=195.64
 ```
 
 **`reports/summary.tsv`** — all configs in TSV format:
 ```
 Config    Final1    Final2    RSS_1    RSS_2    RSS_3    ...
-20p_2p_sp 1081.81   1072.02   801.45   921.32   1018.11  ...
-20p_2p_dp 1081.65   1071.89   801.37   924.14   1017.36  ...
+20p_2p_ng0 203.29   195.64   160.48   175.37   185.64  ...
 ```
 
 **`reports/20p_*.tab`** — full ladder format (.tab) for 20-player configs. `Rating` column shows original starting ratings (unchanged), `N Rate` shows new calculated ratings, columns 1-31 populated with game result strings (e.g. `0W13_`, `0L11_`, `0D8_`)
@@ -318,17 +319,20 @@ Config    Final1    Final2    RSS_1    RSS_2    RSS_3    ...
 
 | Players | Game Types | Modes | Total |
 |---------|-----------|-------|-------|
-| 20, 50, 100 | 2p, 4p | SP, DP | 12 |
+| 20, 50, 100 | 2p, 4p | ng0, ng0-10, ng20 | 18 |
 
-- **SP** = single-pass (VB6 behavior)
-- **DP** = double-pass averaging (convergence fix)
-- Double-pass only affects `num_games === 0` players; once all players have game history, SP and DP converge
+- **ng0** = all players start with 0 games (full blending)
+- **ng0-10** = random 0-10 games per player (mixed blending/Elo)
+- **ng20** = all players start with 20 games (pure Elo)
+- Double-pass averaging always used
 
 ### Interpreting Results
 
 - **RSS history** should trend upward as games accumulate, then stabilize
 - **Final1 vs Final2** shows remaining drift — lower difference = better convergence
 - 4p games generally show lower RSS than 2p (side averaging dampens swings)
+- 30% dual results add variance — dual wins/losses produce larger perfRating swings
+- 600-point filter based on start ratings prevents unrealistic late-game pairings
 
 
 ## Test Configuration
