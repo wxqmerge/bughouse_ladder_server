@@ -840,7 +840,7 @@ export function processGameResults(
 
 /**
  * Calculate Elo ratings based on game results
- * Uses blended performance rating for players with fewer than 10 games.
+ * VB6-matching implementation with inline blending and correct performance formula.
  */
 export function calculateRatings(
   playersList: PlayerData[],
@@ -848,7 +848,6 @@ export function calculateRatings(
   _kFactorOverride?: number,
 ): PlayerData[] {
   let kFactor = 20;
-  let perfBlendingFactor = 0.99;
 
   if (_kFactorOverride !== undefined) {
     kFactor = _kFactorOverride;
@@ -858,7 +857,6 @@ export function calculateRatings(
       if (savedSettings) {
         const parsed = JSON.parse(savedSettings);
         kFactor = parsed.kFactor ?? 20;
-        perfBlendingFactor = parsed.performanceBlendingFactor ?? 0.99;
       }
     } catch {}
   }
@@ -873,120 +871,119 @@ export function calculateRatings(
     }
   }
 
-  // Snapshot effective ratings before Elo loop starts mutating nRating
-  const effectiveRatings = new Map<number, number>();
+  // Initialize career game counts and current ratings (VB6: num_games + nrating arrays)
+  const careerGames = new Map<number, number>();
+  const currentRating = new Map<number, number>();
+  const playedToday = new Set<number>();
+
   for (const p of playersCopy) {
-    const eff = p.nRating > 0 ? p.nRating : p.rating;
-    effectiveRatings.set(p.rank, Math.abs(eff));
+    careerGames.set(p.rank, p.num_games);
+    // VB6: read rating_field for players with games, nrating_field for num_games=0
+    let initRating: number;
+    if (p.num_games === 0) {
+      initRating = p.nRating > 0 ? p.nRating : p.rating;
+      if (initRating > 1200) initRating = 1200;
+    } else {
+      initRating = p.rating;
+    }
+    currentRating.set(p.rank, Math.abs(initRating));
   }
 
-  // Track per-player stats for performance rating calculation
-  interface PlayerGameStats {
-    score: number;
-    opponentRatings: number[];
-    gamesToday: number;
-  }
-  const gameStats = new Map<number, PlayerGameStats>();
-
-  function getOpponentRating(player: PlayerData): number {
-    const cached = effectiveRatings.get(player.rank);
-    return cached !== undefined ? cached : Math.abs(player.rating);
-  }
-
+  // Process each match inline (VB6: match processing loop)
   for (const match of matches) {
     const p1 = playersCopy.find((p) => p.rank === match.player1);
     const p2 = playersCopy.find((p) => p.rank === match.player2);
-
     if (!p1 || !p2) continue;
 
-    // Track opponent ratings (use current nRating or rating)
-    const p1OppRating = getOpponentRating(p2);
-    const p2OppRating = getOpponentRating(p1);
+    const p3Rank = match.player3;
+    const p4Rank = match.player4;
+    const is4Player = p3Rank > 0 && p4Rank > 0;
 
-    // Initialize game stats
-    if (!gameStats.has(p1.rank)) {
-      gameStats.set(p1.rank, { score: 0, opponentRatings: [], gamesToday: 0 });
-    }
-    if (!gameStats.has(p2.rank)) {
-      gameStats.set(p2.rank, { score: 0, opponentRatings: [], gamesToday: 0 });
-    }
-
-    const stats1 = gameStats.get(p1.rank)!;
-    const stats2 = gameStats.get(p2.rank)!;
-
-    stats1.gamesToday++;
-    stats2.gamesToday++;
-    stats1.opponentRatings.push(p1OppRating);
-    stats2.opponentRatings.push(p2OppRating);
-
-    const p1Rating = Math.abs(p1.rating);
-    const p2Rating = Math.abs(p2.rating);
-
-    if (p1Rating === 0 && p2Rating === 0) continue;
-
-    const expectedP1 = formula(p1Rating, p2Rating);
-    const expectedP2 = formula(p2Rating, p1Rating);
-
-    let actualP1 = 0.5;
-    let actualP2 = 0.5;
-
-    if (match.score1 === 3) {
-      actualP1 = 1;
-      actualP2 = 0;
-    } else if (match.score1 === 1) {
-      actualP1 = 0;
-      actualP2 = 1;
+    // Compute side ratings (VB6: sides(0) and sides(1))
+    // p1 and p2 are on side 0, p3 and p4 are on side 1
+    let side0 = currentRating.get(p1.rank)!;
+    let side1 = currentRating.get(p2.rank)!;
+    if (is4Player) {
+      const p3 = playersCopy.find((p) => p.rank === p3Rank);
+      const p4 = playersCopy.find((p) => p.rank === p4Rank);
+      if (p3 && p4) {
+        side0 = (currentRating.get(p1.rank)! + currentRating.get(p2.rank)!) / 2;
+        side1 = (currentRating.get(p3.rank)! + currentRating.get(p4.rank)!) / 2;
+      }
     }
 
-    // Accumulate score for performance rating
-    stats1.score += actualP1;
-    stats2.score += actualP2;
+    // Compute expected score (VB6: formula(sides(0), sides(1)))
+    const expected = formula(side0, side1);
+    const scoreDiff = match.score1 - match.score2;
 
-    const p1NewRating = Math.round(
-      p1Rating + EloKfactor * (actualP1 - expectedP1),
-    );
-    const p2NewRating = Math.round(
-      p2Rating + EloKfactor * (actualP2 - expectedP2),
-    );
+    // Compute performance rating (VB6: sides + 800 * opposing side error)
+    // VB6 perfs is ±0.5 (±1/2), scoreDiff is ±2 (3-1 or 1-3), so divide by 4
+    const perfs = scoreDiff / 4;
+    let perfRating0: number;
+    let perfRating1: number;
+    if (is4Player) {
+      // 4-player: double sides, accumulate error for opposing side, then halve
+      const s0 = side0 * 2;
+      const s1 = side1 * 2;
+      perfRating0 = (s0 + 800 * (-perfs)) / 2;
+      perfRating1 = (s1 + 800 * (perfs)) / 2;
+    } else {
+      perfRating0 = side0 + 800 * (-perfs);
+      perfRating1 = side1 + 800 * (perfs);
+    }
 
-    p1.nRating = Math.abs(p1NewRating);
-    p2.nRating = Math.abs(p2NewRating);
+    // Clamp performance ratings to 0 (VB6: If sides(0) < 0 Then sides(0) = 0)
+    perfRating0 = Math.max(0, perfRating0);
+    perfRating1 = Math.max(0, perfRating1);
+
+    // Update nRating for each player (VB6: inline Elo/blending)
+    // Side 0: p1 (and p3/p4 in 4-player). Side 1: p2 (and p3/p4 in 4-player)
+    const side0Players = is4Player
+      ? [p1, p2].filter(Boolean)
+      : [p1];
+    const side1Players = is4Player
+      ? [p3Rank > 0 && p4Rank > 0
+        ? playersCopy.find((p) => p.rank === p3Rank)
+        : null,
+        p3Rank > 0 && p4Rank > 0
+        ? playersCopy.find((p) => p.rank === p4Rank)
+        : null,
+      ].filter(Boolean) as PlayerData[]
+      : [p2];
+
+   for (const player of side0Players) {
+       const games = careerGames.get(player.rank)!;
+       playedToday.add(player.rank);
+       if (games > 9) {
+         currentRating.set(player.rank, currentRating.get(player.rank)! + perfs * EloKfactor);
+       } else {
+         // VB6: sides(1 - myside) — side 0 blends with side 1's perfRating
+         const blended = (currentRating.get(player.rank)! * games + perfRating1) / (games + 1);
+         currentRating.set(player.rank, Math.abs(blended));
+       }
+       careerGames.set(player.rank, games + 1);
+     }
+     for (const player of side1Players) {
+       const games = careerGames.get(player.rank)!;
+       playedToday.add(player.rank);
+       if (games > 9) {
+         currentRating.set(player.rank, currentRating.get(player.rank)! - perfs * EloKfactor);
+       } else {
+         // VB6: sides(1 - myside) — side 1 blends with side 0's perfRating
+         const blended = (currentRating.get(player.rank)! * games + perfRating0) / (games + 1);
+         currentRating.set(player.rank, Math.abs(blended));
+       }
+       careerGames.set(player.rank, games + 1);
+     }
   }
 
-  // Post-loop: compute performance rating and blending for nRating only.
-  // trophyEligible is determined by old_rating sign at file I/O time and preserved through recalculation.
-  for (const player of playersCopy) {
-    const stats = gameStats.get(player.rank);
-    if (!stats || stats.gamesToday === 0) {
-      continue;
-    }
-
-    const selfEffectiveRating = effectiveRatings.get(player.rank) ?? Math.abs(player.rating);
-    const totalRatings = stats.opponentRatings.reduce((a, b) => a + b, 0) + selfEffectiveRating;
-    const avgRating = totalRatings / (stats.opponentRatings.length + 1);
-
-    const winRate = stats.score / stats.gamesToday;
-    let perfRating: number;
-    if (winRate > 0.5) {
-      perfRating = avgRating + 200;
-    } else if (winRate < 0.5) {
-      perfRating = avgRating - 200;
+  // Round final ratings to integers (VB6 uses Int() which truncates)
+  // rating column is NOT changed — only updated during New Day
+  for (const p of playersCopy) {
+    if (playedToday.has(p.rank)) {
+      p.nRating = Math.round(currentRating.get(p.rank)!);
     } else {
-      perfRating = avgRating;
-    }
-
-    perfRating = Math.max(-9999, Math.min(9999, perfRating));
-
-    if (player.num_games === 0) {
-      player.nRating = Math.abs(Math.round(perfRating));
-    } else if (player.num_games < 10) {
-      const totalGames = player.num_games + stats.gamesToday;
-      const blendedRating =
-        perfBlendingFactor *
-        ((Math.abs(player.rating) * player.num_games + perfRating * stats.gamesToday) /
-          totalGames);
-      const clampedBlended = Math.max(-9999, Math.min(9999, Math.round(blendedRating)));
-      player.nRating = Math.abs(clampedBlended);
+      p.nRating = 0;
     }
   }
 
