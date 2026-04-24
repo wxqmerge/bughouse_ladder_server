@@ -1,21 +1,21 @@
 Group	Last Name	First Name	Rating	Rnk	N Rate	Gr	Gms	Attendance	Phone	Info	School	Room	1	2	3	4	5	6	7	8	9	10	11	12	13	14	15	16	17	18	19	20	21	22	23	24	25	26	27	28	29	30	31	Version 1.21
-A	Nelson	Linda	-100	1	-84	5	20	0					1L5_	1L4_	1W3_	1L9_	1W6_	1W8_																									
-A	Green	Ashley	189	2	194	5	20	0					2L10_	2D3_	2L5_	2L4_																											
-A	Clark	Charles	279	3	283	5	20	0					3W11_	2D3_	3L5_	3L4_	1W3_	3W9_																									
-A	Hill	Susan	-368	4	-366	5	20	0					4L6_	4W8_	4L9_	3L4_	1L4_	4W5_	2L4_	4L11_																							
-A	Roberts	Michelle	458	5	451	5	20	0					1L5_	5W10_	3L5_	5W6_	5W7_	2L5_	4W5_	5L13_	5W12_	5D9_																					
-A	Smith	Christopher	547	6	560	5	20	0					4L6_	6W7_	5W6_	6L13_	6D10_	1W6_	6W9_																								
-A	Clark	Betty	637	7	643	5	20	0					6W7_	7W15_	5W7_	7L14_	7W11_	7L10_																									
-A	Taylor	George	-726	8	-740	5	20	0					8L14_	8W13_	4W8_	8L10_	8L9_	8L16_	1W8_																								
-A	Moore	Deborah	816	9	800	5	20	0					9W13_	9L11_	4L9_	9W15_	8L9_	9L17_	1L9_	6W9_	9D12_	3W9_	9W14_	5D9_																			
-A	Gomez	Lisa	905	10	888	5	20	0					2L10_	5W10_	8L10_	6D10_	7L10_	10D17_																									
-A	Wilson	Elizabeth	995	11	1000	5	20	0					3W11_	9L11_	11W13_	11L14_	11W19_	11W18_	11W16_	7W11_	11W17_	11L15_	4L11_	11W12_																			
-A	Taylor	Sarah	-1084	12	-1086	5	20	0					12W20_	12W17_	12L13_	12L16_	12W18_	9D12_	5W12_	12L14_	11W12_																						
-A	Nelson	Karen	1174	13	1182	5	20	0					9W13_	8W13_	11W13_	12L13_	13W20_	6L13_	13W18_	13W17_	5L13_																						
-A	Martin	John	1263	14	1239	5	20	0					8L14_	14W16_	14L15_	11L14_	14W18_	7L14_	14L19_	12L14_	9W14_																						
-A	Anderson	Kimberly	1353	15	1406	5	20	0					15W16_	14L15_	9W15_	7W15_	15D19_	11L15_	15L17_	15W18_																							
-A	Mitchell	Matthew	1442	16	1433	5	20	0					15W16_	14W16_	16L18_	16W19_	12L16_	16D17_	11W16_	8L16_	16L20_																						
-A	Hill	Daniel	1532	17	1522	5	20	0					17L19_	12W17_	9L17_	16D17_	13W17_	11W17_	15L17_	10D17_																							
-A	Wilson	Steven	1621	18	1632	5	20	0					16L18_	14W18_	11W18_	13W18_	12W18_	18L20_	15W18_																								
-A	Moore	John	1711	19	1701	5	20	0					17L19_	16W19_	11W19_	14L19_	19D20_	15D19_																									
-A	Lopez	David	1800	20	1789	5	20	0					12W20_	13W20_	19D20_	18L20_	16L20_																										
+A	Nelson	Linda	-100	1	-83	5	20	0					1W5_	1W7_	1W2_	1W4_																											
+A	Green	Ashley	189	2	190	5	20	0					2W5_	2W8_	1W2_	2W7_																											
+A	Clark	Charles	279	3	270	5	20	0					3W8_	3W9_	3L7_	3L6_																											
+A	Hill	Susan	-368	4	-365	5	20	0					4L6_	4W9_	4L10_	4D7_	1W4_																										
+A	Roberts	Michelle	458	5	480	5	20	0					1W5_	5L6_	5W9_	2W5_																											
+A	Smith	Christopher	547	6	569	5	20	0					4L6_	5L6_	6W10_	6L11_	6W12_	6D8_	3L6_																								
+A	Clark	Betty	637	7	643	5	20	0					7W8_	7W10_	7L12_	1W7_	3L7_	7W9_	4D7_	2W7_																							
+A	Taylor	George	-726	8	-753	5	20	0					8L14_	7W8_	8W10_	3W8_	2W8_	8W9_	6D8_	8L11_	8L12_																						
+A	Moore	Deborah	816	9	787	5	20	0					9W13_	9L11_	5W9_	3W9_	4W9_	8W9_	7W9_	9L14_	9L12_																						
+A	Gomez	Lisa	905	10	877	5	20	0					6W10_	8W10_	7W10_	10L16_	10L13_	10L15_	10W11_	4L10_																							
+A	Wilson	Elizabeth	995	11	1012	5	20	0					9L11_	6L11_	11L17_	10W11_	8L11_	11L15_																									
+A	Taylor	Sarah	-1084	12	-1091	5	20	0					12L14_	6W12_	7L12_	12W18_	12L17_	9L12_	8L12_																								
+A	Nelson	Karen	1174	13	1153	5	20	0					9W13_	13L19_	13W14_	10L13_	13W16_																										
+A	Martin	John	1263	14	1299	5	20	0					8L14_	12L14_	14W19_	14W16_	14L17_	13W14_	14L15_	9L14_	14L20_	14L18_																					
+A	Anderson	Kimberly	1353	15	1379	5	20	0					15L16_	15L17_	15L18_	15L20_	10L15_	14L15_	15W19_	11L15_																							
+A	Mitchell	Matthew	1442	16	1466	5	20	0					15L16_	14W16_	10L16_	16W20_	16W18_	16L19_	13W16_	16W17_																							
+A	Hill	Daniel	1532	17	1465	5	20	0					15L17_	17W20_	14L17_	17L19_	11L17_	12L17_	16W17_																								
+A	Wilson	Steven	1621	18	1611	5	20	0					15L18_	12W18_	16W18_	18W19_	14L18_																										
+A	Moore	John	1711	19	1690	5	20	0					14W19_	13L19_	17L19_	19W20_	18W19_	16L19_	15W19_																								
+A	Lopez	David	1800	20	1816	5	20	0					17W20_	16W20_	15L20_	19W20_	14L20_																										
