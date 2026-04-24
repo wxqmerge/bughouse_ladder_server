@@ -2,7 +2,7 @@
 
 ## Overview
 
-Simulates single-day tournaments with Elo-weighted match outcomes, processing games in batches with mid-tournament recalculations. Measures rating convergence via RSS (root-mean-square deviation) and stress-tests the recalculation engine under varying player counts and game types.
+Simulates single-day tournaments with Elo-weighted match outcomes, processing games in batches with mid-tournament recalculations. Measures rating convergence via RSS (root-mean-square deviation) and stress-tests the recalculation engine under varying player counts, game types, and player experience levels. Double-pass averaging is used for all tests.
 
 ## How It Works
 
@@ -15,36 +15,59 @@ Simulates single-day tournaments with Elo-weighted match outcomes, processing ga
 
 ## Test Matrix
 
-6 configurations × 2 modes = **12 tests**:
+18 configurations = **18 tests** (all double-pass):
 
-| # | Test Name | Players | Game Type | Rounds | Games/Player | Seed |
-|---|-----------|---------|-----------|--------|--------------|------|
-| 1 | Single-pass: 20p_2p | 20 | 1v1 | 20 | 20 | 42 |
-| 2 | Double-pass: 20p_2p | 20 | 1v1 | 20 | 20 | 42 |
-| 3 | Single-pass: 20p_4p | 20 | 2v2 | 20 | 20 | 43 |
-| 4 | Double-pass: 20p_4p | 20 | 2v2 | 20 | 20 | 43 |
-| 5 | Single-pass: 50p_2p | 50 | 1v1 | 31 | 31 | 44 |
-| 6 | Double-pass: 50p_2p | 50 | 1v1 | 31 | 31 | 44 |
-| 7 | Single-pass: 50p_4p | 52 | 2v2 | 31 | 31 | 45 |
-| 8 | Double-pass: 50p_4p | 52 | 2v2 | 31 | 31 | 45 |
-| 9 | Single-pass: 100p_2p | 100 | 1v1 | 31 | 31 | 46 |
-| 10 | Double-pass: 100p_2p | 100 | 1v1 | 31 | 31 | 46 |
-| 11 | Single-pass: 100p_4p | 100 | 2v2 | 31 | 31 | 47 |
-| 12 | Double-pass: 100p_4p | 100 | 2v2 | 31 | 31 | 47 |
+### num_games=0 (New Players — Blending Formula)
+
+| # | Test Name | Players | Game Type | Rounds | Games/Player |
+|---|-----------|---------|-----------|--------|--------------|
+| 1 | 20p_2p_ng0 | 20 | 1v1 | 20 | 20 |
+| 2 | 20p_4p_ng0 | 20 | 2v2 | 20 | 20 |
+| 3 | 50p_2p_ng0 | 50 | 1v1 | 31 | 31 |
+| 4 | 50p_4p_ng0 | 52 | 2v2 | 31 | 31 |
+| 5 | 100p_2p_ng0 | 100 | 1v1 | 31 | 31 |
+| 6 | 100p_4p_ng0 | 100 | 2v2 | 31 | 31 |
+
+**Characteristics**: Blending formula for all games (`num_games < 10`). High initial RSS (500-600) that decreases as blending converges. Tests the blending formula under stress.
+
+### num_games=0-10 (Mixed Experience — Transition Zone)
+
+| # | Test Name | Players | Game Type | Rounds | Games/Player |
+|---|-----------|---------|-----------|--------|--------------|
+| 7 | 20p_2p_ng0-10 | 20 | 1v1 | 20 | 20 |
+| 8 | 20p_4p_ng0-10 | 20 | 2v2 | 20 | 20 |
+| 9 | 50p_2p_ng0-10 | 50 | 1v1 | 31 | 31 |
+| 10 | 50p_4p_ng0-10 | 52 | 2v2 | 31 | 31 |
+| 11 | 100p_2p_ng0-10 | 100 | 1v1 | 31 | 31 |
+| 12 | 100p_4p_ng0-10 | 100 | 2v2 | 31 | 31 |
+
+**Characteristics**: Players have 0-10 games (linear distribution). Tests the transition from blending (games 1-10) to Elo (games 11+). Medium RSS (300-400) that increases as Elo takes over.
+
+### num_games=20 (Experienced Players — Elo Formula)
+
+| # | Test Name | Players | Game Type | Rounds | Games/Player |
+|---|-----------|---------|-----------|--------|--------------|
+| 13 | 20p_2p_ng20 | 20 | 1v1 | 20 | 20 |
+| 14 | 20p_4p_ng20 | 20 | 2v2 | 20 | 20 |
+| 15 | 50p_2p_ng20 | 50 | 1v1 | 31 | 31 |
+| 16 | 50p_4p_ng20 | 52 | 2v2 | 31 | 31 |
+| 17 | 100p_2p_ng20 | 100 | 1v1 | 31 | 31 |
+| 18 | 100p_4p_ng20 | 100 | 2v2 | 31 | 31 |
+
+**Characteristics**: Elo formula from game 1. Low initial RSS (10-15) that increases steadily as Elo accumulates. Tests the Elo formula under stress.
 
 **Notes**:
 - 4p configs round up to multiple of 4 (50 → 52)
 - Rounds = `min(31, max(20, floor(players/5) * 5))`
-- All players have `num_games=20` (experienced), so Elo formula applies from game 1
-- Single-pass and double-pass produce identical results for experienced players (double-pass only affects `num_games=0` blending)
+- Mixed mode distributes `num_games` linearly from 0 to 10 across the player pool
 
 ## Outputs
 
 ### Console Output (per test)
 
 ```
-[SP] 20p_2p: FinalRSS=117.13, F1=117.13, F2=117.13
-[DP] 20p_2p: FinalRSS=117.13, F1=117.13, F2=117.13
+20p_2p_ng0: FinalRSS=535.29, F1=117.13, F2=117.13
+20p_2p_ng20: FinalRSS=109.31, F1=109.31, F2=109.31
 ```
 
 - **FinalRSS**: RSS after last round — how far calculated ratings diverged from start ratings
@@ -56,21 +79,29 @@ All outputs in `src/test/unit/reports/`:
 
 #### `summary.tsv`
 
-Tab-separated summary of all 12 tests:
-- **Config**: `Np_GG_mode` (e.g., `20p_2p_sp`)
+Tab-separated summary of all 18 tests:
+- **Config**: `Np_GG_ngX` (e.g., `20p_2p_ng0`, `20p_4p_ng20`)
 - **Final1/Final2**: Drift RSS from consecutive recalcs
 - **RSS_1..RSS_31**: RSS history after each round
 
 Example:
 ```
 Config	Final1	Final2	RSS_1	RSS_2	...	RSS_20
-20p_2p_sp	117.13	117.13	11.55	23.90	...	117.13
-20p_2p_dp	117.13	117.13	11.55	23.90	...	117.13
+20p_2p_ng0	117.13	117.13	603.12	595.27	...	535.29
+20p_2p_ng20	109.31	109.31	12.34	19.86	...	109.31
 ```
 
-#### `20p_2p_sp.tab`, `20p_2p_dp.tab`, `20p_4p_sp.tab`, `20p_4p_dp.tab`
+#### `.tab` Files
 
-Valid ladder `.tab` files (20-player configs only) with:
+Valid ladder `.tab` files (20-player configs: 6 files):
+- `20p_2p_ng0.tab` — new players (blending)
+- `20p_2p_ng0-10.tab` — mixed experience (transition)
+- `20p_2p_ng20.tab` — experienced players (Elo)
+- `20p_4p_ng0.tab` — new players (blending)
+- `20p_4p_ng0-10.tab` — mixed experience (transition)
+- `20p_4p_ng20.tab` — experienced players (Elo)
+
+Each file contains:
 - Static **Rating** column (start ratings, unchanged — single-day tournament)
 - Dynamic **N Rate** column (calculated ratings from tournament results)
 - **Gms** = games played this tournament day
@@ -95,9 +126,22 @@ Two consecutive recalcs on the final state:
 
 ### RSS History
 
-Shows convergence trajectory:
-- **Monotonically increasing**: Expected — more games → more data → more deviation from start
-- **Plateauing**: Ratings stabilizing as tournament progresses
+Shows convergence trajectory — varies dramatically by `num_games` mode:
+
+**ng0 (New Players — Blending)**:
+- High initial RSS (500-600) that **decreases** over time
+- Blending formula converges toward player ratings as more games are processed
+- Tests blending stability under stress
+
+**ng0-10 (Mixed — Transition)**:
+- Medium RSS (300-400) that **increases** over time
+- Players transition from blending (games 1-10) to Elo (games 11+)
+- Tests the formula switch point and its impact on convergence
+
+**ng20 (Experienced — Elo)**:
+- Low initial RSS (10-15) that **increases steadily**
+- Elo formula accumulates rating adjustments from game 1
+- Tests Elo stability under stress
 
 ## Running the Tests
 
@@ -113,7 +157,7 @@ npx vitest run
 ## Key Design Decisions
 
 - **Single-day simulation**: No "New Day" between rounds — `Rating` stays static, `N Rate` captures all calculated values
-- **Experienced players** (`num_games=20`): Uses Elo formula from game 1, avoiding 2p blending trap where `perfRating` clamps to 0
+- **Three num_games modes**: Tests blending (ng0), transition (ng0-10), and Elo (ng20) formulas under stress
 - **From-scratch recalc**: Each batch recalculates all matches, matching VB6 behavior where you recalc with all entered results
 - **Result cleaning**: `cleanInvalidResults` iteratively removes conflicting entries until validation passes
 
@@ -147,9 +191,21 @@ The simulation accumulates ALL matches and recalculates from scratch after each 
 - Init rating logic applies: players with `num_games=0` use `nRating/rating` as starting point
 - Each recalc is independent — no state carried between recalcs except the static `Rating` column
 
-### Why Experienced Players (`num_games=20`)?
+### Why Three num_games Modes?
 
-With `num_games=0`, 2-player blending uses `perfRating = side ∓ 800*wldPerfs`, which can go negative and clamp to 0 via `Math.max(0, perfRating)`. This traps low-rated players at `nRating=0` for the first 10 games. Setting `num_games=20` forces Elo from game 1, which is realistic — tournament participants are experienced players, not new to the ladder.
+The VB6 rating system has two distinct formulas based on `num_games`:
+- **Blending** (`num_games < 10`): `nRating = (nratingBefore * games + perfRating) / (games + 1)`
+- **Elo** (`num_games >= 10`): `nRating = nratingBefore + eloPerfs * Kfactor`
+
+Testing all three modes reveals how each formula behaves under stress:
+
+**ng0 (New Players)**: Tests blending formula exclusively. High initial RSS that decreases as blending converges. This is the most volatile mode — blending is sensitive to initial conditions and can produce extreme swings.
+
+**ng0-10 (Mixed Experience)**: Tests the transition point at game 10. Players with 0-9 games use blending, players with 10+ games use Elo. This reveals whether the formula switch creates discontinuities in rating convergence.
+
+**ng20 (Experienced Players)**: Tests Elo formula exclusively. Low initial RSS that increases steadily. This is the most stable mode — Elo produces predictable, incremental adjustments.
+
+This three-mode approach validates that the recalculation engine works correctly across all player experience levels, not just the happy path.
 
 ### Why Validate Output Files?
 
@@ -192,7 +248,7 @@ This validates that the recalculation engine produces consistent results under s
 
 ### Why Same Seed Per Config?
 
-Each config uses the same seed for both SP and DP runs, ensuring the match outcomes are identical. This provides a control — any difference in results can only come from the pass mode, not from different match data.
+Each config uses a unique seed, ensuring reproducible results across test runs. This allows debugging and verification — running the tests again produces identical output.
 
 ### Why Iterative Result Cleaning?
 
