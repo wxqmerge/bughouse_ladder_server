@@ -235,8 +235,8 @@ Implemented in [`calculateRatings()`](shared/utils/hashUtils.ts:845) match loop.
 - **Two-loop perfs** matching VB6: first loop (W/L/D), second loop (expected diff)
 - **2-player vs 4-player distinction**: scores(1)=0 in 2-player → loops run once; scores(1)>0 in 4-player → loops run twice, W/L/D cancels
 - **Elo perfs**: 2-player = `wldPerfs + (0.5-expected)`, 4-player = `2×(0.5-expected)` only
-- **PerfRating**: 2-player = `side ∓ 800×wldPerfs`, 4-player = original side rating (perfs cancel)
-- **CROSS-SIDE BLENDING**: `nRating = (nRating * num_games + perfRating_opposing) / (num_games + 1)` — side 0 blends with side 1's perfRating and vice versa
+- **PerfRating**: opponent side + 800×wldPerfs (2p: ±400 adjustment, 4p: wldPerfs=0 so perfRating = opponent side)
+- **SAME-SIDE BLENDING**: `nRating = (nRating * num_games + perfRating_own) / (num_games + 1)` — side 0 blends with perfRating0 (opponent-based), side 1 with perfRating1
 - Elo accumulation inline: `nRating += eloPerfs * kFactor` for `num_games > 9`
 - `num_games++` after each match processed
 - `playedToday` set to track which players played
