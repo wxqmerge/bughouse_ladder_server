@@ -82,12 +82,12 @@ describe('calculateRatings', () => {
 
       const result = calculateRatings(players, matches);
 
-      // Equal ratings → expected = 0.5, scoreDiff = 1.0
-      // Winner gains K/2 = 10, loser loses K/2 = 10
-      // But side0 = 1500, side1 = 1400 → expected ≈ 0.543
-      // scoreDiff = 1.0, so adjustment = 1.0 * 20 / 2 = 10
-      expect(result[0].nRating).toBe(1510);
-      expect(result[1].nRating).toBe(1390);
+      // VB6: eloPerfs = wld + 2*(0.5 - expected)
+      // side0 = 1500, side1 = 1400 → expected ≈ 0.640
+      // eloPerfs0 = 0.5 + 2*(0.5 - 0.640) = 0.22, eloPerfs1 = -0.22
+      // P1: 1500 + 0.22*20 = 1504, P2: 1400 - 0.22*20 = 1396
+      expect(result[0].nRating).toBe(1504);
+      expect(result[1].nRating).toBe(1396);
     });
 
     it('should handle draw with >= 10 games', () => {
@@ -121,14 +121,15 @@ describe('calculateRatings', () => {
 
       const result = calculateRatings(players, matches);
 
-      // Game 1: scoreDiff=1, side0=1500, side1=1500, expected=0.5
-      //   P1: 1500 + 10 = 1510, P2: 1500 - 10 = 1490
-      // Game 2: scoreDiff=1, side0=1510, side1=1490, expected≈0.503
-      //   P1: 1510 + 10 = 1520, P2: 1490 - 10 = 1480
-      // Game 3: scoreDiff=-1, side0=1520, side1=1480
-      //   P1: 1520 - 10 = 1510, P2: 1480 + 10 = 1490
-      expect(result[0].nRating).toBe(1510);
-      expect(result[1].nRating).toBe(1490);
+      // VB6: eloPerfs = wld + 2*(0.5 - expected)
+      // Game 1: 1500 vs 1500, expected=0.5, eloPerfs0=0.5, eloPerfs1=-0.5
+      //   P1: 1500 + 0.5*20=1510, P2: 1500 - 0.5*20=1490
+      // Game 2: 1510 vs 1490, expected≈0.529, eloPerfs0≈0.442, eloPerfs1≈-0.442
+      //   P1: 1510 + 8.8=1519, P2: 1490 - 8.8=1481
+      // Game 3: P2 wins, 1519 vs 1481, expected≈0.545, eloPerfs0≈-0.59, eloPerfs1≈0.59
+      //   P1: 1519 - 11.8=1507, P2: 1481 + 11.8=1493
+      expect(result[0].nRating).toBeCloseTo(1507, 0);
+      expect(result[1].nRating).toBeCloseTo(1493, 0);
     });
   });
 
@@ -286,12 +287,14 @@ describe('calculateRatings', () => {
       const result = calculateRatings(players, matches);
 
       // 4-player, all >= 10 games → pure Elo
-      // scoreDiff=1, adjustment = 1*20/2 = 10
-      // Team 1 gains 10, Team 2 loses 10
-      expect(result[0].nRating).toBe(1510);
-      expect(result[1].nRating).toBe(1510);
-      expect(result[2].nRating).toBe(1390);
-      expect(result[3].nRating).toBe(1390);
+      // VB6: eloPerfs = wld + 2*(0.5 - expected)
+      // side0=1500, side1=1400, expected≈0.640
+      // eloPerfs0 = 0.5 + 2*(0.5-0.640) = 0.22, eloPerfs1 = -0.22
+      // Team 1: 1500 + 0.22*20 = 1504, Team 2: 1400 - 0.22*20 = 1396
+      expect(result[0].nRating).toBe(1504);
+      expect(result[1].nRating).toBe(1504);
+      expect(result[2].nRating).toBe(1396);
+      expect(result[3].nRating).toBe(1396);
     });
   });
 
