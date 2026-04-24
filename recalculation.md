@@ -1,6 +1,7 @@
 # Recalculation System — Implementation Reference
 
 > Current as of: 2026-04-23
+> **WARNING:** This documents the current implementation which has known bugs. See `recalculation_new.md` for the corrected plan.
 
 ---
 
@@ -462,31 +463,53 @@ window.location.reload() → full page reload with new title
 
 ## 10. Known Issues / TODOs
 
-### 10.1 nRating Clamping to 0 (hashUtils.ts:943-944)
+### 10.1 Performance Rating Formula — WRONG
 
+**Current (lines 970-976):**
 ```typescript
-p1.nRating = Math.max(0, p1NewRating);
-p2.nRating = Math.max(0, p2NewRating);
+if (winRate > 0.5) perfRating = avgRating + 200;
+else if (winRate < 0.5) perfRating = avgRating - 200;
+else perfRating = avgRating;
 ```
 
-This clamps negative Elo adjustments to 0. The intended behavior per design is to allow negatives (indicating trophy ineligibility), clamped only at -9999. The perfRating calculation already handles negatives correctly; this Elo loop clamping is inconsistent.
+**VB6 (correct):** `perfRating = avgRating + 800 * (actual - expected)`
 
-### 10.2 Settings Wiped on New Day
+The fixed ±200 bonus does not scale with the win rate margin or opponent strength. A player who wins 100% of games against equal opponents gets +200 instead of +400. A player who wins 100% of games against much weaker opponents gets +200 instead of +800. This is the primary source of incorrect recalculation results.
+
+### 10.2 Blending Timing — WRONG
+
+**Current:** Post-loop blending using `perfBlendingFactor` with `gamesToday` as weight.
+```typescript
+perfBlendingFactor * ((rating * num_games + perfRating * gamesToday) / (num_games + gamesToday))
+```
+
+**VB6 (correct):** Inline blending during match processing — each new game blends `nRating` with `perfRating` one at a time:
+```vb
+nRating = (nRating * num_games + perfRating) / (num_games + 1)
+```
+
+The current approach uses `gamesToday` (how many games today) as the weight for performance, when it should be blending against the player's career history. The `perfBlendingFactor` of 0.99 has no equivalent in the VB6 source.
+
+### 10.3 Elo for Experienced Players — WRONG
+
+**Current:** Fresh calculation each game: `nRating = abs(round(rating + K*(actual-expected)))`
+
+**VB6 (correct):** Incremental accumulation: `nRating += perfs * kFactor`
+
+For players with `num_games > 9`, the VB6 accumulates the score error (`perfs`) against the existing nRating, weighted by kFactor. The current implementation recalculates from scratch each time, which can cause inconsistent results when matches are processed in different orders.
+
+### 10.4 nRating Clamping
+
+nRating is stored as `abs()` of the raw Elo result. trophyEligible is determined by old_rating sign at file I/O time and preserved through recalculation. Zero (blank) ratings default to eligible ("+").
+
+### 10.5 Settings Wiped on New Day
 
 `localStorage.removeItem("ladder_settings")` in both `recalculateRatings()` and `recalculateAndSave()` clears kFactor and performanceBlendingFactor when processing a New Day. This means users must re-enter these settings after every New Day operation.
-
-### 10.3 Server URL Persistence After File Import
-
-**FIXED (2026-04-23):** Previously `localStorage.clear()` in `loadPlayers()` wiped all localStorage including user settings. Now only ladder-specific keys are removed, preserving `bughouse-ladder-user-settings`.
-
-### 10.4 Mode Detection Redundancy
-
-`savePlayers()` checks both `dataService.getMode() === LOCAL` AND `!serverUrl`. This dual-check exists because mode detection is based on userSettings but the server URL can be set independently. The logic should be unified to avoid confusion.
 
 ---
 
 ## 11. Test Coverage
 
-- 191 tests across 12 test files
+- 199 tests across 12 test files
 - Tests cover: hashUtils (parseEntry, long2string, entry2string, processGameResults, calculateRatings), dataService (readLadderFile, writeLadderFile), LadderForm integration, storageService batch operations
 - 2 skipped tests
