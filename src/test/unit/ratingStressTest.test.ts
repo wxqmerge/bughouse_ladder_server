@@ -164,22 +164,24 @@ function determineResult(expected: number, rng: () => number): { score1: number;
 // ─── Batch Game Generation (Round-Robin) ──────────────────────────────
 /**
  * Round-robin pairing: every player plays every round.
- * Sort by rating, then pair consecutively so opponents are similar.
+ * Sort by start rating, then pair consecutively so opponents are similar.
  * Use round-robin schedule to rotate opponents each round while keeping ratings balanced.
  * 2p: adjacent pairs. 4p: groups of 4 split into two sides.
  * Sides are flipped randomly to randomize which side is side0/side1.
+ * 600-point filter uses start ratings (not current) to prevent drift-based skips.
  */
 function generateBatchGames(
   players: PlayerData[],
   gameType: '2p' | '4p',
   rng: () => number,
   roundIndex: number,
+  startRatings: Map<number, number>,
 ): MatchData[] {
   const games: MatchData[] = [];
   const groupSize = gameType === '2p' ? 2 : 4;
 
-  // Sort by rating so opponents are similar
-  const sorted = [...players].sort((a, b) => a.rating - b.rating);
+  // Sort by start rating so pairing is stable across rounds
+  const sorted = [...players].sort((a, b) => (startRatings.get(a.rank) ?? a.rating) - (startRatings.get(b.rank) ?? b.rating));
   const n = sorted.length;
 
 // 2p: Fisher-Yates shuffle each round, pair consecutively
@@ -210,41 +212,71 @@ function generateBatchGames(
       [side0, side1] = [side1, side0];
     }
 
-   // Elo expected: signed diff so expected < 0.5 when side0 is weaker
-    const side0Avg = side0.reduce((s, p) => s + p.rating, 0) / side0.length;
-    const side1Avg = side1.reduce((s, p) => s + p.rating, 0) / side1.length;
-    const rawDiff = side0Avg - side1Avg;
+   // 600-point filter uses start ratings to prevent drift-based skips
+    const side0Start = side0.reduce((s, p) => s + (startRatings.get(p.rank) ?? p.rating), 0) / side0.length;
+    const side1Start = side1.reduce((s, p) => s + (startRatings.get(p.rank) ?? p.rating), 0) / side1.length;
+    const rawDiff = side0Start - side1Start;
 
     // Skip match if side rating gap exceeds 600 — prevent unrealistic pairings
     if (Math.abs(rawDiff) > 600) continue;
 
     const expected = 1 / (1 + Math.pow(10, -rawDiff / 400));
-    const result = determineResult(expected, rng);
+
+    // 30% chance of dual result (two independent games), 70% single result
+    const isDual = rng() < 0.3;
 
     if (groupSize === 2) {
       // 2p: player1 vs player2
-      games.push({
-        player1: side0[0].rank,
-        player2: side1[0].rank,
-        player3: 0,
-        player4: 0,
-        score1: result.score1,
-        score2: result.score2,
-        side0Won: result.score1 > result.score2,
-      });
+      if (isDual) {
+        const game1 = determineResult(expected, rng);
+        const game2 = determineResult(expected, rng);
+        games.push({
+          player1: side0[0].rank,
+          player2: side1[0].rank,
+          player3: 0,
+          player4: 0,
+          score1: game1.score1,
+          score2: game2.score1,
+          side0Won: (game1.score1 > game1.score2 ? 1 : 0) + (game2.score1 > game2.score2 ? 1 : 0) >= 2,
+        });
+      } else {
+        const result = determineResult(expected, rng);
+        games.push({
+          player1: side0[0].rank,
+          player2: side1[0].rank,
+          player3: 0,
+          player4: 0,
+          score1: result.score1,
+          score2: result.score2,
+          side0Won: result.score1 > result.score2,
+        });
+      }
     } else {
-      // 4p: two independent games, each with its own pseudo-random outcome
-      const game1 = determineResult(expected, rng);
-      const game2 = determineResult(expected, rng);
-      games.push({
-        player1: side0[0].rank,
-        player2: side0[1].rank,
-        player3: side1[0].rank,
-        player4: side1[1].rank,
-        score1: game1.score1,
-        score2: game2.score1,
-        side0Won: (game1.score1 > game1.score2 ? 1 : 0) + (game2.score1 > game2.score2 ? 1 : 0) >= 2,
-      });
+      // 4p: two independent games or single game
+      if (isDual) {
+        const game1 = determineResult(expected, rng);
+        const game2 = determineResult(expected, rng);
+        games.push({
+          player1: side0[0].rank,
+          player2: side0[1].rank,
+          player3: side1[0].rank,
+          player4: side1[1].rank,
+          score1: game1.score1,
+          score2: game2.score1,
+          side0Won: (game1.score1 > game1.score2 ? 1 : 0) + (game2.score1 > game2.score2 ? 1 : 0) >= 2,
+        });
+      } else {
+        const result = determineResult(expected, rng);
+        games.push({
+          player1: side0[0].rank,
+          player2: side0[1].rank,
+          player3: side1[0].rank,
+          player4: side1[1].rank,
+          score1: result.score1,
+          score2: 0,
+          side0Won: result.score1 > result.score2,
+        });
+      }
     }
   }
 
@@ -294,7 +326,7 @@ function runSimulation(config: StressConfig): StressResult {
 
   // Generate all rounds first, tracking RSS after each batch
   for (let round = 0; round < totalRounds; round++) {
-    const batchGames = generateBatchGames(players, config.gameType, rng, round);
+    const batchGames = generateBatchGames(players, config.gameType, rng, round, startRatings);
     if (batchGames.length === 0) break;
 
     allMatches.push(...batchGames);
