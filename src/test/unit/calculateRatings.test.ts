@@ -20,7 +20,7 @@ function createPlayer(
     firstName: `F${rank}`,
     rating,
     nRating,
-    trophyEligible: nRating >= 0,
+    trophyEligible: rating >= 0,
     grade: '5',
     num_games,
     attendance: 0,
@@ -422,7 +422,7 @@ describe('calculateRatings', () => {
   });
 
   describe('trophyEligible', () => {
-    it('should set trophyEligible=true for players with positive Elo result', () => {
+    it('should preserve trophyEligible=true for positive rating through recalculation', () => {
       const players = [
         createPlayer(1, 1200, 5, 1200),
         createPlayer(2, 1100, 5, 1100),
@@ -434,12 +434,48 @@ describe('calculateRatings', () => {
       expect(result[0].trophyEligible).toBe(true);
     });
 
-    it('should set trophyEligible=true for zero Elo result (draw)', () => {
+    it('should preserve trophyEligible=false for negative rating through recalculation', () => {
+      const players = [
+        createPlayer(1, -1200, 5, -1200),
+        createPlayer(2, 1100, 5, 1100),
+      ];
+      const matches = [createMatch(1, 2, 3)]; // player 1 wins
+      
+      const result = calculateRatings(players, matches);
+      
+      expect(result[0].trophyEligible).toBe(false); // preserved from old_rating sign
+    });
+
+    it('should preserve trophyEligible for players who lose badly', () => {
+      const players = [
+        { ...createPlayer(1, 1500, 5, 1500), trophyEligible: true },
+        { ...createPlayer(2, 800, 5, 800), trophyEligible: true },
+      ];
+      const matches = [createMatch(1, 2, 1)]; // player 1 loses badly
+      
+      const result = calculateRatings(players, matches);
+      
+      expect(result[0].trophyEligible).toBe(true); // preserved despite nRating going negative
+    });
+
+    it('should preserve trophyEligible for players with no games today', () => {
       const players = [
         createPlayer(1, 1200, 5, 1200),
-        createPlayer(2, 1200, 5, 1200),
+        createPlayer(2, 1100, 5, 1100),
       ];
-      const matches = [createMatch(1, 2, 2)]; // draw
+      const matches: MatchData[] = []; // no matches
+      
+      const result = calculateRatings(players, matches);
+      
+      expect(result[0].trophyEligible).toBe(true);
+    });
+
+    it('should default trophyEligible to true when missing', () => {
+      const players = [
+        { rank: 1, rating: 1200, nRating: 1200, num_games: 5 } as PlayerData,
+        { rank: 2, rating: 1100, nRating: 1100, num_games: 5 } as PlayerData,
+      ];
+      const matches = [createMatch(1, 2, 3)];
       
       const result = calculateRatings(players, matches);
       
@@ -458,7 +494,7 @@ describe('calculateRatings', () => {
       expect(result[0].nRating).toBeGreaterThan(0); // abs value, never negative
     });
 
-    it('should set trophyEligible based on perf rating when num_games=0', () => {
+    it('should compute nRating but preserve eligibility when num_games=0', () => {
       const players = [
         createPlayer(1, 1200, 0, 1200),
         createPlayer(2, 1100, 0, 1100),
@@ -472,19 +508,7 @@ describe('calculateRatings', () => {
       expect(result[0].nRating).toBeGreaterThan(1200);
     });
 
-    it('should set trophyEligible for players with no games today', () => {
-      const players = [
-        createPlayer(1, 1200, 5, 1200),
-        createPlayer(2, 1100, 5, 1100),
-      ];
-      const matches: MatchData[] = []; // no matches
-      
-      const result = calculateRatings(players, matches);
-      
-      expect(result[0].trophyEligible).toBe(true);
-    });
-
-    it('should set trophyEligible based on blended rating when num_games < 10', () => {
+    it('should preserve eligibility when num_games < 10', () => {
       const players = [
         createPlayer(1, 1200, 3, 1200),
         createPlayer(2, 1100, 3, 1100),
