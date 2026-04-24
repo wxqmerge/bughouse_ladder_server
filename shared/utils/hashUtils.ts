@@ -871,14 +871,19 @@ export function calculateRatings(
     }
   }
 
-  // Initialize career game counts and current ratings (VB6: num_games + nrating arrays)
+  // VB6 ladder.frm lines 1426-1449: initialize arrays
   const careerGames = new Map<number, number>();
   const currentRating = new Map<number, number>();
   const playedToday = new Set<number>();
 
   for (const p of playersCopy) {
+    // VB6 line 1439: num_games(i) = Val(Chess.TextMatrix(i, Games_field))
     careerGames.set(p.rank, p.num_games);
-    // VB6: read rating_field for players with games, nrating_field for num_games=0
+    // VB6 lines 1440-1447:
+    //   perf = Val(Chess.TextMatrix(i, rating_field))
+    //   If num_games(i) = 0 Then perf = Val(Chess.TextMatrix(i, nrating_field))
+    //   If perf > 1200 Then perf = 1200
+    //   nrating(i) = Abs(perf)
     let initRating: number;
     if (p.num_games === 0) {
       initRating = p.nRating > 0 ? p.nRating : p.rating;
@@ -899,8 +904,13 @@ export function calculateRatings(
     const p4Rank = match.player4;
     const is4Player = p3Rank > 0 && p4Rank > 0;
 
-    // Compute side ratings (VB6: sides(0) and sides(1))
-    // p1 and p2 are on side 0, p3 and p4 are on side 1
+    // VB6 ladder.frm lines 1479-1485: compute side ratings
+    //   If players(1) > 0 Then (4-player):
+    //     sides(0) = (nrating(players(0)) + nrating(players(1))) / 2
+    //     sides(1) = (nrating(players(4)) + nrating(players(3))) / 2
+    //   Else (2-player):
+    //     sides(0) = nrating(players(0))
+    //     sides(1) = nrating(players(3))
     let side0 = currentRating.get(p1.rank)!;
     let side1 = currentRating.get(p2.rank)!;
     if (is4Player) {
@@ -912,39 +922,67 @@ export function calculateRatings(
       }
     }
 
-    // Compute expected score (VB6: formula(sides(0), sides(1)))
+    // VB6 ladder.frm line 1486: perf = formula(sides(0), sides(1))
     const expected = formula(side0, side1);
     const scoreDiff = match.score1 - match.score2;
 
-    // Win/loss/draw component: ±0.5 for win/loss, 0 for draw
-    // scoreDiff: ±2 for win/loss (score1-score2: 3-1=2 or 1-3=-2), 0 for draw
+    // VB6 common.bas line 90: result_string = "OLDWXYZ__________"
+    //   O=0, L=1, D=2, W=3 (InStr position - 1)
+    // 2-player: scores(0) = result, scores(1) = 0 (only 1 result char)
+    // 4-player: scores(0) = side 0 result, scores(1) = side 1 result (both > 0)
+    // wldPerfs = ±0.5 for win/loss, 0 for draw (matches VB6 first-loop perfs(0))
     const wldPerfs = scoreDiff / 4; // ±0.5 or 0
 
-    // Elo perfs: VB6 adds (0.5 - expected) TWICE per side (once per myplayer iteration)
-    // Side 0 (winner side): perfs = +0.5 + 2*(0.5 - expected)
-    // Side 1 (loser side):  perfs = -0.5 + 2*(expected - 0.5)
-    const eloPerfs0 = wldPerfs + 2 * (0.5 - expected);
-    const eloPerfs1 = -wldPerfs + 2 * (expected - 0.5);
+    // === ELO PERFS (used for >9 games Elo accumulation) ===
+    // VB6 ladder.frm lines 1487-1501: first loop (W/L/D component)
+    //   2-player: only myplayer=0 runs (scores(1)=0) → perfs = (±0.5, ∓0.5)
+    //   4-player: both run → W/L/D cancels → perfs = (0, 0)
+    // VB6 ladder.frm lines 1514-1519: second loop (expected score differential)
+    //   2-player: only myplayer=0 runs → adds (0.5-expected) ONCE
+    //   4-player: both run → adds (0.5-expected) TWICE
+    // Final perfs:
+    //   2-player: perfs(0) = wldPerfs + (0.5 - expected), perfs(1) = -wldPerfs + (expected - 0.5)
+    //   4-player: perfs(0) = 2*(0.5 - expected), perfs(1) = 2*(expected - 0.5)
+    let eloPerfs0: number;
+    let eloPerfs1: number;
+    if (is4Player) {
+      // VB6 4-player: W/L/D cancels in first loop, second loop runs twice
+      eloPerfs0 = 2 * (0.5 - expected);
+      eloPerfs1 = 2 * (expected - 0.5);
+    } else {
+      // VB6 2-player: scores(1)=0, only myplayer=0 runs in both loops
+      eloPerfs0 = wldPerfs + (0.5 - expected);
+      eloPerfs1 = -wldPerfs + (expected - 0.5);
+    }
 
-    // Performance rating for blending: sides ± 800 * wldPerfs (VB6 lines 1506-1507)
+    // === PERF RATING (used for <10 games blending) ===
+    // VB6 ladder.frm lines 1502-1513: uses perfs from AFTER first loop, BEFORE second
+    // 2-player (scores(1)=0): no doubling/halving
+    //   sides(0) = side0 + 800*perfs(1) = side0 - 800*wldPerfs
+    //   sides(1) = side1 + 800*perfs(0) = side1 + 800*wldPerfs
+    // 4-player (scores(1)>0): double, add 800*perfs (which is 0), halve
+    //   sides(0) = (side0*2 + 800*0) / 2 = side0
+    //   sides(1) = (side1*2 + 800*0) / 2 = side1
     let perfRating0: number;
     let perfRating1: number;
     if (is4Player) {
-      const s0 = side0 * 2;
-      const s1 = side1 * 2;
-      perfRating0 = (s0 + 800 * (-wldPerfs)) / 2;
-      perfRating1 = (s1 + 800 * (wldPerfs)) / 2;
+      // VB6 4-player: perfs=(0,0) after first loop → no adjustment
+      perfRating0 = side0;
+      perfRating1 = side1;
     } else {
-      perfRating0 = side0 + 800 * (-wldPerfs);
-      perfRating1 = side1 + 800 * (wldPerfs);
+      // VB6 2-player: perfs=(wldPerfs, -wldPerfs) after first loop
+      perfRating0 = side0 - 800 * wldPerfs;
+      perfRating1 = side1 + 800 * wldPerfs;
     }
 
     // Clamp performance ratings to 0 (VB6: If sides(0) < 0 Then sides(0) = 0)
     perfRating0 = Math.max(0, perfRating0);
     perfRating1 = Math.max(0, perfRating1);
 
-    // Update nRating for each player (VB6: inline Elo/blending)
-    // Side 0: p1 (and p3/p4 in 4-player). Side 1: p2 (and p3/p4 in 4-player)
+    // VB6 common.bas line 91: players(-1 To 4) array layout:
+    //   players(0), players(1) = side 0 members
+    //   players(3), players(4) = side 1 members
+    //   2-player: players(1)=0, players(4)=0 (only players(0) and players(3) set)
     const side0Players = is4Player
       ? [p1, p2].filter(Boolean)
       : [p1];
@@ -958,14 +996,19 @@ export function calculateRatings(
       ].filter(Boolean) as PlayerData[]
       : [p2];
 
-  for (const player of side0Players) {
+  // VB6 ladder.frm lines 1521-1533: update each player
+    //   myside=0 → players(0), players(1); myside=1 → players(3), players(4)
+    //   >9 games: nrating += perfs(myside) * k_val (line 1526)
+    //   <=9 games: nrating = (nrating * num_games + sides(1-myside)) / (num_games+1) (line 1528)
+    //   nrating = Abs(nrating) (line 1530), num_games++ (line 1531)
+    for (const player of side0Players) {
         const games = careerGames.get(player.rank)!;
         playedToday.add(player.rank);
         if (games > 9) {
-          // VB6: nrating += perfs(myside) * k_val — perfs includes 2x expected diff
+          // VB6 line 1526: nrating += perfs(0) * k_val
           currentRating.set(player.rank, currentRating.get(player.rank)! + eloPerfs0 * EloKfactor);
         } else {
-          // VB6: sides(1 - myside) — side 0 blends with side 1's perfRating
+          // VB6 line 1528: sides(1-0) = sides(1) = perfRating1 (cross-side blending)
           const blended = (currentRating.get(player.rank)! * games + perfRating1) / (games + 1);
           currentRating.set(player.rank, Math.abs(blended));
         }
@@ -975,10 +1018,10 @@ export function calculateRatings(
         const games = careerGames.get(player.rank)!;
         playedToday.add(player.rank);
         if (games > 9) {
-          // VB6: nrating += perfs(myside) * k_val — perfs includes 2x expected diff
+          // VB6 line 1526: nrating += perfs(1) * k_val
           currentRating.set(player.rank, currentRating.get(player.rank)! + eloPerfs1 * EloKfactor);
         } else {
-          // VB6: sides(1 - myside) — side 1 blends with side 0's perfRating
+          // VB6 line 1528: sides(1-1) = sides(0) = perfRating0 (cross-side blending)
           const blended = (currentRating.get(player.rank)! * games + perfRating0) / (games + 1);
           currentRating.set(player.rank, Math.abs(blended));
         }
@@ -986,8 +1029,12 @@ export function calculateRatings(
       }
   }
 
-  // Round final ratings to integers (VB6 uses Int() which truncates)
-  // rating column is NOT changed — only updated during New Day
+  // VB6 ladder.frm lines 1600-1610: write nRating to UI
+  //   If isvalid(i) Then
+  //     If rating_field < 0 Then nrating_field = Str$(-Int(nrating(i)))
+  //     Else nrating_field = Str$(Int(nrating(i)))
+  //   Else nrating_field = "0"
+  // rating column is NOT changed during recalc — only updated during New Day (lines 1611-1627)
   for (const p of playersCopy) {
     if (playedToday.has(p.rank)) {
       p.nRating = Math.round(currentRating.get(p.rank)!);
