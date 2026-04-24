@@ -80,7 +80,7 @@ describe('calculateRatings', () => {
         createMatch(1, 2, 3), // Player 1 wins
       ];
 
-      const result = calculateRatings(players, matches, { doublePass: false });
+      const result = calculateRatings(players, matches);
 
       // VB6 2-player: scores(1)=0, only myplayer=0 runs in both loops
       // eloPerfs0 = wldPerfs + (0.5 - expected) = 0.5 + (0.5 - 0.640) = 0.36
@@ -100,7 +100,7 @@ describe('calculateRatings', () => {
         createMatch(1, 2, 2), // Draw
       ];
 
-      const result = calculateRatings(players, matches, { doublePass: false });
+      const result = calculateRatings(players, matches);
 
       // scoreDiff = 0 → no Elo change
       expect(result.players[0].nRating).toBe(1500);
@@ -119,7 +119,7 @@ describe('calculateRatings', () => {
         createMatch(1, 2, 1), // Player 2 wins
       ];
 
-      const result = calculateRatings(players, matches, { doublePass: false });
+      const result = calculateRatings(players, matches);
 
       // VB6 2-player: eloPerfs = wldPerfs + (0.5 - expected)
       // Game 1: 1500 vs 1500, expected=0.5, eloPerfs0=0.5, eloPerfs1=-0.5
@@ -145,15 +145,15 @@ describe('calculateRatings', () => {
         createMatch(1, 2, 3), // Player 1 wins
       ];
 
-      const result = calculateRatings(players, matches, { doublePass: false });
+      const result = calculateRatings(players, matches);
 
       // num_games=0, initRating=1200 (capped at 1200)
-      // scoreDiff=2, side0=1200, side1=1200, perfs=0.5
-      // perfRating0 = 1200 + 800*(-0.5) = 800, perfRating1 = 1200 + 800*(0.5) = 1600
-      // VB6 cross-side blending: P1 (side 0) blends with perfRating1, P2 (side 1) with perfRating0
-      // P1: (1200*0 + 1600) / 1 = 1600
-      // P2: (1200*0 + 800) / 1 = 800
-      expect(result.players[0].nRating).toBe(1600);
+      // Pass 1: P1=1600, P2=800
+      // Pass 2: P1 init=min(1600,1200)=1200, P2 init=800
+      //   side0=1200, side1=800, perfRating0=800, perfRating1=1200
+      //   P1: (1200*0 + 1200)/1 = 1200, P2: (800*0 + 800)/1 = 800
+      // Average: P1=(1600+1200)/2=1400, P2=(800+800)/2=800
+      expect(result.players[0].nRating).toBe(1400);
       expect(result.players[1].nRating).toBe(800);
     });
 
@@ -168,7 +168,7 @@ describe('calculateRatings', () => {
         createMatch(1, 2, 3), // Player 1 wins again
       ];
 
-      const result = calculateRatings(players, matches, { doublePass: false });
+      const result = calculateRatings(players, matches);
 
       // Game 1: num_games=3, side0=1200, side1=1200
       //   perfRating0 = 1200 + 800*(-0.5) = 800, perfRating1 = 1200 + 800*(0.5) = 1600
@@ -178,6 +178,8 @@ describe('calculateRatings', () => {
       // Game 2: num_games=4, side0=1300, side1=1100
       //   perfRating0 = 1300 + 800*(-0.5) = 900, perfRating1 = 1100 + 800*(0.5) = 1500
       //   P1: (1300*4 + 1500) / 5 = 1340, P2: (1100*4 + 900) / 5 = 1060
+      // Pass 2: same (num_games > 0, init from rating column)
+      // Average: P1=1340, P2=1060
       expect(result.players[0].nRating).toBe(1340);
       expect(result.players[1].nRating).toBe(1060);
     });
@@ -192,13 +194,15 @@ describe('calculateRatings', () => {
         createMatch(1, 2, 3), // 1 game today, player 1 wins
       ];
 
-      const result = calculateRatings(players, matches, { doublePass: false });
+      const result = calculateRatings(players, matches);
 
       // num_games=9, side0=1200, side1=1200
       // perfRating0 = 800, perfRating1 = 1600
       // VB6 cross-side: P1 blends with perfRating1, P2 with perfRating0
       // P1: (1200*9 + 1600) / 10 = 1240
       // P2: (1200*9 + 800) / 10 = 1160
+      // Pass 2: same (num_games > 0, init from rating column)
+      // Average: P1=1240, P2=1160
       expect(result.players[0].nRating).toBe(1240);
       expect(result.players[1].nRating).toBe(1160);
     });
@@ -213,15 +217,15 @@ describe('calculateRatings', () => {
         createMatch(1, 2, 3),
       ];
 
-      const result = calculateRatings(players, matches, { doublePass: false });
+      const result = calculateRatings(players, matches);
 
       // num_games=0, initRating=1100 (< 1200 cap)
-      // side0=1100, side1=1100
-      // perfRating0 = 1100 + 800*(-0.5) = 700, perfRating1 = 1100 + 800*(0.5) = 1500
-      // VB6 cross-side: P1 blends with perfRating1, P2 with perfRating0
-      // P1: (1100*0 + 1500)/1 = 1500, P2: (1100*0 + 700)/1 = 700
-      expect(result.players[0].nRating).toBe(1500);
-      expect(result.players[1].nRating).toBe(700);
+      // Pass 1: P1=1500, P2=700
+      // Pass 2: P1 init=min(1500,1200)=1200, P2 init=700
+      //   Different side ratings → different perfRatings → averaged result
+      // Average: P1=1300, P2=750
+      expect(result.players[0].nRating).toBe(1300);
+      expect(result.players[1].nRating).toBe(750);
     });
 
     it('should cap initial rating at 1200 when num_games=0', () => {
@@ -234,14 +238,15 @@ describe('calculateRatings', () => {
         createMatch(1, 2, 3),
       ];
 
-      const result = calculateRatings(players, matches, { doublePass: false });
+   const result = calculateRatings(players, matches);
 
       // P1 initRating = min(1500, 1200) = 1200 (capped)
-      // side0=1200, side1=1200
-      // perfRating0 = 800, perfRating1 = 1600
-      // VB6 cross-side: P1 blends with perfRating1, P2 with perfRating0
-      // P1: (1200*0 + 1600)/1 = 1600, P2: (1200*0 + 800)/1 = 800
-      expect(result.players[0].nRating).toBe(1600);
+      // P2 initRating = 1200
+      // Pass 1: P1=1600, P2=800
+      // Pass 2: P1 init=min(1600,1200)=1200, P2 init=800
+      //   Different side ratings → different perfRatings → averaged result
+      // Average: P1=1400, P2=800
+      expect(result.players[0].nRating).toBe(1400);
       expect(result.players[1].nRating).toBe(800);
     });
   });
@@ -259,7 +264,7 @@ describe('calculateRatings', () => {
         createMatch(1, 2, 3, 3, 4), // Team 1 (1+2) vs Team 2 (3+4), Team 1 wins
       ];
 
-      const result = calculateRatings(players, matches, { doublePass: false });
+      const result = calculateRatings(players, matches);
 
       // side0 = (1200+1200)/2 = 1200, side1 = (1000+1000)/2 = 1000
       // VB6 4-player: perfs cancel in first loop → perfRating = original side rating
@@ -285,7 +290,7 @@ describe('calculateRatings', () => {
         createMatch(1, 2, 3, 3, 4), // Team 1 wins
       ];
 
-      const result = calculateRatings(players, matches, { doublePass: false });
+      const result = calculateRatings(players, matches);
 
       // 4-player, all >= 10 games → pure Elo
       // VB6 4-player: perfs cancel in first loop, only second loop (2x expected diff)
@@ -307,7 +312,7 @@ describe('calculateRatings', () => {
         createPlayer(2, 1400, 5),
       ];
 
-      const result = calculateRatings(players, [], { doublePass: false });
+      const result = calculateRatings(players, []);
 
       expect(result.players[0].nRating).toBe(0);
       expect(result.players[1].nRating).toBe(0);
@@ -325,7 +330,7 @@ describe('calculateRatings', () => {
         createMatch(1, 2, 3), // Player 1 wins
       ];
 
-      const result = calculateRatings(players, matches, { doublePass: false });
+      const result = calculateRatings(players, matches);
 
       // perfRating0 = 1500 + 800*(-0.5) = 1100, perfRating1 = 1400 + 800*(0.5) = 1800
       // VB6 cross-side: P1 blends with perfRating1, P2 with perfRating0
@@ -345,7 +350,7 @@ describe('calculateRatings', () => {
         createMatch(1, 2, 3), // Player 1 wins against much higher rated
       ];
 
-      const result = calculateRatings(players, matches, { doublePass: false });
+      const result = calculateRatings(players, matches);
 
       // side0=500, perfRating = 500 + 800*(-0.5) = 100 (positive, no clamp needed)
       // But if perfRating would be negative, it should be clamped to 0
@@ -362,7 +367,7 @@ describe('calculateRatings', () => {
         createMatch(1, 2, 3), // Player 1 wins
       ];
 
-      const result = calculateRatings(players, matches, { doublePass: false });
+      const result = calculateRatings(players, matches);
 
       // side0=1200, side1=1200, perfs=0.5
       // perfRating0 = 1200 + 800*(-0.5) = 800, perfRating1 = 1200 + 800*(0.5) = 1600
@@ -385,14 +390,14 @@ describe('calculateRatings', () => {
       ];
 
       // kFactor=100 = very volatile
-      const resultHighK = calculateRatings(players, matches, { kFactorOverride: 100, doublePass: false });
+      const resultHighK = calculateRatings(players, matches, { kFactorOverride: 100 });
 
       // kFactor=1 = very stable
       const players2 = [
         createPlayer(1, 1500, 15),
         createPlayer(2, 1400, 15),
       ];
-      const resultLowK = calculateRatings(players2, matches, { kFactorOverride: 1, doublePass: false });
+      const resultLowK = calculateRatings(players2, matches, { kFactorOverride: 1 });
 
       // rating is updated to match nRating for players who played (VB6 behavior)
       // Compare change from original rating (1500)
@@ -410,7 +415,7 @@ describe('calculateRatings', () => {
       ];
       const matches = [createMatch(1, 2, 3)];
 
-      const result = calculateRatings(players, matches, { doublePass: false });
+      const result = calculateRatings(players, matches);
 
       expect(result.players[0].trophyEligible).toBe(true);
     });
@@ -422,7 +427,7 @@ describe('calculateRatings', () => {
       ];
       const matches = [createMatch(1, 2, 3)];
 
-      const result = calculateRatings(players, matches, { doublePass: false });
+      const result = calculateRatings(players, matches);
 
       expect(result.players[0].trophyEligible).toBe(false);
     });
@@ -434,7 +439,7 @@ describe('calculateRatings', () => {
       ];
       const matches = [createMatch(1, 2, 1)];
 
-      const result = calculateRatings(players, matches, { doublePass: false });
+      const result = calculateRatings(players, matches);
 
       expect(result.players[0].trophyEligible).toBe(true);
     });
@@ -446,7 +451,7 @@ describe('calculateRatings', () => {
       ];
       const matches: MatchData[] = [];
 
-      const result = calculateRatings(players, matches, { doublePass: false });
+      const result = calculateRatings(players, matches);
 
       expect(result.players[0].trophyEligible).toBe(true);
     });
@@ -458,7 +463,7 @@ describe('calculateRatings', () => {
       ];
       const matches = [createMatch(1, 2, 3)];
 
-      const result = calculateRatings(players, matches, { doublePass: false });
+      const result = calculateRatings(players, matches);
 
       expect(result.players[0].trophyEligible).toBe(true);
     });
@@ -470,7 +475,7 @@ describe('calculateRatings', () => {
       ];
       const matches = [createMatch(1, 2, 3)];
 
-      const result = calculateRatings(players, matches, { doublePass: false });
+      const result = calculateRatings(players, matches);
 
       expect(result.players[0].nRating).toBeGreaterThan(0);
     });
@@ -483,7 +488,7 @@ describe('calculateRatings', () => {
       ];
       const matches = [createMatch(1, 2, 3), createMatch(1, 3, 3)];
 
-      const result = calculateRatings(players, matches, { doublePass: false });
+      const result = calculateRatings(players, matches);
 
       expect(result.players[0].trophyEligible).toBe(true);
       expect(result.players[0].nRating).toBeGreaterThan(0);
@@ -497,7 +502,7 @@ describe('calculateRatings', () => {
       ];
       const matches = [createMatch(1, 2, 3)];
 
-      const result = calculateRatings(players, matches, { doublePass: false });
+      const result = calculateRatings(players, matches);
 
       expect(result.players[0].trophyEligible).toBe(true);
     });
@@ -514,7 +519,7 @@ describe('calculateRatings', () => {
         createMatch(1, 2, 3), // Player 1 wins
       ];
 
-      const result = calculateRatings(players, matches, { debugMode: true, doublePass: false });
+      const result = calculateRatings(players, matches, { debugMode: true });
 
       expect(result.trace).toBeDefined();
       expect(result.trace!.kFactor).toBe(20);
@@ -552,7 +557,7 @@ describe('calculateRatings', () => {
         createMatch(1, 2, 3),
       ];
 
-      const result = calculateRatings(players, matches, { doublePass: false });
+      const result = calculateRatings(players, matches);
 
       expect(result.trace).toBeUndefined();
     });
@@ -567,7 +572,7 @@ describe('calculateRatings', () => {
         createMatch(1, 2, 3), // Player 1 wins
       ];
 
-      const result = calculateRatings(players, matches, { debugMode: true, doublePass: false });
+      const result = calculateRatings(players, matches, { debugMode: true });
 
       const matchTrace = result.trace!.matches[0];
 
@@ -593,7 +598,7 @@ describe('calculateRatings', () => {
         createMatch(1, 2, 3, 3, 4), // Team 1 (1+2) vs Team 2 (3+4)
       ];
 
-      const result = calculateRatings(players, matches, { debugMode: true, doublePass: false });
+      const result = calculateRatings(players, matches, { debugMode: true });
 
       const matchTrace = result.trace!.matches[0];
 
@@ -617,9 +622,9 @@ describe('calculateRatings', () => {
         createMatch(1, 2, 3), // Player 1 wins
       ];
 
-      const result = calculateRatings(players, matches, { debugMode: true, doublePass: true });
+      const result = calculateRatings(players, matches, { debugMode: true });
 
-      // With doublePass, results are averaged between pass 1 and pass 2
+      // Results are averaged between pass 1 and pass 2
       expect(result.pass1NRating).toBeDefined();
       expect(result.pass2NRating).toBeDefined();
 
@@ -641,29 +646,7 @@ describe('calculateRatings', () => {
       expect(p2Avg).toBe(Math.round((800 + p2Pass2) / 2));
     });
 
-    it('should dampen extreme swings for new players', () => {
-      const players = [
-        createPlayer(1, 1200, 0),
-        createPlayer(2, 1200, 0),
-      ];
-
-      const matches: MatchData[] = [
-        createMatch(1, 2, 3), // Player 1 wins
-      ];
-
-      // Single pass: extreme swing (1600 vs 800)
-      const singlePass = calculateRatings(players, matches, { doublePass: false });
-      const singleDiff = Math.abs(singlePass.players[0].nRating - singlePass.players[1].nRating);
-
-      // Double pass: dampened swing
-      const doublePass = calculateRatings(players, matches, { doublePass: true });
-      const doubleDiff = Math.abs(doublePass.players[0].nRating - doublePass.players[1].nRating);
-
-      // Double pass should have smaller difference (more convergence)
-      expect(doubleDiff).toBeLessThan(singleDiff);
-    });
-
-    it('should produce same result as single pass for experienced players', () => {
+    it('should produce consistent results for experienced players', () => {
       const players = [
         createPlayer(1, 1500, 15),
         createPlayer(2, 1400, 12),
@@ -673,15 +656,14 @@ describe('calculateRatings', () => {
         createMatch(1, 2, 3), // Player 1 wins
       ];
 
-      const singlePass = calculateRatings(players, matches, { doublePass: false });
-      const doublePass = calculateRatings(players, matches, { doublePass: true });
+      const result = calculateRatings(players, matches);
 
       // For experienced players (>9 games), both passes produce same result
-      expect(doublePass.players[0].nRating).toBe(singlePass.players[0].nRating);
-      expect(doublePass.players[1].nRating).toBe(singlePass.players[1].nRating);
+      expect(result.pass2NRating!.get(1)).toBe(result.players[0].nRating);
+      expect(result.pass2NRating!.get(2)).toBe(result.players[1].nRating);
     });
 
-    it('should default doublePass to true', () => {
+    it('should always use double-pass averaging', () => {
       const players = [
         createPlayer(1, 1200, 0),
         createPlayer(2, 1200, 0),
@@ -691,12 +673,11 @@ describe('calculateRatings', () => {
         createMatch(1, 2, 3),
       ];
 
-      // No options — should use doublePass by default
-      const defaultResult = calculateRatings(players, matches);
-      const explicitDouble = calculateRatings(players, matches, { doublePass: true });
+      const result = calculateRatings(players, matches);
 
-      expect(defaultResult.players[0].nRating).toBe(explicitDouble.players[0].nRating);
-      expect(defaultResult.players[1].nRating).toBe(explicitDouble.players[1].nRating);
+      // Verify averaging: (pass1 + pass2) / 2
+      expect(result.pass2NRating!.has(1)).toBe(true);
+      expect(result.pass2NRating!.has(2)).toBe(true);
     });
   });
 });
