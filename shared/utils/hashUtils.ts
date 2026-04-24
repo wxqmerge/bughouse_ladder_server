@@ -954,17 +954,13 @@ function calculateRatingsSinglePass(
         matchTrace.expected = expected;
         dbg.log(`expected = formula(${side0}, ${side1}) = ${expected.toFixed(6)}`);
 
-        const scoreDiff = match.score1 - match.score2;
-        const wldPerfs = scoreDiff / 4;
-
+        // VB6 lines 1489-1501: accumulate perfs from each game score
         let wldPerfs0 = 0;
         let wldPerfs1 = 0;
-        if (is4Player) {
-          wldPerfs0 = 0;
-          wldPerfs1 = 0;
-        } else {
-          wldPerfs0 = wldPerfs;
-          wldPerfs1 = -wldPerfs;
+        const scoresList = is4Player ? [match.score1, match.score2] : [match.score1];
+        for (const sc of scoresList) {
+          if (sc === 3) { wldPerfs0 += 0.5; wldPerfs1 -= 0.5; }
+          else if (sc === 1) { wldPerfs0 -= 0.5; wldPerfs1 += 0.5; }
         }
 
         dbg.log(
@@ -972,10 +968,15 @@ function calculateRatingsSinglePass(
         );
         matchTrace.wldPerfs = [wldPerfs0, wldPerfs1];
 
+        // VB6 lines 1502-1511: 4p does sides*2, +800*perf, sides/2 → effectively 400*perf
+        // 2p uses 800*perf directly (perf is ±0.5, so 800*0.5 = 400)
+        const perfMultiplier = is4Player ? 400 : 800;
         let perfRating0: number;
         let perfRating1: number;
-        perfRating0 = side1 + 800 * wldPerfs0;
-        perfRating1 = side0 + 800 * wldPerfs1;
+        // VB6: sides(0) += 800*perfs(1), sides(1) += 800*perfs(0), then blend uses sides(1-myside)
+        // Two cross-ops cancel: side 0 blends with side1 + 800*wldPerfs0 (own perfs)
+        perfRating0 = side1 + perfMultiplier * wldPerfs0;
+        perfRating1 = side0 + perfMultiplier * wldPerfs1;
 
         perfRating0 = Math.max(0, perfRating0);
         perfRating1 = Math.max(0, perfRating1);
@@ -985,15 +986,13 @@ function calculateRatingsSinglePass(
           `PERF RATING (for blending): sides=(${perfRating0.toFixed(1)}, ${perfRating1.toFixed(1)})`,
         );
 
+        // VB6 lines 1514-1519: expected adjustment runs once per game (myplayer loop)
+        // 2p: 1 game → 1x, 4p: 2 games → 2x
         let eloPerfs0: number;
         let eloPerfs1: number;
-        if (is4Player) {
-          eloPerfs0 = wldPerfs0 + 2 * (0.5 - expected);
-          eloPerfs1 = wldPerfs1 + 2 * (expected - 0.5);
-        } else {
-          eloPerfs0 = wldPerfs0 + (0.5 - expected);
-          eloPerfs1 = wldPerfs1 + (expected - 0.5);
-        }
+        const expectedMult = is4Player ? 2 : 1;
+        eloPerfs0 = wldPerfs0 + expectedMult * (0.5 - expected);
+        eloPerfs1 = wldPerfs1 + expectedMult * (expected - 0.5);
         matchTrace.eloPerfs = [eloPerfs0, eloPerfs1];
 
         dbg.log(

@@ -296,11 +296,13 @@ describe('calculateRatings', () => {
       const result = calculateRatings(players, matches);
 
       // 4-player, all >= 10 games → pure Elo
-      // VB6 4-player: perfs cancel in first loop, only second loop (2x expected diff)
+      // createMatch(3, 3, 4) gives score1=3, score2=1 (split: each side wins one game)
+      // wldPerfs accumulate: +0.5-0.5=0 for both sides (cancel out)
+      // Expected adjustment runs once per game (myplayer loop), so 2x for 4p
       // side0=1500, side1=1400, expected≈0.640
-      // eloPerfs0 = 2*(0.5-0.640) = -0.28, eloPerfs1 = 2*(0.640-0.5) = 0.28
-      // Team 1 (side 0, winner): 1500 + (-0.28)*20 = 1494 (expected to win, small penalty)
-      // Team 2 (side 1, loser): 1400 + 0.28*20 = 1406
+      // eloPerfs0 = 0 + 2*(0.5-0.640) = -0.280, eloPerfs1 = 0 + 2*(0.640-0.5) = 0.280
+      // Team 1 (side 0, favored but split): 1500 + (-0.280)*20 = 1494
+      // Team 2 (side 1, underdog but split): 1400 + 0.280*20 = 1406
       expect(result.players[0].nRating).toBe(1494);
       expect(result.players[1].nRating).toBe(1494);
       expect(result.players[2].nRating).toBe(1406);
