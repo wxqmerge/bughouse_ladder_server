@@ -968,22 +968,19 @@ function calculateRatingsSinglePass(
         );
         matchTrace.wldPerfs = [wldPerfs0, wldPerfs1];
 
-        // VB6 lines 1502-1511: 4p does sides*2, +800*perf, sides/2 → effectively 400*perf
-        // 2p uses 800*perf directly (perf is ±0.5, so 800*0.5 = 400)
+        // Self-based perfRating: ownRating + multiplier * wldPerfs
+        // 4p: multiplier=400 (VB6 ×2/÷2 trick), per-player (not per-side)
+        // 2p: multiplier=800, ownRating = sideRating (same as per-side)
         const perfMultiplier = is4Player ? 400 : 800;
-        let perfRating0: number;
-        let perfRating1: number;
-        // VB6: sides(0) += 800*perfs(1), sides(1) += 800*perfs(0), then blend uses sides(1-myside)
-        // Two cross-ops cancel: side 0 blends with side1 + 800*wldPerfs0 (own perfs)
-        perfRating0 = side1 + perfMultiplier * wldPerfs0;
-        perfRating1 = side0 + perfMultiplier * wldPerfs1;
-
-        perfRating0 = Math.max(0, perfRating0);
-        perfRating1 = Math.max(0, perfRating1);
-        matchTrace.perfRatings = [perfRating0, perfRating1];
+        const side0PerfRating = side0 + perfMultiplier * wldPerfs0;
+        const side1PerfRating = side1 + perfMultiplier * wldPerfs1;
+        matchTrace.perfRatings = [
+          Math.max(0, side0PerfRating),
+          Math.max(0, side1PerfRating),
+        ];
 
         dbg.log(
-          `PERF RATING (for blending): sides=(${perfRating0.toFixed(1)}, ${perfRating1.toFixed(1)})`,
+          `PERF RATING (side-level, for 2p/trace): sides=(${matchTrace.perfRatings[0].toFixed(1)}, ${matchTrace.perfRatings[1].toFixed(1)})`,
         );
 
         // VB6 lines 1514-1519: expected adjustment runs once per game (myplayer loop)
@@ -1017,6 +1014,11 @@ function calculateRatingsSinglePass(
           const nratingBefore = currentRating.get(player.rank)!;
           playedToday.add(player.rank);
 
+          // Self-based perfRating: ownRating + multiplier * wldPerfs
+          // For 2p: ownRating = side0, so same as side0PerfRating
+          // For 4p: uses player's individual rating, not side average
+          const playerPerfRating = Math.max(0, nratingBefore + perfMultiplier * wldPerfs0);
+
           const update: PlayerDebugUpdate = {
             rank: player.rank,
             mySide: 0,
@@ -1040,13 +1042,13 @@ function calculateRatingsSinglePass(
             );
           } else {
             update.formula = "blend";
-            update.opposingPerfRating = perfRating0;
-            const blended = (nratingBefore * games + perfRating0) / (games + 1);
+            update.opposingPerfRating = playerPerfRating;
+            const blended = (nratingBefore * games + playerPerfRating) / (games + 1);
             update.nRatingAfterRaw = blended;
             update.nRatingAfter = Math.abs(blended);
             currentRating.set(player.rank, Math.abs(blended));
             dbg.log(
-              `  P${player.rank} [side 0, ${games} games]: BLEND → (${nratingBefore.toFixed(1)} × ${games} + ${perfRating0.toFixed(1)}) / ${games + 1} = ${blended.toFixed(1)} → abs = ${Math.abs(blended).toFixed(1)}`,
+              `  P${player.rank} [side 0, ${games} games]: BLEND → (${nratingBefore.toFixed(1)} × ${games} + ${playerPerfRating.toFixed(1)}) / ${games + 1} = ${blended.toFixed(1)} → abs = ${Math.abs(blended).toFixed(1)}`,
             );
           }
 
@@ -1058,6 +1060,9 @@ function calculateRatingsSinglePass(
           const games = careerGames.get(player.rank)!;
           const nratingBefore = currentRating.get(player.rank)!;
           playedToday.add(player.rank);
+
+          // Self-based perfRating: ownRating + multiplier * wldPerfs
+          const playerPerfRating = Math.max(0, nratingBefore + perfMultiplier * wldPerfs1);
 
           const update: PlayerDebugUpdate = {
             rank: player.rank,
@@ -1082,13 +1087,13 @@ function calculateRatingsSinglePass(
             );
           } else {
             update.formula = "blend";
-            update.opposingPerfRating = perfRating1;
-            const blended = (nratingBefore * games + perfRating1) / (games + 1);
+            update.opposingPerfRating = playerPerfRating;
+            const blended = (nratingBefore * games + playerPerfRating) / (games + 1);
             update.nRatingAfterRaw = blended;
             update.nRatingAfter = Math.abs(blended);
             currentRating.set(player.rank, Math.abs(blended));
             dbg.log(
-              `  P${player.rank} [side 1, ${games} games]: BLEND → (${nratingBefore.toFixed(1)} × ${games} + ${perfRating1.toFixed(1)}) / ${games + 1} = ${blended.toFixed(1)} → abs = ${Math.abs(blended).toFixed(1)}`,
+              `  P${player.rank} [side 1, ${games} games]: BLEND → (${nratingBefore.toFixed(1)} × ${games} + ${playerPerfRating.toFixed(1)}) / ${games + 1} = ${blended.toFixed(1)} → abs = ${Math.abs(blended).toFixed(1)}`,
             );
           }
 
