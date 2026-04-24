@@ -1186,7 +1186,7 @@ export default function LadderForm({
       console.log(`Total results after repopulation: ${totalAfterRepop}`);
 
       console.log('[RECALC] Calculating ratings...');
-      const calculatedPlayers = calculateRatings(processedPlayers, matches);
+      const calculatedPlayers = calculateRatings(processedPlayers, matches).players;
       console.log('[RECALC] Ratings calculated.');
 
       // Check for pending New Day operation (set by App.tsx before calling recalculate)
@@ -1431,7 +1431,7 @@ export default function LadderForm({
           console.log(`Total results after repopulation: ${totalAfterRepop}`);
         }
 
-        const calculatedPlayers = calculateRatings(processedPlayers, matches);
+        const calculatedPlayers = calculateRatings(processedPlayers, matches).players;
 
         // Save with waitForServer=true to wait for server confirmation
         (window as any).__ladder_setStatus?.('Saving to server...');
@@ -1481,7 +1481,7 @@ export default function LadderForm({
       }
 
       const processedPlayers = repopulateGameResults(players, matches, 31, playerResultsByMatch);
-      const calculatedPlayers = calculateRatings(processedPlayers, matches);
+      const calculatedPlayers = calculateRatings(processedPlayers, matches).players;
 
       // Push full table to server
       (window as any).__ladder_setStatus?.('Saving to server...');
@@ -1875,7 +1875,7 @@ export default function LadderForm({
       31,
       pendingPlayerResultsByMatch || undefined,
     );
-    let calculatedPlayers = calculateRatings(processedPlayers, pendingMatches);
+    let calculatedPlayers = calculateRatings(processedPlayers, pendingMatches).players;
 
     // Check for pending New Day operation
     const pendingNewDayJson = localStorage.getItem("ladder_pending_newday");

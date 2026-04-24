@@ -3,6 +3,23 @@
 > Based on VB6 source at `C:\Users\wxqme\Desktop\Bughouse_ladder\ladder.frm` (Sub recalc, lines 1397-1656)
 > Also: `common.bas` (parse_entry, formula, player2row, result_string)
 
+## VB6 → TypeScript Function Mapping
+
+| VB6 Function | TS Function | Location |
+|---|---|---|
+| `recalc()` | [`calculateRatings()`](shared/utils/hashUtils.ts:845) | `shared/utils/hashUtils.ts` |
+| `formula()` | [`formula()`](shared/utils/hashUtils.ts:68) | `shared/utils/hashUtils.ts` |
+| `parse_entry()` | [`parseEntry()`](shared/utils/hashUtils.ts:128) | `shared/utils/hashUtils.ts` |
+| `entry2string()` | [`entry2string()`](shared/utils/hashUtils.ts:92) | `shared/utils/hashUtils.ts` |
+| `string2long()` | [`string2long()`](shared/utils/hashUtils.ts:359) | `shared/utils/hashUtils.ts` |
+| `long2string()` | [`long2string()`](shared/utils/hashUtils.ts:371) | `shared/utils/hashUtils.ts` |
+| `DataHash()` | inline in [`processGameResults()`](shared/utils/hashUtils.ts:435) | `shared/utils/hashUtils.ts` |
+| `reset_hash()` | inline in [`processNewDayTransformations()`](shared/utils/constants.ts:44) | `shared/utils/constants.ts` |
+| `player2row()` | inline in [`processGameResults()`](shared/utils/hashUtils.ts:435) | `shared/utils/hashUtils.ts` |
+| `isvalid()` | `playedToday.has()` in [`calculateRatings()`](shared/utils/hashUtils.ts:845) | `shared/utils/hashUtils.ts` |
+| `result_string` | `RESULT_STRING` constant | `shared/utils/hashUtils.ts` |
+| `processNewDayTransformations()` | [`processNewDayTransformations()`](shared/utils/constants.ts:44) | `shared/utils/constants.ts` |
+
 ---
 
 ## 1. Overview of Changes
@@ -27,10 +44,10 @@ Multiple bugs in the original implementation needed fixing:
 
 ### 2.0 VB6 `scores` Array — Critical Distinction
 
-**`common.bas` line 90:** `result_string = "OLDWXYZ__________"`
+**`common.bas` line 90:** `result_string = "OLDWXYZ__________"` (TS: `RESULT_STRING` constant)
 - O=0, L=1, D=2, W=3 (InStr position - 1)
 
-**`common.bas` lines 223-226:** `score(0)` and `score(1)` parsed from result string
+**`common.bas` lines 223-226:** `score(0)` and `score(1)` parsed from result string (TS: [`parseEntry()`](shared/utils/hashUtils.ts:128) → `scoreList`)
 - **2-player:** only 1 result char → `scores(0)` = result, `scores(1)` = 0
 - **4-player:** 2 result chars → `scores(0)` = side 0 result, `scores(1)` = side 1 result
 
@@ -38,7 +55,7 @@ Multiple bugs in the original implementation needed fixing:
 - 2-player: only `myplayer=0` runs in both loops (scores(1)=0)
 - 4-player: both `myplayer=0` and `myplayer=1` run → W/L/D cancels, expected diff doubles
 
-### 2.1 VB6 `recalc()` — Key Sections
+### 2.1 VB6 `recalc()` — Key Sections (TS: [`calculateRatings()`](shared/utils/hashUtils.ts:845))
 
 **Lines 1422-1449: Initialization**
 ```vb
@@ -60,11 +77,11 @@ Next
 - Rating capped at 1200 for num_games=0 players
 - All ratings stored as absolute values
 
-**Lines 1474-1535: Match Processing (the core)**
+**Lines 1474-1535: Match Processing (the core)** (TS: [`calculateRatings()`](shared/utils/hashUtils.ts:845) match loop)
 ```vb
 For i = 1 To hashsize
-    ret = parse_entry(my_text$, players, scores, quick_entry)
-    Call player2row(players)
+    ret = parse_entry(my_text$, players, scores, quick_entry)  ' TS: parseEntry()
+    Call player2row(players)  ' TS: inline in processGameResults()
     If players(1) > 0 Then
         sides(0) = (nrating(players(0)) + nrating(players(1))) / 2
         sides(1) = (nrating(players(4)) + nrating(players(3))) / 2
@@ -72,7 +89,7 @@ For i = 1 To hashsize
         sides(0) = nrating(players(0))
         sides(1) = nrating(players(3))
     End If
-    perf = formula(sides(0), sides(1))
+    perf = formula(sides(0), sides(1))  ' TS: formula()
     perfs(0) = 0: perfs(1) = 0
     ' === FIRST LOOP: W/L/D component ===
     For myplayer = 0 To 1
@@ -125,10 +142,10 @@ Next
   - 2-player: `sides(0) = side0 - 800×wldPerfs`, `sides(1) = side1 + 800×wldPerfs`
   - 4-player: perfs=(0,0) → `sides` unchanged → perfRating = original side rating
 
-**Lines 1600-1610: Writing back nRating**
+**Lines 1600-1610: Writing back nRating** (TS: [`calculateRatings()`](shared/utils/hashUtils.ts:1032) final loop)
 ```vb
 For i = 1 To Chess.Rows - 1
-    If isvalid(i) Then
+    If isvalid(i) Then  ' TS: playedToday.has(p.rank)
         If (Val(Chess.TextMatrix(i, rating_field)) < 0) Then
             Chess.TextMatrix(i, nrating_field) = Str$(-Int(nrating(i)))
         Else
@@ -153,31 +170,31 @@ No intermediate stats map needed — all processing is inline per match.
 
 ### 3.2 Match Processing (inline, replaces Elo loop + post-loop)
 
-For each match:
+Implemented in [`calculateRatings()`](shared/utils/hashUtils.ts:845) match loop. For each match:
 
-1. **Compute side ratings** (VB6 ladder.frm:1479-1485):
+1. **Compute side ratings** (VB6 ladder.frm:1479-1485, TS: `calculateRatings():898-923`):
    - 2-player: `side[0] = nrating(p1)`, `side[1] = nrating(p2)`
    - 4-player: `side[0] = (nrating(p1) + nrating(p2)) / 2`, `side[1] = (nrating(p3) + nrating(p4)) / 2`
 
-2. **Compute expected score** (VB6 ladder.frm:1486, common.bas:129-131):
+2. **Compute expected score** (VB6 ladder.frm:1486, common.bas:129-131, TS: [`formula()`](shared/utils/hashUtils.ts:68), `calculateRatings():926`):
    ```typescript
    expected = 1 / (1 + 10^((abs(side1) - abs(side0)) / 400))
    ```
 
-3. **W/L/D component** (VB6 ladder.frm:1489-1501):
+3. **W/L/D component** (VB6 ladder.frm:1489-1501, TS: `calculateRatings():934`):
    - 2-player: `wldPerfs = ±0.5` (only scores(0) > 0, scores(1) = 0)
    - 4-player: `wldPerfs = ±0.5` but cancels to 0 in perfs (both scores > 0)
 
-4. **PerfRating for blending** (VB6 ladder.frm:1502-1513, uses perfs from first loop only):
+4. **PerfRating for blending** (VB6 ladder.frm:1502-1513, TS: `calculateRatings():958-980`, uses perfs from first loop only):
    - 2-player: `perfRating[0] = side0 - 800×wldPerfs`, `perfRating[1] = side1 + 800×wldPerfs`
    - 4-player: `perfRating[0] = side0`, `perfRating[1] = side1` (perfs cancel to 0)
    - Clamp: `perfRating = max(0, perfRating)`
 
-5. **Elo perfs** (VB6 ladder.frm:1514-1519, second loop adds expected diff):
+5. **Elo perfs** (VB6 ladder.frm:1514-1519, TS: `calculateRatings():936-956`, second loop adds expected diff):
    - 2-player: `eloPerfs[0] = wldPerfs + (0.5 - expected)`, `eloPerfs[1] = -wldPerfs + (expected - 0.5)`
    - 4-player: `eloPerfs[0] = 2×(0.5 - expected)`, `eloPerfs[1] = 2×(expected - 0.5)`
 
-6. **Update nRating** (VB6 ladder.frm:1521-1533):
+6. **Update nRating** (VB6 ladder.frm:1521-1533, TS: `calculateRatings():999-1029`):
    - `num_games > 9`: `nRating += eloPerfs(myside) × kFactor` (Elo accumulation)
    - `num_games <= 9`: `nRating = (nRating × num_games + perfRating(1-myside)) / (num_games + 1)` (cross-side blending)
    - Store: `nRating = abs(nRating)`
@@ -204,7 +221,7 @@ For each match:
 
 ## 4. Implementation Plan
 
-### 4.1 `shared/utils/hashUtils.ts` — `calculateRatings()`
+### 4.1 [`shared/utils/hashUtils.ts`](shared/utils/hashUtils.ts:845) — `calculateRatings()`
 
 **Remove:**
 - `gameStats` map with `score`, `opponentRatings[]`, `gamesToday`
@@ -232,11 +249,11 @@ For each match:
 - `trophyEligible` — never touched during recalculation (set at file I/O time)
 - `effectiveRatings` map can be removed entirely
 
-### 4.2 `shared/utils/hashUtils.ts` — `processGameResults()`
+### 4.2 [`shared/utils/hashUtils.ts`](shared/utils/hashUtils.ts:435) — `processGameResults()`
 
 **No changes needed** — validation, dedup, and conflict detection are correct.
 
-### 4.3 `shared/utils/constants.ts` — `processNewDayTransformations()`
+### 4.3 [`shared/utils/constants.ts`](shared/utils/constants.ts:44) — `processNewDayTransformations()`
 
 **No changes needed** — already correctly:
 - Uses `trophyEligible` to decide whether rating goes negative
@@ -359,7 +376,7 @@ The VB6 approach means experienced players start from their current nRating and 
 
 ### 6.5 Cross-Side Blending (DISCOVERED BUG)
 
-- VB6 line 1528: `nrating(players(pl)) = (nrating(players(pl)) * num_games(players(pl)) + sides(1 - myside)) / (num_games(players(pl)) + 1)`
+- VB6 line 1528, TS: `calculateRatings():1011-1012,1024-1025`: `nrating(players(pl)) = (nrating(players(pl)) * num_games(players(pl)) + sides(1 - myside)) / (num_games(players(pl)) + 1)`
 - `sides(1 - myside)` means side 0 blends with side 1's perfRating, side 1 with side 0's
 - Initial implementation had it backwards — each side blended with its own perfRating
 - **Impact**: Blending direction inverted
@@ -367,14 +384,14 @@ The VB6 approach means experienced players start from their current nRating and 
 
 ### 6.6 Rating Column NOT Updated During Recalc (DISCOVERED BUG)
 
-- VB6 lines 1600-1610: only `nrating_field` updated during recalc
-- VB6 lines 1611-1627: `rating_field` only updated during New Day (Index >= 2)
+- VB6 lines 1600-1610, TS: `calculateRatings():1032-1043`: only `nrating_field` updated during recalc
+- VB6 lines 1611-1627, TS: [`processNewDayTransformations()`](shared/utils/constants.ts:44): `rating_field` only updated during New Day (Index >= 2)
 - Original implementation updated `rating` during recalc — overwrote user edits
 - **Fix**: Do NOT update `rating` during recalc
 
 ### 6.7 Non-Playing Players (DISCOVERED BUG)
 
-- VB6: only writes nRating for players where `isvalid(i)` is true
+- VB6: only writes nRating for players where `isvalid(i)` is true; TS: `playedToday.has()` in [`calculateRatings():1038-1042`](shared/utils/hashUtils.ts:1038)
 - Players who didn't play get `nRating = 0`
 - **Fix**: Track `playedToday` set, set `nRating = 0` for non-playing players
 
@@ -388,7 +405,7 @@ The VB6 approach means experienced players start from their current nRating and 
 
 - `nRating` must be reset to 0 during New Day
 - Otherwise stale `nRating` overrides user edits to `rating` column
-- **Fix**: `processNewDayTransformations` sets `nRating: 0`
+- **Fix**: [`processNewDayTransformations()`](shared/utils/constants.ts:44) sets `nRating: 0`
 
 ---
 
@@ -396,9 +413,9 @@ The VB6 approach means experienced players start from their current nRating and 
 
 | File | Changes |
 |------|---------|
-| `shared/utils/hashUtils.ts` | Rewrite `calculateRatings()` to match VB6 inline algorithm |
-| `shared/types/index.ts` | Added `side0Won: boolean` to `MatchData` |
-| `src/test/unit/calculateRatings.test.ts` | Remove wrong-formula tests, add VB6-matching tests |
+| [`shared/utils/hashUtils.ts`](shared/utils/hashUtils.ts) | `calculateRatings()`(845), `formula()`(68), `parseEntry()`(128), `processGameResults()`(435) |
+| [`shared/types/index.ts`](shared/types/index.ts) | Added `side0Won: boolean` to `MatchData` |
+| [`src/test/unit/calculateRatings.test.ts`](src/test/unit/calculateRatings.test.ts) | Remove wrong-formula tests, add VB6-matching tests |
 
 ---
 
