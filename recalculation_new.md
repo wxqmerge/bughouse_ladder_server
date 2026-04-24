@@ -24,19 +24,16 @@
 
 ## 1. Overview of Changes
 
-Multiple bugs in the original implementation needed fixing:
-
-| # | Bug | Original (wrong) | VB6 (correct) | Impact |
-|---|---|---|---|---|
-| 1 | **Performance formula** | `avg ± 200` (fixed bonus) | `avg + 800 * (actual - expected)` | 100% win rate gives +200 instead of +400+ |
-| 2 | **Blending timing** | Post-loop with `perfBlendingFactor` | Inline during match processing | New players get wrong weights |
-| 3 | **Elo for >9 games** | Fresh `nRating = abs(round(rating + K*(actual-expected)))` | `nRating += perfs * kFactor` (accumulates) | Experienced players don't accumulate properly |
-| 4 | **Cross-side blending** | Own side's perfRating | Opposing side's perfRating (`sides(1-myside)`) | Blending direction inverted |
-| 5 | **Elo perfs formula** | `±0.5 + 2×(0.5-exp)` for all | 2-player: `±0.5 + 1×(0.5-exp)`; 4-player: `2×(0.5-exp)` only | Wrong Elo adjustment |
-| 6 | **2-player vs 4-player scores** | Same perfs computation | `scores(1)=0` in 2-player → loops run once; `scores(1)>0` in 4-player → loops run twice, W/L/D cancels | Fundamental difference missed |
-| 7 | **Rating column overwrite** | `rating` updated during recalc | `rating` only updated during New Day (line 1611+) | User edits to rating get overwritten |
-| 8 | **Init rating source** | `nRating` always preferred | `rating` for num_games>0, `nRating` for num_games=0 | User edits ignored |
-| 9 | **nRating reset** | Not reset during New Day | Reset to 0 during New Day | Stale nRating overrides user edits |
+| # | Change | Detail |
+|---|---|---|
+| 1 | **Self-based perfRating** | `ownRating + multiplier * wldPerfs` (not opponent-based) |
+| 2 | **4p multiplier = 200** | Per result: wldPerfs accumulates ±0.5 per game, multiplier 200 per result |
+| 3 | **2p multiplier = 800** | Single result only, wldPerfs ±0.5, 800 × 0.5 = 400 effective |
+| 4 | **Elo expected multiplier** | 2p: 1× always; 4p dual: 2× (VB6 loop runs once per game) |
+| 5 | **nRating minimum 1** | VB6 line 1613: `If nrating(i) < 1 Then nrating(i) = 1` |
+| 6 | **Rating cap 1800** | num_games=0 players capped at 1800 on initialization |
+| 7 | **Double-pass averaging** | Always used; dampens extreme swings for new players |
+| 8 | **Dual result support** | Both 2p and 4p can have 1 or 2 independent game results |
 
 ---
 
@@ -47,15 +44,13 @@ Multiple bugs in the original implementation needed fixing:
 **`common.bas` line 90:** `result_string = "OLDWXYZ__________"` (TS: `RESULT_STRING` constant)
 - O=0, L=1, D=2, W=3 (InStr position - 1)
 
-**`common.bas` lines 223-226:** `score(0)` and `score(1)` parsed from result string (TS: [`parseEntry()`](shared/utils/hashUtils.ts:128) → `scoreList`)
+**`common.bas` lines 223-226:** `score(0)` and `score(1)` parsed from result string
 - **2-player:** only 1 result char → `scores(0)` = result, `scores(1)` = 0
 - **4-player:** 2 result chars → `scores(0)` = side 0 result, `scores(1)` = side 1 result
 
-**This is the KEY distinction** — the VB6 loops check `scores(myplayer) > 0`, so:
-- 2-player: only `myplayer=0` runs in both loops (scores(1)=0)
-- 4-player: both `myplayer=0` and `myplayer=1` run → W/L/D cancels, expected diff doubles
+**Dual results:** Both 2p and 4p can have a second result (score2 > 0). The wldPerfs loop accumulates ±0.5 for each result independently.
 
-### 2.1 VB6 `recalc()` — Key Sections (TS: [`calculateRatings()`](shared/utils/hashUtils.ts:845))
+### 2.1 VB6 `recalc()` — Key Sections
 
 **Lines 1422-1449: Initialization**
 ```vb
@@ -74,14 +69,14 @@ Next
 ```
 - `num_games` read from file (career history)
 - `nrating` initialized from rating (or nRating if num_games=0)
-- Rating capped at 1200 for num_games=0 players
+- Rating capped at 1200 for num_games=0 (TS uses 1800 cap)
 - All ratings stored as absolute values
 
-**Lines 1474-1535: Match Processing (the core)** (TS: [`calculateRatings()`](shared/utils/hashUtils.ts:845) match loop)
+**Lines 1474-1535: Match Processing (the core)**
 ```vb
 For i = 1 To hashsize
-    ret = parse_entry(my_text$, players, scores, quick_entry)  ' TS: parseEntry()
-    Call player2row(players)  ' TS: inline in processGameResults()
+    ret = parse_entry(my_text$, players, scores, quick_entry)
+    Call player2row(players)
     If players(1) > 0 Then
         sides(0) = (nrating(players(0)) + nrating(players(1))) / 2
         sides(1) = (nrating(players(4)) + nrating(players(3))) / 2
@@ -89,7 +84,7 @@ For i = 1 To hashsize
         sides(0) = nrating(players(0))
         sides(1) = nrating(players(3))
     End If
-    perf = formula(sides(0), sides(1))  ' TS: formula()
+    perf = formula(sides(0), sides(1))
     perfs(0) = 0: perfs(1) = 0
     ' === FIRST LOOP: W/L/D component ===
     For myplayer = 0 To 1
@@ -115,7 +110,7 @@ For i = 1 To hashsize
             perfs(1) = perfs(1) + (perf - 0.5)
         End If
     Next
-    ' === UPDATE EACH PLAYER (uses perfs from BOTH loops) ===
+    ' === UPDATE EACH PLAYER ===
     For myside = 0 To 1
         For myplayer = 0 To 1
             pl = myside * 3 + myplayer
@@ -131,167 +126,103 @@ For i = 1 To hashsize
 Next
 ```
 
-**CRITICAL: 2-player vs 4-player perfs difference:**
-- **2-player** (`scores(1)=0`): first loop runs once (±0.5), second loop runs once (+0.5-exp)
-  - `perfs(0) = ±0.5 + (0.5 - expected)`
-  - `perfs(1) = ∓0.5 + (expected - 0.5)`
-- **4-player** (`scores(1)>0`): first loop runs twice (±0.5 cancels to 0), second loop runs twice
-  - `perfs(0) = 2 × (0.5 - expected)`
-  - `perfs(1) = 2 × (expected - 0.5)`
-- **PerfRating for blending** uses perfs from AFTER first loop, BEFORE second:
-  - 2-player: `sides(0) = side0 - 800×wldPerfs`, `sides(1) = side1 + 800×wldPerfs`
-  - 4-player: perfs=(0,0) → `sides` unchanged → perfRating = original side rating
-
-**Lines 1600-1610: Writing back nRating** (TS: [`calculateRatings()`](shared/utils/hashUtils.ts:1032) final loop)
+**Lines 1600-1610: Writing back nRating**
 ```vb
 For i = 1 To Chess.Rows - 1
-    If isvalid(i) Then  ' TS: playedToday.has(p.rank)
-        If (Val(Chess.TextMatrix(i, rating_field)) < 0) Then
-            Chess.TextMatrix(i, nrating_field) = Str$(-Int(nrating(i)))
-        Else
-            Chess.TextMatrix(i, nrating_field) = Str$(Int(nrating(i)))
-        End If
+    If isvalid(i) Then
+        Chess.TextMatrix(i, nrating_field) = Str$(Int(nrating(i)))
     Else
         Chess.TextMatrix(i, nrating_field) = "0"
     End If
 Next
 ```
-- trophyEligible determined by `rating` (old_rating) column sign
-- Negative rating → nRate written with "-" prefix
-- Positive/zero rating → nRate written without sign
+
+**Line 1613: Minimum nRating**
+```vb
+If nrating(i) < 1 Then nrating(i) = 1
+```
+
+### 2.2 TS Implementation — Self-Based PerfRating
+
+The VB6 uses `sides(1-myside)` for blending (cross-side). However, the VB6 perfRating formula already incorporates a cross-side operation (`sides(0) += 800*perfs(1)`). These two cross-ops cancel, making the effective blend **self-based**:
+
+- Side 0 players blend with: `sides(1-myside)` = `sides(1)` = `side1 + 800*perfs(0)` = `side1 + 800*own_wldPerfs`
+- But for 4p with the ×2/÷2 trick: effective multiplier is halved
+
+**Our TS approach simplifies this to:** `ownRating + multiplier * wldPerfs`
+- **2p:** `ownRating + 800 * wldPerfs` (ownRating = sideRating)
+- **4p:** `ownRating + 200 * wldPerfs` (per-player, per-result)
+
+### 2.3 Dual Results
+
+Both 2p and 4p games can have 1 or 2 independent game results. The wldPerfs loop accumulates ±0.5 per result:
+- Single result: wldPerfs = ±0.5
+- Dual result (both won): wldPerfs = ±1.0
+- Dual result (split): wldPerfs = 0
 
 ---
 
 ## 3. Corrected Algorithm
 
-### 3.1 Data Structures
+### 3.1 Match Processing
 
-No intermediate stats map needed — all processing is inline per match.
+For each match:
 
-### 3.2 Match Processing (inline, replaces Elo loop + post-loop)
-
-Implemented in [`calculateRatings()`](shared/utils/hashUtils.ts:845) match loop. For each match:
-
-1. **Compute side ratings** (VB6 ladder.frm:1479-1485, TS: `calculateRatings():898-923`):
+1. **Compute side ratings:**
    - 2-player: `side[0] = nrating(p1)`, `side[1] = nrating(p2)`
    - 4-player: `side[0] = (nrating(p1) + nrating(p2)) / 2`, `side[1] = (nrating(p3) + nrating(p4)) / 2`
 
-2. **Compute expected score** (VB6 ladder.frm:1486, common.bas:129-131, TS: [`formula()`](shared/utils/hashUtils.ts:68), `calculateRatings():926`):
+2. **Compute expected score:**
    ```typescript
    expected = 1 / (1 + 10^((abs(side1) - abs(side0)) / 400))
    ```
 
-3. **W/L/D component** (VB6 ladder.frm:1489-1501, TS: `calculateRatings():934`):
-   - 2-player: `wldPerfs = ±0.5` (only scores(0) > 0, scores(1) = 0)
-   - 4-player: `wldPerfs = ±0.5` but cancels to 0 in perfs (both scores > 0)
+3. **W/L/D component** (accumulate per result):
+   ```typescript
+   wldPerfs0 = 0; wldPerfs1 = 0;
+   for each score in [score1, score2 (if > 0)]:
+     if score == 3: wldPerfs0 += 0.5; wldPerfs1 -= 0.5
+     if score == 1: wldPerfs0 -= 0.5; wldPerfs1 += 0.5
+   ```
 
-4. **PerfRating for blending** (VB6 ladder.frm:1502-1513, TS: `calculateRatings():958-980`, uses perfs from first loop only):
-   - 2-player: `perfRating[0] = side0 - 800×wldPerfs`, `perfRating[1] = side1 + 800×wldPerfs`
-   - 4-player: `perfRating[0] = side0`, `perfRating[1] = side1` (perfs cancel to 0)
+4. **PerfRating for blending** (self-based):
+   - 2-player: `perfRating = ownRating + 800 * wldPerfs`
+   - 4-player: `perfRating = ownRating + 200 * wldPerfs` (per-player)
    - Clamp: `perfRating = max(0, perfRating)`
 
-5. **Elo perfs** (VB6 ladder.frm:1514-1519, TS: `calculateRatings():936-956`, second loop adds expected diff):
-   - 2-player: `eloPerfs[0] = wldPerfs + (0.5 - expected)`, `eloPerfs[1] = -wldPerfs + (expected - 0.5)`
-   - 4-player: `eloPerfs[0] = 2×(0.5 - expected)`, `eloPerfs[1] = 2×(expected - 0.5)`
+5. **Elo perfs** (expected diff added once per result):
+   - 2-player: `eloPerfs = wldPerfs + 1 * (0.5 - expected)`
+   - 4-player dual: `eloPerfs = wldPerfs + 2 * (0.5 - expected)`
+   - 4-player single: `eloPerfs = wldPerfs + 1 * (0.5 - expected)`
 
-6. **Update nRating** (VB6 ladder.frm:1521-1533, TS: `calculateRatings():999-1029`):
-   - `num_games > 9`: `nRating += eloPerfs(myside) × kFactor` (Elo accumulation)
-   - `num_games <= 9`: `nRating = (nRating × num_games + perfRating(1-myside)) / (num_games + 1)` (cross-side blending)
+6. **Update nRating:**
+   - `num_games > 9`: `nRating += eloPerfs * kFactor` (Elo accumulation)
+   - `num_games <= 9`: `nRating = (nRating * num_games + perfRating) / (num_games + 1)` (self-based blending)
    - Store: `nRating = abs(nRating)`
    - Increment: `num_games++`
 
-### 3.3 Key Differences from Original Code
+### 3.2 Key Differences from Original Code
 
-| Aspect | Original (wrong) | Correct (VB6) |
+| Aspect | Original (wrong) | Correct (current) |
 |---|---|---|
-| Performance formula | `avg ± 200` | `avg + 800 * (actual - expected)` |
-| Blending | Post-loop, `perfBlendingFactor` used | Inline per-game, no damping factor |
-| Blending perfRating | Own side's perfRating | **Opposing side's perfRating** (`sides(1-myside)`) |
-| >9 games Elo | Fresh `nRating = abs(round(rating + K*(actual-expected)))` | `nRating += eloPerfs * kFactor` (incremental) |
-| Elo perfs 2-player | `±0.5 + 2×(0.5-exp)` | `±0.5 + 1×(0.5-exp)` (loop runs once) |
-| Elo perfs 4-player | Same as 2-player | `2×(0.5-exp)` only (W/L/D cancels, loop runs twice) |
-| 4-player perfRating | Applied ±400 adjustment | No adjustment (perfs cancel to 0) |
-| 4-player sides | Uses individual player ratings | Average of team members |
-| Rating column | Updated during recalc | Only updated during New Day |
-| Init rating source | `nRating` always preferred | `rating` for num_games>0, `nRating` for num_games=0 |
-| Non-playing players | `nRating` unchanged | `nRating = 0` for players who didn't play |
-| Final rounding | Not rounded | `Math.round()` (VB6: `Int()`) |
+| PerfRating base | Opponent side rating | **Own rating** (self-based) |
+| 2p multiplier | 800 | 800 |
+| 4p multiplier | 400 (per side) | **200** (per player, per result) |
+| Blending | Cross-side (`sides(1-myside)`) | Self-based (own perfRating) |
+| >9 games Elo | Fresh calculation | Incremental (`nRating += eloPerfs * K`) |
+| Elo perfs 2p | `±0.5 + 2×(0.5-exp)` | `±0.5 + 1×(0.5-exp)` |
+| Elo perfs 4p dual | Same as 2p | `wldPerfs + 2×(0.5-exp)` |
+| Elo perfs 4p single | Same as 2p | `wldPerfs + 1×(0.5-exp)` |
+| Dual results | 4p only, always dual | Both 2p and 4p, 30% dual in stress test |
+| nRating minimum | 0 | **1** (VB6 line 1613) |
+| Rating cap | 1200 | **1800** |
+| Double-pass | Optional | **Always** |
 
 ---
 
-## 4. Implementation Plan
+## 4. Expected Behavior
 
-### 4.1 [`shared/utils/hashUtils.ts`](shared/utils/hashUtils.ts:845) — `calculateRatings()`
-
-**Remove:**
-- `gameStats` map with `score`, `opponentRatings[]`, `gamesToday`
-- Effective ratings snapshot map (no longer needed — we read nRating directly)
-- `perfBlendingFactor` usage (no-op, keep in settings for UI compat)
-- Post-loop performance rating calculation
-- Post-loop blending logic
-
-**Add:**
-- Inline match processing with side ratings, score error accumulation, performance rating
-- **Two-loop perfs** matching VB6: first loop (W/L/D), second loop (expected diff)
-- **2-player vs 4-player distinction**: scores(1)=0 in 2-player → loops run once; scores(1)>0 in 4-player → loops run twice, W/L/D cancels
-- **Elo perfs**: 2-player = `wldPerfs + (0.5-expected)`, 4-player = `2×(0.5-expected)` only
-- **PerfRating**: opponent side + 800×wldPerfs (2p: ±400 adjustment, 4p: wldPerfs=0 so perfRating = opponent side)
-- **SAME-SIDE BLENDING**: `nRating = (nRating * num_games + perfRating_own) / (num_games + 1)` — side 0 blends with perfRating0 (opponent-based), side 1 with perfRating1
-- Elo accumulation inline: `nRating += eloPerfs * kFactor` for `num_games > 9`
-- `num_games++` after each match processed
-- `playedToday` set to track which players played
-- Final rounding: `Math.round()` for players who played
-- `nRating = 0` for players who didn't play
-- `rating` column NOT changed during recalc (only updated during New Day)
-- Init: `rating` for num_games>0, `nRating` for num_games=0 (with 1200 cap)
-
-**Preserve:**
-- `trophyEligible` — never touched during recalculation (set at file I/O time)
-- `effectiveRatings` map can be removed entirely
-
-### 4.2 [`shared/utils/hashUtils.ts`](shared/utils/hashUtils.ts:435) — `processGameResults()`
-
-**No changes needed** — validation, dedup, and conflict detection are correct.
-
-### 4.3 [`shared/utils/constants.ts`](shared/utils/constants.ts:44) — `processNewDayTransformations()`
-
-**No changes needed** — already correctly:
-- Uses `trophyEligible` to decide whether rating goes negative
-- Resets gameResults, updates num_games, attendance
-
-### 4.4 `shared/types/index.ts` — PlayerData & MatchData
-
-**PlayerData:** No changes needed — `trophyEligible` field already present.
-
-**MatchData:** Added `side0Won: boolean` field to track which original side won (needed because `processGameResults` normalizes/swaps sides).
-
-### 4.5 `src/test/unit/calculateRatings.test.ts`
-
-**Remove tests based on wrong formulas:**
-- All tests expecting `avg ± 200` performance rating
-- Tests for `perfBlendingFactor` behavior
-- Tests for fresh Elo calculation for >9 games
-
-**Add tests based on VB6:**
-- Performance rating: `avg + 800 * (actual - expected)`
-- Blending: inline `(nRating * num_games + perfRating) / (num_games + 1)`
-- Elo accumulation: `nRating += perfs * kFactor` for >9 games
-- 4-player: side averaging, opposing side error
-- Edge cases: negative perf clamped to 0, nRating stored as abs
-
-### 4.6 `src/test/fixtures/players.ts`
-
-**No changes needed** — already has `trophyEligible` field.
-
-### 4.7 `src/test/unit/newDay.test.ts`
-
-**No changes needed** — New Day logic is correct.
-
----
-
-## 5. Expected Behavior Changes
-
-### 5.1 Elo Perfs Examples (2-player, >9 games)
+### 4.1 Elo Perfs Examples (2-player, >9 games, single result)
 
 | Scenario | eloPerfs | Elo Change (K=20) |
 |---|---|---|
@@ -300,128 +231,80 @@ Implemented in [`calculateRatings()`](shared/utils/hashUtils.ts:845) match loop.
 | Win vs stronger (expected=0.25) | `0.5 + (0.5-0.25) = 0.75` | +15 |
 | Draw vs equal (expected=0.5) | `0 + (0.5-0.5) = 0` | 0 |
 | Loss vs equal (expected=0.5) | `-0.5 + (0.5-0.5) = -0.5` | -10 |
-| Loss vs weaker (expected=0.25) | `-0.5 + (0.5-0.25) = -0.25` | -5 |
-| Loss vs stronger (expected=0.75) | `-0.5 + (0.5-0.75) = -0.75` | -15 |
 
-### 5.2 Elo Perfs Examples (4-player, >9 games)
+### 4.2 Elo Perfs Examples (4-player, >9 games, dual result — both won)
 
 | Scenario | eloPerfs | Elo Change (K=20) |
 |---|---|---|
-| Win vs equal (expected=0.5) | `2×(0.5-0.5) = 0` | 0 |
-| Win vs weaker (expected=0.75) | `2×(0.5-0.75) = -0.5` | -10 |
-| Win vs stronger (expected=0.25) | `2×(0.5-0.25) = 0.5` | +10 |
-| Loss vs equal (expected=0.5) | `2×(0.5-0.5) = 0` | 0 |
-| Loss vs weaker (expected=0.25) | `2×(0.5-0.25) = 0.5` | +10 |
-| Loss vs stronger (expected=0.75) | `2×(0.5-0.75) = -0.5` | -10 |
+| Won both vs equal (expected=0.5) | `1.0 + 2*(0.5-0.5) = 1.0` | +20 |
+| Won both vs weaker (expected=0.75) | `1.0 + 2*(0.5-0.75) = 0.5` | +10 |
+| Won both vs stronger (expected=0.25) | `1.0 + 2*(0.5-0.25) = 1.5` | +30 |
+| Split (each won 1) vs equal | `0 + 2*(0.5-0.5) = 0` | 0 |
+| Split vs weaker (expected=0.75) | `0 + 2*(0.5-0.75) = -0.5` | -10 |
+| Lost both vs stronger (expected=0.25) | `-1.0 + 2*(0.75-0.5) = -0.5` | -10 |
 
-**Note:** In 4-player Elo, W/L/D cancels out. Only the expected score differential matters. A win against a weaker team gives LESS Elo (or even negative), while a loss against a stronger team gives MORE Elo. This is because the ±0.5 component cancels when both sides have scores > 0.
+### 4.3 Blending Examples (4-player, <10 games, dual result — both won)
 
-### 5.3 Blending for New Players (<10 games)
+**Example: 100+900 vs 400+600, side 0 wins both games**
 
-| num_games | VB6 blending |
-|---|---|
-| 0 | Raw **opposing side's** perfRating (capped at 1200) |
-| 3 | `(nRating * 3 + opposing_perf * 1) / 4` per game |
-| 9 | `(nRating * 9 + opposing_perf * 1) / 10` per game |
+PerfRating (self-based, multiplier 200):
+- P1 (100): `100 + 200 * 1.0 = 300`
+- P2 (900): `900 + 200 * 1.0 = 1100`
+- P3 (400): `400 + 200 * (-1.0) = 200`
+- P4 (600): `600 + 200 * (-1.0) = 400`
 
-**CRITICAL CROSS-SIDE BLENDING:** VB6 uses `sides(1 - myside)` — side 0 players blend with side 1's perfRating, and side 1 players blend with side 0's perfRating.
+Each player blends with their own perfRating:
+- P1 (num_games=0): `(100*0 + 300) / 1 = 300`
+- P2 (num_games=0): `(900*0 + 1100) / 1 = 1100`
+- P3 (num_games=0): `(400*0 + 200) / 1 = 200`
+- P4 (num_games=0): `(600*0 + 400) / 1 = 400`
 
-**2-player perfRating:** `perfRating[0] = side0 - 800×wldPerfs`, `perfRating[1] = side1 + 800×wldPerfs`
-- Winner's perfRating is LOWER (side - 400), loser's is HIGHER (side + 400)
-- Cross-side: winner blends with loser's higher perfRating, loser blends with winner's lower perfRating
+### 4.4 Blending Examples (2-player, <10 games, single result)
 
-**4-player perfRating:** `perfRating = original side rating` (perfs cancel to 0)
-- Cross-side: winning side blends with losing side's lower rating, losing side with winning side's higher rating
+**Example: P1(1200) beats P2(1200), num_games=5**
 
-The VB6 blends one game at a time, so the weight of each game is `1/(num_games+1)`. Career history (`num_games`) is the weight for historical rating.
+PerfRating (self-based, multiplier 800):
+- P1: `1200 + 800 * 0.5 = 1600`
+- P2: `1200 + 800 * (-0.5) = 800`
 
-### 5.4 Experienced Players (>9 games)
+Blending:
+- P1: `(1200*5 + 1600) / 6 = 1267`
+- P2: `(1200*5 + 800) / 6 = 1133`
 
-| Aspect | Original | VB6 |
-|---|---|---|
-| Formula | Fresh `nRating = abs(round(rating + K*(actual-expected)))` | `nRating += eloPerfs * K` |
-| Consistency | Depends on match processing order | Same — both accumulate |
-| Starting point | Always from `rating` (old rating) | From accumulated nRating |
+### 4.5 Experienced Players (>9 games)
 
-The VB6 approach means experienced players start from their current nRating and adjust incrementally. The original approach recalculated from scratch each time, which could produce different results if the match order changed.
+Incremental Elo accumulation. Each match adjusts the current nRating by `eloPerfs * kFactor`. Multiple matches accumulate.
 
 ---
 
-## 6. Edge Cases & Discovered Bugs
+## 5. Edge Cases
 
-### 6.1 Zero/Blank Ratings
+### 5.1 Zero/Blank Ratings
+- `num_games === 0` → use nRating from file, cap at 1800
+- `num_games > 0` → use rating column
 
-- VB6: `num_games === 0` → use nRating from file, cap at 1200
-- Init: `rating` for num_games>0, `nRating` for num_games=0
-- **Fix**: Match VB6 — read `rating` for players with games, `nRating` for num_games=0
+### 5.2 Negative Performance Rating
+- Clamped to 0: `perfRating = max(0, perfRating)`
 
-### 6.2 Negative Performance Rating
-
-- VB6: `If sides(0) < 0 Then sides(0) = 0` — clamp to 0
-- **Fix**: Clamp perfRating to 0 before blending
-
-### 6.3 4-Player Score Distinction (CRITICAL)
-
-- VB6 `scores` array: 2-player has `scores(1)=0`, 4-player has `scores(1)>0`
-- VB6 loops check `scores(myplayer) > 0`:
-  - 2-player: loops run once → `eloPerfs = ±0.5 + (0.5-expected)`
-  - 4-player: loops run twice → W/L/D cancels, `eloPerfs = 2×(0.5-expected)`
-- **Fix**: Detect 2-player vs 4-player, apply correct Elo perfs formula
-
-### 6.4 trophyEligible Preservation
-
-- VB6: sign determined by `rating` column, written to `nrating_field`
-- `trophyEligible` never touched during recalculation (set at file I/O time)
-- No change needed
-
-### 6.5 Cross-Side Blending (DISCOVERED BUG)
-
-- VB6 line 1528, TS: `calculateRatings():1011-1012,1024-1025`: `nrating(players(pl)) = (nrating(players(pl)) * num_games(players(pl)) + sides(1 - myside)) / (num_games(players(pl)) + 1)`
-- `sides(1 - myside)` means side 0 blends with side 1's perfRating, side 1 with side 0's
-- Initial implementation had it backwards — each side blended with its own perfRating
-- **Impact**: Blending direction inverted
-- **Fix**: Swap perfRating0/perfRating1 in blending loops
-
-### 6.6 Rating Column NOT Updated During Recalc (DISCOVERED BUG)
-
-- VB6 lines 1600-1610, TS: `calculateRatings():1032-1043`: only `nrating_field` updated during recalc
-- VB6 lines 1611-1627, TS: [`processNewDayTransformations()`](shared/utils/constants.ts:44): `rating_field` only updated during New Day (Index >= 2)
-- Original implementation updated `rating` during recalc — overwrote user edits
-- **Fix**: Do NOT update `rating` during recalc
-
-### 6.7 Non-Playing Players (DISCOVERED BUG)
-
-- VB6: only writes nRating for players where `isvalid(i)` is true; TS: `playedToday.has()` in [`calculateRatings():1038-1042`](shared/utils/hashUtils.ts:1038)
+### 5.3 nRating Minimum
+- VB6 line 1613: `If nrating(i) < 1 Then nrating(i) = 1`
+- Applied after each pass and after averaging
 - Players who didn't play get `nRating = 0`
-- **Fix**: Track `playedToday` set, set `nRating = 0` for non-playing players
 
-### 6.8 Final Rounding
+### 5.4 trophyEligible Preservation
+- Determined by `rating` column sign
+- Never touched during recalculation
+- Set at file I/O time
 
-- VB6: uses `Int()` (truncation toward zero) when writing ratings
-- Implementation: uses `Math.round()` (round to nearest integer)
-- Difference is negligible for positive ratings; both produce integers
-
-### 6.9 nRating Reset During New Day (DISCOVERED BUG)
-
-- `nRating` must be reset to 0 during New Day
-- Otherwise stale `nRating` overrides user edits to `rating` column
-- **Fix**: [`processNewDayTransformations()`](shared/utils/constants.ts:44) sets `nRating: 0`
+### 5.5 Rating Column NOT Updated During Recalc
+- Only `nrating_field` updated during recalc
+- `rating_field` only updated during New Day
 
 ---
 
-## 7. Files Modified
+## 6. Verification Traces
 
-| File | Changes |
-|------|---------|
-| [`shared/utils/hashUtils.ts`](shared/utils/hashUtils.ts) | `calculateRatings()`(845), `formula()`(68), `parseEntry()`(128), `processGameResults()`(435) |
-| [`shared/types/index.ts`](shared/types/index.ts) | Added `side0Won: boolean` to `MatchData` |
-| [`src/test/unit/calculateRatings.test.ts`](src/test/unit/calculateRatings.test.ts) | Remove wrong-formula tests, add VB6-matching tests |
-
----
-
-## 8. Verification Approach
-
-### 8.1 2-Player Elo Trace (A vs B, both >9 games)
+### 6.1 2-Player Elo Trace (A vs B, both >9 games)
 
 A(1200, 15 games) beats B(1100, 12 games):
 - expected = 1/(1 + 10^(-100/400)) ≈ 0.645
@@ -430,35 +313,32 @@ A(1200, 15 games) beats B(1100, 12 games):
 - A: 1200 + 0.355×20 = 1207.1
 - B: 1100 - 0.355×20 = 1092.9
 
-### 8.2 2-Player Blending Trace (P1 vs P2, num_games=0)
+### 6.2 2-Player Blending Trace (P1 vs P2, num_games=0)
 
 P1(1200, 0 games) beats P2(1200, 0 games):
 - expected = 0.5, wldPerfs = 0.5
-- perfRating0 = 1200 - 800×0.5 = 800, perfRating1 = 1200 + 800×0.5 = 1600
-- **Cross-side**: P1 blends with perfRating1: (1200×0 + 1600)/1 = **1600**
-- P2 blends with perfRating0: (1200×0 + 800)/1 = **800**
-- Winner gets higher rating, loser gets lower ✓
+- perfRating P1 = 1200 + 800×0.5 = 1600
+- perfRating P2 = 1200 + 800×(-0.5) = 800
+- P1: (1200×0 + 1600)/1 = **1600**
+- P2: (1200×0 + 800)/1 = **800**
 
-### 8.3 4-Player Elo Trace (Team A vs Team B, both >9 games)
+### 6.3 4-Player Elo Trace (Team A vs Team B, dual result, both won)
 
-A1(1500)+A2(1500) vs B1(1400)+B2(1400), Team A wins:
+A1(1500)+A2(1500) vs B1(1400)+B2(1400), Team A wins both:
 - side0 = 1500, side1 = 1400, expected ≈ 0.640
-- eloPerfs_0 = 2×(0.5 - 0.640) = -0.28 (W/L/D cancels!)
-- eloPerfs_1 = 2×(0.640 - 0.5) = 0.28
-- Team A: 1500 + (-0.28)×20 = 1494 (expected to win, slight penalty)
-- Team B: 1400 + 0.28×20 = 1406
+- wldPerfs_0 = 1.0, wldPerfs_1 = -1.0
+- eloPerfs_0 = 1.0 + 2×(0.5 - 0.640) = 0.720
+- eloPerfs_1 = -1.0 + 2×(0.640 - 0.5) = -0.720
+- Team A: 1500 + 0.720×20 = 1514
+- Team B: 1400 - 0.720×20 = 1386
 
-### 8.4 4-Player Blending Trace (num_games=5)
+### 6.4 4-Player Blending Trace (num_games=5, split result)
 
-A1(1200)+A2(1200) vs B1(1000)+B2(1000), Team A wins:
-- perfRating0 = 1200, perfRating1 = 1000 (perfs cancel, no adjustment)
-- **Cross-side**: A1 blends with perfRating1: (1200×5 + 1000)/6 = 1167
-- B1 blends with perfRating0: (1000×5 + 1200)/6 = 1033
+A1(1200)+A2(1200) vs B1(1000)+B2(1000), split (each won 1):
+- wldPerfs = 0 (cancel), perfRating = ownRating (no adjustment)
+- A1: (1200×5 + 1200)/6 = 1200
+- B1: (1000×5 + 1000)/6 = 1000
 
-### 8.5 VB6 Binary Comparison
+### 6.5 Regression Tests
 
-If possible, run the VB6 binary (`bladder.exe`) with the same data and compare nRating outputs.
-
-### 8.6 Regression Tests
-
-All 197 tests pass after VB6-accurate implementation.
+All 226 tests pass (2 skipped).
