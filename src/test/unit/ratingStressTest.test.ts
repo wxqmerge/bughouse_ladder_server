@@ -33,6 +33,7 @@ interface StressConfig {
   seed: number;
   label: string;
   numGamesMode: 'new' | 'mixed' | 'experienced';
+  rounds?: number; // default 20
 }
 
 interface PlayerDetail {
@@ -163,27 +164,66 @@ function determineResult(expected: number, rng: () => number): { score1: number;
 // ─── Batch Game Generation (Round-Robin) ──────────────────────────────
 /**
  * Round-robin pairing: every player plays every round.
- * Fisher-Yates shuffle for random pairing, then pair consecutively.
- * 2p: pairs of 2. 4p: groups of 4 split into two sides.
+ * Sort by rating, then pair consecutively so opponents are similar.
+ * Use round-robin schedule to rotate opponents each round while keeping ratings balanced.
+ * 2p: adjacent pairs. 4p: groups of 4 split into two sides.
+ * Sides are flipped randomly to randomize which side is side0/side1.
  */
 function generateBatchGames(
   players: PlayerData[],
   gameType: '2p' | '4p',
   rng: () => number,
+  roundIndex: number,
 ): MatchData[] {
   const games: MatchData[] = [];
   const groupSize = gameType === '2p' ? 2 : 4;
 
-  // Fisher-Yates shuffle
-  const shuffled = [...players];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  // Sort by rating so opponents are similar
+  const sorted = [...players].sort((a, b) => a.rating - b.rating);
+  const n = sorted.length;
+
+// 2p: standard round-robin (ends-inward pairing, no duplicates)
+  // 4p: round-robin pairs merged with shifting offset each round
+  const groups: PlayerData[][] = [];
+
+  if (groupSize === 2) {
+    const rest: number[] = Array.from({ length: n - 1 }, (_, i) => i + 1);
+    const rot = roundIndex % (n - 1);
+    const rotated = [...rest.slice(n - 1 - rot), ...rest.slice(0, n - 1 - rot)];
+    const order = [0, ...rotated];
+    for (let i = 0; i < n / 2; i++) {
+      groups.push([sorted[order[i]], sorted[order[n - 1 - i]]]);
+    }
+  } else {
+    // 4p: build round-robin pairs, then merge with shifting offset
+    // Each round uses a different merge offset to create different groupings
+    const rest: number[] = Array.from({ length: n - 1 }, (_, i) => i + 1);
+    const rot = roundIndex % (n - 1);
+    const rotated = [...rest.slice(n - 1 - rot), ...rest.slice(0, n - 1 - rot)];
+    const order = [0, ...rotated];
+    const pairs: PlayerData[][] = [];
+    for (let i = 0; i < n / 2; i++) {
+      pairs.push([sorted[order[i]], sorted[order[n - 1 - i]]]);
+    }
+    // Merge pairs with a shifting offset each round
+    // Rotate pairs list by offset, then merge consecutive pairs
+    const offset = roundIndex % pairs.length;
+    const rotatedPairs = [...pairs.slice(pairs.length - offset), ...pairs.slice(0, pairs.length - offset)];
+    for (let i = 0; i < rotatedPairs.length; i += 2) {
+      if (i + 1 < rotatedPairs.length) {
+        groups.push([...rotatedPairs[i], ...rotatedPairs[i + 1]]);
+      }
+    }
   }
 
-  for (let i = 0; i < shuffled.length; i += groupSize) {
-    const side0 = shuffled.slice(i, i + groupSize / 2);
-    const side1 = shuffled.slice(i + groupSize / 2, i + groupSize);
+  for (const group of groups) {
+    let side0 = group.slice(0, groupSize / 2);
+    let side1 = group.slice(groupSize / 2);
+
+    // Randomly flip which side is side0/side1
+    if (rng() > 0.5) {
+      [side0, side1] = [side1, side0];
+    }
 
     // Elo expected: signed diff so expected < 0.5 when side0 is weaker
     const side0Avg = side0.reduce((s, p) => s + p.rating, 0) / side0.length;
@@ -225,7 +265,7 @@ function generateBatchGames(
 function runSimulation(config: StressConfig): StressResult {
   const rng = mulberry32(config.seed);
   let numPlayers = config.players;
-  const totalRounds = Math.min(31, Math.max(20, Math.floor(numPlayers / 5) * 5));
+  const totalRounds = Math.min(config.rounds ?? 20, Math.floor(numPlayers / 2));
 
   // Ensure even count for 2p, multiple of 4 for 4p
   if (config.gameType === '2p' && numPlayers % 2 !== 0) numPlayers++;
@@ -264,7 +304,7 @@ function runSimulation(config: StressConfig): StressResult {
 
   // Generate all rounds first, tracking RSS after each batch
   for (let round = 0; round < totalRounds; round++) {
-    const batchGames = generateBatchGames(players, config.gameType, rng);
+    const batchGames = generateBatchGames(players, config.gameType, rng, round);
     if (batchGames.length === 0) break;
 
     allMatches.push(...batchGames);
@@ -396,4 +436,33 @@ describe('Rating Stress Test', () => {
 
     console.log(`\nReports written to ${outDir}/`);
   });
+});
+
+// ─── Quick 1-Round Test ────────────────────────────────────────────────
+describe('Rating Stress Test — Quick 1 Round', () => {
+  const quickConfigs: StressConfig[] = [];
+  let qSeed = 100;
+  for (const p of [20]) {
+    for (const g of ['2p', '4p'] as Array<'2p' | '4p'>) {
+      for (const ng of ['new', 'experienced'] as Array<'new' | 'mixed' | 'experienced'>) {
+        quickConfigs.push({
+          players: p,
+          gameType: g,
+          seed: qSeed++,
+          label: `${p}p_${g}`,
+          numGamesMode: ng,
+          rounds: 1,
+        });
+      }
+    }
+  }
+
+  for (const config of quickConfigs) {
+    const ngLabel = config.numGamesMode === 'new' ? 'ng0' : config.numGamesMode === 'mixed' ? 'ng0-10' : 'ng20';
+    it(`1r_${config.label}_${ngLabel}`, () => {
+      const result = runSimulation(config);
+      const finalRss = result.rssHistory[result.rssHistory.length - 1] ?? 0;
+      console.log(`  1r_${config.label}_${ngLabel}: FinalRSS=${finalRss.toFixed(2)}, F1=${result.final1.toFixed(2)}, F2=${result.final2.toFixed(2)}`);
+    });
+  }
 });
