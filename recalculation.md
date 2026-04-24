@@ -1,4 +1,4 @@
-# Recalculation System — Implementation Reference
+# Recalculation System — Current Implementation
 
 > Current as of: 2026-04-23
 > **WARNING:** This documents the current implementation which has known bugs. See `recalculation_new.md` for the corrected plan.
