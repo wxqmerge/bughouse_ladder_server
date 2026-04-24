@@ -258,8 +258,9 @@ function runSimulation(config: StressConfig, doublePass: boolean): StressResult 
     startRatings.set(p.rank, p.rating);
   }
 
-  // All players start with num_games=0 (single-day tournament, no New Day)
-  // Each recalc processes all matches from scratch using init rating logic
+  // Single-day tournament: num_games reflects pre-tournament experience level
+  // (ng0=0, ng0-10=0-10, ng20=20). No New Day, so num_games never changes.
+  // Each recalc processes all matches from scratch using init rating logic.
   const rssHistory: number[] = [];
   const allMatches: MatchData[] = [];
 
