@@ -45,6 +45,7 @@ export interface MatchData {
   player4: number;
   score1: number;
   score2: number;
+  side0Won: boolean;
 }
 
 export interface PlayerMatchResult {

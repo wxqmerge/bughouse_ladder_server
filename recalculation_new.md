@@ -146,10 +146,11 @@ For each match:
 5. **Clamp:** `perfRating = max(0, perfRating)`
 
 6. **Update nRating:**
-   - `num_games > 9`: `nRating += perfs * kFactor` (pure Elo accumulation)
-   - `num_games <= 9`: `nRating = (nRating * num_games + perfRating) / (num_games + 1)` (blended)
-   - Store: `nRating = abs(nRating)`
-   - Increment: `num_games++`
+    - `num_games > 9`: `nRating += perfs * kFactor` (pure Elo accumulation)
+    - `num_games <= 9`: `nRating = (nRating * num_games + perfRating_opposing) / (num_games + 1)` (blended)
+    - **CRITICAL: uses opposing side's perfRating** (`sides(1 - myside)`)
+    - Store: `nRating = abs(nRating)`
+    - Increment: `num_games++`
 
 ### 3.3 Key Differences from Current Code
 
@@ -157,10 +158,14 @@ For each match:
 |---|---|---|
 | Performance formula | `avg ± 200` | `avg + 800 * (actual - expected)` |
 | Blending | Post-loop, `perfBlendingFactor` used | Inline per-game, no damping factor |
+| Blending perfRating | Own side's perfRating | **Opposing side's perfRating** (`sides(1-myside)`) |
 | >9 games Elo | Fresh `nRating = abs(round(rating + K*(actual-expected)))` | `nRating += perfs * kFactor` (incremental) |
 | 4-player sides | Uses individual player ratings | Average of team members |
 | 4-player perf | Not distinguished | Doubles sides, accumulates opposing error |
 | Score error | Not tracked | Accumulated per side via `perfs` |
+| Rating column | Only `nRating` updated | Both `rating` AND `nRating` updated |
+| Non-playing players | `nRating` unchanged | `nRating = 0` for players who didn't play |
+| Final rounding | Not rounded | `Math.round()` (VB6: `Int()`) |
 
 ---
 
@@ -180,9 +185,13 @@ For each match:
 - `scoreError` per player (accumulates `actual - expected`)
 - `scoreError4Player` for 4-player opposing side error
 - `perfRating` per side computed inline using `800 * scoreError`
-- Blending inline: `nRating = (nRating * num_games + perfRating) / (num_games + 1)` for `num_games <= 9`
+- **CROSS-SIDE BLENDING**: `nRating = (nRating * num_games + perfRating_opposing) / (num_games + 1)` — side 0 blends with side 1's perfRating and vice versa
 - Elo accumulation inline: `nRating += scoreError * kFactor` for `num_games > 9`
 - `num_games++` after each match processed
+- `playedToday` set to track which players played
+- Final rounding: `Math.round()` for players who played
+- `nRating = 0` for players who didn't play
+- `rating` column updated to match `nRating` (preserving sign for ineligible)
 
 **Preserve:**
 - `trophyEligible` — never touched during recalculation (set at file I/O time)
@@ -198,9 +207,11 @@ For each match:
 - Uses `trophyEligible` to decide whether rating goes negative
 - Resets gameResults, updates num_games, attendance
 
-### 4.4 `shared/types/index.ts` — PlayerData
+### 4.4 `shared/types/index.ts` — PlayerData & MatchData
 
-**No changes needed** — `trophyEligible` field already present.
+**PlayerData:** No changes needed — `trophyEligible` field already present.
+
+**MatchData:** Added `side0Won: boolean` field to track which original side won (needed because `processGameResults` normalizes/swaps sides).
 
 ### 4.5 `src/test/unit/calculateRatings.test.ts`
 
@@ -241,11 +252,13 @@ For each match:
 
 ### 5.2 Blending for New Players
 
-| num_games | Current | VB6 |
+| num_games | Current (wrong) | VB6 (correct) |
 |---|---|---|
-| 0 | Raw perfRating (no damping) | Raw perfRating (capped at 1200) |
-| 3 | `0.99 * ((rating * 3 + perf * 1) / 4)` | `(nRating * 3 + perf * 1) / 4` per game |
-| 9 | `0.99 * ((rating * 9 + perf * 1) / 10)` | `(nRating * 9 + perf * 1) / 10` per game |
+| 0 | Raw perfRating (no damping) | Raw **opposing side's** perfRating (capped at 1200) |
+| 3 | `0.99 * ((rating * 3 + perf * 1) / 4)` | `(nRating * 3 + opposing_perf * 1) / 4` per game |
+| 9 | `0.99 * ((rating * 9 + perf * 1) / 10)` | `(nRating * 9 + opposing_perf * 1) / 10` per game |
+
+**CRITICAL CROSS-SIDE BLENDING:** VB6 uses `sides(1 - myside)` — side 0 players blend with side 1's perfRating, and side 1 players blend with side 0's perfRating. This means a winning side (with <10 games) blends with a **higher** perfRating (opponent's rating + 400), while the losing side blends with a **lower** one (winner's rating - 400).
 
 The VB6 blends one game at a time, so the weight of each game is `1/(num_games+1)`. The current approach uses `gamesToday` as the weight for performance, which is wrong — it should be career history (`num_games`) as the weight for historical rating.
 
@@ -287,6 +300,33 @@ The VB6 approach means experienced players start from their current nRating and 
 - Current: never touched during recalculation (correct!)
 - No change needed
 
+### 6.5 Cross-Side Blending (DISCOVERED BUG)
+
+- VB6 line 1528: `nrating(players(pl)) = (nrating(players(pl)) * num_games(players(pl)) + sides(1 - myside)) / (num_games(players(pl)) + 1)`
+- `sides(1 - myside)` means side 0 blends with side 1's perfRating, side 1 with side 0's
+- Initial implementation had it backwards — each side blended with its own perfRating
+- **Impact**: Winning side with <10 games was blending with a LOWER perfRating instead of higher
+- **Fix**: Swap perfRating0/perfRating1 in blending loops
+
+### 6.6 Rating Column Update (DISCOVERED BUG)
+
+- VB6 lines 1603-1618: updates both `rating` AND `nrating_field` after calculation
+- Initial implementation only updated `nRating` — `rating` column stayed stale
+- **Impact**: Players with games today showed old rating in rating column
+- **Fix**: Update `rating` to match `nRating` for players who played (preserving sign)
+
+### 6.7 Non-Playing Players (DISCOVERED BUG)
+
+- VB6: only writes nRating for players where `num_games(i) > 0` (played today)
+- Players who didn't play get `nRating = 0`
+- **Fix**: Track `playedToday` set, set `nRating = 0` for non-playing players
+
+### 6.8 Final Rounding
+
+- VB6: uses `Int()` (truncation toward zero) when writing ratings
+- Implementation: uses `Math.round()` (round to nearest integer)
+- Difference is negligible for positive ratings; both produce integers
+
 ---
 
 ## 7. Files Modified
@@ -294,6 +334,7 @@ The VB6 approach means experienced players start from their current nRating and 
 | File | Changes |
 |------|---------|
 | `shared/utils/hashUtils.ts` | Rewrite `calculateRatings()` to match VB6 inline algorithm |
+| `shared/types/index.ts` | Added `side0Won: boolean` to `MatchData` |
 | `src/test/unit/calculateRatings.test.ts` | Remove wrong-formula tests, add VB6-matching tests |
 
 ---
@@ -324,9 +365,17 @@ Use 3 players with known ratings and results:
   - perfRating A = 1200 + 800*(0.260) = 1408
   - perfRating C = 1000 + 800*(-0.260) = 792
   - A: nRating += (-0.260) * K
-  - C: num_games=8 ≤ 9 → nRating = (nRating * 8 + 792) / 9
+  - C: num_games=8 ≤ 9 → nRating = (nRating * 8 + 1408) / 9 (**CROSS-SIDE**: blends with A's perfRating)
 
 Compare against current implementation to quantify the difference.
+
+### 8.2 Cross-Side Blending Verification
+
+Simple 2-player test: P1(1200, 0 games) beats P2(1200, 0 games):
+- perfRating0 = 1200 - 400 = 800, perfRating1 = 1200 + 400 = 1600
+- **Cross-side**: P1 blends with perfRating1: (1200*0 + 1600)/1 = **1600**
+- P2 blends with perfRating0: (1200*0 + 800)/1 = **800**
+- Winner gets higher rating, loser gets lower — intuitive and correct!
 
 ### 8.2 VB6 Binary Comparison
 

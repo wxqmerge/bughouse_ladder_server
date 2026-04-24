@@ -676,20 +676,20 @@ export default function LadderForm({
           loadedPlayers.sort((a, b) => a.rank - b.rank);
         } else if (sortBy === "nRating") {
           loadedPlayers.sort((a, b) => {
-            const ratingA = a.nRating || 0;
-            const ratingB = b.nRating || 0;
-            if (ratingA !== ratingB) {
-              return ratingB - ratingA;
-            }
+            // Pseudo-rating: eligible = nRating, ineligible = -nRating
+            // Descending: highest + first, then lowest - first
+            const pseudoA = a.trophyEligible !== false ? (a.nRating || 0) : -(a.nRating || 0);
+            const pseudoB = b.trophyEligible !== false ? (b.nRating || 0) : -(b.nRating || 0);
+            if (pseudoA !== pseudoB) return pseudoB - pseudoA;
             return a.rank - b.rank;
           });
         } else if (sortBy === "rating") {
           loadedPlayers.sort((a, b) => {
-            const ratingA = a.rating || 0;
-            const ratingB = b.rating || 0;
-            if (ratingA !== ratingB) {
-              return ratingB - ratingA;
-            }
+            // Pseudo-rating: eligible = rating, ineligible = -rating
+            // Descending: highest + first, then lowest - first
+            const pseudoA = a.trophyEligible !== false ? (a.rating || 0) : -(a.rating || 0);
+            const pseudoB = b.trophyEligible !== false ? (b.rating || 0) : -(b.rating || 0);
+            if (pseudoA !== pseudoB) return pseudoB - pseudoA;
             return a.rank - b.rank;
           });
         } else if (sortBy === "byLastName") {
@@ -2314,18 +2314,18 @@ export default function LadderForm({
       if (sortMethod === "rank") {
         return a.rank - b.rank;
       } else if (sortMethod === "nRating") {
-        const ratingA = a.nRating || 0;
-        const ratingB = b.nRating || 0;
-        if (ratingA !== ratingB) {
-          return ratingB - ratingA;
-        }
+        // Pseudo-rating: eligible = nRating, ineligible = -nRating
+        // Descending: highest + first, then lowest - first
+        const pseudoA = a.trophyEligible !== false ? (a.nRating || 0) : -(a.nRating || 0);
+        const pseudoB = b.trophyEligible !== false ? (b.nRating || 0) : -(b.nRating || 0);
+        if (pseudoA !== pseudoB) return pseudoB - pseudoA;
         return a.rank - b.rank;
       } else if (sortMethod === "rating") {
-        const ratingA = a.rating || 0;
-        const ratingB = b.rating || 0;
-        if (ratingA !== ratingB) {
-          return ratingB - ratingA;
-        }
+        // Pseudo-rating: eligible = rating, ineligible = -rating
+        // Descending: highest + first, then lowest - first
+        const pseudoA = a.trophyEligible !== false ? (a.rating || 0) : -(a.rating || 0);
+        const pseudoB = b.trophyEligible !== false ? (b.rating || 0) : -(b.rating || 0);
+        if (pseudoA !== pseudoB) return pseudoB - pseudoA;
         return a.rank - b.rank;
       } else if (sortMethod === "byLastName") {
         const resultA = a.lastName || "";
@@ -3672,20 +3672,21 @@ export default function LadderForm({
                              <span
                                contentEditable={true}
                                suppressContentEditableWarning={true}
-                               onBlur={(e) => {
-                                  const value = e.target.textContent || "";
-                                  setPlayers((prevPlayers) => {
-                                    const updatedPlayers = [...prevPlayers];
-                                    const targetPlayer = updatedPlayers.find(
-                                      (p) => p.rank === player.rank,
-                                    );
-                                    if (!targetPlayer) return prevPlayers;
-                                    const val = parseInt(value) || 0;
-                                    targetPlayer.nRating = Math.abs(val);
-                                    targetPlayer.trophyEligible = true;
-                                    return updatedPlayers;
-                                  });
-                                }}
+                           onBlur={(e) => {
+                                   const value = (e.target.textContent || "").replace(/\n/g, "");
+                                   const val = parseInt(value) || 0;
+                                   e.target.textContent = String(Math.abs(val));
+                                   setPlayers((prevPlayers) => {
+                                     const updatedPlayers = [...prevPlayers];
+                                     const targetPlayer = updatedPlayers.find(
+                                       (p) => p.rank === player.rank,
+                                     );
+                                     if (!targetPlayer) return prevPlayers;
+                                     targetPlayer.nRating = Math.abs(val);
+                                     targetPlayer.trophyEligible = true;
+                                     return updatedPlayers;
+                                   });
+                                 }}
                              >
                                {cellValue}
                              </span>
@@ -3730,30 +3731,37 @@ export default function LadderForm({
                             contentEditable={true}
                             suppressContentEditableWarning={true}
                             onBlur={(e) => {
-                              const value = e.target.textContent || "";
-                              setPlayers((prevPlayers) => {
-                                const updatedPlayers = [...prevPlayers];
-                                const targetPlayer = updatedPlayers.find(
-                                  (p) => p.rank === player.rank,
-                                );
-                                if (!targetPlayer) return prevPlayers;
-                                switch (field) {
-                                  case "group": targetPlayer.group = value; break;
-                                  case "lastName": targetPlayer.lastName = value; break;
-                                  case "firstName": targetPlayer.firstName = value; break;
-                                  case "rating": targetPlayer.rating = parseInt(value) || 0; break;
-                                  case "grade": targetPlayer.grade = value; break;
-                                  case "num_games": targetPlayer.num_games = parseInt(value) || 0; break;
-                                  case "attendance": targetPlayer.attendance = value; break;
-                                  case "phone": targetPlayer.phone = value; break;
-                                  case "info": targetPlayer.info = value; break;
-                                  case "school": targetPlayer.school = value; break;
-                                  case "room": targetPlayer.room = value; break;
-                                  case "rank": targetPlayer.rank = parseInt(value) || 0; break;
-                                }
-                                return updatedPlayers;
-                              });
-                            }}
+                               let value = (e.target.textContent || "").replace(/\n/g, "");
+                               const numericFields = ["rating", "nRating", "num_games", "attendance", "rank"];
+                               if (numericFields.includes(field)) {
+                                 const numVal = parseInt(value) || 0;
+                                 e.target.textContent = String(numVal);
+                               } else {
+                                 e.target.textContent = value;
+                               }
+                               setPlayers((prevPlayers) => {
+                                 const updatedPlayers = [...prevPlayers];
+                                 const targetPlayer = updatedPlayers.find(
+                                   (p) => p.rank === player.rank,
+                                 );
+                                 if (!targetPlayer) return prevPlayers;
+                                 switch (field) {
+                                   case "group": targetPlayer.group = value; break;
+                                   case "lastName": targetPlayer.lastName = value; break;
+                                   case "firstName": targetPlayer.firstName = value; break;
+                                   case "rating": targetPlayer.rating = parseInt(value) || 0; break;
+                                   case "grade": targetPlayer.grade = value; break;
+                                   case "num_games": targetPlayer.num_games = parseInt(value) || 0; break;
+                                   case "attendance": targetPlayer.attendance = parseInt(value) || 0; break;
+                                   case "phone": targetPlayer.phone = value; break;
+                                   case "info": targetPlayer.info = value; break;
+                                   case "school": targetPlayer.school = value; break;
+                                   case "room": targetPlayer.room = value; break;
+                                   case "rank": targetPlayer.rank = parseInt(value) || 0; break;
+                                 }
+                                 return updatedPlayers;
+                               });
+                             }}
                           >
                             {cellValue}
                           </span>
@@ -3881,13 +3889,13 @@ export default function LadderForm({
                            }
                          }}
                          onBlur={(e) => {
-                          if (!isEditable || !e.target.textContent) return;
-                          
-                          console.log('[EMPTY ROW] onBlur triggered, field:', field, 'value:', e.target.textContent);
-                          console.log('[EMPTY ROW] current emptyPlayerRowRef:', JSON.stringify(emptyPlayerRowRef.current));
-                          console.log('[EMPTY ROW] current players count:', players.length);
-                          
-                          const value = e.target.textContent;
+                           if (!isEditable || !e.target.textContent) return;
+
+                           console.log('[EMPTY ROW] onBlur triggered, field:', field, 'value:', e.target.textContent);
+                           console.log('[EMPTY ROW] current emptyPlayerRowRef:', JSON.stringify(emptyPlayerRowRef.current));
+                           console.log('[EMPTY ROW] current players count:', players.length);
+
+                           const value = (e.target.textContent || "").replace(/\n/g, "");
                           
                           // Build updated state using ref to get latest values across all fields
                           const currentValues = { ...emptyPlayerRowRef.current };
