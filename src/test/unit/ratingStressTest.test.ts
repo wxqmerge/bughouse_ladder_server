@@ -182,21 +182,23 @@ function generateBatchGames(
   const sorted = [...players].sort((a, b) => a.rating - b.rating);
   const n = sorted.length;
 
-// 2p: standard round-robin (ends-inward pairing, no duplicates)
+// 2p: Fisher-Yates shuffle each round, pair consecutively
   // 4p: round-robin pairs merged with shifting offset each round
   const groups: PlayerData[][] = [];
 
   if (groupSize === 2) {
-    const rest: number[] = Array.from({ length: n - 1 }, (_, i) => i + 1);
-    const rot = roundIndex % (n - 1);
-    const rotated = [...rest.slice(n - 1 - rot), ...rest.slice(0, n - 1 - rot)];
-    const order = [0, ...rotated];
-    for (let i = 0; i < n / 2; i++) {
-      groups.push([sorted[order[i]], sorted[order[n - 1 - i]]]);
+    // Shuffle sorted list pseudo-randomly each round, then pair consecutively
+    // The 800-point cap below filters out bad matchups
+    const shuffled = [...sorted];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    for (let i = 0; i < n; i += 2) {
+      groups.push([shuffled[i], shuffled[i + 1]]);
     }
   } else {
     // 4p: build round-robin pairs, then merge with shifting offset
-    // Each round uses a different merge offset to create different groupings
     const rest: number[] = Array.from({ length: n - 1 }, (_, i) => i + 1);
     const rot = roundIndex % (n - 1);
     const rotated = [...rest.slice(n - 1 - rot), ...rest.slice(0, n - 1 - rot)];
@@ -206,7 +208,6 @@ function generateBatchGames(
       pairs.push([sorted[order[i]], sorted[order[n - 1 - i]]]);
     }
     // Merge pairs with a shifting offset each round
-    // Rotate pairs list by offset, then merge consecutive pairs
     const offset = roundIndex % pairs.length;
     const rotatedPairs = [...pairs.slice(pairs.length - offset), ...pairs.slice(0, pairs.length - offset)];
     for (let i = 0; i < rotatedPairs.length; i += 2) {
@@ -225,12 +226,15 @@ function generateBatchGames(
       [side0, side1] = [side1, side0];
     }
 
-    // Elo expected: signed diff so expected < 0.5 when side0 is weaker
+   // Elo expected: signed diff so expected < 0.5 when side0 is weaker
     const side0Avg = side0.reduce((s, p) => s + p.rating, 0) / side0.length;
     const side1Avg = side1.reduce((s, p) => s + p.rating, 0) / side1.length;
     const rawDiff = side0Avg - side1Avg;
-    const clampedDiff = Math.min(Math.abs(rawDiff), 400) * Math.sign(rawDiff);
-    const expected = 1 / (1 + Math.pow(10, -clampedDiff / 400));
+
+    // Skip match if side rating gap exceeds 800 — prevent unrealistic pairings
+    if (Math.abs(rawDiff) > 800) continue;
+
+    const expected = 1 / (1 + Math.pow(10, -rawDiff / 400));
     const result = determineResult(expected, rng);
 
     if (groupSize === 2) {
@@ -265,7 +269,7 @@ function generateBatchGames(
 function runSimulation(config: StressConfig): StressResult {
   const rng = mulberry32(config.seed);
   let numPlayers = config.players;
-  const totalRounds = Math.min(config.rounds ?? 20, Math.floor(numPlayers / 2));
+  const totalRounds = Math.min(config.rounds ?? 20, numPlayers - 1);
 
   // Ensure even count for 2p, multiple of 4 for 4p
   if (config.gameType === '2p' && numPlayers % 2 !== 0) numPlayers++;
