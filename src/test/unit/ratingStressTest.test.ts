@@ -12,7 +12,7 @@
  */
 
 import { describe, it, afterAll } from 'vitest';
-import { calculateRatings, repopulateGameResults } from '../../../shared/utils/hashUtils';
+import { calculateRatings, repopulateGameResults, processGameResults } from '../../../shared/utils/hashUtils';
 import type { PlayerData, MatchData } from '../../../shared/types';
 import fs from 'fs';
 import path from 'path';
@@ -114,7 +114,41 @@ function generateLadderTab(players: PlayerData[]): string {
   return [header, ...lines].join('\n') + '\n';
 }
 
-// ─── Game Result Determination ────────────────────────────────────────
+// ─── Result Validation ────────────────────────────────────────────────
+/**
+ * Validate and clean game results by removing invalid entries.
+ * Repeats until processGameResults reports no errors.
+ */
+function cleanInvalidResults(players: PlayerData[]): PlayerData[] {
+  let current = players;
+  let iterations = 0;
+
+  while (iterations < 10) {
+    const validation = processGameResults(current, 31);
+    if (!validation.hasErrors || validation.errors.length === 0) break;
+
+    // Collect invalid (round, playerRank) pairs from errors
+    const invalidEntries = new Set<string>();
+    for (const err of validation.errors) {
+      invalidEntries.add(`${err.playerRank}:${err.resultIndex}`);
+    }
+
+    // Remove invalid entries
+    current = current.map(p => {
+      const newResults = [...p.gameResults];
+      for (let r = 0; r < 31; r++) {
+        if (invalidEntries.has(`${p.rank}:${r}`)) {
+          newResults[r] = null;
+        }
+      }
+      return { ...p, gameResults: newResults };
+    });
+
+    iterations++;
+  }
+
+  return current;
+}
 function determineResult(expected: number, rng: () => number): { score1: number; score2: number } {
   const takeFromSide0 = Math.min(0.05, expected);
   const takeFromSide1 = Math.min(0.05, 1 - expected);
@@ -205,7 +239,7 @@ function generateBatchGames(
 function runSimulation(config: StressConfig, doublePass: boolean): StressResult {
   const rng = mulberry32(config.seed);
   let numPlayers = config.players;
-  const totalRounds = Math.max(4, Math.floor(numPlayers / 5));
+  const totalRounds = Math.min(31, Math.max(20, Math.floor(numPlayers / 5) * 5));
 
   // Ensure even count for 2p, multiple of 4 for 4p
   if (config.gameType === '2p' && numPlayers % 2 !== 0) numPlayers++;
@@ -271,8 +305,11 @@ function runSimulation(config: StressConfig, doublePass: boolean): StressResult 
     rssHistory.push(Math.sqrt(rss / currentPlayers.length));
   }
 
-  // Use captured end state for player details
-  const finalPlayers = endPlayers || currentPlayers;
+  // Validate and clean any invalid game result entries
+  const cleanPlayers = cleanInvalidResults(endPlayers || currentPlayers);
+
+  // Use cleaned end state for player details
+  const finalPlayers = cleanPlayers;
   const playerDetails: PlayerDetail[] = finalPlayers.map(p => ({
     rank: p.rank,
     startR: startRatings.get(p.rank) ?? 0,
