@@ -57,7 +57,7 @@ export interface CalculateRatingsDebugTrace {
     numGames: number;
     rating: number;
     nRating: number;
-    /** VB6: nrating after init (from rating or nRating, capped at 1200) */
+    /** VB6: nrating after init (from rating or nRating, capped at 1800) */
     initNRating: number;
   }>;
   /** Per-match traces */

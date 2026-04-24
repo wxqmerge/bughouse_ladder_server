@@ -895,7 +895,7 @@ function calculateRatingsSinglePass(
       let initRating: number;
       if (p.num_games === 0) {
         initRating = p.nRating > 0 ? p.nRating : p.rating;
-        if (initRating > 1200) initRating = 1200;
+        if (initRating > 1800) initRating = 1800;
       } else {
         initRating = p.rating;
       }
@@ -1197,7 +1197,7 @@ export function calculateRatings(
 
   // === PASS 2 ===
   // Feed pass 1 nRating into pass 2. For num_games=0 players, pass 1 nRating
-  // becomes the init value (capped at 1200), producing a different second-pass result.
+  // becomes the init value (capped at 1800), producing a different second-pass result.
   // For num_games>0 players, init is still from rating column (same as pass 1).
   const pass2 = calculateRatingsSinglePass(
     pass1.players,

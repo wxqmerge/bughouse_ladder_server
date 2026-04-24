@@ -147,14 +147,14 @@ describe('calculateRatings', () => {
 
       const result = calculateRatings(players, matches);
 
-      // num_games=0, initRating=1200 (capped at 1200)
+      // num_games=0, initRating=1200 (not capped, 1200 < 1800)
       // Pass 1: P1=1600, P2=800
-      // Pass 2: P1 init=min(1600,1200)=1200, P2 init=800
-      //   side0=1200, side1=800, perfRating0=800, perfRating1=1200
-      //   P1: (1200*0 + 1200)/1 = 1200, P2: (800*0 + 800)/1 = 800
-      // Average: P1=(1600+1200)/2=1400, P2=(800+800)/2=800
+      // Pass 2: P1 init=min(1600,1800)=1600, P2 init=800
+      //   side0=1600, side1=800, perfRating0=1200, perfRating1=1200
+      //   P1: (1600*0 + 1200)/1 = 1200, P2: (800*0 + 1200)/1 = 1200
+      // Average: P1=(1600+1200)/2=1400, P2=(800+1200)/2=1000
       expect(result.players[0].nRating).toBe(1400);
-      expect(result.players[1].nRating).toBe(800);
+      expect(result.players[1].nRating).toBe(1000);
     });
 
     it('should blend incrementally across multiple games', () => {
@@ -219,18 +219,18 @@ describe('calculateRatings', () => {
 
       const result = calculateRatings(players, matches);
 
-      // num_games=0, initRating=1100 (< 1200 cap)
+      // num_games=0, initRating=1100 (not capped, 1100 < 1800)
       // Pass 1: P1=1500, P2=700
-      // Pass 2: P1 init=min(1500,1200)=1200, P2 init=700
+      // Pass 2: P1 init=min(1500,1800)=1500, P2 init=700
       //   Different side ratings → different perfRatings → averaged result
-      // Average: P1=1300, P2=750
+      // Average: P1=1300, P2=900
       expect(result.players[0].nRating).toBe(1300);
-      expect(result.players[1].nRating).toBe(750);
+      expect(result.players[1].nRating).toBe(900);
     });
 
-    it('should cap initial rating at 1200 when num_games=0', () => {
+   it('should cap initial rating at 1800 when num_games=0', () => {
       const players = [
-        createPlayer(1, 1500, 0, 1500), // nRating=1500 but capped to 1200
+        createPlayer(1, 2000, 0, 2000), // nRating=2000 but capped to 1800
         createPlayer(2, 1200, 0, 1200),
       ];
 
@@ -238,16 +238,19 @@ describe('calculateRatings', () => {
         createMatch(1, 2, 3),
       ];
 
-   const result = calculateRatings(players, matches);
+    const result = calculateRatings(players, matches);
 
-      // P1 initRating = min(1500, 1200) = 1200 (capped)
+      // P1 initRating = min(2000, 1800) = 1800 (capped)
       // P2 initRating = 1200
-      // Pass 1: P1=1600, P2=800
-      // Pass 2: P1 init=min(1600,1200)=1200, P2 init=800
-      //   Different side ratings → different perfRatings → averaged result
-      // Average: P1=1400, P2=800
-      expect(result.players[0].nRating).toBe(1400);
-      expect(result.players[1].nRating).toBe(800);
+      // Pass 1: side0=1800, side1=1200, perfRating0=1400, perfRating1=1600
+      //   Cross-side: P1 blends with perfRating1=1600: (1800*0+1600)/1=1600
+      //   P2 blends with perfRating0=1400: (1200*0+1400)/1=1400
+      // Pass 2: P1 init=min(1600,1800)=1600, P2 init=1400
+      //   side0=1600, side1=1400, perfRating0=1200, perfRating1=1800
+      //   Cross-side: P1 blends with 1800: 1800, P2 blends with 1200: 1200
+      // Average: P1=(1600+1800)/2=1700, P2=(1400+1200)/2=1300
+      expect(result.players[0].nRating).toBe(1700);
+      expect(result.players[1].nRating).toBe(1300);
     });
   });
 
@@ -633,7 +636,7 @@ describe('calculateRatings', () => {
       expect(result.pass1NRating!.get(2)).toBe(800);
 
       // Pass 2: uses pass 1 nRating as input
-      // P1: nRating=1600 but capped at 1200 for init (num_games=0)
+      // P1: nRating=1600 not capped (1600 < 1800), init=1600
       // P2: nRating=800 used for init (num_games=0)
       // So pass 2 will have different results
       const p1Avg = result.players[0].nRating;
