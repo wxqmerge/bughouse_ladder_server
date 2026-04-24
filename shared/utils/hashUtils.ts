@@ -1326,18 +1326,53 @@ export function repopulateGameResults(
     }
   };
 
-  for (const match of matches) {
-    const normalizedResult = buildNormalizedResult(match);
+  // Track which opponent pairs have already been populated to avoid duplicates
+  // 2p: track individual opponents per player
+  // 4p: track opposing PAIRS per player (same opponent with different partner is OK)
+  const seen2pOpponents = new Map<number, Set<number>>();
+  const seen4pOpposingPairs = new Map<number, Set<string>>();
 
-    const playerRanks = [match.player1, match.player2];
-    if (match.player3 > 0 && match.player4 > 0) {
-      playerRanks.push(match.player3, match.player4);
+  const ensure2pSet = (rank: number) => {
+    if (!seen2pOpponents.has(rank)) seen2pOpponents.set(rank, new Set());
+    return seen2pOpponents.get(rank)!;
+  };
+
+  const ensure4pSet = (rank: number) => {
+    if (!seen4pOpposingPairs.has(rank)) seen4pOpposingPairs.set(rank, new Set());
+    return seen4pOpposingPairs.get(rank)!;
+  };
+
+  for (const match of matches) {
+    const is4p = match.player3 > 0 && match.player4 > 0;
+    const p1 = match.player1, p2 = match.player2;
+    const p3 = match.player3, p4 = match.player4;
+
+    // Check for duplicates
+    if (!is4p) {
+      const s1 = ensure2pSet(p1), s2 = ensure2pSet(p2);
+      if (s1.has(p2)) continue;
+      s1.add(p2);
+      s2.add(p1);
+    } else {
+      // 4p: track opposing pair as a sorted key
+      const oppPair = [p3, p4].sort((a, b) => a - b).join("-");
+      const allyPair = [p1, p2].sort((a, b) => a - b).join("-");
+      const s1 = ensure4pSet(p1), s2 = ensure4pSet(p2);
+      const s3 = ensure4pSet(p3), s4 = ensure4pSet(p4);
+      if (s1.has(oppPair) || s2.has(oppPair) || s3.has(allyPair) || s4.has(allyPair)) continue;
+      s1.add(oppPair); s2.add(oppPair);
+      s3.add(allyPair); s4.add(allyPair);
+    }
+
+    const normalizedResult = buildNormalizedResult(match);
+    const playerRanks = [p1, p2];
+    if (is4p) {
+      playerRanks.push(p3, p4);
     }
 
     for (const playerRank of playerRanks) {
       const player = playersCopy.find((p) => p.rank === playerRank);
       if (!player) continue;
-
       const round = findLowestEmptyRound(player);
       if (round >= 0 && normalizedResult) {
         player.gameResults[round] = normalizedResult + "_";
