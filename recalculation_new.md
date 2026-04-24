@@ -1,4 +1,4 @@
-# Recalculation System — Corrected Plan (VB6 Match)
+# Recalculation System — Corrected Implementation (VB6 Match)
 
 > Based on VB6 source at `C:\Users\wxqme\Desktop\Bughouse_ladder\ladder.frm` (Sub recalc, lines 1397-1656)
 
