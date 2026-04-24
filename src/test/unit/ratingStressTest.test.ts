@@ -183,37 +183,21 @@ function generateBatchGames(
   const n = sorted.length;
 
 // 2p: Fisher-Yates shuffle each round, pair consecutively
-  // 4p: round-robin pairs merged with shifting offset each round
+  // 4p: same shuffle, then group consecutive players into teams of 2
+  // This creates rating variance between sides so Elo outcomes are distributed
   const groups: PlayerData[][] = [];
 
-  if (groupSize === 2) {
-    // Shuffle sorted list pseudo-randomly each round, then pair consecutively
-    // The 800-point cap below filters out bad matchups
-    const shuffled = [...sorted];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(rng() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    for (let i = 0; i < n; i += 2) {
-      groups.push([shuffled[i], shuffled[i + 1]]);
-    }
-  } else {
-    // 4p: build round-robin pairs, then merge with shifting offset
-    const rest: number[] = Array.from({ length: n - 1 }, (_, i) => i + 1);
-    const rot = roundIndex % (n - 1);
-    const rotated = [...rest.slice(n - 1 - rot), ...rest.slice(0, n - 1 - rot)];
-    const order = [0, ...rotated];
-    const pairs: PlayerData[][] = [];
-    for (let i = 0; i < n / 2; i++) {
-      pairs.push([sorted[order[i]], sorted[order[n - 1 - i]]]);
-    }
-    // Merge pairs with a shifting offset each round
-    const offset = roundIndex % pairs.length;
-    const rotatedPairs = [...pairs.slice(pairs.length - offset), ...pairs.slice(0, pairs.length - offset)];
-    for (let i = 0; i < rotatedPairs.length; i += 2) {
-      if (i + 1 < rotatedPairs.length) {
-        groups.push([...rotatedPairs[i], ...rotatedPairs[i + 1]]);
-      }
+  // Shuffle sorted list pseudo-randomly each round
+  const shuffled = [...sorted];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+
+  for (let i = 0; i < n; i += groupSize) {
+    const group = shuffled.slice(i, i + groupSize);
+    if (group.length === groupSize) {
+      groups.push(group);
     }
   }
 
@@ -249,15 +233,17 @@ function generateBatchGames(
         side0Won: result.score1 > result.score2,
       });
     } else {
-      // 4p: side0 (player1, player2) vs side1 (player3, player4)
+      // 4p: two independent games, each with its own pseudo-random outcome
+      const game1 = determineResult(expected, rng);
+      const game2 = determineResult(expected, rng);
       games.push({
         player1: side0[0].rank,
         player2: side0[1].rank,
         player3: side1[0].rank,
         player4: side1[1].rank,
-        score1: result.score1,
-        score2: result.score2,
-        side0Won: result.score1 > result.score2,
+        score1: game1.score1,
+        score2: game2.score1,
+        side0Won: (game1.score1 > game1.score2 ? 1 : 0) + (game2.score1 > game2.score2 ? 1 : 0) >= 2,
       });
     }
   }

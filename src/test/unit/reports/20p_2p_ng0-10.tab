@@ -1,21 +1,21 @@
 Group	Last Name	First Name	Rating	Rnk	N Rate	Gr	Gms	Attendance	Phone	Info	School	Room	1	2	3	4	5	6	7	8	9	10	11	12	13	14	15	16	17	18	19	20	21	22	23	24	25	26	27	28	29	30	31	Version 1.21
-A	Gomez	Susan	100	1	207	5	0	0					1L3_	1W6_	1L8_	1L9_	1W2_																										
-A	Brown	Emily	-189	2	-424	5	0	0					2D3_	2L4_	2W10_	2L8_	2L5_	2L7_	2D9_	1W2_																							
-A	Hall	Elizabeth	279	3	324	5	9	0					2D3_	1L3_	3L7_	3W6_	3D9_	3W10_																									
-A	Mitchell	John	368	4	324	5	2	0					4L6_	2L4_	4W5_	4W9_	4D7_	4W8_																									
-A	Jackson	Paul	458	5	452	5	10	0					5L9_	5W7_	5L10_	5L11_	4W5_	2L5_																									
-A	Gonzalez	John	547	6	584	5	4	0					4L6_	6D11_	6L8_	1W6_	3W6_	6W13_	6L14_	6L7_																							
-A	Allen	Lisa	637	7	743	5	7	0					7W14_	5W7_	7D12_	3L7_	7L13_	7D15_	7W11_	6L7_	2L7_	7L8_	4D7_	7L10_																			
-A	Young	Deborah	726	8	806	5	6	0					8W16_	8W13_	6L8_	8L10_	8L9_	2L8_	1L8_	8L15_	7L8_	4W8_																					
-A	Lopez	James	816	9	793	5	9	0					5L9_	9L17_	9W11_	9L10_	8L9_	9L15_	3D9_	9W13_	4W9_	9W16_	2D9_	1L9_																			
-A	Clark	Amanda	905	10	916	5	8	0					10L17_	10W16_	5L10_	8L10_	10L12_	9L10_	2W10_	3W10_	10W11_	7L10_																					
-A	Gomez	Margaret	995	11	1055	5	3	0					11L18_	6D11_	9W11_	11L19_	5L11_	11L16_	11W14_	7W11_	10W11_	11L12_																					
-A	Wilson	Donna	-1084	12	-1103	5	3	0					7D12_	12L13_	10L12_	12W18_	12W14_	12W17_	12D15_	11L12_																							
-A	Clark	Emily	1174	13	1126	5	2	0					13D15_	8W13_	13W14_	12L13_	13L17_	7L13_	6W13_	13D20_	9W13_	13W19_																					
-A	Hill	Jennifer	1263	14	1228	5	9	0					7W14_	14W20_	13W14_	14W17_	14D16_	14W18_	11W14_	12W14_	6L14_	14L19_	14L15_																				
-A	Brown	Timothy	1353	15	1277	5	4	0					13D15_	15W17_	9L15_	7D15_	15W19_	8L15_	12D15_	14L15_	15L16_																						
-A	Williams	Christopher	1442	16	1370	5	9	0					8W16_	10W16_	16D18_	14D16_	11L16_	9W16_	15L16_																								
-A	Campbell	Amanda	1532	17	1419	5	2	0					10L17_	9L17_	14W17_	13L17_	15W17_	12W17_	17L19_	17W18_																							
-A	Brown	Donna	1621	18	1447	5	3	0					11L18_	16D18_	14W18_	12W18_	17W18_																										
-A	Torres	Michelle	1711	19	1722	5	10	0					19D20_	11L19_	15W19_	14L19_	13W19_	17L19_																									
-A	Carter	Susan	1800	20	1598	5	3	0					19D20_	14W20_	13D20_																												
+A	Gomez	Susan	100	1	185	5	0	0					1L3_	1W5_	1L4_	1L7_																											
+A	Brown	Emily	-189	2	-255	5	0	0					2W3_	2L7_	2W8_	2W4_	2W6_																										
+A	Hall	Elizabeth	279	3	306	5	9	0					2W3_	3L4_	1L3_																												
+A	Mitchell	John	368	4	437	5	2	0					4L6_	3L4_	4W9_	4L10_	1L4_	2W4_	4L5_	4W8_																							
+A	Jackson	Paul	458	5	462	5	10	0					5L9_	1W5_	5W6_	5L8_	5W10_	4L5_	5W7_																								
+A	Gonzalez	John	547	6	597	5	4	0					4L6_	6W12_	5W6_	6L9_	2W6_	6D10_																									
+A	Allen	Lisa	637	7	612	5	7	0					2L7_	7W12_	7W11_	7D9_	1L7_	7W8_	7L10_	5W7_																							
+A	Young	Deborah	726	8	691	5	6	0					8L12_	2W8_	5L8_	7W8_	8W14_	4W8_																									
+A	Lopez	James	816	9	837	5	9	0					5L9_	4W9_	7D9_	9L10_	9L14_	6L9_	9W15_																								
+A	Clark	Amanda	905	10	934	5	8	0					10W11_	4L10_	9L10_	10W14_	5W10_	6D10_	7L10_	10W16_																							
+A	Gomez	Margaret	995	11	983	5	3	0					11L16_	10W11_	7W11_	11W17_	11D15_	11L13_	11L12_																								
+A	Wilson	Donna	-1084	12	-1044	5	3	0					8L12_	7W12_	6W12_	12L14_	12L16_	12W17_	12L18_	12L13_	11L12_																						
+A	Clark	Emily	1174	13	1231	5	2	0					13D15_	13L17_	13L16_	13W18_	11L13_	12L13_																									
+A	Hill	Jennifer	1263	14	1315	5	9	0					12L14_	10W14_	9L14_	14W16_	8W14_	14W20_	14L17_																								
+A	Brown	Timothy	1353	15	1302	5	4	0					13D15_	15W20_	11D15_	15W19_	15L18_	9W15_																									
+A	Williams	Christopher	1442	16	1421	5	9	0					11L16_	13L16_	16L19_	12L16_	16W18_	14W16_	16L17_	10W16_																							
+A	Campbell	Amanda	1532	17	1467	5	2	0					13L17_	17W18_	11W17_	17L20_	12W17_	16L17_	14L17_																								
+A	Brown	Donna	1621	18	1588	5	3	0					17W18_	18W19_	13W18_	16W18_	12L18_	15L18_																									
+A	Torres	Michelle	1711	19	1703	5	10	0					19D20_	18W19_	16L19_	15W19_																											
+A	Carter	Susan	1800	20	1791	5	3	0					19D20_	15W20_	17L20_	14W20_																											
