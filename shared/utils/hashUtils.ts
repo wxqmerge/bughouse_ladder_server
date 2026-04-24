@@ -916,20 +916,27 @@ export function calculateRatings(
     const expected = formula(side0, side1);
     const scoreDiff = match.score1 - match.score2;
 
-    // Compute performance rating (VB6: sides + 800 * opposing side error)
-    // VB6 perfs is ±0.5 (±1/2), scoreDiff is ±2 (3-1 or 1-3), so divide by 4
-    const perfs = scoreDiff / 4;
+    // Win/loss/draw component: ±0.5 for win/loss, 0 for draw
+    // scoreDiff: ±2 for win/loss (score1-score2: 3-1=2 or 1-3=-2), 0 for draw
+    const wldPerfs = scoreDiff / 4; // ±0.5 or 0
+
+    // Elo perfs: VB6 adds (0.5 - expected) TWICE per side (once per myplayer iteration)
+    // Side 0 (winner side): perfs = +0.5 + 2*(0.5 - expected)
+    // Side 1 (loser side):  perfs = -0.5 + 2*(expected - 0.5)
+    const eloPerfs0 = wldPerfs + 2 * (0.5 - expected);
+    const eloPerfs1 = -wldPerfs + 2 * (expected - 0.5);
+
+    // Performance rating for blending: sides ± 800 * wldPerfs (VB6 lines 1506-1507)
     let perfRating0: number;
     let perfRating1: number;
     if (is4Player) {
-      // 4-player: double sides, accumulate error for opposing side, then halve
       const s0 = side0 * 2;
       const s1 = side1 * 2;
-      perfRating0 = (s0 + 800 * (-perfs)) / 2;
-      perfRating1 = (s1 + 800 * (perfs)) / 2;
+      perfRating0 = (s0 + 800 * (-wldPerfs)) / 2;
+      perfRating1 = (s1 + 800 * (wldPerfs)) / 2;
     } else {
-      perfRating0 = side0 + 800 * (-perfs);
-      perfRating1 = side1 + 800 * (perfs);
+      perfRating0 = side0 + 800 * (-wldPerfs);
+      perfRating1 = side1 + 800 * (wldPerfs);
     }
 
     // Clamp performance ratings to 0 (VB6: If sides(0) < 0 Then sides(0) = 0)
@@ -951,30 +958,32 @@ export function calculateRatings(
       ].filter(Boolean) as PlayerData[]
       : [p2];
 
-   for (const player of side0Players) {
-       const games = careerGames.get(player.rank)!;
-       playedToday.add(player.rank);
-       if (games > 9) {
-         currentRating.set(player.rank, currentRating.get(player.rank)! + perfs * EloKfactor);
-       } else {
-         // VB6: sides(1 - myside) — side 0 blends with side 1's perfRating
-         const blended = (currentRating.get(player.rank)! * games + perfRating1) / (games + 1);
-         currentRating.set(player.rank, Math.abs(blended));
-       }
-       careerGames.set(player.rank, games + 1);
-     }
-     for (const player of side1Players) {
-       const games = careerGames.get(player.rank)!;
-       playedToday.add(player.rank);
-       if (games > 9) {
-         currentRating.set(player.rank, currentRating.get(player.rank)! - perfs * EloKfactor);
-       } else {
-         // VB6: sides(1 - myside) — side 1 blends with side 0's perfRating
-         const blended = (currentRating.get(player.rank)! * games + perfRating0) / (games + 1);
-         currentRating.set(player.rank, Math.abs(blended));
-       }
-       careerGames.set(player.rank, games + 1);
-     }
+  for (const player of side0Players) {
+        const games = careerGames.get(player.rank)!;
+        playedToday.add(player.rank);
+        if (games > 9) {
+          // VB6: nrating += perfs(myside) * k_val — perfs includes 2x expected diff
+          currentRating.set(player.rank, currentRating.get(player.rank)! + eloPerfs0 * EloKfactor);
+        } else {
+          // VB6: sides(1 - myside) — side 0 blends with side 1's perfRating
+          const blended = (currentRating.get(player.rank)! * games + perfRating1) / (games + 1);
+          currentRating.set(player.rank, Math.abs(blended));
+        }
+        careerGames.set(player.rank, games + 1);
+      }
+      for (const player of side1Players) {
+        const games = careerGames.get(player.rank)!;
+        playedToday.add(player.rank);
+        if (games > 9) {
+          // VB6: nrating += perfs(myside) * k_val — perfs includes 2x expected diff
+          currentRating.set(player.rank, currentRating.get(player.rank)! + eloPerfs1 * EloKfactor);
+        } else {
+          // VB6: sides(1 - myside) — side 1 blends with side 0's perfRating
+          const blended = (currentRating.get(player.rank)! * games + perfRating0) / (games + 1);
+          currentRating.set(player.rank, Math.abs(blended));
+        }
+        careerGames.set(player.rank, games + 1);
+      }
   }
 
   // Round final ratings to integers (VB6 uses Int() which truncates)
