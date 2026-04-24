@@ -1111,6 +1111,8 @@ function calculateRatingsSinglePass(
     for (const p of playersCopy) {
       if (playedToday.has(p.rank)) {
         p.nRating = Math.round(currentRating.get(p.rank)!);
+        // VB6 line 1613: nrating < 1 → clamp to 1
+        if (p.nRating < 1) p.nRating = 1;
         dbg.log(`P${p.rank}: played → nRating = ${p.nRating}`);
       } else {
         p.nRating = 0;
@@ -1218,6 +1220,8 @@ export function calculateRatings(
       const n2 = pass2NRating.get(p.rank) ?? 0;
       if (pass1.playedToday.has(p.rank)) {
         p.nRating = Math.round((n1 + n2) / 2);
+        // VB6 line 1613: nrating < 1 → clamp to 1
+        if (p.nRating < 1) p.nRating = 1;
         dbg.log(`P${p.rank}: (${n1} + ${n2}) / 2 = ${p.nRating}`);
       } else {
         p.nRating = 0;
