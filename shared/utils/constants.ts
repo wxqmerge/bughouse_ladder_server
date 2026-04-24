@@ -53,13 +53,14 @@ export function processNewDayTransformations(
     const newAttendance =
       gameCount > 0 ? 0 : ((player.attendance as number) || 0) + 1;
 
-    return {
-      ...player,
-      rating: (player.trophyEligible !== false ? player.nRating : 0),
-      num_games: gameCount,
-      attendance: newAttendance,
-      gameResults: Array(31).fill(null),
-    };
+   return {
+       ...player,
+       rating: (player.trophyEligible !== false ? player.nRating : 0),
+       nRating: 0, // Reset so next recalc reads from rating column
+       num_games: gameCount,
+       attendance: newAttendance,
+       gameResults: Array(31).fill(null),
+     };
   });
 
   if (!reRank) {
