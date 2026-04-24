@@ -239,12 +239,12 @@ function runSimulation(config: StressConfig, doublePass: boolean): StressResult 
     const p = createPlayer(i + 1, Math.round(rating), rng);
     // Set num_games based on mode:
     // 'new' = 0 (blending formula for all games)
-    // 'mixed' = 0-10 (transition from blending to Elo at game 10)
+    // 'mixed' = 0-10 random (transition from blending to Elo at game 10)
     // 'experienced' = 20 (Elo formula from game 1)
     if (config.numGamesMode === 'new') {
       p.num_games = 0;
     } else if (config.numGamesMode === 'mixed') {
-      p.num_games = Math.floor((i / (numPlayers - 1)) * 10); // 0 to 10
+      p.num_games = Math.floor(rng() * 11); // 0 to 10, pseudo-random
     } else {
       p.num_games = 20;
     }
@@ -259,7 +259,7 @@ function runSimulation(config: StressConfig, doublePass: boolean): StressResult 
   }
 
   // Single-day tournament: num_games reflects pre-tournament experience level
-  // (ng0=0, ng0-10=0-10, ng20=20). No New Day, so num_games never changes.
+  // (ng0=0, ng0-10=random 0-10, ng20=20). No New Day, so num_games never changes.
   // Each recalc processes all matches from scratch using init rating logic.
   const rssHistory: number[] = [];
   const allMatches: MatchData[] = [];
@@ -288,7 +288,7 @@ function runSimulation(config: StressConfig, doublePass: boolean): StressResult 
   // Validate and clean any invalid game result entries
   const cleanPlayers = cleanInvalidResults(withResults);
 
-  // Count games per player from matches
+  // Count games per player from matches (for player details report only)
   const gamesPlayed = new Map<number, number>();
   for (const m of allMatches) {
     gamesPlayed.set(m.player1, (gamesPlayed.get(m.player1) ?? 0) + 1);
@@ -297,11 +297,8 @@ function runSimulation(config: StressConfig, doublePass: boolean): StressResult 
     if (m.player4 > 0) gamesPlayed.set(m.player4, (gamesPlayed.get(m.player4) ?? 0) + 1);
   }
 
-  // Set num_games for output (reflects games played this tournament day)
-  const finalPlayers = cleanPlayers.map(p => ({
-    ...p,
-    num_games: gamesPlayed.get(p.rank) ?? 0,
-  }));
+  // Keep original num_games (pre-tournament experience level)
+  const finalPlayers = cleanPlayers;
 
   const playerDetails: PlayerDetail[] = finalPlayers.map(p => ({
     rank: p.rank,

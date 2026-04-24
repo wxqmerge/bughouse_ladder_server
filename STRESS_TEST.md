@@ -41,7 +41,7 @@ Simulates single-day tournaments with Elo-weighted match outcomes, processing ga
 | 11 | 100p_2p_ng0-10 | 100 | 1v1 | 31 | 31 |
 | 12 | 100p_4p_ng0-10 | 100 | 2v2 | 31 | 31 |
 
-**Characteristics**: Players have 0-10 games (linear distribution). Tests the transition from blending (games 1-10) to Elo (games 11+). Medium RSS (300-400) that increases as Elo takes over.
+**Characteristics**: Players have 0-10 games (pseudo-random assignment). Tests the transition from blending (games 1-10) to Elo (games 11+). Medium RSS (300-400) that increases as Elo takes over.
 
 ### num_games=20 (Experienced Players — Elo Formula)
 
@@ -59,7 +59,7 @@ Simulates single-day tournaments with Elo-weighted match outcomes, processing ga
 **Notes**:
 - 4p configs round up to multiple of 4 (50 → 52)
 - Rounds = `min(31, max(20, floor(players/5) * 5))`
-- Mixed mode distributes `num_games` linearly from 0 to 10 across the player pool
+- Mixed mode assigns `num_games` pseudo-randomly (0-10) to prevent correlation with rating
 
 ## Outputs
 
