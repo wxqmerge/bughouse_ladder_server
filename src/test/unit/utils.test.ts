@@ -12,7 +12,7 @@ describe('Error Messages', () => {
   });
 
   it('should return correct message for error code 4', () => {
-    expect(getValidationErrorMessage(4)).toBe('Duplicate players');
+    expect(getValidationErrorMessage(4)).toBe('Missing result code');
   });
 
   it('should return correct message for error code 10', () => {
