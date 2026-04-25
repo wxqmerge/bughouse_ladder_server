@@ -1,6 +1,8 @@
 // Performance monitoring utilities
 // Tracks operations that exceed the specified threshold (default: 500ms)
 
+import { getTimestamp } from './timestamp.js';
+
 const SLOW_THRESHOLD_MS = 500;
 
 interface SlowOperation {
@@ -14,18 +16,6 @@ const slowOperations: SlowOperation[] = [];
 
 // Maximum number of slow operations to keep in memory
 const MAX_HISTORY = 100;
-
-function getTimestamp(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  const seconds = String(now.getSeconds()).padStart(2, '0');
-  const ms = String(now.getMilliseconds()).padStart(3, '0');
-  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${ms}`;
-}
 
 export function logSlowOperation(label: string, duration: number, includeStack: boolean = true): void {
   const stack = includeStack ? new Error().stack?.split('\n').slice(2, 6).join('\n    ') : undefined;

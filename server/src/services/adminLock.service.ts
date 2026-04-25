@@ -3,6 +3,8 @@
  * Single source of truth for admin mode access across all clients
  */
 
+import { getTimestamp } from '../utils/timestamp.js';
+
 const ADMIN_LOCK_TIMEOUT = 60000; // 60 seconds
 
 export interface AdminLock {
@@ -14,14 +16,6 @@ export interface AdminLock {
 
 // In-memory lock storage (could be Redis in production)
 let currentLock: AdminLock | null = null;
-
-/**
- * Get timestamp for logging
- */
-function getTimestamp(): string {
-  const now = new Date();
-  return `${now.toISOString().replace('T', ' ').substring(0, 19)}.${String(now.getMilliseconds()).padStart(3, '0')}`;
-}
 
 /**
  * Check if current lock is expired
