@@ -25,6 +25,7 @@ interface SettingsProps {
   onNewDay: () => void;
   onNewDayWithReRank: () => void;
   onWalkThroughReports?: () => void;
+  isAdmin: boolean;
 }
 
 export default function Settings({
@@ -34,6 +35,7 @@ export default function Settings({
   onNewDay,
   onNewDayWithReRank,
   onWalkThroughReports,
+  isAdmin,
 }: SettingsProps) {
   const [showRatings, setShowRatings] = useState(true);
   const [debugLevel, setDebugLevel] = useState(5);
@@ -357,120 +359,124 @@ export default function Settings({
                 gap: "0.75rem",
               }}
             >
-              <button
-                onClick={handleNewDay}
-                style={{
-                  width: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "0.5rem",
-                  padding: "0.75rem",
-                  backgroundColor: "#3b82f6",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "0.25rem",
-                  cursor: "pointer",
-                  fontSize: "0.875rem",
-                  fontWeight: "500",
-                }}
-              >
-                <CalendarDays size={16} />
-                New Day
-              </button>
+              {isAdmin && (
+                <>
+                  <button
+                    onClick={handleNewDay}
+                    style={{
+                      width: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "0.5rem",
+                      padding: "0.75rem",
+                      backgroundColor: "#3b82f6",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "0.25rem",
+                      cursor: "pointer",
+                      fontSize: "0.875rem",
+                      fontWeight: "500",
+                    }}
+                  >
+                    <CalendarDays size={16} />
+                    New Day
+                  </button>
 
-              <button
-                onClick={handleNewDayWithReRank}
-                style={{
-                  width: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "0.5rem",
-                  padding: "0.75rem",
-                  backgroundColor: "#10b981",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "0.25rem",
-                  cursor: "pointer",
-                  fontSize: "0.875rem",
-                  fontWeight: "500",
-                }}
-              >
-                <CalendarDays size={16} />
-                New Day + Re-rank
-              </button>
+                  <button
+                    onClick={handleNewDayWithReRank}
+                    style={{
+                      width: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "0.5rem",
+                      padding: "0.75rem",
+                      backgroundColor: "#10b981",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "0.25rem",
+                      cursor: "pointer",
+                      fontSize: "0.875rem",
+                      fontWeight: "500",
+                    }}
+                  >
+                    <CalendarDays size={16} />
+                    New Day + Re-rank
+                  </button>
 
-              {onWalkThroughReports && (
-                <button
-                  onClick={() => {
-                    onClose();
-                    onWalkThroughReports();
-                  }}
-                  style={{
-                    width: "100%",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: "0.5rem",
-                    padding: "0.75rem",
-                    backgroundColor: "#f59e0b",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "0.25rem",
-                    cursor: "pointer",
-                    fontSize: "0.875rem",
-                    fontWeight: "500",
-                  }}
-                >
-                  <Eye size={16} />
-                  Walk Through Reports
-                </button>
+                  {onWalkThroughReports && (
+                    <button
+                      onClick={() => {
+                        onClose();
+                        onWalkThroughReports();
+                      }}
+                      style={{
+                        width: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "0.5rem",
+                        padding: "0.75rem",
+                        backgroundColor: "#f59e0b",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "0.25rem",
+                        cursor: "pointer",
+                        fontSize: "0.875rem",
+                        fontWeight: "500",
+                      }}
+                    >
+                      <Eye size={16} />
+                      Walk Through Reports
+                    </button>
+                  )}
+
+                  <button
+                    onClick={handleClearData}
+                    style={{
+                      width: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "0.5rem",
+                      padding: "0.75rem",
+                      backgroundColor: "#9ca3af",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "0.25rem",
+                      cursor: "pointer",
+                      fontSize: "0.875rem",
+                      fontWeight: "500",
+                    }}
+                  >
+                    <RotateCcw size={16} />
+                    Clear All
+                  </button>
+
+                  <button
+                    onClick={handleClearAll}
+                    style={{
+                      width: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "0.5rem",
+                      padding: "0.75rem",
+                      backgroundColor: "#ef4444",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "0.25rem",
+                      cursor: "pointer",
+                      fontSize: "0.875rem",
+                      fontWeight: "500",
+                    }}
+                  >
+                    <Trash2 size={16} />
+                    Set Sample Data
+                  </button>
+                </>
               )}
-
-              <button
-                onClick={handleClearData}
-                style={{
-                  width: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "0.5rem",
-                  padding: "0.75rem",
-                  backgroundColor: "#9ca3af",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "0.25rem",
-                  cursor: "pointer",
-                  fontSize: "0.875rem",
-                  fontWeight: "500",
-                }}
-              >
-                <RotateCcw size={16} />
-                Clear All
-              </button>
-
-              <button
-                onClick={handleClearAll}
-                style={{
-                  width: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "0.5rem",
-                  padding: "0.75rem",
-                  backgroundColor: "#ef4444",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "0.25rem",
-                  cursor: "pointer",
-                  fontSize: "0.875rem",
-                  fontWeight: "500",
-                }}
-              >
-                <Trash2 size={16} />
-                Set Sample Data
-              </button>
             </div>
           </div>
         </div>
