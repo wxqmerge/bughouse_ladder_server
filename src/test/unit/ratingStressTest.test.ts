@@ -247,10 +247,10 @@ function generateBatchGames(
           player3: 0,
           player4: 0,
           score1: result.score1,
-          score2: result.score2,
+          score2: 0,
           side0Won: result.score1 > result.score2,
         });
-      }
+   }
     } else {
       // 4p: two independent games or single game
       if (isDual) {
