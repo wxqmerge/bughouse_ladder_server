@@ -148,15 +148,15 @@ describe('calculateRatings', () => {
       const result = calculateRatings(players, matches);
 
       // num_games=0, initRating=1200 (not capped, 1200 < 1800)
-      // Self-based perfRating: ownRating + 800*wldPerfs
-      // Pass 1: perfRating0=1200+400=1600, perfRating1=1200-400=800
-      //   P1: (1200*0+1600)/1=1600, P2: (1200*0+800)/1=800
-      // Pass 2: P1 init=1600, P2 init=800
-      //   perfRating0=1600+400=2000, perfRating1=800-400=400
-      //   P1: (1600*0+2000)/1=2000, P2: (800*0+400)/1=400
-      // Average: P1=(1600+2000)/2=1800, P2=(800+400)/2=600
-      expect(result.players[0].nRating).toBe(1800);
-      expect(result.players[1].nRating).toBe(600);
+      // Self-based perfRating: ownRating + 400*wldPerfs
+      // Pass 1: perfRating0=1200+200=1400, perfRating1=1200-200=1000
+      //   P1: (1200*0+1400)/1=1400, P2: (1200*0+1000)/1=1000
+      // Pass 2: P1 init=1400, P2 init=1000
+      //   perfRating0=1400+200=1600, perfRating1=1000-200=800
+      //   P1: (1400*0+1600)/1=1600, P2: (1000*0+800)/1=800
+      // Average: P1=(1400+1600)/2=1500, P2=(1000+800)/2=900
+      expect(result.players[0].nRating).toBe(1500);
+      expect(result.players[1].nRating).toBe(900);
     });
 
     it('should blend incrementally across multiple games', () => {
@@ -172,15 +172,15 @@ describe('calculateRatings', () => {
 
       const result = calculateRatings(players, matches);
 
-      // Self-based perfRating: ownRating + 800*wldPerfs
-      // Game 1: perfRating0=1200+400=1600, perfRating1=1200-400=800
-      //   P1: (1200*3+1600)/4=1300, P2: (1200*3+800)/4=1100
-      // Game 2: perfRating0=1300+400=1700, perfRating1=1100-400=700
-      //   P1: (1300*4+1700)/5=1380, P2: (1100*4+700)/5=1020
+      // Self-based perfRating: ownRating + 400*wldPerfs
+      // Game 1: perfRating0=1200+200=1400, perfRating1=1200-200=1000
+      //   P1: (1200*3+1400)/4=1250, P2: (1200*3+1000)/4=1100
+      // Game 2: perfRating0=1250+200=1450, perfRating1=1100-200=900
+      //   P1: (1250*4+1450)/5=1310, P2: (1100*4+900)/5=1020
       // Pass 2: same (num_games > 0, init from rating column)
-      // Average: P1=1380, P2=1020
-      expect(result.players[0].nRating).toBe(1380);
-      expect(result.players[1].nRating).toBe(1020);
+      // Average: P1=1290, P2=1110
+      expect(result.players[0].nRating).toBe(1290);
+      expect(result.players[1].nRating).toBe(1110);
     });
 
     it('should heavily weight old rating when historical games >> today games', () => {
@@ -195,13 +195,13 @@ describe('calculateRatings', () => {
 
       const result = calculateRatings(players, matches);
 
-      // Self-based perfRating: ownRating + 800*wldPerfs
-      // perfRating0=1200+400=1600, perfRating1=1200-400=800
-      // P1: (1200*9+1600)/10=1240, P2: (1200*9+800)/10=1160
+      // Self-based perfRating: ownRating + 400*wldPerfs
+      // perfRating0=1200+200=1400, perfRating1=1200-200=1000
+      // P1: (1200*9+1400)/10=1220, P2: (1200*9+1000)/10=1180
       // Pass 2: same (num_games > 0, init from rating column)
-      // Average: P1=1240, P2=1160
-      expect(result.players[0].nRating).toBe(1240);
-      expect(result.players[1].nRating).toBe(1160);
+      // Average: P1=1220, P2=1180
+      expect(result.players[0].nRating).toBe(1220);
+      expect(result.players[1].nRating).toBe(1180);
     });
 
     it('should use nRating from file when num_games=0', () => {
@@ -217,15 +217,15 @@ describe('calculateRatings', () => {
       const result = calculateRatings(players, matches);
 
       // num_games=0, initRating=1100 (not capped, 1100 < 1800)
-      // Self-based perfRating: ownRating + 800*wldPerfs
-      // Pass 1: perfRating0=1100+400=1500, perfRating1=1100-400=700
-      //   P1: (1100*0+1500)/1=1500, P2: (1100*0+700)/1=700
-      // Pass 2: P1 init=1500, P2 init=700
-      //   perfRating0=1500+400=1900, perfRating1=700-400=300
-      //   P1: (1500*0+1900)/1=1900, P2: (700*0+300)/1=300
-      // Average: P1=(1500+1900)/2=1700, P2=(700+300)/2=500
-      expect(result.players[0].nRating).toBe(1700);
-      expect(result.players[1].nRating).toBe(500);
+      // Self-based perfRating: ownRating + 400*wldPerfs
+      // Pass 1: perfRating0=1100+200=1300, perfRating1=1100-200=900
+      //   P1: (1100*0+1300)/1=1300, P2: (1100*0+900)/1=900
+      // Pass 2: P1 init=1300, P2 init=900
+      //   perfRating0=1300+200=1500, perfRating1=900-200=700
+      //   P1: (1300*0+1500)/1=1500, P2: (900*0+700)/1=700
+      // Average: P1=(1300+1500)/2=1400, P2=(900+700)/2=800
+      expect(result.players[0].nRating).toBe(1400);
+      expect(result.players[1].nRating).toBe(800);
     });
 
    it('should cap initial rating at 1800 when num_games=0', () => {
@@ -242,15 +242,15 @@ describe('calculateRatings', () => {
 
       // P1 initRating = min(2000, 1800) = 1800 (capped)
       // P2 initRating = 1200
-      // Self-based perfRating: ownRating + 800*wldPerfs
-      // Pass 1: perfRating0=1800+400=2200, perfRating1=1200-400=800
-      //   P1: (1800*0+2200)/1=2200, P2: (1200*0+800)/1=800
-      // Pass 2: P1 init=min(2200,1800)=1800, P2 init=800
-      //   perfRating0=1800+400=2200, perfRating1=800-400=400
-      //   P1: (1800*0+2200)/1=2200, P2: (800*0+400)/1=400
-      // Average: P1=(2200+2200)/2=2200, P2=(800+400)/2=600
-      expect(result.players[0].nRating).toBe(2200);
-      expect(result.players[1].nRating).toBe(600);
+      // Self-based perfRating: ownRating + 400*wldPerfs
+      // Pass 1: perfRating0=1800+200=2000, perfRating1=1200-200=1000
+      //   P1: (1800*0+2000)/1=2000, P2: (1200*0+1000)/1=1000
+      // Pass 2: P1 init=min(2000,1800)=1800, P2 init=1000
+      //   perfRating0=1800+200=2000, perfRating1=1000-200=800
+      //   P1: (1800*0+2000)/1=2000, P2: (1000*0+800)/1=800
+      // Average: P1=(2000+2000)/2=2000, P2=(1000+800)/2=900
+      expect(result.players[0].nRating).toBe(2000);
+      expect(result.players[1].nRating).toBe(900);
     });
   });
 
@@ -336,11 +336,11 @@ describe('calculateRatings', () => {
 
       const result = calculateRatings(players, matches);
 
-      // Self-based perfRating: ownRating + 800*wldPerfs
-      // perfRating0=1500+400=1900, perfRating1=1400-400=1000
-      // P1: (1500*5+1900)/6=1567, P2: (1400*5+1000)/6=1333
-      expect(result.players[0].nRating).toBe(1567);
-      expect(result.players[1].nRating).toBe(1333);
+      // Self-based perfRating: ownRating + 400*wldPerfs
+      // perfRating0=1500+200=1700, perfRating1=1400-200=1200
+      // P1: (1500*5+1700)/6=1533, P2: (1400*5+1200)/6=1367
+      expect(result.players[0].nRating).toBe(1533);
+      expect(result.players[1].nRating).toBe(1367);
       expect(result.players[2].nRating).toBe(0); // No games, unchanged
     });
 
@@ -356,7 +356,7 @@ describe('calculateRatings', () => {
 
       const result = calculateRatings(players, matches);
 
-      // side0=500, perfRating = 500 + 800*(-0.5) = 100 (positive, no clamp needed)
+      // side0=500, perfRating = 500 + 400*(-0.5) = 300 (positive, no clamp needed)
       // But if perfRating would be negative, it should be clamped to 0
       expect(result.players[0].nRating).toBeGreaterThan(0);
     });
@@ -373,11 +373,11 @@ describe('calculateRatings', () => {
 
       const result = calculateRatings(players, matches);
 
-      // Self-based perfRating: ownRating + 800*wldPerfs
-      // perfRating0=1200+400=1600, perfRating1=1200-400=800
-      // P1: (1200*5+1600)/6=1267, P2: (1200*5+800)/6=1133
-      expect(result.players[0].nRating).toBeCloseTo(1267, 0);
-      expect(result.players[1].nRating).toBeCloseTo(1133, 0);
+      // Self-based perfRating: ownRating + 400*wldPerfs
+      // perfRating0=1200+200=1400, perfRating1=1200-200=1000
+      // P1: (1200*5+1400)/6=1233, P2: (1200*5+1000)/6=1167
+      expect(result.players[0].nRating).toBeCloseTo(1233, 0);
+      expect(result.players[1].nRating).toBeCloseTo(1167, 0);
     });
   });
 
@@ -581,12 +581,12 @@ describe('calculateRatings', () => {
 
       // Check that blending was used
       expect(matchTrace.playerUpdates[0].formula).toBe('blend');
-      expect(matchTrace.playerUpdates[0].opposingPerfRating).toBe(1600);
+      expect(matchTrace.playerUpdates[0].opposingPerfRating).toBe(1400);
       expect(matchTrace.playerUpdates[1].formula).toBe('blend');
-      expect(matchTrace.playerUpdates[1].opposingPerfRating).toBe(800);
+      expect(matchTrace.playerUpdates[1].opposingPerfRating).toBe(1000);
 
-      // Self-based perfRating: ownRating + 800*wldPerfs
-      expect(matchTrace.perfRatings).toEqual([1600, 800]);
+      // Self-based perfRating: ownRating + 400*wldPerfs
+      expect(matchTrace.perfRatings).toEqual([1400, 1000]);
     });
 
     it('should trace 4-player game with cross-side blending', () => {
@@ -631,21 +631,21 @@ describe('calculateRatings', () => {
       expect(result.pass1NRating).toBeDefined();
       expect(result.pass2NRating).toBeDefined();
 
-      // Pass 1: P1=1600, P2=800 (from self-based blending)
-      expect(result.pass1NRating!.get(1)).toBe(1600);
-      expect(result.pass1NRating!.get(2)).toBe(800);
+      // Pass 1: P1=1400, P2=1000 (from self-based blending)
+      expect(result.pass1NRating!.get(1)).toBe(1400);
+      expect(result.pass1NRating!.get(2)).toBe(1000);
 
-      // Pass 2: P1 init=1600, P2 init=800
-      //   perfRating0=1600+400=2000, perfRating1=800-400=400
-      //   P1=2000, P2=400
-      expect(result.pass2NRating!.get(1)).toBe(2000);
-      expect(result.pass2NRating!.get(2)).toBe(400);
+      // Pass 2: P1 init=1400, P2 init=1000
+      //   perfRating0=1400+200=1600, perfRating1=1000-200=800
+      //   P1=1600, P2=800
+      expect(result.pass2NRating!.get(1)).toBe(1600);
+      expect(result.pass2NRating!.get(2)).toBe(800);
 
-      // Average: P1=(1600+2000)/2=1800, P2=(800+400)/2=600
+      // Average: P1=(1400+1600)/2=1500, P2=(1000+800)/2=900
       const p1Avg = result.players[0].nRating;
       const p2Avg = result.players[1].nRating;
-      expect(p1Avg).toBe(1800);
-      expect(p2Avg).toBe(600);
+      expect(p1Avg).toBe(1500);
+      expect(p2Avg).toBe(900);
     });
 
     it('should produce consistent results for experienced players', () => {

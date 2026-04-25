@@ -965,8 +965,8 @@ function calculateRatingsSinglePass(
 
         // Self-based perfRating: ownRating + multiplier * wldPerfs
         // 4p: multiplier=200 per result (wldPerfs accumulates ±0.5 per game)
-        // 2p: multiplier=800, ownRating = sideRating (same as per-side)
-        const perfMultiplier = is4Player ? 200 : 800;
+        // 2p: multiplier=400, ownRating = sideRating (same as per-side)
+        const perfMultiplier = is4Player ? 200 : 400;
         const side0PerfRating = side0 + perfMultiplier * wldPerfs0;
         const side1PerfRating = side1 + perfMultiplier * wldPerfs1;
         matchTrace.perfRatings = [
