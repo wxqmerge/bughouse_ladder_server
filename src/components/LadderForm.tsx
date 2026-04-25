@@ -2446,7 +2446,7 @@ export default function LadderForm({
       const newPlayer: PlayerData = {
         ...playerData,
         rank: newRank,
-        nRating: Math.abs(playerData.rating || 0),
+        nRating: Math.abs(playerData.rating || 1),
         trophyEligible: true,
         gameResults: new Array(31).fill(null),
       };
