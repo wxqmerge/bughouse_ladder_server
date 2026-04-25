@@ -3,7 +3,8 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
 import { requireAdminKey } from '../middleware/auth.middleware.js';
-import { readLadderFile, writeLadderFile, ensureDataDirectory, PlayerData, generateTabContent, createBackup, rotateBackups, withTiming, getBackupList, restoreBackup, deleteBackup, log } from '../services/dataService.js';
+import { readLadderFile, writeLadderFile, ensureDataDirectory, PlayerData, generateTabContent, createBackup, rotateBackups, withTiming, getBackupList, restoreBackup, deleteBackup } from '../services/dataService.js';
+import { log } from '../utils/logger.js';
 import { getSlowOperations, clearSlowOperations, generatePerformanceReport } from '../utils/performance.js';
 
 const router = Router();

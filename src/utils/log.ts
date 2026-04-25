@@ -2,21 +2,8 @@
  * Debug utilities with timestamps
  */
 
-/**
- * Get formatted current timestamp
- * Format: YYYY-MM-DD HH:MM:SS.mmm
- */
-export function getTimestamp(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  const seconds = String(now.getSeconds()).padStart(2, '0');
-  const ms = String(now.getMilliseconds()).padStart(3, '0');
-  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${ms}`;
-}
+import { getTimestamp } from '../../shared/utils/timeUtils';
+export { getTimestamp };
 
 /**
  * Console log with timestamp prefix

@@ -68,6 +68,25 @@ export const SORT_OPTIONS = {
 } as const;
 
 /**
+ * Convert a score code (0=O, 1=L, 2=D, 3=W) to its letter representation.
+ */
+export function scoreCodeToLetter(code: number): string {
+  return code === 0 ? "O" : code === 1 ? "L" : code === 2 ? "D" : "W";
+}
+
+/**
+ * Swap a score code from one side's perspective to the other.
+ * O stays O, L becomes W, D stays D, W becomes L.
+ */
+export function swapScore(code: number): number {
+  if (code === 0) return 0;
+  if (code === 1) return 3;
+  if (code === 2) return 2;
+  if (code === 3) return 1;
+  return 0;
+}
+
+/**
  * VB6 Line: 129-130 - Elo rating formula
  * Returns probability of winning for given ratings
  */
@@ -532,15 +551,6 @@ export function processGameResults(
 
   hashInitializeLocal();
 
-  // Helper to convert score code between pairs (for perspective swapping)
-  const swapScore = (code: number): number => {
-    if (code === 0) return 0; // O stays O
-    if (code === 1) return 3; // L becomes W
-    if (code === 2) return 2; // D stays D
-    if (code === 3) return 1; // W becomes L
-    return 0;
-  };
-
   // Helper to normalize a result string for comparison (converts to canonical form)
   const normalizeResultForComparison = (
     _result: string,
@@ -557,8 +567,7 @@ export function processGameResults(
       const score = scores[0];
 
       // Convert score to letter (no perspective swap - score is already from first player's perspective)
-      const scoreLetter =
-        score === 0 ? "O" : score === 1 ? "L" : score === 2 ? "D" : "W";
+      const scoreLetter = scoreCodeToLetter(score);
 
       // Return in sorted player order (within team)
       const sortedTeam = [p1, p2].sort((a, b) => a - b);
@@ -590,22 +599,8 @@ export function processGameResults(
         normScore2 = swapScore(scores[0]);
       }
 
-      const score1Letter =
-        normScore1 === 0
-          ? "O"
-          : normScore1 === 1
-            ? "L"
-            : normScore1 === 2
-              ? "D"
-              : "W";
-      const score2Letter =
-        normScore2 === 0
-          ? "O"
-          : normScore2 === 1
-            ? "L"
-            : normScore2 === 2
-              ? "D"
-              : "W";
+      const score1Letter = scoreCodeToLetter(normScore1);
+      const score2Letter = scoreCodeToLetter(normScore2);
 
       // Return with both pairs sorted internally and in correct order
       return `${normPair1[0]}:${normPair1[1]}${score1Letter}${score2Letter}${normPair2[0]}:${normPair2[1]}`;
@@ -1269,14 +1264,6 @@ export function repopulateGameResults(
     return -1;
   };
 
-  const swapScore = (code: number): number => {
-    if (code === 0) return 0;
-    if (code === 1) return 3;
-    if (code === 2) return 2;
-    if (code === 3) return 1;
-    return 0;
-  };
-
   const buildNormalizedResult = (m: MatchData): string => {
     if (m.player3 > 0 && m.player4 > 0) {
       const pair1 = [m.player1, m.player2].sort((a, b) => a - b);
@@ -1302,34 +1289,13 @@ export function repopulateGameResults(
         normScore2 = swapScore(m.score1);
       }
 
-      const score1Letter =
-        normScore1 === 0
-          ? "O"
-          : normScore1 === 1
-            ? "L"
-            : normScore1 === 2
-              ? "D"
-              : "W";
-      const score2Letter =
-        normScore2 === 0
-          ? "O"
-          : normScore2 === 1
-            ? "L"
-            : normScore2 === 2
-              ? "D"
-              : "W";
+      const score1Letter = scoreCodeToLetter(normScore1);
+      const score2Letter = scoreCodeToLetter(normScore2);
 
       return `${normPair1[0]}:${normPair1[1]}${score1Letter}${score2Letter}${normPair2[0]}:${normPair2[1]}`;
     } else {
       const sortedPair = [m.player1, m.player2].sort((a, b) => a - b);
-      const scoreLetter =
-        m.score1 === 0
-          ? "O"
-          : m.score1 === 1
-            ? "L"
-            : m.score1 === 2
-              ? "D"
-              : "W";
+      const scoreLetter = scoreCodeToLetter(m.score1);
       return `${sortedPair[0]}${scoreLetter}${sortedPair[1]}`;
     }
   };
