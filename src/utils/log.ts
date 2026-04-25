@@ -3,7 +3,6 @@
  */
 
 import { getTimestamp } from '../../shared/utils/timeUtils';
-export { getTimestamp };
 
 /**
  * Console log with timestamp prefix
@@ -14,20 +13,4 @@ export { getTimestamp };
 export function log(category: string, message: string, ...args: any[]): void {
   const timestamp = getTimestamp();
   console.log(`[${timestamp}] ${category}`, message, ...args);
-}
-
-/**
- * Console error with timestamp prefix
- */
-export function logError(category: string, message: string, ...args: any[]): void {
-  const timestamp = getTimestamp();
-  console.error(`[${timestamp}] ${category}`, message, ...args);
-}
-
-/**
- * Console warn with timestamp prefix
- */
-export function logWarn(category: string, message: string, ...args: any[]): void {
-  const timestamp = getTimestamp();
-  console.warn(`[${timestamp}] ${category}`, message, ...args);
 }

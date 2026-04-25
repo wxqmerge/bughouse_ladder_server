@@ -62,7 +62,7 @@ export const saveUserSettings = (settings: UserSettings): void => {
 /**
  * Clear user settings from localStorage
  */
-export const clearUserSettings = (): void => {
+const clearUserSettings = (): void => {
   localStorage.removeItem(USER_SETTINGS_KEY);
   console.log('[UserSettings] Cleared user settings');
 };
@@ -96,7 +96,7 @@ export function getLastWorkingConfig(): LastWorkingConfig | null {
   return null;
 }
 
-export function clearLastWorkingConfig(): void {
+function clearLastWorkingConfig(): void {
   localStorage.removeItem(LAST_WORKING_CONFIG_KEY);
   console.log('[UserSettings] Cleared last working config');
 }

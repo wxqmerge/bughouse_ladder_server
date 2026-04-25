@@ -1,7 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { withTiming as performanceWithTiming } from '../utils/performance.js';
 import { log as loggerLog } from '../utils/logger.js';
 export { loggerLog as log };
 
