@@ -1,6 +1,6 @@
 {
   "name": "bughouse-ladder-server",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Bughouse Chess Ladder Server - Node.js/Express backend",
   "type": "module",
   "main": "dist/index.js",
