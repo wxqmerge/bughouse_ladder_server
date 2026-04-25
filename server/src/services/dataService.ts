@@ -2,6 +2,8 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { withTiming as performanceWithTiming } from '../utils/performance.js';
+import { log as loggerLog } from '../utils/logger.js';
+export { loggerLog as log };
 
 // Server-side PlayerData - kept inline due to NodeNext module resolution constraints
 // Canonical definition is in shared/types/index.ts
@@ -12,6 +14,7 @@ export interface PlayerData {
   firstName: string;
   rating: number;
   nRating: number;
+  trophyEligible: boolean;
   grade: string;
   num_games: number;
   attendance: number | string;
@@ -20,23 +23,6 @@ export interface PlayerData {
   school: string;
   room: string;
   gameResults: (string | null)[];
-}
-
-// Timestamp utility
-function getTimestamp(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  const seconds = String(now.getSeconds()).padStart(2, '0');
-  const ms = String(now.getMilliseconds()).padStart(3, '0');
-  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${ms}`;
-}
-
-export function log(category: string, message: string, ...args: any[]): void {
-  console.log(`[${getTimestamp()}] ${category}`, message, ...args);
 }
 
 import { withTiming as _withTiming } from '../utils/performance.js';
@@ -60,7 +46,7 @@ const MAX_BACKUPS = 20;
 
 // Initialize on module load
 initializeDefaultLadder().catch(err => 
-  log('[SERVER]', 'Failed to initialize default ladder:', err)
+  loggerLog('[SERVER]', 'Failed to initialize default ladder:', err)
 );
 
 export interface BackupInfo {
@@ -118,7 +104,7 @@ export async function readLadderFile(): Promise<LadderData> {
     const firstLine = lines[0];
     const headerCols = firstLine.split('\t');
     if (headerCols[13] && headerCols[13].trim() !== '1') {
-      log('[SERVER]', `Warning: Header Round 1 column contains "${headerCols[13]}" instead of "1". File may be corrupted.`);
+      loggerLog('[SERVER]', `Warning: Header Round 1 column contains "${headerCols[13]}" instead of "1". File may be corrupted.`);
     }
 
     // All remaining lines are player data
@@ -220,7 +206,7 @@ export async function writeLadderFile(ladderData: LadderData): Promise<void> {
     await acquireLock();
     
     try {
-      log('[SERVER]', `Writing ${ladderData.players.length} players to ${TAB_FILE_PATH}`);
+      loggerLog('[SERVER]', `Writing ${ladderData.players.length} players to ${TAB_FILE_PATH}`);
       
       // Create backup before write
       const backupPath = await createBackup();
@@ -259,11 +245,11 @@ export async function initializeDefaultLadder(): Promise<void> {
       await fs.access(vb6LadderPath);
       const content = await fs.readFile(vb6LadderPath, 'utf-8');
       await fs.writeFile(TAB_FILE_PATH, content, 'utf-8');
-      log('[SERVER]', `Copied vb6_ladder.tab to ${TAB_FILE_PATH}`);
+      loggerLog('[SERVER]', `Copied vb6_ladder.tab to ${TAB_FILE_PATH}`);
     } catch {
       // Create empty file
       await fs.writeFile(TAB_FILE_PATH, '', 'utf-8');
-      log('[SERVER]', `Created default ladder file at ${TAB_FILE_PATH}`);
+      loggerLog('[SERVER]', `Created default ladder file at ${TAB_FILE_PATH}`);
     }
   }
 }
@@ -341,10 +327,10 @@ export async function createBackup(): Promise<string | null> {
     const backupPath = path.join(BACKUP_DIR, fileName);
     
     await fs.copyFile(TAB_FILE_PATH, backupPath);
-    log('[SERVER]', `Created backup: ${fileName}`);
+    loggerLog('[SERVER]', `Created backup: ${fileName}`);
     return backupPath;
   } catch (error) {
-    log('[SERVER]', `Failed to create backup: ${(error as Error).message}`);
+    loggerLog('[SERVER]', `Failed to create backup: ${(error as Error).message}`);
     return null;
   }
 }
@@ -363,17 +349,17 @@ export async function restoreBackup(filename: string): Promise<boolean> {
   try {
     await fs.access(backupPath);
   } catch {
-    log('[SERVER]', `Backup not found: ${filename}`);
+    loggerLog('[SERVER]', `Backup not found: ${filename}`);
     return false;
   }
 
   try {
     const content = await fs.readFile(backupPath, 'utf-8');
     await fs.writeFile(TAB_FILE_PATH, content, 'utf-8');
-    log('[SERVER]', `Restored from backup: ${filename}`);
+    loggerLog('[SERVER]', `Restored from backup: ${filename}`);
     return true;
   } catch (error) {
-    log('[SERVER]', `Failed to restore backup ${filename}: ${(error as Error).message}`);
+    loggerLog('[SERVER]', `Failed to restore backup ${filename}: ${(error as Error).message}`);
     return false;
   }
 }
@@ -383,10 +369,10 @@ export async function deleteBackup(filename: string): Promise<boolean> {
   
   try {
     await fs.unlink(backupPath);
-    log('[SERVER]', `Deleted backup: ${filename}`);
+    loggerLog('[SERVER]', `Deleted backup: ${filename}`);
     return true;
   } catch {
-    log('[SERVER]', `Failed to delete backup: ${filename}`);
+    loggerLog('[SERVER]', `Failed to delete backup: ${filename}`);
     return false;
   }
 }
@@ -402,11 +388,11 @@ export async function rotateBackups(): Promise<void> {
       
       for (const backup of toDelete) {
         await fs.unlink(backup.path);
-        log('[SERVER]', `Rotated out old backup: ${backup.filename}`);
+        loggerLog('[SERVER]', `Rotated out old backup: ${backup.filename}`);
       }
     }
   } catch (error) {
-    log('[SERVER]', `Backup rotation failed: ${(error as Error).message}`);
+    loggerLog('[SERVER]', `Backup rotation failed: ${(error as Error).message}`);
   }
 }
 
