@@ -127,7 +127,7 @@ export function clearLocalChangesFlag(): void {
 /**
  * Set server down mode status
  */
-export function setServerDownMode(isDown: boolean): void {
+function setServerDownMode(isDown: boolean): void {
   serverDownMode = isDown;
   log('[STORAGE]', 'Server down mode: ' + (isDown ? 'ON' : 'OFF'));
 }
@@ -135,7 +135,7 @@ export function setServerDownMode(isDown: boolean): void {
 /**
  * Check if server is in down mode
  */
-export function getServerDownMode(): boolean {
+function getServerDownMode(): boolean {
   return serverDownMode;
 }
 
@@ -823,7 +823,7 @@ export async function saveToServer(): Promise<{ success: boolean; error?: string
 /**
  * Admin lock configuration
  */
-export const ADMIN_LOCK_REFRESH_INTERVAL = 30000; // Refresh every 30 seconds
+const ADMIN_LOCK_REFRESH_INTERVAL = 30000; // Refresh every 30 seconds
 
 /**
  * Generate unique client ID

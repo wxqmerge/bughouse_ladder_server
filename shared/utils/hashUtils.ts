@@ -70,7 +70,7 @@ export const SORT_OPTIONS = {
 /**
  * Convert a score code (0=O, 1=L, 2=D, 3=W) to its letter representation.
  */
-export function scoreCodeToLetter(code: number): string {
+function scoreCodeToLetter(code: number): string {
   return code === 0 ? "O" : code === 1 ? "L" : code === 2 ? "D" : "W";
 }
 
@@ -78,7 +78,7 @@ export function scoreCodeToLetter(code: number): string {
  * Swap a score code from one side's perspective to the other.
  * O stays O, L becomes W, D stays D, W becomes L.
  */
-export function swapScore(code: number): number {
+function swapScore(code: number): number {
   if (code === 0) return 0;
   if (code === 1) return 3;
   if (code === 2) return 2;
@@ -114,7 +114,7 @@ export function getLadderName(): string {
  * VB6 Line: 138-154 - Player array to string conversion
  * Translates player and score arrays to hash string format
  */
-export function entry2string(
+function entry2string(
   playersList: number[],
   scoreList: number[],
 ): string {
@@ -150,7 +150,7 @@ export function entry2string(
  * VB6 Line: 155-271 - Parse entry string to structured data
  * Parses game entry like "23:29LW" into game details
  */
-export function parseEntry(
+function parseEntry(
   myText: string,
   playersList: number[],
   scoreList: number[],
@@ -381,7 +381,7 @@ export function parseEntry(
 /**
  * VB6 Line: 372-378 - String to long conversion (wrapper for parseEntry)
  */
-export function string2long(
+function string2long(
   game: string,
   playersList: number[],
   scoreList: number[],
@@ -393,7 +393,7 @@ export function string2long(
  * VB6 Line: 384-409 - Long to string conversion
  * Converts hash value back to game string like "23:29LW"
  */
-export function long2string(game: number): string {
+function long2string(game: number): string {
   const resultParts: string[] = [];
   let tempGame = game;
 
@@ -424,7 +424,7 @@ export function long2string(game: number): string {
 /**
  * VB6 Line: 414-416 - Reset placement tracking
  */
-export function resetPlacement(): void {
+function resetPlacement(): void {
   // This was global in VB6, now we'll manage it via state/context in the app
 }
 
@@ -432,7 +432,7 @@ export function resetPlacement(): void {
  * VB6 Line: 419-422 - Hash function initialization
  * Sets up pseudorandom array for hash generation
  */
-export function hashInitialize(): void {
+function hashInitialize(): void {
   const rand8: number[] = Array.from({ length: 256 }, (_, i) => i);
   let k = 7;
 
@@ -450,8 +450,8 @@ export function hashInitialize(): void {
   // These were global in VB6, we'll handle them within the function scope or via a class/closure
 }
 
-export let hashArray: string[] = [];
-export let hashIndex: number[] = [];
+let hashArray: string[] = [];
+let hashIndex: number[] = [];
 
 /**
  * Process game results from all players and calculate ratings

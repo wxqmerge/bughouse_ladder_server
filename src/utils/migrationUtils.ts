@@ -6,7 +6,7 @@ export type ProgramMode = 'local' | 'server';
 export type MigrationNonResultStrategy = 'use-server' | 'use-local';
 export type MigrationResultsStrategy = 'merge' | 'dont-merge';
 
-export interface MigrationOptions {
+interface MigrationOptions {
   nonResultStrategy: MigrationNonResultStrategy;
   resultsStrategy: MigrationResultsStrategy;
 }
@@ -14,7 +14,7 @@ export interface MigrationOptions {
 /**
  * Detect current mode based on user settings in localStorage
  */
-export function detectCurrentMode(): ProgramMode {
+function detectCurrentMode(): ProgramMode {
   try {
     const userSettingsJson = localStorage.getItem('bughouse-ladder-user-settings');
     if (userSettingsJson) {
@@ -32,7 +32,7 @@ export function detectCurrentMode(): ProgramMode {
 /**
  * Get last stored mode from sessionStorage
  */
-export function getLastStoredMode(): ProgramMode | null {
+function getLastStoredMode(): ProgramMode | null {
   const stored = sessionStorage.getItem(SESSION_LAST_MODE_KEY);
   return (stored as ProgramMode) || null;
 }
@@ -47,7 +47,7 @@ export function storeCurrentMode(mode: ProgramMode): void {
 /**
  * Result of migration check
  */
-export interface MigrationNeededResult {
+interface MigrationNeededResult {
   needed: boolean;
   fromMode: ProgramMode;
   toMode: ProgramMode;
@@ -97,7 +97,7 @@ export function checkMigrationNeeded(): MigrationNeededResult {
 /**
  * Information about rank/name mismatches between datasets
  */
-export interface MismatchInfo {
+interface MismatchInfo {
   hasMismatch: boolean;
   mismatchedRanks: number[];
   localPlayers: PlayerData[];
