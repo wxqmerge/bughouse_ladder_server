@@ -17,7 +17,7 @@ const slowOperations: SlowOperation[] = [];
 // Maximum number of slow operations to keep in memory
 const MAX_HISTORY = 100;
 
-export function logSlowOperation(label: string, duration: number, includeStack: boolean = true): void {
+function logSlowOperation(label: string, duration: number, includeStack: boolean = true): void {
   const stack = includeStack ? new Error().stack?.split('\n').slice(2, 6).join('\n    ') : undefined;
   
   slowOperations.push({
@@ -78,34 +78,6 @@ export async function withTiming<T>(
     
     throw error;
   }
-}
-
-// Track promise chains for async operations
-export function trackPromise<T>(
-  promise: Promise<T>, 
-  label: string,
-  options: { threshold?: number } = {}
-): Promise<T> {
-  const { threshold = SLOW_THRESHOLD_MS } = options;
-  const startTime = Date.now();
-  
-  return promise.then(
-    (result) => {
-      const duration = Date.now() - startTime;
-      if (duration > threshold) {
-        logSlowOperation(label, duration);
-      }
-      return result;
-    },
-    (error) => {
-      const duration = Date.now() - startTime;
-      if (duration > threshold) {
-        console.log(`\n[SLOW-ERROR] ${label} threw after ${duration}ms`);
-        console.log(`[ERROR]`, error);
-      }
-      throw error;
-    }
-  );
 }
 
 // Performance report generator

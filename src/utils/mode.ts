@@ -217,10 +217,3 @@ export function isServerDownMode(): boolean {
   return getProgramMode() === 'server_down';
 }
 
-/**
- * Check if currently in any server mode (dev or server)
- */
-export function isServerMode(): boolean {
-  const mode = getProgramMode();
-  return mode === 'dev' || mode === 'server';
-}

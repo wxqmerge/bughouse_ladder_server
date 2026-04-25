@@ -7,7 +7,3 @@ export function log(category: string, message: string, ...args: any[]): void {
 export function logError(category: string, message: string, ...args: any[]): void {
   console.error(`[${getTimestamp()}] ${category}`, message, ...args);
 }
-
-export function logWarn(category: string, message: string, ...args: any[]): void {
-  console.warn(`[${getTimestamp()}] ${category}`, message, ...args);
-}
