@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { X, Plus } from "lucide-react";
 import type { ValidationResult, PlayerData } from "../utils/hashUtils";
-import { updatePlayerGameData } from "../utils/hashUtils";
+import { updatePlayerGameData, normalize4Player, normalize2Player } from "../utils/hashUtils";
 import { getValidationErrorMessage } from "../utils/constants";
 
 interface ErrorDialogProps {
@@ -83,30 +83,35 @@ function findConflictForEntry(
   opp4: number,
   gameResults: (string | null)[]
 ): string | null {
-  // Get all unique opponent ranks from the new entry (excluding current player)
-  const opponents = [opp1, opp2, opp3, opp4].filter((r): r is number => r > 0 && r !== playerRank);
-  
+  const newEntryIs4Player = opp3 > 0 && opp4 > 0;
+  const n4 = normalize4Player(opp1, opp2, opp3, opp4);
+  const n2 = normalize2Player(opp1, opp2);
+
   for (const result of gameResults) {
     if (!result || result.trim() === "") continue;
-    
-    // Parse this existing result to get its opponents
+
     const parsed = updatePlayerGameData(result.replace(/_+$/, ""), true);
-    const existingOpponents = [
-      parsed.parsedPlayer1Rank,
-      parsed.parsedPlayer2Rank,
-      parsed.parsedPlayer3Rank,
-      parsed.parsedPlayer4Rank
-    ].filter((r): r is number => r !== undefined && r > 0 && r !== playerRank);
-    
-    // Check if any opponent from new entry matches existing entry
-    for (const opp of opponents) {
-      if (existingOpponents.includes(opp)) {
-        return result.replace(/_+$/, ""); // Return the conflicting entry (without underscore)
+    const existingIs4Player = (parsed.parsedPlayer3Rank || 0) > 0 && (parsed.parsedPlayer4Rank || 0) > 0;
+
+    // Different game types never conflict
+    if (newEntryIs4Player !== existingIs4Player) {
+      continue;
+    }
+
+    if (newEntryIs4Player) {
+      const e = normalize4Player(parsed.parsedPlayer1Rank || 0, parsed.parsedPlayer2Rank || 0, parsed.parsedPlayer3Rank || 0, parsed.parsedPlayer4Rank || 0);
+      if (n4[0] === e[0] && n4[1] === e[1] && n4[2] === e[2] && n4[3] === e[3]) {
+        return result.replace(/_+$/, "");
+      }
+    } else {
+      const e = normalize2Player(parsed.parsedPlayer1Rank || 0, parsed.parsedPlayer2Rank || 0);
+      if (n2[0] === e[0] && n2[1] === e[1]) {
+        return result.replace(/_+$/, "");
       }
     }
   }
-  
-  return null; // No conflict found
+
+  return null;
 }
 
 export default function ErrorDialog({

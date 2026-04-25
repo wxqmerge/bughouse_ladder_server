@@ -14,7 +14,9 @@ export {
   calculateRatings,
   repopulateGameResults,
   validateGameResult,
-  updatePlayerGameData
+  updatePlayerGameData,
+  normalize4Player,
+  normalize2Player
 } from "../../shared/utils/hashUtils";
 
 // Re-export types for backward compatibility

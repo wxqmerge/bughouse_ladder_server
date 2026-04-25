@@ -44,6 +44,7 @@ export function setAppStatus(status: string | null): void {
 
 function App() {
   const [showSettings, setShowSettings] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [triggerWalkthrough, setTriggerWalkthrough] = useState(false);
   const [showMigrationDialog, setShowMigrationDialog] = useState(false);
   const [showReconnectDialog, setShowReconnectDialog] = useState(false);
@@ -366,6 +367,7 @@ function App() {
         setTriggerWalkthrough={setTriggerWalkthrough}
         onSetRecalculateRef={handleSetRecalculateRef}
         onSetRefreshPlayersRef={handleSetRefreshPlayersRef}
+        onAdminChange={setIsAdmin}
         showServerDownBlocking={showServerDownBlocking}
         onDismissServerDown={() => setShowServerDownBlocking(false)}
       />
@@ -377,6 +379,7 @@ function App() {
           onNewDay={handleNewDay}
           onNewDayWithReRank={handleNewDayWithReRank}
           onWalkThroughReports={handleWalkThroughReports}
+          isAdmin={isAdmin}
         />
       )}
     </>
