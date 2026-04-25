@@ -345,7 +345,7 @@ Ratings are calculated in **two passes** over all matches. The first pass update
 
 Access: **Operations → Settings**
 
-### Configuration Panel
+### Configuration Panel (Admin Mode Only)
 
 | Setting | Description |
 |---------|-------------|

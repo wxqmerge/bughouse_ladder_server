@@ -75,16 +75,18 @@ export default function Settings({
 
   const handleSave = () => {
     console.log(">>> [BUTTON PRESSED] Save (Settings)");
-    const settings = {
-      showRatings: [showRatings, showRatings, showRatings, showRatings],
-      debugLevel: debugLevel,
-      kFactor: Math.max(1, Math.min(100, kFactor || 20)),
-    };
-    localStorage.setItem(
-      getKeyPrefix() + "ladder_settings",
-      JSON.stringify(settings),
-    );
-    
+    if (isAdmin) {
+      const settings = {
+        showRatings: [showRatings, showRatings, showRatings, showRatings],
+        debugLevel: debugLevel,
+        kFactor: Math.max(1, Math.min(100, kFactor || 20)),
+      };
+      localStorage.setItem(
+        getKeyPrefix() + "ladder_settings",
+        JSON.stringify(settings),
+      );
+    }
+
     // Save user server settings
     const userSettings: UserSettings = {
       server: serverUrl.trim(),
@@ -202,14 +204,15 @@ export default function Settings({
           </button>
         </div>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: "2rem",
-          }}
-        >
-          {/* Left Column - Configuration */}
+       {isAdmin && (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "2rem",
+            }}
+          >
+            {/* Left Column - Configuration */}
           <div>
             <h3
               style={{
@@ -480,6 +483,7 @@ export default function Settings({
             </div>
           </div>
         </div>
+        )}
 
         {/* Server Connection Section */}
         <div
