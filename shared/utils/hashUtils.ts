@@ -87,6 +87,26 @@ function swapScore(code: number): number {
 }
 
 /**
+ * Normalize 4-player: sort within pairs, then sort pairs by lowest player
+ * e.g., 13:12,23:25 → 12:13,25:23
+ */
+export function normalize4Player(
+  a1: number, a2: number, a3: number, a4: number
+): [number, number, number, number] {
+  const p1 = a1 < a2 ? [a1, a2] : [a2, a1];
+  const p2 = a3 < a4 ? [a3, a4] : [a4, a3];
+  return p1[0] > p2[0] ? [p2[0], p2[1], p1[0], p1[1]] : [p1[0], p1[1], p2[0], p2[1]];
+}
+
+/**
+ * Normalize 2-player: sort ascending
+ * e.g., 13,12 → 12,13
+ */
+export function normalize2Player(a: number, b: number): [number, number] {
+  return a < b ? [a, b] : [b, a];
+}
+
+/**
  * VB6 Line: 129-130 - Elo rating formula
  * Returns probability of winning for given ratings
  */
@@ -1304,46 +1324,31 @@ export function repopulateGameResults(
 
   const buildNormalizedResult = (m: MatchData): string => {
     if (m.player3 > 0 && m.player4 > 0) {
-      const pair1 = [m.player1, m.player2].sort((a, b) => a - b);
-      const pair2 = [m.player3, m.player4].sort((a, b) => a - b);
+      const norm = normalize4Player(m.player1, m.player2, m.player3, m.player4);
 
-      const minPair1 = Math.min(pair1[0], pair1[1]);
-      const minPair2 = Math.min(pair2[0], pair2[1]);
+      // If pairs swapped, scores need swapping too
+      const pair1Min = Math.min(m.player1, m.player2);
+      const pair2Min = Math.min(m.player3, m.player4);
+      const pairsSwapped = pair1Min > pair2Min;
 
-      let normPair1: number[],
-        normPair2: number[],
-        normScore1: number,
-        normScore2: number;
-
-      if (minPair1 < minPair2) {
-        normPair1 = pair1;
-        normPair2 = pair2;
-        normScore1 = m.score1;
-        normScore2 = m.score2;
-      } else {
-        normPair1 = pair2;
-        normPair2 = pair1;
-        normScore1 = swapScore(m.score2);
-        normScore2 = swapScore(m.score1);
-      }
+      const normScore1 = pairsSwapped ? swapScore(m.score2) : m.score1;
+      const normScore2 = pairsSwapped ? swapScore(m.score1) : m.score2;
 
       const score1Letter = scoreCodeToLetter(normScore1);
 
       if (m.score2 > 0) {
-        // Dual result: two score letters
         const score2Letter = scoreCodeToLetter(normScore2);
-        return `${normPair1[0]}:${normPair1[1]}${score1Letter}${score2Letter}${normPair2[0]}:${normPair2[1]}`;
+        return `${norm[0]}:${norm[1]}${score1Letter}${score2Letter}${norm[2]}:${norm[3]}`;
       }
-      return `${normPair1[0]}:${normPair1[1]}${score1Letter}${normPair2[0]}:${normPair2[1]}`;
+      return `${norm[0]}:${norm[1]}${score1Letter}${norm[2]}:${norm[3]}`;
     } else {
-      const sortedPair = [m.player1, m.player2].sort((a, b) => a - b);
+      const norm = normalize2Player(m.player1, m.player2);
       const scoreLetter = scoreCodeToLetter(m.score1);
       if (m.score2 > 0) {
-        // Dual result: two score letters (e.g., "1ww3")
         const scoreLetter2 = scoreCodeToLetter(m.score2);
-        return `${sortedPair[0]}${scoreLetter}${scoreLetter2}${sortedPair[1]}`;
+        return `${norm[0]}${scoreLetter}${scoreLetter2}${norm[1]}`;
       }
-      return `${sortedPair[0]}${scoreLetter}${sortedPair[1]}`;
+      return `${norm[0]}${scoreLetter}${norm[1]}`;
     }
   };
 

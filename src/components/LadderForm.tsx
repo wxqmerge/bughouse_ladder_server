@@ -177,6 +177,7 @@ interface LadderFormProps {
   setTriggerWalkthrough?: (show: boolean) => void;
   onSetRecalculateRef?: (ref: () => void) => void;
   onSetRefreshPlayersRef?: (ref: () => void) => void;
+  onAdminChange?: (isAdmin: boolean) => void;
   showServerDownBlocking?: boolean;
   onDismissServerDown?: () => void;
 }
@@ -187,6 +188,7 @@ export default function LadderForm({
   setTriggerWalkthrough,
   onSetRecalculateRef,
   onSetRefreshPlayersRef,
+  onAdminChange,
   showServerDownBlocking = false,
   onDismissServerDown,
 }: LadderFormProps = {}) {
@@ -386,6 +388,11 @@ export default function LadderForm({
       }
     };
   }, [isAdmin]);
+
+  // Notify parent of admin state changes
+  useEffect(() => {
+    onAdminChange?.(isAdmin);
+  }, [isAdmin, onAdminChange]);
 
   // Override dialog: Timer countdown
   useEffect(() => {
@@ -1243,6 +1250,9 @@ export default function LadderForm({
 
           setPlayers(finalPlayers);
 
+          // Flush batch buffer to server before reload
+          await endBatch();
+
           // Reload to apply changes
           window.location.reload();
           return;
@@ -1340,16 +1350,19 @@ export default function LadderForm({
 
          setPlayers(finalPlayers);
 
-         // Reload to apply changes
-         window.location.reload();
-         return;
-       } catch (err) {
-         console.error("Failed to process pending New Day:", err);
-         localStorage.removeItem(getKeyPrefix() + "ladder_pending_newday");
-       }
-     }
+          // Flush batch buffer to server before reload
+          await endBatch();
 
-    // Admin mode: fetch fresh server data, merge with local, then push back atomically
+          // Reload to apply changes
+          window.location.reload();
+          return;
+        } catch (err) {
+          console.error("Failed to process pending New Day (recalculateAndSave):", err);
+          localStorage.removeItem(getKeyPrefix() + "ladder_pending_newday");
+        }
+      }
+
+     // Admin mode: fetch fresh server data, merge with local, then push back atomically
       if (isAdmin) {
         log('[RECALC]', 'Admin mode - fetching server data and calculating');
         
@@ -3915,7 +3928,7 @@ export default function LadderForm({
                             const gameData = result as typeof emptyPlayerRow & { rank?: number };
                           const newPlayer: PlayerData = {
                                rank: 0,
-                               nRating: Math.abs(result.nRating || 0),
+                               nRating: Math.abs(result.nRating || 1),
                                trophyEligible: true,
                                gameResults: result.gameResults,
                               group: gameData.group,

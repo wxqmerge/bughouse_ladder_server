@@ -120,14 +120,27 @@ In server mode, changes are synchronized automatically via 5-second polling with
 
 ## Player Management
 
-### Adding Players
+### Adding Players (Dialog)
 
 1. Go to **Operations → Add Player** (Admin mode required)
 2. Fill in fields: Rank (auto-assigned), Group, Last Name, First Name, Rating, Grade, Phone, School, Room, Info
 3. Click "Add Player"
 
-**Auto-assignment:**
-- Rank: max existing rank + 1
+### Adding Players (Inline Row)
+
+When admin mode is enabled, an editable empty row appears at the bottom of the player table. You can type player data directly into the cells:
+
+1. Click into any editable cell in the bottom row
+2. Fill in fields — **Enter** key moves to the next column
+3. When both **First Name** and **Last Name** are filled, the player is automatically created and the row resets
+4. Press **Escape** to clear focus without creating
+
+**Keyboard navigation:**
+- **Enter** — move to next column
+- **Escape** — cancel focus
+
+**Auto-assignment (both methods):**
+- Rank: max existing rank + 1 (read-only in inline row)
 - Attendance: set to rank number
 - Game Results: 31 empty slots
 - New Rating: starts at 1 (calculated on first Recalculate_Save)
@@ -340,7 +353,9 @@ Access: **Operations → Settings**
 | Debug Level | 0 = all logs, 5 = default, 10+ = critical only |
 | K-Factor | Elo volatility: 1–100 (default 20) |
 
-### Actions Panel
+### Actions Panel (Admin Mode Only)
+
+These buttons only appear when admin mode is enabled.
 
 | Button | Action |
 |--------|--------|
