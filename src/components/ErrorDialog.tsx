@@ -348,46 +348,41 @@ export default function ErrorDialog({
     }
   }, [cursorPosition]);
 
+  const cleanInput = (): string => {
+    const raw = (currentInputValue || "").toUpperCase();
+    const cleaned = raw.replace(/[^0-9WLD:]/g, "");
+    if (cleaned !== raw) {
+      setCurrentInputValue(cleaned);
+      if (inputRef.current) inputRef.current.value = cleaned;
+      const v = updatePlayerGameData(cleaned, true);
+      setParseStatus(v.isValid ? { isValid: true } : { isValid: false, error: v.error, message: v.message || getValidationErrorMessage(v.error || 0) });
+    }
+    return cleaned;
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     console.log(">>> [BUTTON PRESSED] Save (Game Result)");
-    // Use the latest input value from state
-    const rawValue = currentInputValue || "";
-    const filteredValue = rawValue.toUpperCase().replace(/[^0-9WLD:]/g, "");
-
-    // Final validation before submit
-    const validation = updatePlayerGameData(filteredValue, true);
-    if (validation.isValid) {
-      setParseStatus({ isValid: true });
-    }
-
-    onSubmit(filteredValue);
+    const value = cleanInput();
+    if (!value.trim()) return;
+    onSubmit(value);
   };
 
   const handleEnterRecalculateSave = (e: React.FormEvent) => {
     e.preventDefault();
     console.log(">>> [BUTTON PRESSED] Enter_Recalculate_Save");
-    // Use the latest input value from state
-    const rawValue = currentInputValue || "";
-    const filteredValue = rawValue.toUpperCase().replace(/[^0-9WLD:]/g, "");
-
-    // Final validation before submit
-    const validation = updatePlayerGameData(filteredValue, true);
-    if (validation.isValid) {
-      setParseStatus({ isValid: true });
-    }
-
-    // Call the enter-recalculate-save handler if provided
+    const value = cleanInput();
+    if (!value.trim()) return;
     if (onEnterRecalculateSave) {
-      onEnterRecalculateSave(filteredValue);
+      onEnterRecalculateSave(value);
     } else {
-      // Fallback to regular submit
-      onSubmit(filteredValue);
+      onSubmit(value);
     }
   };
 
   const handleClearCell = () => {
     console.log(">>> [BUTTON PRESSED] Clear Cell");
+    cleanInput();
     setCorrectedResult("");
     setCurrentInputValue("");
     setParseStatus(null);
@@ -526,10 +521,7 @@ export default function ErrorDialog({
 
     setCurrentInputValue(rawValue);
     setCursorPosition(cursorPos);
-    const filteredValue = rawValue.toUpperCase().replace(/[^0-9WLD:]/g, "");
-    if (inputRef.current && filteredValue !== rawValue) {
-      inputRef.current.value = filteredValue;
-    }
+    const filteredValue = rawValue.toUpperCase();
 
     // Update parseStatus and parsedGameData in real-time for display
     const validation = updatePlayerGameData(filteredValue, true);
@@ -1117,25 +1109,25 @@ export default function ErrorDialog({
                   Cancel
                 </button>
                 <button
-                  type="button"
-                  onClick={handleEnterRecalculateSave}
-                  disabled={!parseStatus?.isValid && currentInputValue.trim() !== ""}
-                  style={{
-                    padding: "0.5rem 1rem",
-                    background: !parseStatus?.isValid && currentInputValue.trim() !== ""
-                      ? "#9ca3af"
-                      : "#10b981",
-                    border: "none",
-                    borderRadius: "0.25rem",
-                    cursor: !parseStatus?.isValid && currentInputValue.trim() !== ""
-                      ? "not-allowed"
-                      : "pointer",
-                    fontSize: "0.875rem",
-                    color: "white",
-                  }}
-                >
-                  Enter_Recalculate_Save
-                </button>
+                   type="button"
+                   onClick={handleEnterRecalculateSave}
+                   disabled={!currentInputValue.trim()}
+                   style={{
+                     padding: "0.5rem 1rem",
+                     background: !currentInputValue.trim()
+                       ? "#9ca3af"
+                       : "#10b981",
+                     border: "none",
+                     borderRadius: "0.25rem",
+                     cursor: !currentInputValue.trim()
+                       ? "not-allowed"
+                       : "pointer",
+                     fontSize: "0.875rem",
+                     color: "white",
+                   }}
+                 >
+                   Enter_Recalculate_Save
+                 </button>
               </>
             ) : (
               /* Existing modes */
@@ -1231,25 +1223,25 @@ export default function ErrorDialog({
                 >
                   Cancel (Ctrl+X)
                 </button>
-                <button
-                  type="submit"
-                  disabled={!parseStatus?.isValid && currentInputValue.trim() !== ""}
-                  style={{
-                    padding: "0.5rem 1rem",
-                    background: !parseStatus?.isValid && currentInputValue.trim() !== ""
-                      ? "#9ca3af"
-                      : "#3b82f6",
-                    border: "none",
-                    borderRadius: "0.25rem",
-                    cursor: !parseStatus?.isValid && currentInputValue.trim() !== ""
-                      ? "not-allowed"
-                      : "pointer",
-                    fontSize: "0.875rem",
-                    color: "white",
-                  }}
-                >
-                  {isGameEntry ? "Save (Ctrl+S)" : "Submit Correction (Ctrl+S)"}
-                </button>
+               <button
+                   type="submit"
+                   disabled={!currentInputValue.trim()}
+                   style={{
+                     padding: "0.5rem 1rem",
+                     background: !currentInputValue.trim()
+                       ? "#9ca3af"
+                       : "#3b82f6",
+                     border: "none",
+                     borderRadius: "0.25rem",
+                     cursor: !currentInputValue.trim()
+                       ? "not-allowed"
+                       : "pointer",
+                     fontSize: "0.875rem",
+                     color: "white",
+                   }}
+                 >
+                   {isGameEntry ? "Save (Ctrl+S)" : "Submit Correction (Ctrl+S)"}
+                 </button>
               </>
             )}
           </div>

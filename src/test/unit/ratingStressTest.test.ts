@@ -418,15 +418,16 @@ for (const p of playerCounts) {
   }
 }
 
+// ─── Module-level results collection (for summary.tsv) ────────────────
+const allStressResults: StressResult[] = [];
+
 // ─── Tests ────────────────────────────────────────────────────────────
 describe('Rating Stress Test', () => {
-  const results: StressResult[] = [];
-
   for (const config of configs) {
     const ngLabel = config.numGamesMode === 'new' ? 'ng0' : config.numGamesMode === 'mixed' ? 'ng0-10' : 'ng20';
     it(`${config.label}_${ngLabel}`, () => {
       const result = runSimulation(config);
-      results.push(result);
+      allStressResults.push(result);
       const finalRss = result.rssHistory[result.rssHistory.length - 1] ?? 0;
       console.log(`  ${config.label}_${ngLabel}: FinalRSS=${finalRss.toFixed(2)}, F1=${result.final1.toFixed(2)}, F2=${result.final2.toFixed(2)}`);
     });
@@ -436,22 +437,7 @@ describe('Rating Stress Test', () => {
     const outDir = path.join(__dirname, 'reports');
     fs.mkdirSync(outDir, { recursive: true });
 
-    const maxRssLen = Math.max(...results.map(r => r.rssHistory.length), 0);
-    const rssHeaders = Array.from({ length: maxRssLen }, (_, i) => `RSS_${i + 1}`);
-    const tsvHeaders = ['Config', 'Final1', 'Final2', ...rssHeaders];
-
-    const tsvRows = results.map(r => {
-      const row = [r.config, r.final1.toFixed(2), r.final2.toFixed(2)];
-      for (let i = 0; i < maxRssLen; i++) {
-        row.push(i < r.rssHistory.length ? r.rssHistory[i].toFixed(2) : '');
-      }
-      return row;
-    });
-
-    const summaryTsv = [tsvHeaders, ...tsvRows].map(r => r.join('\t')).join('\n');
-    fs.writeFileSync(path.join(outDir, 'summary.tsv'), summaryTsv);
-
-    const twentyPlayerResults = results.filter(r => r.config.startsWith('20p_'));
+    const twentyPlayerResults = allStressResults.filter(r => r.config.startsWith('20p_'));
     for (const result of twentyPlayerResults) {
       fs.writeFileSync(path.join(outDir, `${result.config}.tab`), generateLadderTab(result.endPlayers));
     }
@@ -500,4 +486,64 @@ describe('Rating Stress Test — Quick 1 Round', () => {
     }
     console.log(`\nQuick reports written to ${outDir}/`);
   });
+});
+
+// ─── 150-Player 20-Round Stress Test ─────────────────────────────────
+describe('Rating Stress Test — 150p 20 Rounds', () => {
+  const configs150: StressConfig[] = [];
+  let s150 = 200;
+  for (const g of ['2p', '4p'] as Array<'2p' | '4p'>) {
+    for (const ng of ['new', 'mixed', 'experienced'] as Array<'new' | 'mixed' | 'experienced'>) {
+      configs150.push({
+        players: 150,
+        gameType: g,
+        seed: s150++,
+        label: '150p',
+        numGamesMode: ng,
+        rounds: 20,
+      });
+    }
+  }
+
+  for (const config of configs150) {
+    const ngLabel = config.numGamesMode === 'new' ? 'ng0' : config.numGamesMode === 'mixed' ? 'ng0-10' : 'ng20';
+    it(`150p_20r_${config.gameType}_${ngLabel}`, () => {
+      const result = runSimulation(config);
+      allStressResults.push(result);
+      const finalRss = result.rssHistory[result.rssHistory.length - 1] ?? 0;
+      console.log(`  150p_20r_${config.gameType}_${ngLabel}: FinalRSS=${finalRss.toFixed(2)}, F1=${result.final1.toFixed(2)}, F2=${result.final2.toFixed(2)}`);
+    });
+  }
+
+  afterAll(() => {
+    const outDir = path.join(__dirname, 'reports');
+    fs.mkdirSync(outDir, { recursive: true });
+    for (const result of allStressResults.filter(r => r.config.startsWith('150p_'))) {
+      const fileName = `150p_20r_${result.config}.tab`;
+      fs.writeFileSync(path.join(outDir, fileName), generateLadderTab(result.endPlayers));
+    }
+    console.log(`\n150p 20-round reports written to ${outDir}/`);
+  });
+});
+
+// ─── Write summary.tsv after ALL tests complete ───────────────────────
+afterAll(() => {
+  const outDir = path.join(__dirname, 'reports');
+  fs.mkdirSync(outDir, { recursive: true });
+
+  const maxRssLen = Math.max(...allStressResults.map(r => r.rssHistory.length), 0);
+  const rssHeaders = Array.from({ length: maxRssLen }, (_, i) => `RSS_${i + 1}`);
+  const tsvHeaders = ['Config', 'Final1', 'Final2', ...rssHeaders];
+
+  const tsvRows = allStressResults.map(r => {
+    const row = [r.config, r.final1.toFixed(2), r.final2.toFixed(2)];
+    for (let i = 0; i < maxRssLen; i++) {
+      row.push(i < r.rssHistory.length ? r.rssHistory[i].toFixed(2) : '');
+    }
+    return row;
+  });
+
+  const summaryTsv = [tsvHeaders, ...tsvRows].map(r => r.join('\t')).join('\n');
+  fs.writeFileSync(path.join(outDir, 'summary.tsv'), summaryTsv);
+  console.log(`\nSummary written to ${outDir}/summary.tsv (${allStressResults.length} configs)`);
 });

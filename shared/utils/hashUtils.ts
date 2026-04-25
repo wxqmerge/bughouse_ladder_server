@@ -233,6 +233,7 @@ function parseEntry(
           continue;
         } else {
           errorNum = 2;
+          break;
         }
         numOrChar = 1;
       }
@@ -259,19 +260,19 @@ function parseEntry(
 
   // VB6 Line: 215-220 - Validate game format
   // Must have at least 2 players and at least 1 result
-  if (entry < 2) {
-    errorNum = 3; // Incomplete entry - need at least 2 players
-  } else if (resultIndex === 0) {
-    errorNum = 3; // Incomplete entry - need at least 1 result
+  if (!hasColon && entry < 2) {
+    errorNum = 2; // Incomplete 2-player game - need at least 2 players
+  } else if (!hasColon && resultIndex === 0) {
+    errorNum = 2; // Incomplete 2-player game - need at least 1 result
   } else if (hasColon && entry < 4) {
     // If colon used, must be 4-player format with all 4 players
-    errorNum = 7; // Missing player 4
+    errorNum = 3; // Incomplete 4-player game
   } else if (entry === 2 && resultIndex > 2) {
     // For 2-player games, allow up to 2 results
     errorNum = 5; // too many results
   } else if (entry === 4 && resultIndex < 1) {
     // For 4-player games, must have at least 1 result
-    errorNum = 3; // Incomplete entry
+    errorNum = 3; // Incomplete 4-player game
   } else if (entry === 4 && resultIndex > 2) {
     // For 4-player games, allow up to 2 results
     errorNum = 5; // too many results
@@ -876,6 +877,8 @@ function calculateRatingsSinglePass(
   EloKfactor: number,
   debugMode: boolean,
   passLabel?: string,
+  blendingFactor: number = 1,
+  perfMultiplierScale: number = 1,
 ): { players: PlayerData[]; currentRating: Map<number, number>; playedToday: Set<number>; matchTraces: MatchDebugTrace[] } {
   const dbg = new DebugLogger(debugMode);
   const playersCopy = playersList.map((p) => ({ ...p }));
@@ -975,7 +978,7 @@ function calculateRatingsSinglePass(
         // Self-based perfRating: ownRating + multiplier * wldPerfs
         // 4p: multiplier=200 per result (wldPerfs accumulates ±0.5 per game)
         // 2p: multiplier=400, ownRating = sideRating (same as per-side)
-        const perfMultiplier = is4Player ? 200 : 400;
+        const perfMultiplier = is4Player ? 200 : 400 * perfMultiplierScale;
         const side0PerfRating = side0 + perfMultiplier * wldPerfs0;
         const side1PerfRating = side1 + perfMultiplier * wldPerfs1;
         matchTrace.perfRatings = [
@@ -1047,7 +1050,7 @@ function calculateRatingsSinglePass(
           } else {
             update.formula = "blend";
             update.opposingPerfRating = playerPerfRating;
-            const blended = (nratingBefore * games + playerPerfRating) / (games + 1);
+            const blended = (nratingBefore * games * blendingFactor + playerPerfRating) / (games + 1);
             update.nRatingAfterRaw = blended;
             update.nRatingAfter = Math.abs(blended);
             currentRating.set(player.rank, Math.abs(blended));
@@ -1092,7 +1095,7 @@ function calculateRatingsSinglePass(
           } else {
             update.formula = "blend";
             update.opposingPerfRating = playerPerfRating;
-            const blended = (nratingBefore * games + playerPerfRating) / (games + 1);
+            const blended = (nratingBefore * games * blendingFactor + playerPerfRating) / (games + 1);
             update.nRatingAfterRaw = blended;
             update.nRatingAfter = Math.abs(blended);
             currentRating.set(player.rank, Math.abs(blended));
@@ -1145,6 +1148,10 @@ export function calculateRatings(
     kFactorOverride?: number;
     /** When true: prints step-by-step VB6-equivalent trace + returns trace object */
     debugMode?: boolean;
+    /** Override blending factor (default: from settings or 0.99) */
+    blendingFactorOverride?: number;
+    /** Scale factor for 2p perf multiplier (default: 1, effective = 400 * scale) */
+    perfMultiplierScaleOverride?: number;
   },
 ): CalculateRatingsResult {
   const debugMode = options?.debugMode ?? false;
@@ -1172,6 +1179,24 @@ export function calculateRatings(
 
   trace.kFactor = kFactor;
 
+  let blendingFactor = 0.99;
+  if (options?.blendingFactorOverride !== undefined) {
+    blendingFactor = options.blendingFactorOverride;
+  } else if (typeof localStorage !== "undefined") {
+    try {
+      const savedSettings2 = localStorage.getItem("ladder_settings");
+      if (savedSettings2) {
+        const parsed2 = JSON.parse(savedSettings2);
+        blendingFactor = parsed2.performanceBlendingFactor ?? 0.99;
+      }
+    } catch {}
+  }
+
+  let perfMultiplierScale = 0.5;
+  if (options?.perfMultiplierScaleOverride !== undefined) {
+    perfMultiplierScale = options.perfMultiplierScaleOverride;
+  }
+
   // === PASS 1 ===
   const pass1 = calculateRatingsSinglePass(
     playersList,
@@ -1179,6 +1204,8 @@ export function calculateRatings(
     kFactor,
     debugMode,
     "[PASS 1] ",
+    blendingFactor,
+    perfMultiplierScale,
   );
 
   const pass1NRating = new Map<number, number>();
@@ -1210,6 +1237,8 @@ export function calculateRatings(
     kFactor,
     debugMode,
     "[PASS 2] ",
+    blendingFactor,
+    perfMultiplierScale,
   );
 
   const pass2NRating = new Map<number, number>();

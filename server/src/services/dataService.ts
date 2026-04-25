@@ -207,10 +207,12 @@ export async function writeLadderFile(ladderData: LadderData): Promise<void> {
     try {
       loggerLog('[SERVER]', `Writing ${ladderData.players.length} players to ${TAB_FILE_PATH}`);
       
-      // Create backup before write
-      const backupPath = await createBackup();
-      if (backupPath) {
-        await rotateBackups();
+      // Create backup before write (skip during tests)
+      if (!process.env.VITEST) {
+        const backupPath = await createBackup();
+        if (backupPath) {
+          await rotateBackups();
+        }
       }
       
       const content = generateTabContent(ladderData);
