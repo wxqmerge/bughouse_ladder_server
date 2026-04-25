@@ -272,7 +272,7 @@ function parseEntry(
     errorNum = 5; // too many results
   } else if (entry === 4 && resultIndex < 1) {
     // For 4-player games, must have at least 1 result
-    errorNum = 3; // Incomplete 4-player game
+    errorNum = 4; // Missing result code
   } else if (entry === 4 && resultIndex > 2) {
     // For 4-player games, allow up to 2 results
     errorNum = 5; // too many results
@@ -341,7 +341,7 @@ function parseEntry(
       playersList[1] === playersList[3] ||
       playersList[2] === playersList[3]
     ) {
-      return -4;
+      return -6;
     }
 
     // VB6 Line: 318-334 - Return result
@@ -370,7 +370,7 @@ function parseEntry(
 
     // Check for self-play in 2-player game
     if (playersList[0] === playersList[1]) {
-      return -4;
+      return -6;
     }
 
     const computedRes =

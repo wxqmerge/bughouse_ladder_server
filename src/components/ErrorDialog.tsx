@@ -997,7 +997,7 @@ export default function ErrorDialog({
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={isEnterGames ? handleEnterRecalculateSave : handleSubmit}>
           <label
             htmlFor="correctedResult"
             style={{
