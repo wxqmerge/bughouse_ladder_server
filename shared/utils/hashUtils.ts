@@ -571,6 +571,11 @@ export function processGameResults(
 
       // Return in sorted player order (within team)
       const sortedTeam = [p1, p2].sort((a, b) => a - b);
+      if (scores[1] > 0) {
+        // Dual result: two score letters (e.g., "1ww3")
+        const scoreLetter2 = scoreCodeToLetter(scores[1]);
+        return `${sortedTeam[0]}${scoreLetter}${scoreLetter2}${sortedTeam[1]}`;
+      }
       return `${sortedTeam[0]}${scoreLetter}${sortedTeam[1]}`;
     } else {
       // For 4-player team games: normalize each team separately, then sort teams by lowest player
@@ -600,10 +605,14 @@ export function processGameResults(
       }
 
       const score1Letter = scoreCodeToLetter(normScore1);
-      const score2Letter = scoreCodeToLetter(normScore2);
 
       // Return with both pairs sorted internally and in correct order
-      return `${normPair1[0]}:${normPair1[1]}${score1Letter}${score2Letter}${normPair2[0]}:${normPair2[1]}`;
+      if (scores[1] > 0) {
+        // Dual result: two score letters
+        const score2Letter = scoreCodeToLetter(normScore2);
+        return `${normPair1[0]}:${normPair1[1]}${score1Letter}${score2Letter}${normPair2[0]}:${normPair2[1]}`;
+      }
+      return `${normPair1[0]}:${normPair1[1]}${score1Letter}${normPair2[0]}:${normPair2[1]}`;
     }
   };
 
@@ -1290,12 +1299,21 @@ export function repopulateGameResults(
       }
 
       const score1Letter = scoreCodeToLetter(normScore1);
-      const score2Letter = scoreCodeToLetter(normScore2);
 
-      return `${normPair1[0]}:${normPair1[1]}${score1Letter}${score2Letter}${normPair2[0]}:${normPair2[1]}`;
+      if (m.score2 > 0) {
+        // Dual result: two score letters
+        const score2Letter = scoreCodeToLetter(normScore2);
+        return `${normPair1[0]}:${normPair1[1]}${score1Letter}${score2Letter}${normPair2[0]}:${normPair2[1]}`;
+      }
+      return `${normPair1[0]}:${normPair1[1]}${score1Letter}${normPair2[0]}:${normPair2[1]}`;
     } else {
       const sortedPair = [m.player1, m.player2].sort((a, b) => a - b);
       const scoreLetter = scoreCodeToLetter(m.score1);
+      if (m.score2 > 0) {
+        // Dual result: two score letters (e.g., "1ww3")
+        const scoreLetter2 = scoreCodeToLetter(m.score2);
+        return `${sortedPair[0]}${scoreLetter}${scoreLetter2}${sortedPair[1]}`;
+      }
       return `${sortedPair[0]}${scoreLetter}${sortedPair[1]}`;
     }
   };
