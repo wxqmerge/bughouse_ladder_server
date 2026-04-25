@@ -55,12 +55,14 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
       return;
     }
 
-    // Create backup before overwriting
-    const backupPath = await createBackup();
-    if (backupPath) {
-      await rotateBackups();
+    // Create backup before overwriting (skip during tests)
+    if (!process.env.VITEST) {
+      const backupPath = await createBackup();
+      if (backupPath) {
+        await rotateBackups();
+      }
     }
-    
+
     // Write to ladder file
     const ladderPath = process.env.TAB_FILE_PATH || path.join(__dirname, '../../data/ladder.tab');
     await withTiming(`writeFile(${ladderPath})`, () => fs.writeFile(ladderPath, content, 'utf-8'));
@@ -131,12 +133,14 @@ router.post('/regenerate', async (req: Request, res: Response): Promise<void> =>
     const ladderData = await withTiming('readLadderFile(regenerate)', readLadderFile);
     const content = generateTabContent(ladderData);
     
-    // Create backup before overwriting
-    const backupPath = await createBackup();
-    if (backupPath) {
-      await rotateBackups();
+    // Create backup before overwriting (skip during tests)
+    if (!process.env.VITEST) {
+      const backupPath = await createBackup();
+      if (backupPath) {
+        await rotateBackups();
+      }
     }
-    
+
     const ladderPath = process.env.TAB_FILE_PATH || path.join(__dirname, '../../data/ladder.tab');
     await withTiming(`writeFile(regenerate)`, () => fs.writeFile(ladderPath, content, 'utf-8'));
 

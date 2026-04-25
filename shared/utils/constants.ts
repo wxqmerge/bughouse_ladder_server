@@ -12,9 +12,9 @@ export const MINI_GAMES = [
 ] as const;
 
 export const ERROR_MESSAGES: Record<number, string> = {
-  1: "Invalid format",
-  2: "Invalid character",
-  3: "Incomplete entry",
+  1: "Invalid characters",
+  2: "Incomplete 2-player game",
+  3: "Incomplete 4-player game",
   4: "Duplicate players",
   5: "Too many results",
   7: "Missing player 4",

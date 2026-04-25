@@ -19,8 +19,8 @@ npm run test:coverage # Coverage report
 
 Expected output:
 ```
-Test Files  13 passed (13)
- Tests      226 passed | 2 skipped (228)
+Test Files  15 passed (15)
+ Tests      234 passed | 2 skipped (236)
 Duration    ~Zs
 ```
 
@@ -46,7 +46,11 @@ src/
 │   │   ├── newDay.test.ts
 │   │   ├── migration.test.ts
 │   │   ├── utils.test.ts
-│   │   └── auth.test.ts        # Auth exports + file extension validation
+│   │   ├── auth.test.ts        # Auth exports + file extension validation
+│   │   ├── calculateRatings.test.ts  # Rating calculation: blending, Elo, 4p, dual, double-pass
+│   │   ├── ratingStressTest.test.ts  # Tournament simulation (20/50/100/150p)
+│   │   ├── optimizeBlendingFactor.test.ts  # Single-factor bf optimization
+│   │   └── optimize2D.test.ts  # 2D grid optimization (bf × ms sweep)
 │   ├── simple.test.ts          # Basic smoke test
 │   └── setup.ts                # Vitest setup
 ├── components/
@@ -54,7 +58,8 @@ src/
 server/
 ├── test/
 │   ├── adminLock.test.ts       # Admin lock acquire/release/force/refresh/status
-│   └── authRoutes.test.ts      # Auth middleware constants and signatures
+│   ├── authRoutes.test.ts      # Auth middleware constants and signatures
+│   └── backup.test.ts          # Backup system: create, list, restore, delete, rotate
 └── vitest.config.ts            # Server-only vitest config (node env)
 ```
 
@@ -62,7 +67,7 @@ server/
 
 ## Current Test Coverage
 
-**Total: 228 tests** across client and server. **226 passed, 2 skipped.**
+**Total: 236 tests** across client and server. **234 passed, 2 skipped.**
 
 ### Client Unit Tests
 
@@ -75,7 +80,9 @@ server/
 | `utils.test.ts` | 4 | 4 | Error message utilities |
 | `simple.test.ts` | 1 | 1 | Basic smoke test |
 | `calculateRatings.test.ts` | 30 | 30 | Rating calculation: blending, Elo, 4p, dual results, double-pass |
-| `ratingStressTest.test.ts` | 22 | 22 | Tournament simulation: 20/50/100 players, 2p/4p, ng0/mixed/ng20 |
+| `ratingStressTest.test.ts` | 28 | 28 | Tournament simulation: 20/50/100/150 players, 2p/4p, ng0/mixed/ng20 |
+| `optimizeBlendingFactor.test.ts` | 1 | 1 | Single-factor blending factor optimization sweep |
+| `optimize2D.test.ts` | 1 | 1 | 2D grid optimization (blending factor × perf multiplier scale) |
 
 ### Client Component Tests (3 passed)
 
@@ -83,12 +90,13 @@ server/
 |------|-------|-------------|
 | `LadderForm.test.tsx` | 3 | Component rendering tests |
 
-### Server Tests (31 passed)
+### Server Tests (51 passed)
 
 | File | Tests | Description |
 |------|-------|-------------|
 | `adminLock.test.ts` | 22 | Admin lock acquire/release/force/refresh/status/workflows |
 | `authRoutes.test.ts` | 9 | Auth middleware constants, exports, and function signatures |
+| `backup.test.ts` | 20 | Backup system: create, list, restore, delete, rotate, full workflow |
 
 ---
 
@@ -307,7 +315,7 @@ npx vitest run src/test/unit/ratingStressTest.test.ts --reporter=verbose
   20p_2p_ng0: FinalRSS=192.89, F1=203.29, F2=195.64
 ```
 
-**`reports/summary.tsv`** — all configs in TSV format:
+**`reports/summary.tsv`** — all 24 configs (20p/50p/100p/150p) in TSV format:
 ```
 Config    Final1    Final2    RSS_1    RSS_2    RSS_3    ...
 20p_2p_ng0 203.29   195.64   160.48   175.37   185.64  ...
@@ -320,6 +328,8 @@ Config    Final1    Final2    RSS_1    RSS_2    RSS_3    ...
 | Players | Game Types | Modes | Total |
 |---------|-----------|-------|-------|
 | 20, 50, 100 | 2p, 4p | ng0, ng0-10, ng20 | 18 |
+| 150 | 2p, 4p | ng0, ng0-10, ng20 | 6 |
+| **Total** | | | **24** |
 
 - **ng0** = all players start with 0 games (full blending)
 - **ng0-10** = random 0-10 games per player (mixed blending/Elo)
@@ -363,3 +373,4 @@ Config    Final1    Final2    RSS_1    RSS_2    RSS_3    ...
 - Use `import.meta.env` for environment variables
 - Mock external dependencies with `vi.mock()`
 - Use `beforeEach`/`afterEach` for setup/teardown
+- Backup creation (`createBackup`/`rotateBackups`) is skipped during test runs (`VITEST` env var) to prevent unnecessary file I/O
