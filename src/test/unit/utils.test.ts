@@ -8,7 +8,7 @@ import { getValidationErrorMessage } from '../../../src/utils/constants';
 
 describe('Error Messages', () => {
   it('should return correct message for error code 1', () => {
-    expect(getValidationErrorMessage(1)).toBe('Invalid format');
+    expect(getValidationErrorMessage(1)).toBe('Invalid characters');
   });
 
   it('should return correct message for error code 4', () => {

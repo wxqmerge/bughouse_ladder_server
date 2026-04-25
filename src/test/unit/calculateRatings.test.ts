@@ -145,7 +145,7 @@ describe('calculateRatings', () => {
         createMatch(1, 2, 3), // Player 1 wins
       ];
 
-      const result = calculateRatings(players, matches);
+      const result = calculateRatings(players, matches, { blendingFactorOverride: 1, perfMultiplierScaleOverride: 1 });
 
       // num_games=0, initRating=1200 (not capped, 1200 < 1800)
       // Self-based perfRating: ownRating + 400*wldPerfs
@@ -170,9 +170,9 @@ describe('calculateRatings', () => {
         createMatch(1, 2, 3), // Player 1 wins again
       ];
 
-      const result = calculateRatings(players, matches);
+      const result = calculateRatings(players, matches, { blendingFactorOverride: 1, perfMultiplierScaleOverride: 1 });
 
-      // Self-based perfRating: ownRating + 400*wldPerfs
+      // Self-based perfRating: ownRating + 400*wldPerfs (factor=1, no deflation)
       // Game 1: perfRating0=1200+200=1400, perfRating1=1200-200=1000
       //   P1: (1200*3+1400)/4=1250, P2: (1200*3+1000)/4=1100
       // Game 2: perfRating0=1250+200=1450, perfRating1=1100-200=900
@@ -193,9 +193,9 @@ describe('calculateRatings', () => {
         createMatch(1, 2, 3), // 1 game today, player 1 wins
       ];
 
-      const result = calculateRatings(players, matches);
+      const result = calculateRatings(players, matches, { blendingFactorOverride: 1, perfMultiplierScaleOverride: 1 });
 
-      // Self-based perfRating: ownRating + 400*wldPerfs
+      // Self-based perfRating: ownRating + 400*wldPerfs (factor=1, no deflation)
       // perfRating0=1200+200=1400, perfRating1=1200-200=1000
       // P1: (1200*9+1400)/10=1220, P2: (1200*9+1000)/10=1180
       // Pass 2: same (num_games > 0, init from rating column)
@@ -214,7 +214,7 @@ describe('calculateRatings', () => {
         createMatch(1, 2, 3),
       ];
 
-      const result = calculateRatings(players, matches);
+      const result = calculateRatings(players, matches, { blendingFactorOverride: 1, perfMultiplierScaleOverride: 1 });
 
       // num_games=0, initRating=1100 (not capped, 1100 < 1800)
       // Self-based perfRating: ownRating + 400*wldPerfs
@@ -238,7 +238,7 @@ describe('calculateRatings', () => {
         createMatch(1, 2, 3),
       ];
 
-    const result = calculateRatings(players, matches);
+    const result = calculateRatings(players, matches, { blendingFactorOverride: 1, perfMultiplierScaleOverride: 1 });
 
       // P1 initRating = min(2000, 1800) = 1800 (capped)
       // P2 initRating = 1200
@@ -267,9 +267,9 @@ describe('calculateRatings', () => {
         createMatch(1, 2, 3, 3, 4), // Team 1 (1+2) vs Team 2 (3+4), Team 1 wins
       ];
 
-      const result = calculateRatings(players, matches);
+      const result = calculateRatings(players, matches, { blendingFactorOverride: 1, perfMultiplierScaleOverride: 1 });
 
-      // side0 = (1200+1200)/2 = 1200, side1 = (1000+1000)/2 = 1000
+      // side0 = (1200+1200)/2 = 1200 (factor=1, no deflation), side1 = (1000+1000)/2 = 1000
       // Self-based perfRating: ownRating + 400*wldPerfs
       // wldPerfs: split (score1=3, score2=1) → perfs(0)=0, perfs(1)=0
       // P1 perfRating=1200+0=1200, P3 perfRating=1000+0=1000
@@ -334,9 +334,9 @@ describe('calculateRatings', () => {
         createMatch(1, 2, 3), // Player 1 wins
       ];
 
-      const result = calculateRatings(players, matches);
+      const result = calculateRatings(players, matches, { blendingFactorOverride: 1, perfMultiplierScaleOverride: 1 });
 
-      // Self-based perfRating: ownRating + 400*wldPerfs
+      // Self-based perfRating: ownRating + 400*wldPerfs (factor=1, no deflation)
       // perfRating0=1500+200=1700, perfRating1=1400-200=1200
       // P1: (1500*5+1700)/6=1533, P2: (1400*5+1200)/6=1367
       expect(result.players[0].nRating).toBe(1533);
@@ -371,9 +371,9 @@ describe('calculateRatings', () => {
         createMatch(1, 2, 3), // Player 1 wins
       ];
 
-      const result = calculateRatings(players, matches);
+      const result = calculateRatings(players, matches, { blendingFactorOverride: 1, perfMultiplierScaleOverride: 1 });
 
-      // Self-based perfRating: ownRating + 400*wldPerfs
+      // Self-based perfRating: ownRating + 400*wldPerfs (factor=1, no deflation)
       // perfRating0=1200+200=1400, perfRating1=1200-200=1000
       // P1: (1200*5+1400)/6=1233, P2: (1200*5+1000)/6=1167
       expect(result.players[0].nRating).toBeCloseTo(1233, 0);
@@ -575,7 +575,7 @@ describe('calculateRatings', () => {
         createMatch(1, 2, 3), // Player 1 wins
       ];
 
-      const result = calculateRatings(players, matches, { debugMode: true });
+      const result = calculateRatings(players, matches, { debugMode: true, blendingFactorOverride: 1, perfMultiplierScaleOverride: 1 });
 
       const matchTrace = result.trace!.matches[0];
 
@@ -625,7 +625,7 @@ describe('calculateRatings', () => {
         createMatch(1, 2, 3), // Player 1 wins
       ];
 
-      const result = calculateRatings(players, matches, { debugMode: true });
+      const result = calculateRatings(players, matches, { debugMode: true, blendingFactorOverride: 1, perfMultiplierScaleOverride: 1 });
 
       // Results are averaged between pass 1 and pass 2
       expect(result.pass1NRating).toBeDefined();
