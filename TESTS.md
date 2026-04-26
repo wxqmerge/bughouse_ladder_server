@@ -19,8 +19,8 @@ npm run test:coverage # Coverage report
 
 Expected output:
 ```
-Test Files  15 passed (15)
- Tests      234 passed | 2 skipped (236)
+Test Files  21 passed (21)
+ Tests      322 passed | 2 skipped (324)
 Duration    ~Zs
 ```
 
@@ -50,11 +50,17 @@ src/
 │   │   ├── calculateRatings.test.ts  # Rating calculation: blending, Elo, 4p, dual, double-pass
 │   │   ├── ratingStressTest.test.ts  # Tournament simulation (20/50/100/150p)
 │   │   ├── optimizeBlendingFactor.test.ts  # Single-factor bf optimization
-│   │   └── optimize2D.test.ts  # 2D grid optimization (bf × ms sweep)
+│   │   ├── optimize2D.test.ts  # 2D grid optimization (bf × ms sweep)
+│   │   ├── normalize4Player.test.ts      # 4-player pair normalization (all permutations)
+│   │   ├── normalize2Player.test.ts      # 2-player ascending sort
+│   │   ├── conflictDetection.test.ts     # Entry parsing + conflict detection (2p/4p/cross-type)
+│   │   ├── batchFlush.test.ts            # Batch buffer: startBatch/endBatch flush to server
+│   │   └── nRatingDefault.test.ts        # nRating defaults to 1 (not 0) for new players
 │   ├── simple.test.ts          # Basic smoke test
 │   └── setup.ts                # Vitest setup
 ├── components/
-│   └── LadderForm.test.tsx     # Component rendering tests
+│   ├── LadderForm.test.tsx     # Component rendering tests
+│   └── Settings.test.tsx       # Settings admin gating (user vs admin mode)
 server/
 ├── test/
 │   ├── adminLock.test.ts       # Admin lock acquire/release/force/refresh/status
@@ -67,7 +73,7 @@ server/
 
 ## Current Test Coverage
 
-**Total: 236 tests** across client and server. **234 passed, 2 skipped.**
+**Total: 324 tests** across client and server. **322 passed, 2 skipped.**
 
 ### Client Unit Tests
 
@@ -83,12 +89,18 @@ server/
 | `ratingStressTest.test.ts` | 28 | 28 | Tournament simulation: 20/50/100/150 players, 2p/4p, ng0/mixed/ng20 |
 | `optimizeBlendingFactor.test.ts` | 1 | 1 | Single-factor blending factor optimization sweep |
 | `optimize2D.test.ts` | 1 | 1 | 2D grid optimization (blending factor × perf multiplier scale) |
+| `normalize4Player.test.ts` | 18 | 18 | 4-player normalization: pair swaps, pair reordering, equal values, conflict equivalence |
+| `normalize2Player.test.ts` | 12 | 12 | 2-player normalization: ascending sort, equal values, conflict equivalence |
+| `conflictDetection.test.ts` | 25 | 25 | Entry parsing (2p/4p formats), 2p vs 2p conflicts, 4p vs 4p conflicts, cross-type prevention |
+| `batchFlush.test.ts` | 10 | 10 | Batch buffer: state management, nested batches, getPlayers during batch, New Day flush sequence |
+| `nRatingDefault.test.ts` | 12 | 12 | nRating defaults to 1 via `Math.abs(value || 1)` for all falsy cases (0, null, undefined, "") |
 
-### Client Component Tests (3 passed)
+### Client Component Tests (13 passed)
 
 | File | Tests | Description |
 |------|-------|-------------|
 | `LadderForm.test.tsx` | 3 | Component rendering tests |
+| `Settings.test.tsx` | 13 | Settings admin gating: Configuration/Actions hidden in user mode, Server Connection always visible |
 
 ### Server Tests (51 passed)
 
@@ -224,6 +236,85 @@ describe('MyComponent', () => {
   });
 });
 ```
+
+---
+
+## New Tests (v1.1)
+
+### What Changed
+
+The test suite expanded from **236 → 324 tests** (+88) to cover recent bug fixes and new features:
+
+| Area | Old Tests | New Tests | What's Covered |
+|------|-----------|-----------|----------------|
+| **Rating core** | ~85 | 0 | Existing tests unchanged (formula, calculateRatings, stress tests) |
+| **Player normalization** | 0 | 30 | `normalize4Player` (18 tests), `normalize2Player` (12 tests) |
+| **Conflict detection** | 0 | 25 | Entry parsing, 2p/4p conflict logic, cross-type prevention |
+| **Batch operations** | 0 | 10 | `startBatch`/`endBatch` buffer flush, nested batches, New Day flush |
+| **UI gating** | 0 | 13 | Settings admin vs user mode panel visibility |
+| **Player defaults** | 0 | 12 | nRating defaults to 1 (not 0) for new players |
+
+### Key Differences
+
+**Old tests focused on:**
+- Rating formula correctness (Elo probability)
+- New day processing (title progression, transformations)
+- Migration logic (local ↔ server data sync)
+- Rating calculation with complex blending factors
+- Server-side admin lock, auth, and backup systems
+
+**New tests focus on:**
+- **Normalization correctness** — verifying that `normalize4Player` and `normalize2Player` produce identical outputs for all permutations of the same game, which is critical for conflict detection
+- **Entry parsing formats** — 2-player entries use `12W13` (no colon), 4-player entries use `12:13W23:25` (colons within pairs, no underscore between pairs)
+- **Cross-type prevention** — 2p and 4p games must never conflict, even with overlapping player ranks
+- **Batch flush reliability** — ensuring `endBatch()` is called before `window.location.reload()` during New Day to prevent data loss
+- **UI permission gating** — Configuration and Actions panels only visible when `isAdmin=true`
+- **Defensive defaults** — new players get `nRating: 1` via `Math.abs(value || 1)`, never 0 (zero ratings are invalid)
+
+### Test File Details
+
+#### `normalize4Player.test.ts` (18 tests)
+Tests the 4-player normalization function used by conflict detection:
+- Within-pair swaps: `13:12,23:25` → `12:13,23:25`
+- Pair reordering: `23:25,12:13` → `12:13,23:25`
+- Equal values: `12:12,23:25` → `12:12,23:25`
+- All 8 permutations of `{1,2,3,4}` produce identical output
+- Large ranks, single digits, all-same values
+
+#### `normalize2Player.test.ts` (12 tests)
+Tests the 2-player normalization function:
+- Ascending sort: `2,1` → `1,2`
+- Already sorted: `1,2` → `1,2`
+- Equal values: `5,5` → `5,5`
+- Both orderings produce same result (conflict detection equivalence)
+
+#### `conflictDetection.test.ts` (25 tests)
+Tests the full conflict detection pipeline:
+- **Entry parsing**: 2-player (`12W13`), 4-player (`12:13W23:25`), invalid formats
+- **2p vs 2p**: Same players in any order conflict, different players don't
+- **4p vs 4p**: All 4 players must match (normalized) to conflict
+- **Cross-type**: 2p and 4p never conflict, even with same ranks
+- **Partial entries**: 3-player entries treated as 2-player (player4 = 0)
+
+#### `batchFlush.test.ts` (10 tests)
+Tests the batch buffer system used during New Day:
+- **State management**: `startBatch`/`endBatch` nesting with counter
+- **Buffer isolation**: localStorage unchanged during batch, committed on `endBatch`
+- **Nested batches**: Multiple `startBatch` calls require matching `endBatch` calls
+- **New Day flush**: `startBatch` → `savePlayers` → `endBatch` → `window.location.reload()`
+
+#### `Settings.test.tsx` (13 tests)
+Tests admin gating in Settings dialog:
+- **User mode**: Configuration panel hidden, Actions panel hidden, Server Connection visible
+- **Admin mode**: All panels visible, all buttons present
+- **Specific elements**: Show Ratings, Debug Level, K-Factor, New Day, Clear All, Set Sample Data
+
+#### `nRatingDefault.test.ts` (12 tests)
+Tests the `Math.abs(value || 1)` pattern used in LadderForm:
+- Falsy values (0, null, undefined, "") → default to 1
+- Positive values preserved
+- Negative values abs'd
+- Edge case: rating = 1 → nRating = 1 (not default)
 
 ---
 
