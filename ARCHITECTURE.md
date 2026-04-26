@@ -1,6 +1,6 @@
 # Bughouse Chess Ladder - Architecture Documentation
 
-**Version: 1.0.2**
+**Version: 1.0.3**
 
 Technical deep-dive for developers. For deployment see [README_INSTALL.md](./README_INSTALL.md), for security see [SECURITY.md](./SECURITY.md), for admin operations see [ADMIN_MANUAL.md](./ADMIN_MANUAL.md).
 
@@ -361,14 +361,9 @@ Browser A clicks "Pull from Server":
 Browser B clicks "Push to Server":
   1. Replay pending deletes (none)
   2. Get local data → Has "6W7"
-  3. PUT to server → ladder.tab has "6W7" only ❌
+  3. PUT to server → ladder.tab has "6W7" only (Browser A's "4W5" overwritten) ⚠️
 
-WAIT! Browser B should FETCH FIRST too:
-  Corrected flow for "Push":
-  1. Fetch server → Has "4W5" (from Browser A)
-  2. Get local → Has "6W7"
-  3. Merge → Result: Both "4W5" and "6W7"
-  4. PUT merged to server → ladder.tab has both ✅
+**Note:** The current "Push to Server" implementation does NOT fetch-merge-first. It directly pushes local data. To avoid data loss, always use "Pull from Server" first (which does fetch-merge-save), or ensure only one browser pushes at a time.
 ```
 
 ---
@@ -414,27 +409,6 @@ Rnk	Group	Last Name	First Name	Prev Rating	New Rating	Gr	Gms	Attendance	Phone	In
 - VB6 format: Tab-separated columns 1-31 after Room column
 - LadderForm format: JSON in gameResults array per player
 - Server converts between formats as needed
-
----
-
-## Configuration Reference
-
-### Polling Configuration
-
-| Parameter | Default | Location | Description |
-|-----------|---------|----------|-------------|
-| Interval | 5000ms | App.tsx | Time between poll cycles |
-| Hash algorithm | JSON.stringify | DataService.ts | Change detection method |
-| Cache mode | true | storageService.ts | Poll fetch doesn't trigger sync |
-
-### Merge Configuration
-
-| Priority Level | Source | Condition |
-|----------------|--------|------------|
-| 1 (Highest) | Local unconfirmed | cell exists AND !endsWith('_') |
-| 2 | Pending deletes | cell in getPendingDeletes() |
-| 3 | Server confirmed | server cell endsWith('_') |
-| 4 (Lowest) | Server default | fallback |
 
 ---
 
@@ -558,6 +532,6 @@ When loading a file in admin/server mode, a confirmation dialog appears before p
 
 ---
 
-**Version:** 1.0  
+**Version:** 1.0.3  
 **Last Updated:** April 2026  
 **Author:** System
