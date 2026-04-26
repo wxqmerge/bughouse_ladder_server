@@ -368,6 +368,14 @@ export function isInBatch(): boolean {
 }
 
 /**
+ * Reset batch state (test only - not exported in production)
+ */
+export function _resetBatchState(): void {
+  batchOperationCount = 0;
+  batchBuffer = null;
+}
+
+/**
  * Get current player data (from buffer during batch, from storage otherwise)
  * This ensures operations always work with the latest data
  */
