@@ -18,7 +18,7 @@ Each test:
 - **4p**: Same shuffle, groups of 4 split into two sides of 2
 - **600-point filter**: Uses **start ratings** (not current) to determine if a matchup is realistic. Prevents drift-based skips where ratings diverge during the tournament.
 - **Rounds**: Default 20, capped at `players - 1` to allow full round-robin completion
-- **Dedup**: Tracks opposing pairs per player — same pair can't face each other twice
+
 
 ### Dual Results
 
@@ -51,7 +51,7 @@ Runs 4 quick tests (20p, 1 round each). Useful for fast iteration.
 npx vitest run ratingStressTest
 ```
 
-Runs all 24 tests across 4 player counts (20, 50, 100, 150), 2 game types (2p, 4p), and 3 experience modes (ng0, ng0-10, ng20).
+Runs all 28 tests: main suite (20/50/100 players × 2 game types × 3 modes = 18), 150-player suite (2 game types × 3 modes = 6), and quick 1-round (4 tests).
 
 ### With Verbose Output
 
@@ -75,7 +75,7 @@ Reports are written to `src/test/unit/reports/`:
 
 | File | Description |
 |---|---|
-| `summary.tsv` | All 24 test results (20p/50p/100p/150p) — RSS per round, F1, F2 |
+| `summary.tsv` | All 24 main+150p test results (20p/50p/100p/150p) — RSS per round, F1, F2 (quick tests not included) |
 | `20p_2p_ng0.tab` | Final ladder state for 20-player 2p new players (full suite) |
 | `20p_4p_ng0.tab` | Final ladder state for 20-player 4p new players (full suite) |
 | `20p_2p_ng0-10.tab` | Mixed experience 2p |
@@ -85,12 +85,12 @@ Reports are written to `src/test/unit/reports/`:
 | `1r_20p_2p_ng20.tab` | Quick 1-round 2p experienced |
 | `1r_20p_4p_ng0.tab` | Quick 1-round 4p new players |
 | `1r_20p_4p_ng20.tab` | Quick 1-round 4p experienced |
-| `150p_20r_150p_ng0.tab` | 150p 20-round 2p new players |
-| `150p_20r_150p_ng0-10.tab` | 150p 20-round 2p mixed |
-| `150p_20r_150p_ng20.tab` | 150p 20-round 2p experienced |
-| `150p_20r_150p_ng0.tab` | 150p 20-round 4p new players |
-| `150p_20r_150p_ng0-10.tab` | 150p 20-round 4p mixed |
-| `150p_20r_150p_ng20.tab` | 150p 20-round 4p experienced |
+| `150p_20r_150p_2p_ng0.tab` | 150p 20-round 2p new players |
+| `150p_20r_150p_2p_ng0-10.tab` | 150p 20-round 2p mixed |
+| `150p_20r_150p_2p_ng20.tab` | 150p 20-round 2p experienced |
+| `150p_20r_150p_4p_ng0.tab` | 150p 20-round 4p new players |
+| `150p_20r_150p_4p_ng0-10.tab` | 150p 20-round 4p mixed |
+| `150p_20r_150p_4p_ng20.tab` | 150p 20-round 4p experienced |
 
 ## Understanding Results
 
@@ -115,7 +115,7 @@ Measures how far final ratings are from starting ratings. Lower = better converg
 | Players | Game Type | numGames | Rounds | Label |
 |---|---|---|---|---|
 | 20, 50, 100 | 2p, 4p | new, mixed, experienced | 20 (cap: N-1) | `{N}p_{2p\|4p}_{ng0\|ng0-10\|ng20}` |
-| 150 | 2p, 4p | new, mixed, experienced | 20 | `150p_20r_{2p\|4p}_{ng0\|ng0-10\|ng20}` |
+| 150 | 2p, 4p | new, mixed, experienced | 20 | `150p_20r_150p_{2p\|4p}_{ng0\|ng0-10\|ng20}` |
 
 ## Key Files
 

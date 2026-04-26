@@ -1,6 +1,6 @@
 # Bughouse Chess Ladder - User Manual
 
-**Version: 1.0.2**
+**Version: 1.0.3**
 
 ## Getting Started
 
@@ -181,7 +181,7 @@ Errors are checked when you:
 | 1 | Invalid characters | Use only digits, W, L, D, colons |
 | 2 | Incomplete 2-player game | Add opponent: `5W6` |
 | 3 | Incomplete 4-player game | Complete format: `1:2W3:4` |
-| 4 | Missing result code | Add team result: `1:2W33:4` |
+| 4 | Missing result code | Add result code: `1:2W3:4` |
 | 5 | Too many results | Max 2 results per game: `5WW6` |
 | 6 | Duplicate player in game | Player can't play themselves |
 | 7 | Missing player 4 | Complete format: `1:2W3:4` |
@@ -331,5 +331,5 @@ Fix: Use **Operations → Check Errors**, then review recent entries.
 
 ---
 
-**Version:** 1.0  
+**Version:** 1.0.3  
 **Last Updated:** April 2026

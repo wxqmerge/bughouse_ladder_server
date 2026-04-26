@@ -1,6 +1,6 @@
 # Bughouse Chess Ladder - Administrator Manual
 
-**Version: 1.0.2**
+**Version: 1.0.3**
 
 ## Table of Contents
 
@@ -48,7 +48,7 @@ Admin mode is automatically disabled when connected to a server without an admin
 |---------|----------|--------|
 | Load Data | File → Load | Import .tab/.xls files |
 | Export Data | File → Export | Download current ladder |
-| Title Menu | File → (dropdown) | Switch title among 7 options |
+| Title Menu | File → (dropdown) | Switch title among 8 options |
 | Sort Options | Sort menu | Reorder player display |
 | Add Player | Operations → Add Player | Create new player entries |
 | Restore Backup | Operations → Restore Backup | Browse/restore/delete server backups |
@@ -56,7 +56,7 @@ Admin mode is automatically disabled when connected to a server without an admin
 
 ### Admin Lock
 
-When multiple clients connect to the same server, only one can hold admin mode at a time. If another client already has admin mode, you'll see an override dialog with a countdown timer. You can force-acquire the lock when the timer expires.
+When multiple clients connect to the same server, only one can hold admin mode at a time. If another client already has admin mode, you'll see an override dialog with a 30-second countdown timer. You can force-acquire the lock when the timer expires.
 
 ---
 
@@ -193,9 +193,10 @@ Configurable in **Operations → Settings**. Default: **20** (range 1–100). Hi
 ### What Changes
 
 1. **Title Progression** — BG_Game → Bishop_Game → Pillar_Game → Kings_Cross → Pawn_Game → Queen_Game → (cycles)
-2. **Rating Finalization** — "New Rating" moves to "Previous Rating", calculations start fresh
-3. **Game Count Recalculation** — counted from game results array each new day
-4. **Re-ranking Option** — players re-sorted by rating, ranks updated
+2. **Rating Finalization** — "New Rating" moves to "Previous Rating", nRating resets to 0, calculations start fresh
+3. **Game Results Cleared** — all game result cells are cleared
+4. **Attendance Tracking** — reset to 0 if player had games; incremented by 1 if absent
+5. **Re-ranking Option** — players re-sorted by rating, ranks updated
 
 ### Procedure
 
@@ -350,7 +351,7 @@ Access: **Operations → Settings**
 | Setting | Description |
 |---------|-------------|
 | Show Ratings | Toggle visibility of rating columns (A1-A8, I1-I8, Z1-Z8 groups) |
-| Debug Level | 0 = all logs, 5 = default, 10+ = critical only |
+| Debug Level | 0 = all logs, 5 = default, 10+ = critical |
 | K-Factor | Elo volatility: 1–100 (default 20) |
 
 ### Actions Panel (Admin Mode Only)
@@ -359,9 +360,9 @@ These buttons only appear when admin mode is enabled.
 
 | Button | Action |
 |--------|--------|
-| New Day | Finalize ratings, advance title, clear game results |
-| New Day + Re-rank | Same as New Day, plus re-sort players by rating |
-| Walk Through Reports | Step through report dialog (if configured) |
+| New Day | Finalize ratings, advance title, clear game results, reset attendance |
+| New Day + Re-rank | Same as New Day, plus re-sort players by rating and update ranks |
+| Walk Through Reports | Step through report dialog |
 | Clear All | Clear all player data from grid |
 | Set Sample Data | Reset to sample dataset (with confirmation) |
 

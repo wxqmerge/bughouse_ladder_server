@@ -1,6 +1,6 @@
 # Bughouse Chess Ladder Server
 
-**Version: 1.0.2**
+**Version: 1.0.3**
 
 A modern client-server implementation of the VB6 Bughouse Chess Ladder application.
 
@@ -156,6 +156,7 @@ Drag a `.tab`, `.xls`, or `.txt` file onto the splash screen to load it directly
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `GET` | `/api/admin/backups` | List all backups (up to 20) |
+| `GET` | `/api/admin/backups/preview/:filename` | Preview backup content |
 | `POST` | `/api/admin/backups/restore/:filename` | Restore from backup |
 | `DELETE` | `/api/admin/backups/:filename` | Delete a backup |
 
