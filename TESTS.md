@@ -1,6 +1,6 @@
 # Unit Test Suite
 
-**Version: 1.0.2**
+**Version: 1.0.3**
 
 ## Overview
 
@@ -19,8 +19,8 @@ npm run test:coverage # Coverage report
 
 Expected output:
 ```
-Test Files  21 passed (21)
- Tests      322 passed | 2 skipped (324)
+Test Files  30 passed (30)
+ Tests      468 passed | 2 skipped (470)
 Duration    ~Zs
 ```
 
@@ -65,11 +65,12 @@ src/
 │   ├── settingsPersistence.test.ts     # localStorage key prefix and isolation
 │   ├── adminLockOverride.test.ts       # Admin lock state, override dialog, refresh/release
 │   ├── adminStateFlow.test.ts          # LadderForm → App → Settings isAdmin propagation
+│   ├── settingsAdminGating.test.tsx    # Settings admin gating (user vs admin mode)
 │   └── restoreBackup.test.ts           # Backup file reading, list, restore confirmation
 │   └── setup.ts                # Vitest setup
 ├── components/
 │   ├── LadderForm.test.tsx     # Component rendering tests
-│   └── Settings.test.tsx       # Settings admin gating (user vs admin mode)
+│   └── MenuBar.test.tsx        # MenuBar component tests
 server/
 ├── test/
 │   ├── adminLock.test.ts       # Admin lock acquire/release/force/refresh/status
@@ -99,34 +100,35 @@ server/
 | `optimizeBlendingFactor.test.ts` | 1 | 1 | Single-factor blending factor optimization sweep |
 | `optimize2D.test.ts` | 1 | 1 | 2D grid optimization (blending factor × perf multiplier scale) |
 | `normalize4Player.test.ts` | 18 | 18 | 4-player normalization: pair swaps, pair reordering, equal values, conflict equivalence |
-| `normalize2Player.test.ts` | 12 | 12 | 2-player normalization: ascending sort, equal values, conflict equivalence |
+| `normalize2Player.test.ts` | 11 | 11 | 2-player normalization: ascending sort, equal values, conflict equivalence |
 | `conflictDetection.test.ts` | 25 | 25 | Entry parsing (2p/4p formats), 2p vs 2p conflicts, 4p vs 4p conflicts, cross-type prevention |
-| `batchFlush.test.ts` | 10 | 10 | Batch buffer: state management, nested batches, getPlayers during batch, New Day flush sequence |
+| `batchFlush.test.ts` | 9 | 9 | Batch buffer: state management, nested batches, getPlayers during batch, New Day flush sequence |
 | `nRatingDefault.test.ts` | 12 | 12 | nRating defaults to 1 via `Math.abs(value || 1)` for all falsy cases (0, null, undefined, "") |
 | `normalizeServerUrl.test.ts` | 17 | 17 | Whitespace trimming, protocol prefix, backslash normalization |
 | `saveUserSettings.test.ts` | 17 | 17 | Server URL normalization, API key preservation, debugMode, round-trip persistence |
-| `kFactorBounds.test.ts` | 17 | 17 | Clamping <1→1, >100→100, Settings input simulation |
+| `kFactorBounds.test.ts` | 18 | 18 | Clamping <1→1, >100→100, Settings input simulation |
 | `debugLevelBounds.test.ts` | 16 | 16 | Clamping <0→0, >20→20, Settings input simulation |
-| `exportFilename.test.ts` | 12 | 12 | First word extraction from project name (space-delimited) |
-| `settingsPersistence.test.ts` | 12 | 12 | localStorage key prefix, isolation, user settings key |
+| `exportFilename.test.ts` | 13 | 13 | First word extraction from project name (space-delimited) |
+| `settingsPersistence.test.ts` | 11 | 11 | localStorage key prefix, isolation, user settings key |
 | `adminLockOverride.test.ts` | 18 | 18 | Lock state detection, override dialog, refresh/release/notification |
-| `adminStateFlow.test.ts` | 13 | 13 | LadderForm → App → Settings prop propagation |
-| `restoreBackup.test.ts` | 16 | 16 | File reading, backup list, restore confirmation, filename format |
+| `adminStateFlow.test.ts` | 12 | 12 | LadderForm → App → Settings prop propagation |
+| `restoreBackup.test.ts` | 24 | 24 | File reading, backup list, restore confirmation, filename format, dialog UI |
 
-### Client Component Tests (13 passed)
+### Client Component Tests (75 passed)
 
 | File | Tests | Description |
 |------|-------|-------------|
 | `LadderForm.test.tsx` | 3 | Component rendering tests |
-| `Settings.test.tsx` | 13 | Settings admin gating: Configuration/Actions hidden in user mode, Server Connection always visible |
+| `MenuBar.test.tsx` | 59 | MenuBar component rendering, menu items, admin/user mode visibility |
+| `settingsAdminGating.test.tsx` | 13 | Settings admin gating: Configuration/Actions hidden in user mode, Server Connection always visible |
 
-### Server Tests (51 passed)
+### Server Tests (58 passed)
 
 | File | Tests | Description |
 |------|-------|-------------|
 | `adminLock.test.ts` | 22 | Admin lock acquire/release/force/refresh/status/workflows |
 | `authRoutes.test.ts` | 9 | Auth middleware constants, exports, and function signatures |
-| `backup.test.ts` | 20 | Backup system: create, list, restore, delete, rotate, full workflow |
+| `backup.test.ts` | 27 | Backup system: create, list, restore, delete, rotate, full workflow |
 
 ---
 
@@ -261,29 +263,29 @@ describe('MyComponent', () => {
 
 ### What Changed
 
-The test suite expanded from **236 → 470 tests** (+234) across two waves:
+The test suite expanded from **231 → 470 tests** (+239) across two waves:
 
 **Wave 1 (+88 tests):** Bug fix coverage for recent fixes
 | Area | Tests | What's Covered |
 |------|-------|----------------|
-| **Player normalization** | 30 | `normalize4Player` (18), `normalize2Player` (12) |
+| **Player normalization** | 29 | `normalize4Player` (18), `normalize2Player` (11) |
 | **Conflict detection** | 25 | Entry parsing, 2p/4p conflicts, cross-type prevention |
-| **Batch operations** | 10 | `startBatch`/`endBatch` buffer flush, nested batches |
+| **Batch operations** | 9 | `startBatch`/`endBatch` buffer flush, nested batches |
 | **UI gating** | 13 | Settings admin vs user mode panel visibility |
 | **Player defaults** | 12 | nRating defaults to 1 (not 0) for new players |
 
-**Wave 2 (+146 tests):** Input validation, state flow, and integration
+**Wave 2 (+151 tests):** Input validation, state flow, and integration
 | Area | Tests | What's Covered |
 |------|-------|----------------|
 | **Server URL normalization** | 17 | Whitespace trimming, protocol prefix, backslash normalization |
 | **User settings save/load** | 17 | Whitespace trimming, API key preservation, debugMode, round-trip |
-| **K-Factor bounds** | 17 | Clamping <1→1, >100→100, Settings input simulation |
+| **K-Factor bounds** | 18 | Clamping <1→1, >100→100, Settings input simulation |
 | **Debug Level bounds** | 16 | Clamping <0→0, >20→20, Settings input simulation |
-| **Export filename** | 12 | First word extraction from project name (space-delimited) |
-| **Settings persistence** | 12 | localStorage key prefix, isolation, user settings key |
+| **Export filename** | 13 | First word extraction from project name (space-delimited) |
+| **Settings persistence** | 11 | localStorage key prefix, isolation, user settings key |
 | **Admin lock override** | 18 | Lock state detection, override dialog, lock refresh/release |
-| **Admin state flow** | 13 | LadderForm → App → Settings prop propagation |
-| **Restore backup** | 16 | File reading, backup list, restore confirmation, filename format |
+| **Admin state flow** | 12 | LadderForm → App → Settings prop propagation |
+| **Restore backup** | 24 | File reading, backup list, restore confirmation, filename format, dialog UI |
 
 ### Key Differences
 
@@ -320,7 +322,7 @@ Tests the 4-player normalization function used by conflict detection:
 - All 8 permutations of `{1,2,3,4}` produce identical output
 - Large ranks, single digits, all-same values
 
-#### `normalize2Player.test.ts` (12 tests)
+#### `normalize2Player.test.ts` (11 tests)
 Tests the 2-player normalization function:
 - Ascending sort: `2,1` → `1,2`
 - Already sorted: `1,2` → `1,2`
@@ -335,14 +337,14 @@ Tests the full conflict detection pipeline:
 - **Cross-type**: 2p and 4p never conflict, even with same ranks
 - **Partial entries**: 3-player entries treated as 2-player (player4 = 0)
 
-#### `batchFlush.test.ts` (10 tests)
+#### `batchFlush.test.ts` (9 tests)
 Tests the batch buffer system used during New Day:
 - **State management**: `startBatch`/`endBatch` nesting with counter
 - **Buffer isolation**: localStorage unchanged during batch, committed on `endBatch`
 - **Nested batches**: Multiple `startBatch` calls require matching `endBatch` calls
 - **New Day flush**: `startBatch` → `savePlayers` → `endBatch` → `window.location.reload()`
 
-#### `Settings.test.tsx` (13 tests)
+#### `settingsAdminGating.test.tsx` (13 tests)
 Tests admin gating in Settings dialog:
 - **User mode**: Configuration panel hidden, Actions panel hidden, Server Connection visible
 - **Admin mode**: All panels visible, all buttons present
@@ -374,7 +376,7 @@ Tests `saveUserSettings` / `loadUserSettings` round-trip:
 - Missing fields handled gracefully (old data compatibility)
 - Overwrite behavior verified (last write wins)
 
-#### `kFactorBounds.test.ts` (17 tests)
+#### `kFactorBounds.test.ts` (18 tests)
 Tests K-Factor clamping at Settings input boundary:
 - `Math.max(1, Math.min(100, value))` clamps <1→1, >100→100
 - Settings input simulation: `parseInt(e.target.value) || 20` handles empty/invalid → default 20
@@ -388,14 +390,14 @@ Tests Debug Level clamping at Settings input boundary:
 - Note: `parseInt('0')` returns 0 (falsy), so `0 || 5` → default 5 (matches actual Settings.tsx behavior)
 - Boundary values: 0 and 20 preserved
 
-#### `exportFilename.test.ts` (12 tests)
+#### `exportFilename.test.ts` (13 tests)
 Tests first-word extraction for export filenames:
 - `projectName.split(' ')[0]` — space-delimited, not underscore
 - Single word: "KingsCross" → "KingsCross"
 - Multiple words: "Bughouse Chess Ladder" → "Bughouse"
 - Edge cases: empty string, leading spaces, underscores, special characters
 
-#### `settingsPersistence.test.ts` (12 tests)
+#### `settingsPersistence.test.ts` (11 tests)
 Tests localStorage key management:
 - `getKeyPrefix()` returns `'ladder_'` in local mode, `'ladder_server_'` in server mode
 - Key isolation: prefixed keys don't collide with non-prefixed keys
@@ -409,20 +411,21 @@ Tests admin lock state machine and override dialog:
 - **Lock lifecycle**: acquire → refresh (extend expiry) → release (owner only)
 - **Notifications**: status change detection, self-acquired lock handling
 
-#### `adminStateFlow.test.ts` (13 tests)
+#### `adminStateFlow.test.ts` (12 tests)
 Tests `isAdmin` state propagation through component hierarchy:
 - **Callback pattern**: `onAdminChange` callback from LadderForm → `setIsAdmin` in App
 - **Prop flow**: App state → `isAdmin` prop → Settings component
 - **Full lifecycle**: user mode → admin mode → user mode, all three components stay in sync
 - **Edge cases**: rapid toggles, undefined/null handling
 
-#### `restoreBackup.test.ts` (16 tests)
+#### `restoreBackup.test.ts` (24 tests)
 Tests backup restore flow:
 - **File reading**: valid JSON parsing, corrupted file handling, structure validation
 - **Backup list**: server fetch, empty list, error handling
 - **Restore confirmation**: dialog shown, cancellation, data loss warning
 - **Filename format**: `backup_YYYY-MM-DD_HH-MM-SS.json` regex validation
 - **URL encoding**: `encodeURIComponent()` for special characters in filenames
+- **Dialog UI**: backup list display, empty state, button enable/disable
 
 Test fixtures are stored in `src/test/fixtures/`:
 

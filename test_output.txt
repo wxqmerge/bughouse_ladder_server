@@ -1,16 +1,992 @@
-
-> bughouse-ladder-client@1.0.1 test:run
-> vitest run
-
-3:59:05 PM [vite] warning: `esbuild` option was specified by "vite:react-babel" plugin. This option is deprecated, please use `oxc` instead.
-3:59:05 PM [vite] warning: `optimizeDeps.esbuildOptions` option was specified by "vite:react-babel" plugin. This option is deprecated, please use `optimizeDeps.rolldownOptions` instead.
+4:00:47 PM [vite] warning: `esbuild` option was specified by "vite:react-babel" plugin. This option is deprecated, please use `oxc` instead.
+4:00:47 PM [vite] warning: `optimizeDeps.esbuildOptions` option was specified by "vite:react-babel" plugin. This option is deprecated, please use `optimizeDeps.rolldownOptions` instead.
 Both esbuild and oxc options were set. oxc options will be used and esbuild options will be ignored. The following esbuild options were set: `{ jsx: 'automatic', jsxImportSource: undefined }`
 
  RUN  v4.1.4 D:/xampp/htdocs/bughouse_ladder_server
 
+stdout | src/test/unit/ratingStressTest.test.ts > Rating Stress Test > 20p_2p_ng0
+  20p_2p_ng0: FinalRSS=166.36, F1=294.21, F2=396.28
 
- Test Files  9 passed (9)
-      Tests  88 passed | 2 skipped (90)
-   Start at  15:59:05
-   Duration  1.21s (transform 481ms, setup 987ms, import 540ms, tests 325ms, environment 4.46s)
+stdout | src/test/unit/ratingStressTest.test.ts > Rating Stress Test > 20p_2p_ng0-10
+  20p_2p_ng0-10: FinalRSS=64.45, F1=66.00, F2=66.00
+
+stdout | src/test/unit/ratingStressTest.test.ts > Rating Stress Test > 20p_2p_ng20
+  20p_2p_ng20: FinalRSS=22.83, F1=22.83, F2=22.83
+
+stdout | src/test/unit/ratingStressTest.test.ts > Rating Stress Test > 20p_4p_ng0
+  20p_4p_ng0: FinalRSS=160.29, F1=270.38, F2=345.81
+
+stdout | src/test/unit/ratingStressTest.test.ts > Rating Stress Test > 20p_4p_ng0-10
+  20p_4p_ng0-10: FinalRSS=69.30, F1=76.26, F2=83.05
+
+stdout | src/test/unit/ratingStressTest.test.ts > Rating Stress Test > 20p_4p_ng20
+  20p_4p_ng20: FinalRSS=42.01, F1=42.01, F2=42.01
+
+stdout | src/test/unit/ratingStressTest.test.ts > Rating Stress Test > 50p_2p_ng0
+  50p_2p_ng0: FinalRSS=174.03, F1=294.50, F2=378.83
+
+ Γ£ô src/test/unit/ratingStressTest.test.ts > Rating Stress Test > 20p_2p_ng0 18ms
+ Γ£ô src/test/unit/ratingStressTest.test.ts > Rating Stress Test > 20p_2p_ng0-10 10ms
+ Γ£ô src/test/unit/ratingStressTest.test.ts > Rating Stress Test > 20p_2p_ng20 9ms
+ Γ£ô src/test/unit/ratingStressTest.test.ts > Rating Stress Test > 20p_4p_ng0 16ms
+ Γ£ô src/test/unit/ratingStressTest.test.ts > Rating Stress Test > 20p_4p_ng0-10 15ms
+ Γ£ô src/test/unit/ratingStressTest.test.ts > Rating Stress Test > 20p_4p_ng20 13ms
+stdout | src/test/unit/ratingStressTest.test.ts > Rating Stress Test > 50p_2p_ng0-10
+  50p_2p_ng0-10: FinalRSS=65.59, F1=95.40, F2=125.77
+
+stdout | src/test/unit/ratingStressTest.test.ts > Rating Stress Test > 50p_2p_ng20
+  50p_2p_ng20: FinalRSS=22.16, F1=22.16, F2=22.16
+
+stdout | src/test/unit/ratingStressTest.test.ts > Rating Stress Test > 50p_4p_ng0
+  50p_4p_ng0: FinalRSS=203.46, F1=338.39, F2=428.11
+
+ Γ£ô src/test/unit/ratingStressTest.test.ts > Rating Stress Test > 50p_2p_ng0 37ms
+ Γ£ô src/test/unit/ratingStressTest.test.ts > Rating Stress Test > 50p_2p_ng0-10 45ms
+ Γ£ô src/test/unit/ratingStressTest.test.ts > Rating Stress Test > 50p_2p_ng20 32ms
+stdout | src/test/unit/ratingStressTest.test.ts > Rating Stress Test > 50p_4p_ng0-10
+  50p_4p_ng0-10: FinalRSS=75.56, F1=95.53, F2=109.16
+
+stdout | src/test/unit/ratingStressTest.test.ts > Rating Stress Test > 50p_4p_ng20
+  50p_4p_ng20: FinalRSS=34.24, F1=34.24, F2=34.24
+
+ Γ£ô src/test/unit/ratingStressTest.test.ts > Rating Stress Test > 50p_4p_ng0 47ms
+ Γ£ô src/test/unit/ratingStressTest.test.ts > Rating Stress Test > 50p_4p_ng0-10 66ms
+stdout | src/test/unit/ratingStressTest.test.ts > Rating Stress Test > 100p_2p_ng0
+  100p_2p_ng0: FinalRSS=172.54, F1=301.07, F2=400.69
+
+stdout | src/test/unit/ratingStressTest.test.ts > Rating Stress Test > 100p_2p_ng0-10
+  100p_2p_ng0-10: FinalRSS=71.14, F1=102.27, F2=126.57
+
+ Γ£ô src/test/unit/ratingStressTest.test.ts > Rating Stress Test > 50p_4p_ng20 40ms
+ Γ£ô src/test/unit/ratingStressTest.test.ts > Rating Stress Test > 100p_2p_ng0 76ms
+stdout | src/test/unit/ratingStressTest.test.ts > Rating Stress Test > 100p_2p_ng20
+  100p_2p_ng20: FinalRSS=20.51, F1=20.51, F2=20.51
+
+stdout | src/test/unit/ratingStressTest.test.ts > Rating Stress Test > 100p_4p_ng0
+  100p_4p_ng0: FinalRSS=185.15, F1=311.60, F2=398.46
+
+ Γ£ô src/test/unit/ratingStressTest.test.ts > Rating Stress Test > 100p_2p_ng0-10 104ms
+ Γ£ô src/test/unit/ratingStressTest.test.ts > Rating Stress Test > 100p_2p_ng20 75ms
+stdout | src/test/unit/optimizeBlendingFactor.test.ts > Optimize Blending Factor > sweep 0.90-1.00 step 0.01 on 100p_2p_ng0
+
+Blending Factor Optimization (100p_2p_ng0):
+Factor	FinalRSS	F1		F2
+------	--------	--		--
+0.90	592.90	815.11	892.30
+0.91	554.80	781.68	867.15
+0.92	513.20	742.36	836.60
+0.93	468.01	696.51	798.99
+0.94	419.20	642.88	752.71
+0.95	366.86	580.77	695.54
+0.96	311.79	509.51	625.98
+0.97	255.88	431.80	544.14
+0.98	204.81	355.80	459.86
+0.99	171.80	303.71	402.62
+1.00	177.15	315.18	419.62
+
+Optimal: factor = 0.99
+  FinalRSS = 171.80 (baseline 1.00: 177.15)
+  F1 = 303.71, F2 = 402.62
+
+ Γ£ô src/test/unit/optimizeBlendingFactor.test.ts > Optimize Blending Factor > sweep 0.90-1.00 step 0.01 on 100p_2p_ng0 768ms
+stdout | src/test/unit/ratingStressTest.test.ts > Rating Stress Test > 100p_4p_ng0-10
+  100p_4p_ng0-10: FinalRSS=87.11, F1=127.23, F2=155.99
+
+stdout | server/test/adminLock.test.ts > tryAcquireAdminLock > should acquire lock when no lock exists
+[2026-04-26 16:00:48.467] [ADMIN_LOCK] 192.168.1.1 (Client A) ACQUIRED lock
+
+stdout | server/test/adminLock.test.ts > tryAcquireAdminLock > should reject when lock held by different client
+[2026-04-26 16:00:48.469] [ADMIN_LOCK] 192.168.1.1 (Client A) RELEASED lock
+
+stdout | server/test/adminLock.test.ts > tryAcquireAdminLock > should reject when lock held by different client
+[2026-04-26 16:00:48.469] [ADMIN_LOCK] 192.168.1.1 (Client A) ACQUIRED lock
+[2026-04-26 16:00:48.469] [ADMIN_LOCK] 192.168.1.2 (Client B) FAILED - held by Client A (192.168.1.1)
+
+stdout | server/test/adminLock.test.ts > tryAcquireAdminLock > should allow re-acquire by same client
+[2026-04-26 16:00:48.469] [ADMIN_LOCK] 192.168.1.1 (Client A) RELEASED lock
+
+stdout | server/test/adminLock.test.ts > tryAcquireAdminLock > should allow re-acquire by same client
+[2026-04-26 16:00:48.469] [ADMIN_LOCK] 192.168.1.1 (Client A) ACQUIRED lock
+[2026-04-26 16:00:48.469] [ADMIN_LOCK] 192.168.1.1 (Client A) ACQUIRED lock
+
+stdout | server/test/adminLock.test.ts > tryAcquireAdminLock > should reject with heldBy info when lock exists
+[2026-04-26 16:00:48.470] [ADMIN_LOCK] 192.168.1.1 (Client A) RELEASED lock
+
+stdout | server/test/adminLock.test.ts > tryAcquireAdminLock > should reject with heldBy info when lock exists
+[2026-04-26 16:00:48.470] [ADMIN_LOCK] 10.0.0.1 (Alice) ACQUIRED lock
+[2026-04-26 16:00:48.470] [ADMIN_LOCK] 10.0.0.2 (Bob) FAILED - held by Alice (10.0.0.1)
+
+stdout | server/test/adminLock.test.ts > forceAcquireAdminLock > should acquire lock when no lock exists (no override)
+[2026-04-26 16:00:48.470] [ADMIN_LOCK] 10.0.0.1 (Alice) RELEASED lock
+
+stdout | server/test/adminLock.test.ts > forceAcquireAdminLock > should acquire lock when no lock exists (no override)
+[2026-04-26 16:00:48.470] [ADMIN_LOCK] 192.168.1.1 (Client A) ACQUIRED lock (force)
+
+stdout | server/test/adminLock.test.ts > forceAcquireAdminLock > should override existing lock and return overridden info
+[2026-04-26 16:00:48.470] [ADMIN_LOCK] 192.168.1.1 (Client A) RELEASED lock
+
+stdout | server/test/adminLock.test.ts > forceAcquireAdminLock > should override existing lock and return overridden info
+[2026-04-26 16:00:48.471] [ADMIN_LOCK] 10.0.0.1 (Alice) ACQUIRED lock
+[2026-04-26 16:00:48.471] [ADMIN_LOCK] 10.0.0.2 (Bob) FORCED - overridden Alice (10.0.0.1)
+
+stdout | server/test/adminLock.test.ts > forceAcquireAdminLock > should succeed even when forcing same client
+[2026-04-26 16:00:48.471] [ADMIN_LOCK] 10.0.0.2 (Bob) RELEASED lock
+
+stdout | server/test/adminLock.test.ts > forceAcquireAdminLock > should succeed even when forcing same client
+[2026-04-26 16:00:48.471] [ADMIN_LOCK] 192.168.1.1 (Client A) ACQUIRED lock
+[2026-04-26 16:00:48.471] [ADMIN_LOCK] 192.168.1.1 (Client A) ACQUIRED lock (force)
+
+stdout | server/test/adminLock.test.ts > forceAcquireAdminLock > should update lock holder after force acquire
+[2026-04-26 16:00:48.471] [ADMIN_LOCK] 192.168.1.1 (Client A) RELEASED lock
+
+stdout | server/test/adminLock.test.ts > forceAcquireAdminLock > should update lock holder after force acquire
+[2026-04-26 16:00:48.471] [ADMIN_LOCK] 10.0.0.1 (Alice) ACQUIRED lock
+[2026-04-26 16:00:48.471] [ADMIN_LOCK] 10.0.0.2 (Bob) FORCED - overridden Alice (10.0.0.1)
+
+stdout | server/test/adminLock.test.ts > releaseAdminLock > should release lock held by same client
+[2026-04-26 16:00:48.471] [ADMIN_LOCK] 10.0.0.2 (Bob) RELEASED lock
+
+stdout | server/test/adminLock.test.ts > releaseAdminLock > should release lock held by same client
+[2026-04-26 16:00:48.471] [ADMIN_LOCK] 192.168.1.1 (Client A) ACQUIRED lock
+[2026-04-26 16:00:48.471] [ADMIN_LOCK] 192.168.1.1 (Client A) RELEASED lock
+
+stdout | server/test/adminLock.test.ts > releaseAdminLock > should fail to release lock held by different client
+[2026-04-26 16:00:48.471] [ADMIN_LOCK] 192.168.1.1 (Client A) ACQUIRED lock
+
+stdout | server/test/adminLock.test.ts > releaseAdminLock > should fail to release when no lock exists
+[2026-04-26 16:00:48.472] [ADMIN_LOCK] 192.168.1.1 (Client A) RELEASED lock
+
+stdout | server/test/adminLock.test.ts > releaseAdminLock > should fully unlock after release
+[2026-04-26 16:00:48.472] [ADMIN_LOCK] 192.168.1.1 (Client A) ACQUIRED lock
+[2026-04-26 16:00:48.472] [ADMIN_LOCK] 192.168.1.1 (Client A) RELEASED lock
+[2026-04-26 16:00:48.472] [ADMIN_LOCK] 192.168.1.2 (Client B) ACQUIRED lock
+
+stdout | server/test/adminLock.test.ts > refreshAdminLock > should extend expiration for lock holder
+[2026-04-26 16:00:48.472] [ADMIN_LOCK] 192.168.1.2 (Client B) RELEASED lock
+
+stdout | server/test/adminLock.test.ts > refreshAdminLock > should extend expiration for lock holder
+[2026-04-26 16:00:48.472] [ADMIN_LOCK] 192.168.1.1 (Client A) ACQUIRED lock
+[2026-04-26 16:00:48.472] [ADMIN_LOCK] 192.168.1.1 (Client A) REFRESHED lock
+
+stdout | server/test/adminLock.test.ts > refreshAdminLock > should fail to refresh non-existent lock
+[2026-04-26 16:00:48.472] [ADMIN_LOCK] 192.168.1.1 (Client A) RELEASED lock
+
+stdout | server/test/adminLock.test.ts > refreshAdminLock > should fail to refresh another client's lock
+[2026-04-26 16:00:48.473] [ADMIN_LOCK] 192.168.1.1 (Client A) ACQUIRED lock
+
+stdout | server/test/adminLock.test.ts > refreshAdminLock > should return expiresAt timestamp
+[2026-04-26 16:00:48.473] [ADMIN_LOCK] 192.168.1.1 (Client A) RELEASED lock
+
+stdout | server/test/adminLock.test.ts > refreshAdminLock > should return expiresAt timestamp
+[2026-04-26 16:00:48.473] [ADMIN_LOCK] 192.168.1.1 (Client A) ACQUIRED lock
+
+stdout | server/test/adminLock.test.ts > getAdminLockInfo > should return locked=false when no lock exists
+[2026-04-26 16:00:48.473] [ADMIN_LOCK] 192.168.1.1 (Client A) RELEASED lock
+
+stdout | server/test/adminLock.test.ts > getAdminLockInfo > should return full lock info when locked
+[2026-04-26 16:00:48.473] [ADMIN_LOCK] 192.168.1.1 (Client A) ACQUIRED lock
+
+stdout | server/test/adminLock.test.ts > getAdminLockInfo > should return minimal object when not locked
+[2026-04-26 16:00:48.473] [ADMIN_LOCK] 192.168.1.1 (Client A) RELEASED lock
+
+stdout | server/test/adminLock.test.ts > Admin lock workflow > should support full acquire ΓåÆ refresh ΓåÆ release cycle
+[2026-04-26 16:00:48.473] [ADMIN_LOCK] 10.0.0.1 (Client A) ACQUIRED lock
+[2026-04-26 16:00:48.473] [ADMIN_LOCK] 10.0.0.1 (Client A) REFRESHED lock
+[2026-04-26 16:00:48.473] [ADMIN_LOCK] 10.0.0.1 (Client A) RELEASED lock
+
+stdout | server/test/adminLock.test.ts > Admin lock workflow > should support acquire ΓåÆ force override by another client
+[2026-04-26 16:00:48.474] [ADMIN_LOCK] 10.0.0.1 (Alice) ACQUIRED lock
+[2026-04-26 16:00:48.474] [ADMIN_LOCK] 10.0.0.2 (Bob) FORCED - overridden Alice (10.0.0.1)
+[2026-04-26 16:00:48.474] [ADMIN_LOCK] 10.0.0.2 (Bob) RELEASED lock
+
+stdout | server/test/adminLock.test.ts > Admin lock workflow > should support force refresh by same client
+[2026-04-26 16:00:48.474] [ADMIN_LOCK] 10.0.0.1 (Client A) ACQUIRED lock
+[2026-04-26 16:00:48.474] [ADMIN_LOCK] 10.0.0.1 (Client A) ACQUIRED lock (force)
+
+ Γ£ô server/test/adminLock.test.ts > tryAcquireAdminLock > should acquire lock when no lock exists 2ms
+ Γ£ô server/test/adminLock.test.ts > tryAcquireAdminLock > should reject when lock held by different client 1ms
+ Γ£ô server/test/adminLock.test.ts > tryAcquireAdminLock > should allow re-acquire by same client 0ms
+ Γ£ô server/test/adminLock.test.ts > tryAcquireAdminLock > should reject with heldBy info when lock exists 0ms
+ Γ£ô server/test/adminLock.test.ts > forceAcquireAdminLock > should acquire lock when no lock exists (no override) 0ms
+ Γ£ô server/test/adminLock.test.ts > forceAcquireAdminLock > should override existing lock and return overridden info 0ms
+ Γ£ô server/test/adminLock.test.ts > forceAcquireAdminLock > should succeed even when forcing same client 0ms
+ Γ£ô server/test/adminLock.test.ts > forceAcquireAdminLock > should update lock holder after force acquire 0ms
+ Γ£ô server/test/adminLock.test.ts > releaseAdminLock > should release lock held by same client 0ms
+ Γ£ô server/test/adminLock.test.ts > releaseAdminLock > should fail to release lock held by different client 0ms
+ Γ£ô server/test/adminLock.test.ts > releaseAdminLock > should fail to release when no lock exists 0ms
+ Γ£ô server/test/adminLock.test.ts > releaseAdminLock > should fully unlock after release 0ms
+ Γ£ô server/test/adminLock.test.ts > refreshAdminLock > should extend expiration for lock holder 0ms
+ Γ£ô server/test/adminLock.test.ts > refreshAdminLock > should fail to refresh non-existent lock 0ms
+ Γ£ô server/test/adminLock.test.ts > refreshAdminLock > should fail to refresh another client's lock 0ms
+ Γ£ô server/test/adminLock.test.ts > refreshAdminLock > should return expiresAt timestamp 0ms
+ Γ£ô server/test/adminLock.test.ts > getAdminLockInfo > should return locked=false when no lock exists 0ms
+ Γ£ô server/test/adminLock.test.ts > getAdminLockInfo > should return full lock info when locked 0ms
+ Γ£ô server/test/adminLock.test.ts > getAdminLockInfo > should return minimal object when not locked 0ms
+ Γ£ô server/test/adminLock.test.ts > Admin lock workflow > should support full acquire ΓåÆ refresh ΓåÆ release cycle 0ms
+ Γ£ô server/test/adminLock.test.ts > Admin lock workflow > should support acquire ΓåÆ force override by another client 0ms
+ Γ£ô server/test/adminLock.test.ts > Admin lock workflow > should support force refresh by same client 0ms
+stdout | src/test/unit/ratingStressTest.test.ts > Rating Stress Test > 100p_4p_ng20
+  100p_4p_ng20: FinalRSS=37.25, F1=37.25, F2=37.25
+
+ Γ£ô src/test/unit/ratingStressTest.test.ts > Rating Stress Test > 100p_4p_ng0 74ms
+ Γ£ô src/test/unit/ratingStressTest.test.ts > Rating Stress Test > 100p_4p_ng0-10 81ms
+stdout | src/test/unit/ratingStressTest.test.ts > Rating Stress Test
+
+Reports written to D:\xampp\htdocs\bughouse_ladder_server\src\test\unit\reports/
+
+stdout | src/test/unit/ratingStressTest.test.ts > Rating Stress Test ΓÇö Quick 1 Round > 1r_20p_2p_ng0
+  1r_20p_2p_ng0: FinalRSS=784.04, F1=799.43, F2=823.10
+
+stdout | src/test/unit/ratingStressTest.test.ts > Rating Stress Test ΓÇö Quick 1 Round > 1r_20p_2p_ng20
+  1r_20p_2p_ng20: FinalRSS=546.73, F1=546.73, F2=546.73
+
+stdout | src/test/unit/ratingStressTest.test.ts > Rating Stress Test ΓÇö Quick 1 Round > 1r_20p_4p_ng0
+  1r_20p_4p_ng0: FinalRSS=511.41, F1=587.09, F2=674.35
+
+stdout | src/test/unit/ratingStressTest.test.ts > Rating Stress Test ΓÇö Quick 1 Round > 1r_20p_4p_ng20
+  1r_20p_4p_ng20: FinalRSS=951.33, F1=951.33, F2=951.33
+
+stdout | src/test/unit/ratingStressTest.test.ts > Rating Stress Test ΓÇö Quick 1 Round
+
+Quick reports written to D:\xampp\htdocs\bughouse_ladder_server\src\test\unit\reports/
+
+stdout | src/test/unit/ratingStressTest.test.ts > Rating Stress Test ΓÇö 150p 20 Rounds > 150p_20r_2p_ng0
+  150p_20r_2p_ng0: FinalRSS=170.64, F1=293.60, F2=390.85
+
+ Γ£ô src/test/unit/restoreBackup.test.ts > Restore Backup > backup file reading > should read backup file content 1ms
+ Γ£ô src/test/unit/restoreBackup.test.ts > Restore Backup > backup file reading > should handle corrupted backup file 1ms
+ Γ£ô src/test/unit/restoreBackup.test.ts > Restore Backup > backup file reading > should handle empty backup file 0ms
+ Γ£ô src/test/unit/restoreBackup.test.ts > Restore Backup > backup file reading > should validate backup file structure 0ms
+ Γ£ô src/test/unit/restoreBackup.test.ts > Restore Backup > backup file reading > should detect missing players array 0ms
+ Γ£ô src/test/unit/restoreBackup.test.ts > Restore Backup > backup list fetching > should fetch backup list from server 1ms
+ Γ£ô src/test/unit/restoreBackup.test.ts > Restore Backup > backup list fetching > should handle empty backup list 0ms
+ Γ£ô src/test/unit/restoreBackup.test.ts > Restore Backup > backup list fetching > should handle server error when fetching backups 0ms
+ Γ£ô src/test/unit/restoreBackup.test.ts > Restore Backup > restore confirmation > should show restore confirmation dialog 0ms
+ Γ£ô src/test/unit/restoreBackup.test.ts > Restore Backup > restore confirmation > should handle restore cancellation 0ms
+ Γ£ô src/test/unit/restoreBackup.test.ts > Restore Backup > restore confirmation > should warn about data loss on restore 0ms
+ Γ£ô src/test/unit/restoreBackup.test.ts > Restore Backup > restore confirmation > should display backup filename in confirmation 0ms
+ Γ£ô src/test/unit/restoreBackup.test.ts > Restore Backup > restore execution > should send restore request to server 0ms
+ Γ£ô src/test/unit/restoreBackup.test.ts > Restore Backup > restore execution > should handle successful restore 0ms
+ Γ£ô src/test/unit/restoreBackup.test.ts > Restore Backup > restore execution > should handle restore failure 0ms
+ Γ£ô src/test/unit/restoreBackup.test.ts > Restore Backup > restore execution > should handle partial restore gracefully 0ms
+ Γ£ô src/test/unit/restoreBackup.test.ts > Restore Backup > backup filename format > should validate backup filename format 0ms
+ Γ£ô src/test/unit/restoreBackup.test.ts > Restore Backup > backup filename format > should reject invalid backup filename 0ms
+ Γ£ô src/test/unit/restoreBackup.test.ts > Restore Backup > backup filename format > should handle filename with special characters in URL 0ms
+ Γ£ô src/test/unit/restoreBackup.test.ts > Restore Backup > backup filename format > should handle filename with spaces 0ms
+ Γ£ô src/test/unit/restoreBackup.test.ts > Restore Backup > restore backup dialog UI > should show backup list when available 0ms
+ Γ£ô src/test/unit/restoreBackup.test.ts > Restore Backup > restore backup dialog UI > should show message when no backups available 0ms
+ Γ£ô src/test/unit/restoreBackup.test.ts > Restore Backup > restore backup dialog UI > should disable restore button when no selection 0ms
+ Γ£ô src/test/unit/restoreBackup.test.ts > Restore Backup > restore backup dialog UI > should enable restore button when backup selected 0ms
+ Γ£ô src/test/unit/ratingStressTest.test.ts > Rating Stress Test > 100p_4p_ng20 101ms
+ Γ£ô src/test/unit/ratingStressTest.test.ts > Rating Stress Test ΓÇö Quick 1 Round > 1r_20p_2p_ng0 1ms
+ Γ£ô src/test/unit/ratingStressTest.test.ts > Rating Stress Test ΓÇö Quick 1 Round > 1r_20p_2p_ng20 0ms
+ Γ£ô src/test/unit/ratingStressTest.test.ts > Rating Stress Test ΓÇö Quick 1 Round > 1r_20p_4p_ng0 0ms
+ Γ£ô src/test/unit/ratingStressTest.test.ts > Rating Stress Test ΓÇö Quick 1 Round > 1r_20p_4p_ng20 12ms
+ Γ£ô server/test/backup.test.ts > Backup System > getBackupFileName > should generate filename with correct date components 4ms
+ Γ£ô server/test/backup.test.ts > Backup System > getBackupFileName > should zero-pad single-digit values 2ms
+ Γ£ô server/test/backup.test.ts > Backup System > getBackupFileName > should produce valid filename characters only 1ms
+ Γ£ô server/test/backup.test.ts > Backup System > createBackup > should create a backup file from ladder.tab 6ms
+ Γ£ô server/test/backup.test.ts > Backup System > createBackup > should return null for empty ladder.tab 4ms
+ Γ£ô server/test/backup.test.ts > Backup System > createBackup > should return null when ladder.tab does not exist 1ms
+ Γ£ô server/test/backup.test.ts > Backup System > createBackup > should create backup in backup directory 3ms
+ Γ£ô server/test/backup.test.ts > Backup System > createBackup > should not affect the original ladder.tab 4ms
+ Γ£ô src/test/unit/adminStateFlow.test.ts > Admin mode state flow > isAdmin state propagation > should default to false when no admin mode set 1ms
+ Γ£ô src/test/unit/adminStateFlow.test.ts > Admin mode state flow > isAdmin state propagation > should propagate from LadderForm callback to App state 0ms
+ Γ£ô src/test/unit/adminStateFlow.test.ts > Admin mode state flow > isAdmin state propagation > should propagate from App state to Settings component 0ms
+ Γ£ô src/test/unit/adminStateFlow.test.ts > Admin mode state flow > isAdmin state propagation > should maintain consistent state across all three components 0ms
+ Γ£ô src/test/unit/adminStateFlow.test.ts > Admin mode state flow > onAdminChange callback pattern > should allow LadderForm to notify App of admin state changes 0ms
+ Γ£ô src/test/unit/adminStateFlow.test.ts > Admin mode state flow > onAdminChange callback pattern > should handle rapid state changes 0ms
+ Γ£ô src/test/unit/adminStateFlow.test.ts > Admin mode state flow > onAdminChange callback pattern > should handle undefined/null gracefully 0ms
+ Γ£ô src/test/unit/adminStateFlow.test.ts > Admin mode state flow > Settings isAdmin prop usage > should show Configuration when isAdmin is true 0ms
+ Γ£ô src/test/unit/adminStateFlow.test.ts > Admin mode state flow > Settings isAdmin prop usage > should hide Configuration when isAdmin is false 0ms
+ Γ£ô src/test/unit/adminStateFlow.test.ts > Admin mode state flow > Settings isAdmin prop usage > should show Actions when isAdmin is true 0ms
+ Γ£ô src/test/unit/adminStateFlow.test.ts > Admin mode state flow > Settings isAdmin prop usage > should hide Actions when isAdmin is false 0ms
+ Γ£ô src/test/unit/adminStateFlow.test.ts > Admin mode state flow > Settings isAdmin prop usage > should always show Server Connection regardless of isAdmin 0ms
+stdout | src/test/unit/conflictDetection.test.ts > Conflict Detection Normalization > partial 4-player entries (only 3 players) > should treat 3-player entry as 2-player (player4 = 0)
+[updatePlayerGameData] Invalid format: {
+  input: '12:13W23',
+  errorCode: 3,
+  parsedPlayers: [
+     0, 23, 12, 13, 0,
+    12, 13, 23,  0
+  ],
+  parsedScores: [ 1, 0 ]
+}
+
+ Γ£ô src/test/unit/normalize2Player.test.ts > normalize2Player > basic ordering > should return ascending order when already sorted 1ms
+ Γ£ô src/test/unit/normalize2Player.test.ts > normalize2Player > basic ordering > should swap when second player is lower 0ms
+ Γ£ô src/test/unit/normalize2Player.test.ts > normalize2Player > basic ordering > should handle larger numbers 0ms
+ Γ£ô src/test/unit/normalize2Player.test.ts > normalize2Player > basic ordering > should handle already sorted larger numbers 0ms
+ Γ£ô src/test/unit/normalize2Player.test.ts > normalize2Player > equal values > should handle equal values 0ms
+ Γ£ô src/test/unit/normalize2Player.test.ts > normalize2Player > equal values > should handle equal values in reverse 0ms
+ Γ£ô src/test/unit/normalize2Player.test.ts > normalize2Player > edge cases > should handle single-digit ranks 0ms
+ Γ£ô src/test/unit/normalize2Player.test.ts > normalize2Player > edge cases > should handle rank 1 0ms
+ Γ£ô src/test/unit/normalize2Player.test.ts > normalize2Player > edge cases > should handle large rank numbers 0ms
+ Γ£ô src/test/unit/normalize2Player.test.ts > normalize2Player > conflict detection equivalence > should produce same normalized form for both orderings 0ms
+ Γ£ô src/test/unit/normalize2Player.test.ts > normalize2Player > conflict detection equivalence > should produce different normalized forms for different player sets 0ms
+stdout | src/test/unit/conflictDetection.test.ts > Conflict Detection Normalization > invalid entries > should return invalid for malformed entry
+[updatePlayerGameData] Invalid format: {
+  input: 'invalid',
+  errorCode: 2,
+  parsedPlayers: [
+    0, 0, 0, 0, 0,
+    0, 0, 0, 0
+  ],
+  parsedScores: [ -1, 0 ]
+}
+
+stdout | src/test/unit/calculateRatings.test.ts > calculateRatings > debugMode > should return trace object when debugMode is true
+[PASS 1] [INIT] VB6 lines 1422-1449 ΓÇö k_val = 20
+     P1: num_games=15, rating=1500, nRating=0 ΓåÆ nrating=1500
+     P2: num_games=12, rating=1400, nRating=0 ΓåÆ nrating=1400
+[PASS 1] [MATCH] VB6 lines 1474-1535 ΓÇö 2-player
+     sides(0)=1500.0, sides(1)=1400.0
+     expected = formula(1500, 1400) = 0.640065
+     FIRST LOOP (W/L/D): perfs=(0.50, -0.50)
+     PERF RATING (side-level, for 2p/trace): sides=(1600.0, 1300.0)
+     SECOND LOOP (expected diff): eloPerfs=(0.3599, -0.3599)
+       P1 [side 0, 15 games]: ELO ΓåÆ 1500.0 + 0.3599 ├ù 20 = 1507.2 ΓåÆ abs = 1507.2
+       P2 [side 1, 12 games]: ELO ΓåÆ 1400.0 + -0.3599 ├ù 20 = 1392.8 ΓåÆ abs = 1392.8
+[PASS 1] [WRITE BACK] VB6 lines 1600-1610
+     P1: played ΓåÆ nRating = 1507
+     P2: played ΓåÆ nRating = 1393
+[PASS 2] [INIT] VB6 lines 1422-1449 ΓÇö k_val = 20
+     P1: num_games=15, rating=1500, nRating=1507 ΓåÆ nrating=1500
+     P2: num_games=12, rating=1400, nRating=1393 ΓåÆ nrating=1400
+[PASS 2] [MATCH] VB6 lines 1474-1535 ΓÇö 2-player
+     sides(0)=1500.0, sides(1)=1400.0
+     expected = formula(1500, 1400) = 0.640065
+     FIRST LOOP (W/L/D): perfs=(0.50, -0.50)
+     PERF RATING (side-level, for 2p/trace): sides=(1600.0, 1300.0)
+     SECOND LOOP (expected diff): eloPerfs=(0.3599, -0.3599)
+       P1 [side 0, 15 games]: ELO ΓåÆ 1500.0 + 0.3599 ├ù 20 = 1507.2 ΓåÆ abs = 1507.2
+       P2 [side 1, 12 games]: ELO ΓåÆ 1400.0 + -0.3599 ├ù 20 = 1392.8 ΓåÆ abs = 1392.8
+[PASS 2] [WRITE BACK] VB6 lines 1600-1610
+     P1: played ΓåÆ nRating = 1507
+     P2: played ΓåÆ nRating = 1393
+[AVERAGE] (pass1 + pass2) / 2
+     P1: (1507 + 1507) / 2 = 1507
+     P2: (1393 + 1393) / 2 = 1393
+
+stdout | src/test/unit/conflictDetection.test.ts > Conflict Detection Normalization > invalid entries > should return invalid for entry with only numbers
+[updatePlayerGameData] Invalid format: {
+  input: '123',
+  errorCode: 2,
+  parsedPlayers: [
+    123, 0, 0, 0, 0,
+    123, 0, 0, 0
+  ],
+  parsedScores: [ -1, 0 ]
+}
+
+stdout | src/test/unit/calculateRatings.test.ts > calculateRatings > debugMode > should trace blending for new players
+[PASS 1] [INIT] VB6 lines 1422-1449 ΓÇö k_val = 20
+     P1: num_games=0, rating=1200, nRating=0 ΓåÆ nrating=1200
+     P2: num_games=0, rating=1200, nRating=0 ΓåÆ nrating=1200
+[PASS 1] [MATCH] VB6 lines 1474-1535 ΓÇö 2-player
+     sides(0)=1200.0, sides(1)=1200.0
+     expected = formula(1200, 1200) = 0.500000
+     FIRST LOOP (W/L/D): perfs=(0.50, -0.50)
+     PERF RATING (side-level, for 2p/trace): sides=(1400.0, 1000.0)
+     SECOND LOOP (expected diff): eloPerfs=(0.5000, -0.5000)
+       P1 [side 0, 0 games]: BLEND ΓåÆ (1200.0 ├ù 0 + 1400.0) / 1 = 1400.0 ΓåÆ abs = 1400.0
+       P2 [side 1, 0 games]: BLEND ΓåÆ (1200.0 ├ù 0 + 1000.0) / 1 = 1000.0 ΓåÆ abs = 1000.0
+[PASS 1] [WRITE BACK] VB6 lines 1600-1610
+     P1: played ΓåÆ nRating = 1400
+     P2: played ΓåÆ nRating = 1000
+[PASS 2] [INIT] VB6 lines 1422-1449 ΓÇö k_val = 20
+     P1: num_games=0, rating=1200, nRating=1400 ΓåÆ nrating=1400
+     P2: num_games=0, rating=1200, nRating=1000 ΓåÆ nrating=1000
+[PASS 2] [MATCH] VB6 lines 1474-1535 ΓÇö 2-player
+     sides(0)=1400.0, sides(1)=1000.0
+     expected = formula(1400, 1000) = 0.909091
+     FIRST LOOP (W/L/D): perfs=(0.50, -0.50)
+     PERF RATING (side-level, for 2p/trace): sides=(1600.0, 800.0)
+     SECOND LOOP (expected diff): eloPerfs=(0.0909, -0.0909)
+       P1 [side 0, 0 games]: BLEND ΓåÆ (1400.0 ├ù 0 + 1600.0) / 1 = 1600.0 ΓåÆ abs = 1600.0
+       P2 [side 1, 0 games]: BLEND ΓåÆ (1000.0 ├ù 0 + 800.0) / 1 = 800.0 ΓåÆ abs = 800.0
+[PASS 2] [WRITE BACK] VB6 lines 1600-1610
+     P1: played ΓåÆ nRating = 1600
+     P2: played ΓåÆ nRating = 800
+[AVERAGE] (pass1 + pass2) / 2
+     P1: (1400 + 1600) / 2 = 1500
+     P2: (1000 + 800) / 2 = 900
+
+stdout | src/test/unit/ratingStressTest.test.ts > Rating Stress Test ΓÇö 150p 20 Rounds > 150p_20r_2p_ng0-10
+  150p_20r_2p_ng0-10: FinalRSS=59.95, F1=76.50, F2=90.48
+
+stdout | src/test/unit/calculateRatings.test.ts > calculateRatings > debugMode > should trace 4-player game with cross-side blending
+[PASS 1] [INIT] VB6 lines 1422-1449 ΓÇö k_val = 20
+     P1: num_games=5, rating=1200, nRating=0 ΓåÆ nrating=1200
+     P2: num_games=5, rating=1200, nRating=0 ΓåÆ nrating=1200
+     P3: num_games=5, rating=1000, nRating=0 ΓåÆ nrating=1000
+     P4: num_games=5, rating=1000, nRating=0 ΓåÆ nrating=1000
+[PASS 1] [MATCH] VB6 lines 1474-1535 ΓÇö 4-player
+     sides(0)=1200.0, sides(1)=1000.0
+     expected = formula(1200, 1000) = 0.759747
+     FIRST LOOP (W/L/D): perfs=(0.00, 0.00)
+     PERF RATING (side-level, for 2p/trace): sides=(1200.0, 1000.0)
+     SECOND LOOP (expected diff): eloPerfs=(-0.5195, 0.5195)
+       P1 [side 0, 5 games]: BLEND ΓåÆ (1200.0 ├ù 5 + 1200.0) / 6 = 1190.0 ΓåÆ abs = 1190.0
+       P2 [side 0, 5 games]: BLEND ΓåÆ (1200.0 ├ù 5 + 1200.0) / 6 = 1190.0 ΓåÆ abs = 1190.0
+       P3 [side 1, 5 games]: BLEND ΓåÆ (1000.0 ├ù 5 + 1000.0) / 6 = 991.7 ΓåÆ abs = 991.7
+       P4 [side 1, 5 games]: BLEND ΓåÆ (1000.0 ├ù 5 + 1000.0) / 6 = 991.7 ΓåÆ abs = 991.7
+[PASS 1] [WRITE BACK] VB6 lines 1600-1610
+     P1: played ΓåÆ nRating = 1190
+     P2: played ΓåÆ nRating = 1190
+     P3: played ΓåÆ nRating = 992
+     P4: played ΓåÆ nRating = 992
+[PASS 2] [INIT] VB6 lines 1422-1449 ΓÇö k_val = 20
+     P1: num_games=5, rating=1200, nRating=1190 ΓåÆ nrating=1200
+     P2: num_games=5, rating=1200, nRating=1190 ΓåÆ nrating=1200
+     P3: num_games=5, rating=1000, nRating=992 ΓåÆ nrating=1000
+     P4: num_games=5, rating=1000, nRating=992 ΓåÆ nrating=1000
+[PASS 2] [MATCH] VB6 lines 1474-1535 ΓÇö 4-player
+     sides(0)=1200.0, sides(1)=1000.0
+     expected = formula(1200, 1000) = 0.759747
+     FIRST LOOP (W/L/D): perfs=(0.00, 0.00)
+     PERF RATING (side-level, for 2p/trace): sides=(1200.0, 1000.0)
+     SECOND LOOP (expected diff): eloPerfs=(-0.5195, 0.5195)
+       P1 [side 0, 5 games]: BLEND ΓåÆ (1200.0 ├ù 5 + 1200.0) / 6 = 1190.0 ΓåÆ abs = 1190.0
+       P2 [side 0, 5 games]: BLEND ΓåÆ (1200.0 ├ù 5 + 1200.0) / 6 = 1190.0 ΓåÆ abs = 1190.0
+       P3 [side 1, 5 games]: BLEND ΓåÆ (1000.0 ├ù 5 + 1000.0) / 6 = 991.7 ΓåÆ abs = 991.7
+       P4 [side 1, 5 games]: BLEND ΓåÆ (1000.0 ├ù 5 + 1000.0) / 6 = 991.7 ΓåÆ abs = 991.7
+[PASS 2] [WRITE BACK] VB6 lines 1600-1610
+     P1: played ΓåÆ nRating = 1190
+     P2: played ΓåÆ nRating = 1190
+     P3: played ΓåÆ nRating = 992
+     P4: played ΓåÆ nRating = 992
+[AVERAGE] (pass1 + pass2) / 2
+     P1: (1190 + 1190) / 2 = 1190
+     P2: (1190 + 1190) / 2 = 1190
+     P3: (992 + 992) / 2 = 992
+     P4: (992 + 992) / 2 = 992
+
+stdout | src/test/unit/calculateRatings.test.ts > calculateRatings > doublePass > should average pass1 and pass2 nRating results
+[PASS 1] [INIT] VB6 lines 1422-1449 ΓÇö k_val = 20
+     P1: num_games=0, rating=1200, nRating=0 ΓåÆ nrating=1200
+     P2: num_games=0, rating=1200, nRating=0 ΓåÆ nrating=1200
+[PASS 1] [MATCH] VB6 lines 1474-1535 ΓÇö 2-player
+     sides(0)=1200.0, sides(1)=1200.0
+     expected = formula(1200, 1200) = 0.500000
+     FIRST LOOP (W/L/D): perfs=(0.50, -0.50)
+     PERF RATING (side-level, for 2p/trace): sides=(1400.0, 1000.0)
+     SECOND LOOP (expected diff): eloPerfs=(0.5000, -0.5000)
+       P1 [side 0, 0 games]: BLEND ΓåÆ (1200.0 ├ù 0 + 1400.0) / 1 = 1400.0 ΓåÆ abs = 1400.0
+       P2 [side 1, 0 games]: BLEND ΓåÆ (1200.0 ├ù 0 + 1000.0) / 1 = 1000.0 ΓåÆ abs = 1000.0
+[PASS 1] [WRITE BACK] VB6 lines 1600-1610
+     P1: played ΓåÆ nRating = 1400
+     P2: played ΓåÆ nRating = 1000
+[PASS 2] [INIT] VB6 lines 1422-1449 ΓÇö k_val = 20
+     P1: num_games=0, rating=1200, nRating=1400 ΓåÆ nrating=1400
+     P2: num_games=0, rating=1200, nRating=1000 ΓåÆ nrating=1000
+[PASS 2] [MATCH] VB6 lines 1474-1535 ΓÇö 2-player
+     sides(0)=1400.0, sides(1)=1000.0
+     expected = formula(1400, 1000) = 0.909091
+     FIRST LOOP (W/L/D): perfs=(0.50, -0.50)
+     PERF RATING (side-level, for 2p/trace): sides=(1600.0, 800.0)
+     SECOND LOOP (expected diff): eloPerfs=(0.0909, -0.0909)
+       P1 [side 0, 0 games]: BLEND ΓåÆ (1400.0 ├ù 0 + 1600.0) / 1 = 1600.0 ΓåÆ abs = 1600.0
+       P2 [side 1, 0 games]: BLEND ΓåÆ (1000.0 ├ù 0 + 800.0) / 1 = 800.0 ΓåÆ abs = 800.0
+[PASS 2] [WRITE BACK] VB6 lines 1600-1610
+     P1: played ΓåÆ nRating = 1600
+     P2: played ΓåÆ nRating = 800
+[AVERAGE] (pass1 + pass2) / 2
+     P1: (1400 + 1600) / 2 = 1500
+     P2: (1000 + 800) / 2 = 900
+
+ Γ£ô src/test/unit/conflictDetection.test.ts > Conflict Detection Normalization > updatePlayerGameData parsing - 2-player entries > should parse 2-player entry "12W13" 1ms
+ Γ£ô src/test/unit/conflictDetection.test.ts > Conflict Detection Normalization > updatePlayerGameData parsing - 2-player entries > should parse 2-player entry with loss "12L13" 0ms
+ Γ£ô src/test/unit/conflictDetection.test.ts > Conflict Detection Normalization > updatePlayerGameData parsing - 2-player entries > should parse 2-player entry with draw "12D13" 0ms
+ Γ£ô src/test/unit/conflictDetection.test.ts > Conflict Detection Normalization > updatePlayerGameData parsing - 2-player entries > should parse 2-player entry with multiple results "12WL13" 0ms
+ Γ£ô src/test/unit/conflictDetection.test.ts > Conflict Detection Normalization > updatePlayerGameData parsing - 2-player entries > should parse 2-player entry with reversed players "13W12" 0ms
+ Γ£ô src/test/unit/conflictDetection.test.ts > Conflict Detection Normalization > updatePlayerGameData parsing - 4-player entries > should parse 4-player entry "12:13W23:25" 0ms
+ Γ£ô src/test/unit/conflictDetection.test.ts > Conflict Detection Normalization > updatePlayerGameData parsing - 4-player entries > should parse 4-player entry with different results "23:25LW12:13" 0ms
+ Γ£ô src/test/unit/conflictDetection.test.ts > Conflict Detection Normalization > updatePlayerGameData parsing - 4-player entries > should parse 4-player entry with draw "1:2D3:4" 0ms
+ Γ£ô src/test/unit/conflictDetection.test.ts > Conflict Detection Normalization > updatePlayerGameData parsing - 4-player entries > should parse 4-player entry with all reversed "25:23LW13:12" 0ms
+ Γ£ô src/test/unit/conflictDetection.test.ts > Conflict Detection Normalization > 2-player vs 2-player conflict detection > should detect conflict when players match in same order 0ms
+ Γ£ô src/test/unit/conflictDetection.test.ts > Conflict Detection Normalization > 2-player vs 2-player conflict detection > should detect conflict when players match in reverse order 0ms
+ Γ£ô src/test/unit/conflictDetection.test.ts > Conflict Detection Normalization > 2-player vs 2-player conflict detection > should NOT detect conflict when one player differs 0ms
+ Γ£ô src/test/unit/conflictDetection.test.ts > Conflict Detection Normalization > 2-player vs 2-player conflict detection > should NOT detect conflict when both players differ 0ms
+ Γ£ô src/test/unit/conflictDetection.test.ts > Conflict Detection Normalization > 4-player vs 4-player conflict detection > should detect conflict when all 4 players match in same order 0ms
+ Γ£ô src/test/unit/conflictDetection.test.ts > Conflict Detection Normalization > 4-player vs 4-player conflict detection > should detect conflict when all 4 players match with different orderings 0ms
+ Γ£ô src/test/unit/conflictDetection.test.ts > Conflict Detection Normalization > 4-player vs 4-player conflict detection > should detect conflict when pairs are swapped 0ms
+ Γ£ô src/test/unit/conflictDetection.test.ts > Conflict Detection Normalization > 4-player vs 4-player conflict detection > should detect conflict with all permutations of same 4 players 0ms
+ Γ£ô src/test/unit/conflictDetection.test.ts > Conflict Detection Normalization > 4-player vs 4-player conflict detection > should NOT detect conflict when one player differs 0ms
+ Γ£ô src/test/unit/conflictDetection.test.ts > Conflict Detection Normalization > 2-player vs 4-player cross-type (should never conflict) > should not conflict: 2p entry vs 4p entry with same players 0ms
+ Γ£ô src/test/unit/conflictDetection.test.ts > Conflict Detection Normalization > 2-player vs 4-player cross-type (should never conflict) > should not conflict: 4p entry vs 2p entry with same players 0ms
+ Γ£ô src/test/unit/conflictDetection.test.ts > Conflict Detection Normalization > 2-player vs 4-player cross-type (should never conflict) > should not conflict: 2p entries with different game types 0ms
+ Γ£ô src/test/unit/conflictDetection.test.ts > Conflict Detection Normalization > partial 4-player entries (only 3 players) > should treat 3-player entry as 2-player (player4 = 0) 1ms
+ Γ£ô src/test/unit/conflictDetection.test.ts > Conflict Detection Normalization > invalid entries > should return invalid for empty string 0ms
+ Γ£ô src/test/unit/conflictDetection.test.ts > Conflict Detection Normalization > invalid entries > should return invalid for malformed entry 0ms
+ Γ£ô src/test/unit/conflictDetection.test.ts > Conflict Detection Normalization > invalid entries > should return invalid for entry with only numbers 0ms
+ Γ£ô src/test/unit/calculateRatings.test.ts > calculateRatings > Elo for experienced players (>= 10 games) > should use incremental Elo accumulation when num_games >= 10 2ms
+ Γ£ô src/test/unit/calculateRatings.test.ts > calculateRatings > Elo for experienced players (>= 10 games) > should handle draw with >= 10 games 0ms
+ Γ£ô src/test/unit/calculateRatings.test.ts > calculateRatings > Elo for experienced players (>= 10 games) > should accumulate Elo across multiple games for experienced players 0ms
+ Γ£ô src/test/unit/calculateRatings.test.ts > calculateRatings > inline blending for players with < 10 games > should blend rating with performance rating inline for each game when num_games < 10 0ms
+ Γ£ô src/test/unit/calculateRatings.test.ts > calculateRatings > inline blending for players with < 10 games > should blend incrementally across multiple games 0ms
+ Γ£ô src/test/unit/calculateRatings.test.ts > calculateRatings > inline blending for players with < 10 games > should heavily weight old rating when historical games >> today games 0ms
+ Γ£ô src/test/unit/calculateRatings.test.ts > calculateRatings > inline blending for players with < 10 games > should use nRating from file when num_games=0 0ms
+ Γ£ô src/test/unit/calculateRatings.test.ts > calculateRatings > inline blending for players with < 10 games > should cap initial rating at 1800 when num_games=0 0ms
+ Γ£ô src/test/unit/calculateRatings.test.ts > calculateRatings > 4-player games > should average team member ratings for side rating 0ms
+ Γ£ô src/test/unit/calculateRatings.test.ts > calculateRatings > 4-player games > should accumulate error for opposing team in 4-player games 0ms
+ Γ£ô src/test/unit/calculateRatings.test.ts > calculateRatings > edge cases > should handle players with no games today 0ms
+ Γ£ô src/test/unit/calculateRatings.test.ts > calculateRatings > edge cases > should handle player with no games but opponent does 0ms
+ Γ£ô src/test/unit/calculateRatings.test.ts > calculateRatings > edge cases > should clamp performance rating to 0 minimum 0ms
+ Γ£ô src/test/unit/calculateRatings.test.ts > calculateRatings > edge cases > should handle single game 0ms
+ Γ£ô src/test/unit/calculateRatings.test.ts > calculateRatings > kFactor override > should use provided kFactor override 0ms
+ Γ£ô src/test/unit/calculateRatings.test.ts > calculateRatings > trophyEligible > should preserve trophyEligible=true for positive rating through recalculation 0ms
+ Γ£ô src/test/unit/calculateRatings.test.ts > calculateRatings > trophyEligible > should preserve trophyEligible=false for negative rating through recalculation 0ms
+ Γ£ô src/test/unit/calculateRatings.test.ts > calculateRatings > trophyEligible > should preserve trophyEligible for players who lose badly 0ms
+ Γ£ô src/test/unit/calculateRatings.test.ts > calculateRatings > trophyEligible > should preserve trophyEligible for players with no games today 0ms
+ Γ£ô src/test/unit/calculateRatings.test.ts > calculateRatings > trophyEligible > should default trophyEligible to true when missing 0ms
+ Γ£ô src/test/unit/calculateRatings.test.ts > calculateRatings > trophyEligible > should store abs(nRating) regardless of eligibility 0ms
+ Γ£ô src/test/unit/calculateRatings.test.ts > calculateRatings > trophyEligible > should compute nRating but preserve eligibility when num_games=0 0ms
+ Γ£ô src/test/unit/calculateRatings.test.ts > calculateRatings > trophyEligible > should preserve eligibility when num_games < 10 0ms
+ Γ£ô src/test/unit/calculateRatings.test.ts > calculateRatings > debugMode > should return trace object when debugMode is true 3ms
+ Γ£ô src/test/unit/calculateRatings.test.ts > calculateRatings > debugMode > should not return trace when debugMode is false 0ms
+ Γ£ô src/test/unit/calculateRatings.test.ts > calculateRatings > debugMode > should trace blending for new players 0ms
+ Γ£ô src/test/unit/calculateRatings.test.ts > calculateRatings > debugMode > should trace 4-player game with cross-side blending 0ms
+ Γ£ô src/test/unit/calculateRatings.test.ts > calculateRatings > doublePass > should average pass1 and pass2 nRating results 0ms
+ Γ£ô src/test/unit/calculateRatings.test.ts > calculateRatings > doublePass > should produce consistent results for experienced players 0ms
+ Γ£ô src/test/unit/calculateRatings.test.ts > calculateRatings > doublePass > should always use double-pass averaging 0ms
+ Γ£ô src/test/unit/adminLockOverride.test.ts > Admin lock override > lock state detection > should detect when lock is held by another client 1ms
+ Γ£ô src/test/unit/adminLockOverride.test.ts > Admin lock override > lock state detection > should detect when lock is free 0ms
+ Γ£ô src/test/unit/adminLockOverride.test.ts > Admin lock override > lock state detection > should detect when server is unreachable 0ms
+ Γ£ô src/test/unit/adminLockOverride.test.ts > Admin lock override > lock state detection > should handle expired lock 0ms
+ Γ£ô src/test/unit/adminLockOverride.test.ts > Admin lock override > lock state detection > should handle lock expiring soon 0ms
+ Γ£ô src/test/unit/adminLockOverride.test.ts > Admin lock override > override dialog flow > should show override confirmation when lock is held 0ms
+ Γ£ô src/test/unit/adminLockOverride.test.ts > Admin lock override > override dialog flow > should not show override dialog when lock is free 0ms
+ Γ£ô src/test/unit/adminLockOverride.test.ts > Admin lock override > override dialog flow > should not show override dialog when server unreachable 0ms
+ Γ£ô src/test/unit/adminLockOverride.test.ts > Admin lock override > override dialog flow > should handle override cancellation 0ms
+ Γ£ô src/test/unit/adminLockOverride.test.ts > Admin lock override > override dialog flow > should handle override confirmation 0ms
+ Γ£ô src/test/unit/adminLockOverride.test.ts > Admin lock override > lock refresh > should extend lock expiration on refresh 0ms
+ Γ£ô src/test/unit/adminLockOverride.test.ts > Admin lock override > lock refresh > should handle refresh failure gracefully 0ms
+ Γ£ô src/test/unit/adminLockOverride.test.ts > Admin lock override > lock release > should release lock when admin exits 0ms
+ Γ£ô src/test/unit/adminLockOverride.test.ts > Admin lock override > lock release > should verify only lock owner can release 0ms
+ Γ£ô src/test/unit/adminLockOverride.test.ts > Admin lock override > lock release > should allow lock owner to release 0ms
+ Γ£ô src/test/unit/adminLockOverride.test.ts > Admin lock override > lock notification > should notify when lock status changes 0ms
+ Γ£ô src/test/unit/adminLockOverride.test.ts > Admin lock override > lock notification > should not notify when lock status unchanged 0ms
+ Γ£ô src/test/unit/adminLockOverride.test.ts > Admin lock override > lock notification > should handle lock acquired by self 0ms
+ Γ£ô src/test/unit/normalize4Player.test.ts > normalize4Player > within-pair swaps > should swap players within first pair when a1 > a2 1ms
+ Γ£ô src/test/unit/normalize4Player.test.ts > normalize4Player > within-pair swaps > should swap players within second pair when a3 > a4 0ms
+ Γ£ô src/test/unit/normalize4Player.test.ts > normalize4Player > within-pair swaps > should swap both pairs when both are out of order 0ms
+ Γ£ô src/test/unit/normalize4Player.test.ts > normalize4Player > within-pair swaps > should not swap when both pairs already in order 0ms
+ Γ£ô src/test/unit/normalize4Player.test.ts > normalize4Player > pair reordering > should reorder pairs when first pair lowest > second pair lowest 0ms
+ Γ£ô src/test/unit/normalize4Player.test.ts > normalize4Player > pair reordering > should keep pair order when first pair lowest < second pair lowest 0ms
+ Γ£ô src/test/unit/normalize4Player.test.ts > normalize4Player > pair reordering > should reorder with within-pair swaps on both pairs 0ms
+ Γ£ô src/test/unit/normalize4Player.test.ts > normalize4Player > pair reordering > should reorder with within-pair swap on first pair only 0ms
+ Γ£ô src/test/unit/normalize4Player.test.ts > normalize4Player > pair reordering > should reorder with within-pair swap on second pair only 0ms
+ Γ£ô src/test/unit/normalize4Player.test.ts > normalize4Player > equal values within pairs > should handle equal values in first pair 0ms
+ Γ£ô src/test/unit/normalize4Player.test.ts > normalize4Player > equal values within pairs > should handle equal values in second pair 0ms
+ Γ£ô src/test/unit/normalize4Player.test.ts > normalize4Player > equal values within pairs > should handle equal values in both pairs 0ms
+ Γ£ô src/test/unit/normalize4Player.test.ts > normalize4Player > identity and edge cases > should return same order when already fully normalized 0ms
+ Γ£ô src/test/unit/normalize4Player.test.ts > normalize4Player > identity and edge cases > should handle single-digit ranks 0ms
+ Γ£ô src/test/unit/normalize4Player.test.ts > normalize4Player > identity and edge cases > should handle large rank numbers 0ms
+ Γ£ô src/test/unit/normalize4Player.test.ts > normalize4Player > identity and edge cases > should handle all same values 0ms
+ Γ£ô src/test/unit/normalize4Player.test.ts > normalize4Player > conflict detection equivalence > should produce same normalized form regardless of input order permutations 0ms
+ Γ£ô src/test/unit/normalize4Player.test.ts > normalize4Player > conflict detection equivalence > should produce different normalized forms for different player sets 0ms
+ Γ£ô server/test/authRoutes.test.ts > Auth middleware exports > should export ADMIN_API_KEY constant 57ms
+ Γ£ô server/test/authRoutes.test.ts > Auth middleware exports > should export USER_API_KEY constant 0ms
+ Γ£ô server/test/authRoutes.test.ts > Auth middleware exports > should export requireAdminKey function 0ms
+ Γ£ô server/test/authRoutes.test.ts > Auth middleware exports > should export requireUserKey function 0ms
+ Γ£ô server/test/authRoutes.test.ts > Auth middleware exports > should have ADMIN_API_KEY matching env var 0ms
+ Γ£ô server/test/authRoutes.test.ts > Auth middleware exports > should have USER_API_KEY matching env var 0ms
+ Γ£ô server/test/authRoutes.test.ts > Auth middleware exports > should have both keys set when env vars are configured 0ms
+ Γ£ô server/test/authRoutes.test.ts > Auth middleware function types > requireAdminKey accepts (req, res, next) - Express middleware signature 0ms
+ Γ£ô server/test/authRoutes.test.ts > Auth middleware function types > requireUserKey accepts (req, res, next) - Express middleware signature 0ms
+ Γ£ô src/test/unit/auth.test.ts > Auth constants > should have ADMIN_API_KEY defined 57ms
+ Γ£ô src/test/unit/auth.test.ts > Auth constants > should have USER_API_KEY defined 0ms
+ Γ£ô src/test/unit/auth.test.ts > Auth constants > should export requireAdminKey function 0ms
+ Γ£ô src/test/unit/auth.test.ts > Auth constants > should export requireUserKey function 0ms
+ Γ£ô src/test/unit/auth.test.ts > File extension validation logic > should accept .tab on client and server 0ms
+ Γ£ô src/test/unit/auth.test.ts > File extension validation logic > should accept .xls on client and server (VB6 Excel tab format) 0ms
+ Γ£ô src/test/unit/auth.test.ts > File extension validation logic > should accept .txt on client 0ms
+ Γ£ô src/test/unit/auth.test.ts > File extension validation logic > should reject unsupported extensions 0ms
+ Γ£ô src/test/unit/auth.test.ts > File extension validation logic > should handle case-insensitive extension checking 0ms
+ Γ£ô src/test/unit/auth.test.ts > File extension validation logic > should extract extension from filename 0ms
+ Γ£ô src/test/unit/migration.test.ts > Migration Utilities > detectRankNameMismatches > should detect no mismatches when data is identical 1ms
+ Γ£ô src/test/unit/migration.test.ts > Migration Utilities > detectRankNameMismatches > should detect mismatch when last names differ at same rank 0ms
+ Γ£ô src/test/unit/migration.test.ts > Migration Utilities > detectRankNameMismatches > should detect multiple mismatches 0ms
+ Γ£ô src/test/unit/migration.test.ts > Migration Utilities > detectRankNameMismatches > should handle players only in local 0ms
+ Γ£ô src/test/unit/migration.test.ts > Migration Utilities > detectRankNameMismatches > should handle players only in server 0ms
+ Γ£ô src/test/unit/migration.test.ts > Migration Utilities > mergePlayerLists > should use server-only players when no local equivalent exists 0ms
+ Γ£ô src/test/unit/migration.test.ts > Migration Utilities > mergePlayerLists > should use local-only players when no server equivalent exists 0ms
+ Γ£ô src/test/unit/migration.test.ts > Migration Utilities > mergePlayerLists > should use server non-result fields when strategy is use-server 0ms
+ Γ£ô src/test/unit/migration.test.ts > Migration Utilities > mergePlayerLists > should use local non-result fields when strategy is use-local 0ms
+ Γ£ô src/test/unit/migration.test.ts > Migration Utilities > mergePlayerLists > should merge game results when strategy is merge 0ms
+ Γ£ô src/test/unit/migration.test.ts > Migration Utilities > mergePlayerLists > should use server results when strategy is dont-merge 0ms
+ Γ£ô src/test/unit/migration.test.ts > Migration Utilities > mergePlayerLists > should sort merged players by rank 0ms
+ Γ£ô src/test/unit/migration.test.ts > Migration Utilities > mergePlayerLists > should preserve all 13 non-result fields correctly 0ms
+ Γ£ô src/test/unit/normalizeServerUrl.test.ts > normalizeServerUrl > whitespace trimming > should trim leading whitespace 1ms
+ Γ£ô src/test/unit/normalizeServerUrl.test.ts > normalizeServerUrl > whitespace trimming > should trim trailing whitespace 0ms
+ Γ£ô src/test/unit/normalizeServerUrl.test.ts > normalizeServerUrl > whitespace trimming > should trim both leading and trailing whitespace 0ms
+ Γ£ô src/test/unit/normalizeServerUrl.test.ts > normalizeServerUrl > whitespace trimming > should handle tabs and newlines 0ms
+ Γ£ô src/test/unit/normalizeServerUrl.test.ts > normalizeServerUrl > whitespace trimming > should return empty string for whitespace-only input 0ms
+ Γ£ô src/test/unit/normalizeServerUrl.test.ts > normalizeServerUrl > protocol prefix > should add http:// when no protocol present 0ms
+ Γ£ô src/test/unit/normalizeServerUrl.test.ts > normalizeServerUrl > protocol prefix > should not add http:// when already has http:// 0ms
+ Γ£ô src/test/unit/normalizeServerUrl.test.ts > normalizeServerUrl > protocol prefix > should not add http:// when already has https:// 0ms
+ Γ£ô src/test/unit/normalizeServerUrl.test.ts > normalizeServerUrl > protocol prefix > should handle localhost without protocol 0ms
+ Γ£ô src/test/unit/normalizeServerUrl.test.ts > normalizeServerUrl > protocol prefix > should handle IP address without protocol 0ms
+ Γ£ô src/test/unit/normalizeServerUrl.test.ts > normalizeServerUrl > backslash normalization > should convert backslashes to forward slashes 0ms
+ Γ£ô src/test/unit/normalizeServerUrl.test.ts > normalizeServerUrl > backslash normalization > should convert multiple backslashes 0ms
+ Γ£ô src/test/unit/normalizeServerUrl.test.ts > normalizeServerUrl > backslash normalization > should handle mixed slashes 0ms
+ Γ£ô src/test/unit/normalizeServerUrl.test.ts > normalizeServerUrl > empty and edge cases > should return empty string for empty input 0ms
+ Γ£ô src/test/unit/normalizeServerUrl.test.ts > normalizeServerUrl > empty and edge cases > should preserve input with existing protocol 0ms
+ Γ£ô src/test/unit/normalizeServerUrl.test.ts > normalizeServerUrl > empty and edge cases > should handle port numbers 0ms
+ Γ£ô src/test/unit/normalizeServerUrl.test.ts > normalizeServerUrl > empty and edge cases > should handle domain with subdomain 0ms
+stdout | src/test/unit/saveUserSettings.test.ts > saveUserSettings > whitespace trimming > should trim server URL whitespace on save
+[UserSettings] Saved settings: { server: 'http://omen.com:3000', apiKey: '(set)', debugMode: false }
+
+stdout | src/test/unit/saveUserSettings.test.ts > saveUserSettings > whitespace trimming > should save empty server as empty string
+[UserSettings] Saved settings: { server: '(empty)', apiKey: '(empty)', debugMode: false }
+
+stdout | src/test/unit/saveUserSettings.test.ts > saveUserSettings > whitespace trimming > should save whitespace-only server as normalized empty
+[UserSettings] Saved settings: { server: '(empty)', apiKey: '(empty)', debugMode: false }
+
+stdout | src/test/unit/saveUserSettings.test.ts > saveUserSettings > API key preservation > should save API key without trimming
+[UserSettings] Saved settings: { server: 'http://omen.com:3000', apiKey: '(set)', debugMode: false }
+
+stdout | src/test/unit/saveUserSettings.test.ts > saveUserSettings > API key preservation > should save empty API key as empty string
+[UserSettings] Saved settings: { server: 'http://omen.com:3000', apiKey: '(empty)', debugMode: false }
+
+stdout | src/test/unit/saveUserSettings.test.ts > saveUserSettings > API key preservation > should save API key with special characters
+[UserSettings] Saved settings: { server: 'http://omen.com:3000', apiKey: '(set)', debugMode: false }
+
+stdout | src/test/unit/saveUserSettings.test.ts > saveUserSettings > debugMode persistence > should save debugMode true
+[UserSettings] Saved settings: { server: 'http://omen.com:3000', apiKey: '(empty)', debugMode: true }
+
+stdout | src/test/unit/saveUserSettings.test.ts > saveUserSettings > debugMode persistence > should save debugMode false
+[UserSettings] Saved settings: { server: 'http://omen.com:3000', apiKey: '(empty)', debugMode: false }
+
+stdout | src/test/unit/saveUserSettings.test.ts > saveUserSettings > server URL normalization on save > should add http:// protocol to server URL
+[UserSettings] Saved settings: { server: 'http://omen.com:3000', apiKey: '(empty)', debugMode: false }
+
+stdout | src/test/unit/saveUserSettings.test.ts > saveUserSettings > server URL normalization on save > should preserve existing protocol
+[UserSettings] Saved settings: {
+  server: 'https://omen.com:3000',
+  apiKey: '(empty)',
+  debugMode: false
+}
+
+stdout | src/test/unit/saveUserSettings.test.ts > saveUserSettings > server URL normalization on save > should convert backslashes to forward slashes
+[UserSettings] Saved settings: { server: 'http://omen/com:3000', apiKey: '(empty)', debugMode: false }
+
+stdout | src/test/unit/saveUserSettings.test.ts > saveUserSettings > round-trip persistence > should save and load all fields correctly
+[UserSettings] Saved settings: { server: 'http://omen.com:3000', apiKey: '(set)', debugMode: true }
+
+stdout | src/test/unit/saveUserSettings.test.ts > saveUserSettings > round-trip persistence > should overwrite previous settings
+[UserSettings] Saved settings: { server: 'http://first.com:3000', apiKey: '(set)', debugMode: false }
+[UserSettings] Saved settings: { server: 'http://second.com:3000', apiKey: '(set)', debugMode: true }
+
+stdout | src/test/unit/saveUserSettings.test.ts > saveUserSettings > localStorage key > should use the correct key name
+[UserSettings] Saved settings: { server: 'http://omen.com:3000', apiKey: '(empty)', debugMode: false }
+
+stdout | src/test/unit/saveUserSettings.test.ts > saveUserSettings > localStorage key > should store valid JSON
+[UserSettings] Saved settings: { server: 'http://omen.com:3000', apiKey: '(set)', debugMode: true }
+
+ Γ£ô src/test/unit/saveUserSettings.test.ts > saveUserSettings > whitespace trimming > should trim server URL whitespace on save 2ms
+ Γ£ô src/test/unit/saveUserSettings.test.ts > saveUserSettings > whitespace trimming > should save empty server as empty string 0ms
+ Γ£ô src/test/unit/saveUserSettings.test.ts > saveUserSettings > whitespace trimming > should save whitespace-only server as normalized empty 0ms
+ Γ£ô src/test/unit/saveUserSettings.test.ts > saveUserSettings > API key preservation > should save API key without trimming 0ms
+ Γ£ô src/test/unit/saveUserSettings.test.ts > saveUserSettings > API key preservation > should save empty API key as empty string 0ms
+ Γ£ô src/test/unit/saveUserSettings.test.ts > saveUserSettings > API key preservation > should save API key with special characters 0ms
+ Γ£ô src/test/unit/saveUserSettings.test.ts > saveUserSettings > debugMode persistence > should save debugMode true 0ms
+ Γ£ô src/test/unit/saveUserSettings.test.ts > saveUserSettings > debugMode persistence > should save debugMode false 0ms
+ Γ£ô src/test/unit/saveUserSettings.test.ts > saveUserSettings > debugMode persistence > should default debugMode to false when not set 0ms
+ Γ£ô src/test/unit/saveUserSettings.test.ts > saveUserSettings > server URL normalization on save > should add http:// protocol to server URL 0ms
+ Γ£ô src/test/unit/saveUserSettings.test.ts > saveUserSettings > server URL normalization on save > should preserve existing protocol 0ms
+ Γ£ô src/test/unit/saveUserSettings.test.ts > saveUserSettings > server URL normalization on save > should convert backslashes to forward slashes 0ms
+ Γ£ô src/test/unit/saveUserSettings.test.ts > saveUserSettings > round-trip persistence > should save and load all fields correctly 0ms
+ Γ£ô src/test/unit/saveUserSettings.test.ts > saveUserSettings > round-trip persistence > should overwrite previous settings 0ms
+ Γ£ô src/test/unit/saveUserSettings.test.ts > saveUserSettings > round-trip persistence > should handle missing fields gracefully 0ms
+ Γ£ô src/test/unit/saveUserSettings.test.ts > saveUserSettings > localStorage key > should use the correct key name 0ms
+ Γ£ô src/test/unit/saveUserSettings.test.ts > saveUserSettings > localStorage key > should store valid JSON 1ms
+ Γ£ô src/test/unit/newDay.test.ts > Title Progression > getNextTitle > should progress through all mini game titles in order 1ms
+ Γ£ô src/test/unit/newDay.test.ts > Title Progression > getNextTitle > should cycle back to BG_Game after Queen_Game 0ms
+ Γ£ô src/test/unit/newDay.test.ts > Title Progression > getNextTitle > should be case-insensitive 0ms
+ Γ£ô src/test/unit/newDay.test.ts > Title Progression > getNextTitle > should handle unknown titles gracefully 0ms
+ Γ£ô src/test/unit/newDay.test.ts > Title Progression > getNextTitle > should handle empty string 0ms
+ Γ£ô src/test/unit/newDay.test.ts > Title Progression > getNextTitle > should handle whitespace 0ms
+ Γ£ô src/test/unit/newDay.test.ts > New Day Transformations > processNewDayTransformations > should update rating to nRating 0ms
+ Γ£ô src/test/unit/newDay.test.ts > New Day Transformations > processNewDayTransformations > should count games from gameResults array 0ms
+ Γ£ô src/test/unit/newDay.test.ts > New Day Transformations > processNewDayTransformations > should reset gameResults to all null 1ms
+ Γ£ô src/test/unit/newDay.test.ts > New Day Transformations > processNewDayTransformations > should reset attendance to 0 if player played games 0ms
+ Γ£ô src/test/unit/newDay.test.ts > New Day Transformations > processNewDayTransformations > should increment attendance if player did not play 0ms
+ Γ£ô src/test/unit/newDay.test.ts > New Day Transformations > processNewDayTransformations > should preserve other player fields 0ms
+ Γ£ô src/test/unit/newDay.test.ts > New Day Transformations > processNewDayTransformations > with reRank = true > should re-sort players by rating (descending) 0ms
+ Γ£ô src/test/unit/newDay.test.ts > New Day Transformations > processNewDayTransformations > with reRank = true > should re-assign ranks after sorting 0ms
+ Γ£ô src/test/unit/newDay.test.ts > New Day Transformations > processNewDayTransformations > with reRank = true > should use original rank as tiebreaker for equal ratings 0ms
+ Γ£ô src/test/unit/newDay.test.ts > New Day Transformations > processNewDayTransformations > with reRank = false > should preserve original ranks 0ms
+ Γ£ô src/test/unit/newDay.test.ts > New Day Transformations > processNewDayTransformations > with reRank = false > should preserve original order 0ms
+ Γ£ô src/test/unit/newDay.test.ts > New Day Transformations > processNewDayTransformations > should handle empty player list 0ms
+ Γ£ô src/test/unit/newDay.test.ts > New Day Transformations > processNewDayTransformations > should handle players without gameResults 0ms
+stdout | src/test/unit/ratingStressTest.test.ts > Rating Stress Test ΓÇö 150p 20 Rounds > 150p_20r_2p_ng20
+  150p_20r_2p_ng20: FinalRSS=21.05, F1=21.05, F2=21.05
+
+ Γ£ô src/test/unit/ratingStressTest.test.ts > Rating Stress Test ΓÇö 150p 20 Rounds > 150p_20r_2p_ng0 102ms
+ Γ£ô src/test/unit/ratingStressTest.test.ts > Rating Stress Test ΓÇö 150p 20 Rounds > 150p_20r_2p_ng0-10 66ms
+stdout | src/test/unit/batchFlush.test.ts
+[DataService] Using LOCAL mode (no server configured)
+
+stdout | src/test/unit/settingsPersistence.test.ts
+[DataService] Using LOCAL mode (no server configured)
+
+stdout | src/test/unit/settingsAdminGating.test.tsx
+[DataService] Using LOCAL mode (no server configured)
+
+ Γ£ô src/test/unit/batchFlush.test.ts > New Day Batch Flush > batch mode state management > should detect batch mode after startBatch 1ms
+ Γ£ô src/test/unit/batchFlush.test.ts > New Day Batch Flush > batch mode state management > should exit batch mode after matching endBatch calls 0ms
+ Γ£ô src/test/unit/batchFlush.test.ts > New Day Batch Flush > batch buffer behavior > should hold data in buffer during batch mode (not write to localStorage) 0ms
+ Γ£ô src/test/unit/batchFlush.test.ts > New Day Batch Flush > batch buffer behavior > should commit buffer to localStorage on endBatch 0ms
+ Γ£ô src/test/unit/batchFlush.test.ts > New Day Batch Flush > nested batch operations > should handle nested startBatch calls 0ms
+ Γ£ô src/test/unit/batchFlush.test.ts > New Day Batch Flush > nested batch operations > should maintain single commit on nested endBatch 0ms
+ Γ£ô src/test/unit/batchFlush.test.ts > New Day Batch Flush > getPlayers during batch mode > should return buffer data during batch mode 0ms
+ Γ£ô src/test/unit/batchFlush.test.ts > New Day Batch Flush > New Day flush sequence > should simulate New Day batch flush: startBatch ΓåÆ savePlayers ΓåÆ endBatch 0ms
+ Γ£ô src/test/unit/batchFlush.test.ts > New Day Batch Flush > New Day flush sequence > should handle multiple savePlayers calls within single batch 0ms
+ Γ£ô src/test/unit/settingsPersistence.test.ts > Settings persistence > getKeyPrefix > should return a non-empty string 1ms
+ Γ£ô src/test/unit/settingsPersistence.test.ts > Settings persistence > getKeyPrefix > should return the same prefix on repeated calls 0ms
+ Γ£ô src/test/unit/settingsPersistence.test.ts > Settings persistence > getKeyPrefix > should produce consistent prefix for same project 0ms
+ Γ£ô src/test/unit/settingsPersistence.test.ts > Settings persistence > localStorage key construction > should use getKeyPrefix for settings key 1ms
+ Γ£ô src/test/unit/settingsPersistence.test.ts > Settings persistence > localStorage key construction > should use getKeyPrefix for pending new day key 0ms
+ Γ£ô src/test/unit/settingsPersistence.test.ts > Settings persistence > localStorage key construction > should use different keys for different settings 0ms
+ Γ£ô src/test/unit/settingsPersistence.test.ts > Settings persistence > user settings key > should use consistent user settings key 0ms
+ Γ£ô src/test/unit/settingsPersistence.test.ts > Settings persistence > user settings key > should persist across simulated sessions 0ms
+ Γ£ô src/test/unit/settingsPersistence.test.ts > Settings persistence > key prefix isolation > should not collide with other localStorage keys 0ms
+ Γ£ô src/test/unit/settingsPersistence.test.ts > Settings persistence > key prefix isolation > should return consistent prefix in local mode 0ms
+ Γ£ô src/test/unit/settingsPersistence.test.ts > Settings persistence > key prefix isolation > should use consistent prefix for all settings keys 0ms
+stdout | src/test/unit/ratingStressTest.test.ts > Rating Stress Test ΓÇö 150p 20 Rounds > 150p_20r_4p_ng0
+  150p_20r_4p_ng0: FinalRSS=217.48, F1=363.37, F2=460.71
+
+stdout | src/components/LadderForm.test.tsx
+[DataService] Using LOCAL mode (no server configured)
+
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > non-admin mode (default) > should render menu bar with Operations and View menus only 66ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > non-admin mode (default) > should display project name 8ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > non-admin mode (default) > should display player count 8ms
+ Γ£ô src/test/unit/settingsAdminGating.test.tsx > Settings admin gating > user mode (isAdmin=false) > should hide Configuration panel when not admin 79ms
+ Γ£ô src/test/unit/settingsAdminGating.test.tsx > Settings admin gating > user mode (isAdmin=false) > should hide Actions panel heading when not admin 8ms
+ Γ£ô src/test/unit/settingsAdminGating.test.tsx > Settings admin gating > user mode (isAdmin=false) > should show Server Connection panel in user mode 10ms
+stdout | src/test/unit/ratingStressTest.test.ts > Rating Stress Test ΓÇö 150p 20 Rounds > 150p_20r_4p_ng0-10
+  150p_20r_4p_ng0-10: FinalRSS=72.76, F1=97.27, F2=116.61
+
+ Γ£ô src/test/unit/ratingStressTest.test.ts > Rating Stress Test ΓÇö 150p 20 Rounds > 150p_20r_2p_ng20 74ms
+ Γ£ô src/test/unit/ratingStressTest.test.ts > Rating Stress Test ΓÇö 150p 20 Rounds > 150p_20r_4p_ng0 91ms
+stdout | src/components/LadderForm.test.tsx > LadderForm component > should render the title
+[INIT] Server URL: (none)
+[INIT] localStorage has data: false | server localStorage has data: false
+[LadderForm] Loaded settings from storage: {}
+[INIT] Starting with empty ladder
+
+stdout | src/components/LadderForm.test.tsx > LadderForm component > should load sample data on mount
+[INIT] Server URL: (none)
+[INIT] localStorage has data: false | server localStorage has data: false
+[LadderForm] Loaded settings from storage: {}
+[INIT] Starting with empty ladder
+
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > non-admin mode (default) > Operations menu items > should have Recalculate_Save button 24ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > non-admin mode (default) > Operations menu items > should call onRecalculateRatings when Recalculate_Save clicked 17ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > non-admin mode (default) > Operations menu items > should have Check Errors button 16ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > non-admin mode (default) > Operations menu items > should call onCheckErrors when Check Errors clicked 16ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > non-admin mode (default) > Operations menu items > should have Enter Games button 10ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > non-admin mode (default) > Operations menu items > should call onEnterGames when Enter Games clicked 20ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > non-admin mode (default) > Operations menu items > should have Paste Multiple Results button 7ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > non-admin mode (default) > Operations menu items > should call onBulkPaste when Paste Multiple Results clicked 8ms
+stdout | src/test/unit/ratingStressTest.test.ts > Rating Stress Test ΓÇö 150p 20 Rounds > 150p_20r_4p_ng20
+  150p_20r_4p_ng20: FinalRSS=36.37, F1=36.37, F2=36.37
+
+stdout | src/test/unit/ratingStressTest.test.ts > Rating Stress Test ΓÇö 150p 20 Rounds
+
+150p 20-round reports written to D:\xampp\htdocs\bughouse_ladder_server\src\test\unit\reports/
+
+stdout | src/test/unit/ratingStressTest.test.ts
+
+Summary written to D:\xampp\htdocs\bughouse_ladder_server\src\test\unit\reports/summary.tsv (24 configs)
+
+ Γ£ô src/test/unit/ratingStressTest.test.ts > Rating Stress Test ΓÇö 150p 20 Rounds > 150p_20r_4p_ng0-10 80ms
+ Γ£ô src/test/unit/ratingStressTest.test.ts > Rating Stress Test ΓÇö 150p 20 Rounds > 150p_20r_4p_ng20 72ms
+ Γ£ô src/components/LadderForm.test.tsx > LadderForm component > should render the title 80ms
+ Γ£ô src/test/unit/settingsAdminGating.test.tsx > Settings admin gating > user mode (isAdmin=false) > should show Server URL input in user mode 14ms
+ Γ£ô src/test/unit/settingsAdminGating.test.tsx > Settings admin gating > user mode (isAdmin=false) > should show API Key input in user mode 7ms
+ Γ£ô src/test/unit/settingsAdminGating.test.tsx > Settings admin gating > user mode (isAdmin=false) > should show Save button in user mode 7ms
+ Γ£ô src/test/unit/settingsAdminGating.test.tsx > Settings admin gating > user mode (isAdmin=false) > should not show Configuration settings when not admin 8ms
+ Γ£ô src/test/unit/settingsAdminGating.test.tsx > Settings admin gating > admin mode (isAdmin=true) > should show Configuration panel when admin 18ms
+ Γ£ô src/test/unit/settingsAdminGating.test.tsx > Settings admin gating > admin mode (isAdmin=true) > should show Show Ratings checkbox when admin 18ms
+ Γ£ô src/test/unit/settingsAdminGating.test.tsx > Settings admin gating > admin mode (isAdmin=true) > should show Debug Level input when admin 17ms
+ Γ£ô src/test/unit/settingsAdminGating.test.tsx > Settings admin gating > admin mode (isAdmin=true) > should show K-Factor input when admin 19ms
+stdout | src/components/LadderForm.test.tsx > LadderForm component > should display players after loading
+[INIT] Server URL: (none)
+[INIT] localStorage has data: false | server localStorage has data: false
+[LadderForm] Loaded settings from storage: {}
+[INIT] Starting with empty ladder
+
+ Γ£ô src/test/unit/settingsAdminGating.test.tsx > Settings admin gating > admin mode (isAdmin=true) > should show Server Connection panel when admin 13ms
+ Γ£ô src/test/unit/settingsAdminGating.test.tsx > Settings admin gating > admin mode (isAdmin=true) > should show Save button when admin 13ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > non-admin mode (default) > Operations menu items > should have Settings button 9ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > non-admin mode (default) > Operations menu items > should call onOpenSettings when Settings clicked 10ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > non-admin mode (default) > Operations menu items > should NOT show Admin Mode button when admin mode disabled 8ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > non-admin mode (default) > Operations menu items > should NOT show Add Player button without onAddPlayer callback 10ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > non-admin mode (default) > View menu items > should have all 5 zoom level buttons 11ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > non-admin mode (default) > View menu items > should call onSetZoom('50%') when Zoom 50% clicked 10ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > non-admin mode (default) > View menu items > should call onSetZoom('70%') when Zoom 70% clicked 10ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > non-admin mode (default) > View menu items > should call onSetZoom('100%') when Zoom 100% clicked 12ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > non-admin mode (default) > View menu items > should call onSetZoom('140%') when Zoom 140% clicked 10ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > non-admin mode (default) > View menu items > should call onSetZoom('200%') when Zoom 200% clicked 7ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > non-admin mode (default) > Menu open/close behavior > should close menu after clicking an item 8ms
+stdout | src/test/unit/optimize2D.test.ts > 2D Optimization > sweep blendingFactor 0.98-1.00 ├ù perfMultiplierScale 0.60-1.00 on 100p_2p_ng0
+
+FinalRSS 2D Grid (100p_2p_ng0):
+BFΓåÆMSΓåô  0.30     0.35     0.40     0.45     0.50     0.55     0.60     0.65     0.70
+------  ------   ------   ------   ------   ------   ------   ------   ------   ------
+0.98       180.0    185.1    191.0    197.5    204.8    212.9    221.1    230.0    238.9
+0.99       123.9    135.4    147.3    159.5    171.8    184.6    197.5    210.5    223.4
+1.00       111.9    128.5    145.1    161.3    177.2    193.2    209.1    224.9    240.3
+
+Optimal: bf=1.00, ms=0.30
+  FinalRSS=111.89, F1=202.86, F2=282.04
+  (previous baseline bf=0.98,ms=1.00: 294.74)
+
+ Γ£ô src/test/unit/optimize2D.test.ts > 2D Optimization > sweep blendingFactor 0.98-1.00 ├ù perfMultiplierScale 0.60-1.00 on 100p_2p_ng0 1506ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > non-admin mode (default) > Menu open/close behavior > should close Operations menu after clicking an item 10ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > admin mode > should render File and Sort menus in admin mode 5ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > admin mode > File menu items > should have Load button 11ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > admin mode > File menu items > should call onFileAction('load') when Load clicked 12ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > admin mode > File menu items > should have Export button 8ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > admin mode > File menu items > should call onFileAction('export') when Export clicked 9ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > admin mode > File menu items > should show Title menu items after File items 14ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > admin mode > File menu items > should call onSetTitle with each title option 23ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > admin mode > File menu items > should show checkmark for current title 12ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > admin mode > Sort menu items > should have all 5 sort options 8ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > admin mode > Sort menu items > should call onSort('rank') when By Rank clicked 10ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > admin mode > Sort menu items > should call onSort('byLastName') when By Last Name clicked 11ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > admin mode > Sort menu items > should call onSort('byFirstName') when By First Name clicked 12ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > admin mode > Sort menu items > should call onSort('nRating') when By New Rating clicked 13ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > admin mode > Sort menu items > should call onSort('rating') when By Previous Rating clicked 7ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > admin mode > Admin Mode toggle > should show Admin Mode button when in admin mode with API key 6ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > admin mode > Admin Mode toggle > should call onToggleAdmin when Exit Admin Mode clicked 7ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > admin mode > Admin Mode toggle > should show Admin Mode button when not admin but has API key 10ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > admin mode > Admin Mode toggle > should show Admin Mode button in local mode (no server) 9ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > admin mode > Admin Mode toggle > should NOT show Admin Mode when admin disabled 4ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > admin mode > Add Player in admin mode > should show Add Player button when admin and onAddPlayer provided 6ms
+stderr | src/components/LadderForm.test.tsx > LadderForm component > should display players after loading
+Warning: Each child in a list should have a unique "key" prop.
+
+Check the render method of `LadderForm`. See https://reactjs.org/link/warning-keys for more information.
+    at LadderForm (D:/xampp/htdocs/bughouse_ladder_server/src/components/LadderForm.tsx:197:66)
+
+ Γ£ô src/components/LadderForm.test.tsx > LadderForm component > should load sample data on mount 29ms
+ Γ£ô src/components/LadderForm.test.tsx > LadderForm component > should display players after loading 325ms
+ Γ£ô src/test/unit/kFactorBounds.test.ts > K-Factor bounds > clamping logic > should clamp values below 1 to 1 1ms
+ Γ£ô src/test/unit/kFactorBounds.test.ts > K-Factor bounds > clamping logic > should clamp negative values to 1 0ms
+ Γ£ô src/test/unit/kFactorBounds.test.ts > K-Factor bounds > clamping logic > should clamp values above 100 to 100 0ms
+ Γ£ô src/test/unit/kFactorBounds.test.ts > K-Factor bounds > clamping logic > should clamp very large values to 100 0ms
+ Γ£ô src/test/unit/kFactorBounds.test.ts > K-Factor bounds > clamping logic > should preserve values within range 0ms
+ Γ£ô src/test/unit/kFactorBounds.test.ts > K-Factor bounds > clamping logic > should preserve boundary value 1 0ms
+ Γ£ô src/test/unit/kFactorBounds.test.ts > K-Factor bounds > clamping logic > should preserve boundary value 100 0ms
+ Γ£ô src/test/unit/kFactorBounds.test.ts > K-Factor bounds > clamping logic > should preserve mid-range values 0ms
+ Γ£ô src/test/unit/kFactorBounds.test.ts > K-Factor bounds > clamping logic > should handle float values correctly 0ms
+ Γ£ô src/test/unit/kFactorBounds.test.ts > K-Factor bounds > clamping logic > should handle parseInt result of 0 (empty input) 0ms
+ Γ£ô src/test/unit/kFactorBounds.test.ts > K-Factor bounds > clamping logic > should handle parseInt result of NaN (invalid input) 0ms
+ Γ£ô src/test/unit/kFactorBounds.test.ts > K-Factor bounds > Settings input behavior simulation > should handle empty string input ΓåÆ default 20 0ms
+ Γ£ô src/test/unit/kFactorBounds.test.ts > K-Factor bounds > Settings input behavior simulation > should handle whitespace input ΓåÆ default 20 0ms
+ Γ£ô src/test/unit/kFactorBounds.test.ts > K-Factor bounds > Settings input behavior simulation > should clamp -1 to 1 0ms
+ Γ£ô src/test/unit/kFactorBounds.test.ts > K-Factor bounds > Settings input behavior simulation > should clamp 101 to 100 0ms
+ Γ£ô src/test/unit/kFactorBounds.test.ts > K-Factor bounds > Settings input behavior simulation > should preserve 20 (default) 0ms
+ Γ£ô src/test/unit/kFactorBounds.test.ts > K-Factor bounds > Settings input behavior simulation > should preserve 32 (old default) 0ms
+ Γ£ô src/test/unit/kFactorBounds.test.ts > K-Factor bounds > Settings input behavior simulation > should handle very large number input 0ms
+ Γ£ô src/test/unit/exportFilename.test.ts > Export filename > first word extraction > should return the full name when no spaces 1ms
+ Γ£ô src/test/unit/exportFilename.test.ts > Export filename > first word extraction > should return first word when space exists 0ms
+ Γ£ô src/test/unit/exportFilename.test.ts > Export filename > first word extraction > should return first word with multiple spaces 0ms
+ Γ£ô src/test/unit/exportFilename.test.ts > Export filename > first word extraction > should handle leading spaces 0ms
+ Γ£ô src/test/unit/exportFilename.test.ts > Export filename > first word extraction > should handle trailing spaces 0ms
+ Γ£ô src/test/unit/exportFilename.test.ts > Export filename > first word extraction > should handle empty string 0ms
+ Γ£ô src/test/unit/exportFilename.test.ts > Export filename > first word extraction > should handle single space 0ms
+ Γ£ô src/test/unit/exportFilename.test.ts > Export filename > first word extraction > should handle underscores (no split) 0ms
+ Γ£ô src/test/unit/exportFilename.test.ts > Export filename > first word extraction > should handle mixed separators 0ms
+ Γ£ô src/test/unit/exportFilename.test.ts > Export filename > first word extraction > should handle numbers 0ms
+ Γ£ô src/test/unit/exportFilename.test.ts > Export filename > first word extraction > should handle single character 0ms
+ Γ£ô src/test/unit/exportFilename.test.ts > Export filename > first word extraction > should handle special characters 0ms
+ Γ£ô src/test/unit/exportFilename.test.ts > Export filename > integration with export logic > should produce valid filename for common project names 0ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > admin mode > Add Player in admin mode > should call onAddPlayer when Add Player clicked 7ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > admin mode > Add Player in admin mode > should NOT show Add Player when admin but no onAddPlayer callback 9ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > admin mode > Project name editing in admin mode > should make project name editable when admin with onProjectNameChange 7ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > admin mode > Project name editing in admin mode > should call onProjectNameChange when project name is edited 5ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > server mode with admin disabled > should hide File menu when server configured without API key 3ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > server mode with admin disabled > should hide Sort menu when server configured without API key 4ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > server mode with admin disabled > should show File and Sort menus in local mode (no server) 4ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > server mode with admin disabled > should show File and Sort menus when server reachable with API key 5ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > keyboard navigation > should trigger menu item on Enter key 6ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > keyboard navigation > should trigger menu item on Space key 6ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > aria attributes > should have role='menu' on menu item containers 6ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > aria attributes > should have role='menuitem' on individual items 5ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > aria attributes > should have data-menu-item attributes on all items 5ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > aria attributes > should have data-menu attributes on menu triggers 4ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > multiple menu items call their callbacks > should allow switching between menus 9ms
+ Γ£ô src/components/MenuBar.test.tsx > MenuBar component > multiple menu items call their callbacks > should handle rapid menu toggling 13ms
+ Γ£ô src/test/unit/debugLevelBounds.test.ts > Debug Level bounds > clamping logic > should clamp values below 0 to 0 1ms
+ Γ£ô src/test/unit/debugLevelBounds.test.ts > Debug Level bounds > clamping logic > should clamp negative values to 0 0ms
+ Γ£ô src/test/unit/debugLevelBounds.test.ts > Debug Level bounds > clamping logic > should clamp values above 20 to 20 0ms
+ Γ£ô src/test/unit/debugLevelBounds.test.ts > Debug Level bounds > clamping logic > should clamp very large values to 20 0ms
+ Γ£ô src/test/unit/debugLevelBounds.test.ts > Debug Level bounds > clamping logic > should preserve values within range 0ms
+ Γ£ô src/test/unit/debugLevelBounds.test.ts > Debug Level bounds > clamping logic > should preserve boundary value 0 0ms
+ Γ£ô src/test/unit/debugLevelBounds.test.ts > Debug Level bounds > clamping logic > should preserve boundary value 20 0ms
+ Γ£ô src/test/unit/debugLevelBounds.test.ts > Debug Level bounds > clamping logic > should preserve mid-range values 0ms
+ Γ£ô src/test/unit/debugLevelBounds.test.ts > Debug Level bounds > Settings input behavior simulation > should handle empty string input ΓåÆ default 5 0ms
+ Γ£ô src/test/unit/debugLevelBounds.test.ts > Debug Level bounds > Settings input behavior simulation > should handle whitespace input ΓåÆ default 5 0ms
+ Γ£ô src/test/unit/debugLevelBounds.test.ts > Debug Level bounds > Settings input behavior simulation > should handle -1 ΓåÆ 0 0ms
+ Γ£ô src/test/unit/debugLevelBounds.test.ts > Debug Level bounds > Settings input behavior simulation > should handle 21 ΓåÆ 20 0ms
+ Γ£ô src/test/unit/debugLevelBounds.test.ts > Debug Level bounds > Settings input behavior simulation > should preserve 5 (default) 0ms
+ Γ£ô src/test/unit/debugLevelBounds.test.ts > Debug Level bounds > Settings input behavior simulation > should treat 0 as falsy and use default 5 (parseInt 0 || 5) 0ms
+ Γ£ô src/test/unit/debugLevelBounds.test.ts > Debug Level bounds > Settings input behavior simulation > should preserve 10 (critical only) 0ms
+ Γ£ô src/test/unit/debugLevelBounds.test.ts > Debug Level bounds > Settings input behavior simulation > should handle very large number input 0ms
+ Γ£ô src/test/unit/ratingFormula.test.ts > Elo Rating Formula > formula > should return 0.5 when ratings are equal 1ms
+ Γ£ô src/test/unit/ratingFormula.test.ts > Elo Rating Formula > formula > should return > 0.5 when my rating is higher 0ms
+ Γ£ô src/test/unit/ratingFormula.test.ts > Elo Rating Formula > formula > should return < 0.5 when my rating is lower 0ms
+ Γ£ô src/test/unit/ratingFormula.test.ts > Elo Rating Formula > formula > should approach 1.0 when my rating is much higher 0ms
+ Γ£ô src/test/unit/ratingFormula.test.ts > Elo Rating Formula > formula > should approach 0.0 when my rating is much lower 0ms
+ Γ£ô src/test/unit/ratingFormula.test.ts > Elo Rating Formula > formula > should use absolute values for ratings 0ms
+ Γ£ô src/test/unit/ratingFormula.test.ts > Elo Rating Formula > formula > should handle zero ratings 0ms
+ Γåô src/test/unit/ratingFormula.test.ts > Elo Rating Formula > formula > should handle negative ratings
+ Γåô src/test/unit/ratingFormula.test.ts > Elo Rating Formula > formula > should follow standard Elo probability curve
+ Γ£ô src/test/unit/nRatingDefault.test.ts > nRating default logic > should default to 1 when rating is 0 1ms
+ Γ£ô src/test/unit/nRatingDefault.test.ts > nRating default logic > should default to 1 when rating is null 0ms
+ Γ£ô src/test/unit/nRatingDefault.test.ts > nRating default logic > should default to 1 when rating is undefined 0ms
+ Γ£ô src/test/unit/nRatingDefault.test.ts > nRating default logic > should default to 1 when rating is empty string 0ms
+ Γ£ô src/test/unit/nRatingDefault.test.ts > nRating default logic > should use actual rating when provided 0ms
+ Γ£ô src/test/unit/nRatingDefault.test.ts > nRating default logic > should handle negative rating with Math.abs 0ms
+ Γ£ô src/test/unit/nRatingDefault.test.ts > nRating default logic > should default nRating field to 1 when nRating is 0 0ms
+ Γ£ô src/test/unit/nRatingDefault.test.ts > nRating default logic > should preserve nRating when set to positive value 0ms
+ Γ£ô src/test/unit/nRatingDefault.test.ts > nRating default logic > should default to 1 when nRating is null 0ms
+ Γ£ô src/test/unit/nRatingDefault.test.ts > nRating default logic > should default to 1 when nRating is undefined 0ms
+ Γ£ô src/test/unit/nRatingDefault.test.ts > nRating default logic > should handle rating of 1 correctly 0ms
+ Γ£ô src/test/unit/nRatingDefault.test.ts > nRating default logic > should handle nRating of 1 correctly 0ms
+ Γ£ô src/test/simple.test.ts > Basic tests > should work 1ms
+ Γ£ô src/test/unit/utils.test.ts > Error Messages > should return correct message for error code 1 1ms
+ Γ£ô src/test/unit/utils.test.ts > Error Messages > should return correct message for error code 4 0ms
+ Γ£ô src/test/unit/utils.test.ts > Error Messages > should return correct message for error code 10 0ms
+ Γ£ô src/test/unit/utils.test.ts > Error Messages > should return unknown error for invalid code 0ms
+ Γ£ô server/test/backup.test.ts > Backup System > createBackup > should create different filenames for backups created at different times 1066ms
+ Γ£ô server/test/backup.test.ts > Backup System > getBackupList > should return empty list when no backups exist 1ms
+ Γ£ô server/test/backup.test.ts > Backup System > getBackupList > should list all backup files 1070ms
+ Γ£ô server/test/backup.test.ts > Backup System > getBackupList > should return backups sorted newest first 1058ms
+ Γ£ô server/test/backup.test.ts > Backup System > getBackupList > should assign sequential version numbers 2137ms
+ Γ£ô server/test/backup.test.ts > Backup System > getBackupList > should include timestamp in parsed format 5ms
+ Γ£ô server/test/backup.test.ts > Backup System > getBackupList > should ignore non-backup files 2ms
+ Γ£ô server/test/backup.test.ts > Backup System > getBackupList > should ignore files with invalid naming 2ms
+ Γ£ô server/test/backup.test.ts > Backup System > restoreBackup > should restore ladder.tab from backup 5ms
+ Γ£ô server/test/backup.test.ts > Backup System > restoreBackup > should return false for non-existent backup 1ms
+ Γ£ô server/test/backup.test.ts > Backup System > restoreBackup > should fully replace current file content 5ms
+ Γ£ô server/test/backup.test.ts > Backup System > deleteBackup > should delete a backup file 3ms
+ Γ£ô server/test/backup.test.ts > Backup System > deleteBackup > should return false for non-existent backup 1ms
+ Γ£ô server/test/backup.test.ts > Backup System > rotateBackups > should keep only the specified number of backups 7425ms
+ Γ£ô server/test/backup.test.ts > Backup System > rotateBackups > should remove oldest backups first 5330ms
+ Γ£ô server/test/backup.test.ts > Backup System > rotateBackups > should not rotate when under the limit 1071ms
+ Γ£ô server/test/backup.test.ts > Backup System > rotateBackups > should handle empty backup directory 3ms
+ Γ£ô server/test/backup.test.ts > Backup System > Full backup workflow > should support create ΓåÆ list ΓåÆ restore cycle 11ms
+ Γ£ô server/test/backup.test.ts > Backup System > Full backup workflow > should support create ΓåÆ rotate ΓåÆ restore cycle 4265ms
+
+ Test Files  30 passed (30)
+      Tests  468 passed | 2 skipped (470)
+   Start at  16:00:47
+   Duration  24.77s (transform 2.19s, setup 4.26s, import 2.75s, tests 28.65s, environment 22.57s)
 
