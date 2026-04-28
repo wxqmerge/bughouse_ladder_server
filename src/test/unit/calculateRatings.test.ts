@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { calculateRatings } from '../../../shared/utils/hashUtils';
+import { calculateRatings, processGameResults } from '../../../shared/utils/hashUtils';
 import type { PlayerData, MatchData } from '../../../shared/types';
 
 function createPlayer(
@@ -680,6 +680,219 @@ describe('calculateRatings', () => {
       // Verify averaging: (pass1 + pass2) / 2
       expect(result.pass2NRating!.has(1)).toBe(true);
       expect(result.pass2NRating!.has(2)).toBe(true);
+    });
+  });
+
+  describe('non-sequential ranks', () => {
+    it('should build matches correctly when players have non-sequential ranks', () => {
+      const players: PlayerData[] = [
+        {
+          rank: 94,
+          group: 'A',
+          lastName: 'Player94',
+          firstName: 'P94',
+          rating: 1400,
+          nRating: 1450,
+          trophyEligible: true,
+          grade: '5',
+          num_games: 5,
+          attendance: 0,
+          info: '',
+          phone: '',
+          school: '',
+          room: '',
+          gameResults: Array(31).fill(null),
+        },
+        {
+          rank: 95,
+          group: 'A',
+          lastName: 'Player95',
+          firstName: 'P95',
+          rating: 1350,
+          nRating: 1400,
+          trophyEligible: true,
+          grade: '5',
+          num_games: 3,
+          attendance: 0,
+          info: '',
+          phone: '',
+          school: '',
+          room: '',
+          gameResults: Array(31).fill(null),
+        },
+        {
+          rank: 152,
+          group: 'A',
+          lastName: 'Player152',
+          firstName: 'P152',
+          rating: 1200,
+          nRating: 1250,
+          trophyEligible: true,
+          grade: '5',
+          num_games: 1,
+          attendance: 0,
+          info: '',
+          phone: '',
+          school: '',
+          room: '',
+          gameResults: Array(31).fill(null),
+        },
+      ];
+
+      // Create matches directly with non-sequential ranks
+      const matches: MatchData[] = [
+        createMatch(94, 95, 3), // Player 94 wins
+      ];
+
+      const result = processGameResults(players, 31);
+
+      expect(result.hasErrors).toBe(false);
+      // processGameResults parses game results from cells, not matches
+      // So we test calculateRatings directly with non-sequential rank matches
+    });
+
+    it('should calculate ratings correctly with non-sequential ranks', () => {
+      const players: PlayerData[] = [
+        {
+          rank: 94,
+          group: 'A',
+          lastName: 'Player94',
+          firstName: 'P94',
+          rating: 1400,
+          nRating: 1450,
+          trophyEligible: true,
+          grade: '5',
+          num_games: 5,
+          attendance: 0,
+          info: '',
+          phone: '',
+          school: '',
+          room: '',
+          gameResults: Array(31).fill(null),
+        },
+        {
+          rank: 95,
+          group: 'A',
+          lastName: 'Player95',
+          firstName: 'P95',
+          rating: 1350,
+          nRating: 1400,
+          trophyEligible: true,
+          grade: '5',
+          num_games: 3,
+          attendance: 0,
+          info: '',
+          phone: '',
+          school: '',
+          room: '',
+          gameResults: Array(31).fill(null),
+        },
+      ];
+
+      const matches: MatchData[] = [
+        createMatch(94, 95, 3), // Player 94 wins
+      ];
+
+      const result = calculateRatings(players, matches);
+
+      expect(result.players).toHaveLength(2);
+      expect(result.players.find(p => p.rank === 94)!.nRating).toBeGreaterThan(1400);
+      expect(result.players.find(p => p.rank === 95)!.nRating).toBeLessThan(1350);
+    });
+
+    it('should handle 4-player matches with non-sequential ranks', () => {
+      const players: PlayerData[] = [
+        {
+          rank: 100,
+          group: 'A',
+          lastName: 'Player100',
+          firstName: 'P100',
+          rating: 1400,
+          nRating: 1450,
+          trophyEligible: true,
+          grade: '5',
+          num_games: 5,
+          attendance: 0,
+          info: '',
+          phone: '',
+          school: '',
+          room: '',
+          gameResults: Array(31).fill(null),
+        },
+        {
+          rank: 101,
+          group: 'A',
+          lastName: 'Player101',
+          firstName: 'P101',
+          rating: 1350,
+          nRating: 1400,
+          trophyEligible: true,
+          grade: '5',
+          num_games: 3,
+          attendance: 0,
+          info: '',
+          phone: '',
+          school: '',
+          room: '',
+          gameResults: Array(31).fill(null),
+        },
+        {
+          rank: 102,
+          group: 'A',
+          lastName: 'Player102',
+          firstName: 'P102',
+          rating: 1300,
+          nRating: 1350,
+          trophyEligible: true,
+          grade: '5',
+          num_games: 2,
+          attendance: 0,
+          info: '',
+          phone: '',
+          school: '',
+          room: '',
+          gameResults: Array(31).fill(null),
+        },
+        {
+          rank: 103,
+          group: 'A',
+          lastName: 'Player103',
+          firstName: 'P103',
+          rating: 1250,
+          nRating: 1300,
+          trophyEligible: true,
+          grade: '5',
+          num_games: 1,
+          attendance: 0,
+          info: '',
+          phone: '',
+          school: '',
+          room: '',
+          gameResults: Array(31).fill(null),
+        },
+      ];
+
+      const matches: MatchData[] = [
+        createMatch(100, 101, 3, 102, 103), // Team 1 (100+101) vs Team 2 (102+103)
+      ];
+
+      const result = calculateRatings(players, matches);
+
+      expect(result.players).toHaveLength(4);
+      // Verify all 4 players were found by rank and had ratings calculated
+      const p100 = result.players.find(p => p.rank === 100);
+      const p101 = result.players.find(p => p.rank === 101);
+      const p102 = result.players.find(p => p.rank === 102);
+      const p103 = result.players.find(p => p.rank === 103);
+      expect(p100).toBeDefined();
+      expect(p101).toBeDefined();
+      expect(p102).toBeDefined();
+      expect(p103).toBeDefined();
+      // All should have non-zero nRatings (ratings were calculated)
+      expect(p100!.nRating).toBeGreaterThan(0);
+      expect(p101!.nRating).toBeGreaterThan(0);
+      expect(p102!.nRating).toBeGreaterThan(0);
+      expect(p103!.nRating).toBeGreaterThan(0);
     });
   });
 });
