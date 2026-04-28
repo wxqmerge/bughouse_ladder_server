@@ -196,7 +196,14 @@ export default function LadderForm({
   const [zoomLevel, setZoomLevel] = useState<
     "50%" | "70%" | "100%" | "140%" | "200%"
   >("100%");
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(() => {
+    try {
+      const saved = localStorage.getItem('ladder_admin_mode');
+      return saved === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [showOverrideDialog, setShowOverrideDialog] = useState(false);
   const [overrideLockHolder, setOverrideLockHolder] = useState<string | null>(null);
   const [overrideTimeout, setOverrideTimeout] = useState<number>(0);
@@ -359,9 +366,48 @@ export default function LadderForm({
     }
   }, []);
 
-
-
-
+  // Re-acquire admin lock on init (if previously in admin mode)
+  useEffect(() => {
+    if (!isAdmin) return;
+    
+    const serverUrl = getServerUrl();
+    if (!serverUrl) {
+      // Local mode - already in admin mode, no lock needed
+      return;
+    }
+    
+    // Server mode - try to re-acquire the lock
+    const reacquireAdminLock = async () => {
+      try {
+        const acquired = await tryAcquireAdminLock();
+        if (!acquired) {
+          // Check if another user holds the lock
+          const lockInfo = await getAdminLockInfo();
+          if (lockInfo.serverReachable === false) {
+            // Server unreachable - stay in admin mode (optimistic)
+            console.warn('[ADMIN_LOCK] Server unreachable, cannot re-acquire lock');
+            return;
+          }
+          
+          if (lockInfo.locked && lockInfo.holderId !== getClientId()) {
+            // Another user holds it - show override dialog
+            setOverrideLockHolder(lockInfo.holderName || "Another user");
+            setOverrideTimeout(Math.ceil((lockInfo.expiresAt! - Date.now()) / 1000));
+            setShowOverrideDialog(true);
+          } else {
+            // Lock expired or no lock held - fall back to user mode
+            console.warn('[ADMIN_LOCK] Could not re-acquire lock, falling back to user mode');
+            setIsAdmin(false);
+          }
+        }
+      } catch (err) {
+        console.error('[ADMIN_LOCK] Failed to re-acquire lock:', err);
+        setIsAdmin(false);
+      }
+    };
+    
+    reacquireAdminLock();
+  }, []); // Run once on init
 
   // Track mode changes for UI updates
   useEffect(() => {
@@ -393,6 +439,11 @@ export default function LadderForm({
   useEffect(() => {
     onAdminChange?.(isAdmin);
   }, [isAdmin, onAdminChange]);
+
+  // Persist admin mode to localStorage
+  useEffect(() => {
+    localStorage.setItem('ladder_admin_mode', JSON.stringify(isAdmin));
+  }, [isAdmin]);
 
   // Override dialog: Timer countdown
   useEffect(() => {
@@ -595,7 +646,7 @@ export default function LadderForm({
       const numRounds = 31;
 
       for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
+        const line = lines[i].trimEnd();
 
         if (!line) continue;
 
@@ -2575,12 +2626,53 @@ export default function LadderForm({
       // Exiting admin mode - release lock
       releaseAdminLock().catch(err => console.error('[ADMIN_LOCK] Failed to release lock:', err));
       setIsAdmin(false);
+      localStorage.removeItem('ladder_admin_mode');
+    }
+  };
+
+  const handleSplashEnterAdminMode = async () => {
+    const serverUrl = splashServerUrl.trim();
+    
+    if (!serverUrl) {
+      // Local mode - enter admin mode immediately
+      setIsAdmin(true);
+      return;
+    }
+    
+    // Server mode - save settings and try to acquire the admin lock
+    saveUserSettings({ server: serverUrl, apiKey: splashApiKey, debugMode: false });
+    if (splashApiKey.trim()) {
+      saveLastWorkingConfig(serverUrl, splashApiKey);
+    }
+    
+    const acquired = await tryAcquireAdminLock();
+    if (acquired) {
+      setIsAdmin(true);
+    } else {
+      const lockInfo = await getAdminLockInfo();
+      if (lockInfo.serverReachable === false) {
+        alert('Cannot reach admin server. Please check your connection.');
+        return;
+      }
+      
+      if (lockInfo.locked && lockInfo.holderId !== getClientId()) {
+        setOverrideLockHolder(lockInfo.holderName || "Another user");
+        setOverrideTimeout(Math.ceil((lockInfo.expiresAt! - Date.now()) / 1000));
+        setShowOverrideDialog(true);
+      } else {
+        alert('Failed to acquire admin lock. Please check your API key and try again.');
+      }
     }
   };
 
   const handleSplashConnect = () => {
-    // Settings are already auto-saved via useEffect
     const trimmedServer = splashServerUrl.trim();
+    
+    // Save settings to localStorage before reloading
+    saveUserSettings({ server: trimmedServer, apiKey: splashApiKey, debugMode: false });
+    if (trimmedServer) {
+      saveLastWorkingConfig(trimmedServer, splashApiKey);
+    }
     
     console.log('[Splash] Connecting to server:', trimmedServer || '(local mode)');
     window.location.reload();
@@ -2801,6 +2893,22 @@ export default function LadderForm({
           >
             Load Sample Data
           </button>
+          {!isAdmin && (
+            <button
+              onClick={handleSplashEnterAdminMode}
+              style={{
+                padding: "0.75rem 1.5rem",
+                backgroundColor: "#8b5cf6",
+                color: "white",
+                border: "none",
+                borderRadius: "0.375rem",
+                fontSize: "1rem",
+                cursor: "pointer",
+              }}
+            >
+              Enter Admin Mode
+            </button>
+          )}
         </div>
         
         {/* Drop Zone for .tab files */}
@@ -2844,6 +2952,20 @@ export default function LadderForm({
           <p style={{ margin: 0, fontWeight: "500", color: "#374151" }}>Drop .tab, .xls, or .txt file here</p>
           <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.75rem" }}>or use the Load File button above</p>
         </div>
+        
+        {/* Hidden file input for splash screen */}
+        <input
+          type="file"
+          accept=".txt,.tab,.xls"
+          style={{ display: "none" }}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) {
+              setLastFile(file);
+              loadPlayers(file);
+            }
+          }}
+        />
       </div>
     );
   }
