@@ -50,9 +50,10 @@ function App() {
   const [showReconnectDialog, setShowReconnectDialog] = useState(false);
   // Track mode transitions properly to avoid false positives on initial load
   const [initialDetectionDone, setInitialDetectionDone] = useState(false);
-  const [lastKnownMode, setLastKnownMode] = useState<'local' | 'server_down' | 'dev' | 'server' | null>(null);
+  const [lastKnownMode, setLastKnownMode] = useState<'local' | 'server_down' | 'server' | null>(null);
   // Show server-down blocking dialog on first load if server is unreachable
   const [showServerDownBlocking, setShowServerDownBlocking] = useState(false);
+  const [versionMismatch, setVersionMismatch] = useState(false);
   const [status, setStatus] = useState<string | null>("Initializing...");
   const recalculateRef = useRef<(() => void) | undefined>(undefined);
   const refreshPlayersRef = useRef<(() => void) | undefined>(undefined);
@@ -82,7 +83,7 @@ function App() {
 
           const mode = getProgramMode();
           setInitialDetectionDone(true);
-          setLastKnownMode(mode as 'local' | 'server_down' | 'dev' | 'server');
+          setLastKnownMode(mode as 'local' | 'server_down' | 'server');
 
           // Show blocking dialog on first load if server is unreachable
           if (mode === 'server_down') {
@@ -97,13 +98,48 @@ function App() {
             console.log('[APP] Starting data polling (5 second interval)');
             dataService.startPolling(5000);
 
-            const unsubscribe = dataService.subscribe(() => {
+           const unsubscribe = dataService.subscribe(() => {
               console.log('[APP] Data changed - notifying LadderForm');
               if (refreshPlayersRef.current) {
                 refreshPlayersRef.current();
               }
             });
             (window as any).__ladder_dataServiceUnsubscribe = unsubscribe;
+
+            // Start write health polling (every 10 seconds)
+            const healthCheckInterval = setInterval(async () => {
+              try {
+                const userSettings = loadUserSettings();
+                const serverUrl = userSettings.server?.trim();
+                if (!serverUrl) return;
+
+                const response = await fetch(`${serverUrl}/health`);
+                if (!response.ok) return;
+
+                const data = await response.json();
+
+                // Check version mismatch
+                if (data.version) {
+                  const clientVersion = import.meta.env.PACKAGE_VERSION;
+                  if (data.version !== clientVersion) {
+                    console.warn(`[APP] Version mismatch: client=${clientVersion}, server=${data.version}`);
+                    setVersionMismatch(true);
+                  }
+                }
+
+                // Check write health
+                if (data.writeHealth) {
+                  const wh = data.writeHealth;
+                  if (wh.consecutiveFailures > 0) {
+                    console.warn(`[APP] Server write errors: ${wh.consecutiveFailures} consecutive failures. Last error: ${wh.lastError}`);
+                  }
+                }
+              } catch {
+                // Health check failed - server unreachable, no action needed
+              }
+            }, 10000);
+
+            (window as any).__ladder_healthCheckInterval = healthCheckInterval;
           }
         })
         .catch(console.error);
@@ -113,16 +149,16 @@ function App() {
         console.log(`[MODE CHANGE] ${oldMode} -> ${newMode}`);
 
         if (!initialDetectionDone) {
-          setLastKnownMode(newMode as 'local' | 'server_down' | 'dev' | 'server');
+          setLastKnownMode(newMode as 'local' | 'server_down' | 'server');
           setInitialDetectionDone(true);
           return;
         }
 
-        const wasServer = lastKnownMode === 'server' || lastKnownMode === 'dev';
-        const isNowServer = newMode === 'server' || newMode === 'dev';
+        const wasServer = lastKnownMode === 'server';
+        const isNowServer = newMode === 'server';
         const wasServerDown = lastKnownMode === 'server_down';
 
-        setLastKnownMode(newMode as 'local' | 'server_down' | 'dev' | 'server');
+        setLastKnownMode(newMode as 'local' | 'server_down' | 'server');
 
         if ((wasServerDown && isNowServer) || (wasServer && !isNowServer)) {
           setShowReconnectDialog(true);
@@ -352,7 +388,7 @@ function App() {
       
       {showReconnectDialog && (
         <ReconnectDialog
-          wasServerMode={lastKnownMode === 'server' || lastKnownMode === 'dev' || lastKnownMode === 'server_down'}
+          wasServerMode={lastKnownMode === 'server' || lastKnownMode === 'server_down'}
           isNowConnected={!isLocalMode()}
           hasLocalChanges={getHasLocalChanges()}
           onDismiss={() => setShowReconnectDialog(false)}
@@ -370,6 +406,8 @@ function App() {
         onAdminChange={setIsAdmin}
         showServerDownBlocking={showServerDownBlocking}
         onDismissServerDown={() => setShowServerDownBlocking(false)}
+        versionMismatch={versionMismatch}
+        setVersionMismatch={setVersionMismatch}
       />
       {showSettings && (
         <Settings

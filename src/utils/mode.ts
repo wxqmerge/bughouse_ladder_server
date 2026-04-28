@@ -163,10 +163,9 @@ export function stopPeriodicChecks(): void {
  * Program mode enum for type safety
  * 'local' = no server configured, standalone operation
  * 'server_down' = server configured but unreachable
- * 'dev' = development server (localhost)
- * 'server' = production server
+ * 'server' = server configured and reachable (production or localhost)
  */
-export type ProgramMode = 'local' | 'server_down' | 'dev' | 'server';
+export type ProgramMode = 'local' | 'server_down' | 'server';
 
 /**
  * Detects the current program mode based on ACTUAL behavior
@@ -178,12 +177,7 @@ export function getProgramMode(): ProgramMode {
     if (connectionState.serverReachable === false) {
       return 'server_down'; // Server unreachable = limited functionality
     }
-    // Server is reachable or not yet tested - report server mode
-    const apiUrl = connectionState.serverUrl || '';
-    if (apiUrl.includes('localhost') || apiUrl.includes('127.0.0.1')) {
-      return 'dev'; // Development (local server)
-    }
-    return 'server'; // Production server
+    return 'server'; // Server configured and reachable
   }
   
   // No server configured = local mode (standalone with localStorage)
@@ -197,7 +191,7 @@ export function getProgramMode(): ProgramMode {
  * @returns Version string like "v1.0.2-local" or "v1.0.2-server"
  */
 export function getVersionString(): string {
-  const version = import.meta.env.PACKAGE_VERSION || '1.1.0';
+  const version = import.meta.env.PACKAGE_VERSION;
   const mode = getProgramMode();
   const modeName = mode === 'local' ? 'local' : mode === 'server_down' ? 'server-down' : 'server';
   return `v${version}-${modeName}`;
@@ -215,5 +209,36 @@ export function isLocalMode(): boolean {
  */
 export function isServerDownMode(): boolean {
   return getProgramMode() === 'server_down';
+}
+
+/**
+ * Check server version against client version
+ * @param clientVersion The client version to compare against
+ * @returns true if versions match, false if mismatch or server unreachable
+ */
+export async function checkServerVersion(clientVersion: string): Promise<boolean> {
+  if (!connectionState.serverUrl) {
+    return true; // No server configured, no version to check
+  }
+  
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+    
+    const response = await fetch(`${connectionState.serverUrl}/health`, {
+      signal: controller.signal,
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) {
+      return false; // Server reachable but /health failed
+    }
+    
+    const data = await response.json();
+    return data.version === clientVersion;
+  } catch {
+    return false; // Server unreachable
+  }
 }
 
