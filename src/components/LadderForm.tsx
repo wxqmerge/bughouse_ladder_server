@@ -181,6 +181,8 @@ interface LadderFormProps {
   onAdminChange?: (isAdmin: boolean) => void;
   showServerDownBlocking?: boolean;
   onDismissServerDown?: () => void;
+  versionMismatch?: boolean;
+  setVersionMismatch?: (v: boolean) => void;
 }
 
 export default function LadderForm({
@@ -192,6 +194,8 @@ export default function LadderForm({
   onAdminChange,
   showServerDownBlocking = false,
   onDismissServerDown,
+  versionMismatch = false,
+  setVersionMismatch,
 }: LadderFormProps = {}) {
   const [players, setPlayers] = useState<PlayerData[]>([]);
   const [zoomLevel, setZoomLevel] = useState<
@@ -208,6 +212,9 @@ export default function LadderForm({
   const [showOverrideDialog, setShowOverrideDialog] = useState(false);
   const [overrideLockHolder, setOverrideLockHolder] = useState<string | null>(null);
   const [overrideTimeout, setOverrideTimeout] = useState<number>(0);
+  const [showVersionWarningDialog, setShowVersionWarningDialog] = useState(false);
+  const [serverVersion, setServerVersion] = useState<string>('');
+  const [writeErrors, setWriteErrors] = useState<{ count: number; message: string } | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [sortBy, setSortBy] = useState<
     "rank" | "nRating" | "rating" | "byLastName" | "byFirstName" | null
@@ -391,8 +398,9 @@ export default function LadderForm({
           // Check if another user holds the lock
           const lockInfo = await getAdminLockInfo();
           if (lockInfo.serverReachable === false) {
-            // Server unreachable - stay in admin mode (optimistic)
-            console.warn('[ADMIN_LOCK] Server unreachable, cannot re-acquire lock');
+            // Server unreachable - fall back to user mode
+            console.warn('[ADMIN_LOCK] Server unreachable, falling back to user mode');
+            setIsAdmin(false);
             return;
           }
           
@@ -2963,6 +2971,37 @@ export default function LadderForm({
     }
   };
 
+  const checkServerVersion = async (): Promise<boolean> => {
+    const serverUrl = getServerUrl();
+    if (!serverUrl) return true;
+    
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      const response = await fetch(`${serverUrl}/health`, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) return true;
+      
+      const data = await response.json();
+      const clientVersion = import.meta.env.PACKAGE_VERSION;
+      setServerVersion(data.version || '');
+      
+      // Check write health
+      if (data.writeHealth && data.writeHealth.consecutiveFailures > 0) {
+        const wh = data.writeHealth;
+        setWriteErrors({
+          count: wh.consecutiveFailures,
+          message: wh.lastError || 'Write failed',
+        });
+      }
+      
+      return data.version === clientVersion;
+    } catch {
+      return true; // Server unreachable, allow proceeding
+    }
+  };
+
   const handleToggleAdmin = async () => {
     if (shouldLog(10)) {
       console.log(">>> [MENU ACTION] Toggle admin mode");
@@ -2978,6 +3017,13 @@ export default function LadderForm({
       if (!serverUrl) {
         console.log('[ADMIN_LOCK] Local mode - entering admin mode directly');
         setIsAdmin(true);
+        return;
+      }
+      
+      // Check server version
+      const versionsMatch = await checkServerVersion();
+      if (!versionsMatch) {
+        setShowVersionWarningDialog(true);
         return;
       }
       
@@ -3056,10 +3102,17 @@ export default function LadderForm({
       return;
     }
     
-    // Server mode - save settings and try to acquire the admin lock
+    // Server mode - save settings and check version
     saveUserSettings({ server: serverUrl, apiKey: splashApiKey, debugMode: false });
     if (splashApiKey.trim()) {
       saveLastWorkingConfig(serverUrl, splashApiKey);
+    }
+    
+    // Check server version
+    const versionsMatch = await checkServerVersion();
+    if (!versionsMatch) {
+      setShowVersionWarningDialog(true);
+      return;
     }
     
     const acquired = await tryAcquireAdminLock();
@@ -3106,11 +3159,13 @@ export default function LadderForm({
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
     // Get everything before first space (handles underscores correctly)
-    const titlePart = projectName.split(" ")[0];
+    let titlePart = projectName.split(" ")[0];
+    // Strip any existing timestamp suffix to avoid double timestamps
+    titlePart = titlePart.replace(/_\d{4}-\d{2}-\d{2}(T\d{2}-\d{2}-\d{2}[^.]*)?$/, "");
     const filename = `${titlePart}_${timestamp}.tab`;
 
     const headerLine =
-      "Group\tLast Name\tFirst Name\tRating\tRnk\tN Rate\tGr\tGms\tAttendance\tPhone\tInfo\tSchool\tRoom\t1\t2\t3\t4\t5\t6\t7\t8\t9\t10\t11\t12\t13\t14\t15\t16\t17\t18\t19\t20\t21\t22\t23\t24\t25\t26\t27\t28\t29\t30\t31\Version 1.21";
+      `Group\tLast Name\tFirst Name\tRating\tRnk\tN Rate\tGr\tGms\tAttendance\tPhone\tInfo\tSchool\tRoom\t1\t2\t3\t4\t5\t6\t7\t8\t9\t10\t11\t12\t13\t14\t15\t16\t17\t18\t19\t20\t21\t22\t23\t24\t25\t26\t27\t28\t29\t30\t31\tVersion ${import.meta.env.PACKAGE_VERSION}`;
 
     let output = headerLine + "\n";
 
@@ -3521,7 +3576,136 @@ export default function LadderForm({
               </div>
             </div>
           </div>
+         )}
+
+        {showVersionWarningDialog && (
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: "rgba(0, 0, 0, 0.5)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 10002,
+            }}
+          >
+            <div
+              style={{
+                backgroundColor: "white",
+                borderRadius: "0.75rem",
+                padding: "2rem",
+                maxWidth: "450px",
+                width: "90%",
+                boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)",
+              }}
+            >
+              <div style={{ fontSize: "1.25rem", fontWeight: 600, marginBottom: "1.5rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <span>⚠️</span> Version Mismatch Detected
+              </div>
+              
+              <div style={{ marginBottom: "1.5rem", padding: "1rem", backgroundColor: "#fef3c7", borderRadius: "0.5rem", border: "1px solid #fbbf24" }}>
+                <div style={{ fontSize: "0.875rem", color: "#92400e", marginBottom: "0.5rem" }}>
+                  Client version and server version do not match.
+                </div>
+                <div style={{ fontSize: "0.875rem", color: "#92400e" }}>
+                  Client: <strong>{import.meta.env.PACKAGE_VERSION}</strong> &nbsp;|&nbsp; Server: <strong>{serverVersion}</strong>
+                </div>
+              </div>
+              
+              <div style={{ display: "flex", gap: "0.75rem" }}>
+                <button
+                  onClick={() => setShowVersionWarningDialog(false)}
+                  style={{
+                    flex: 1,
+                    padding: "0.75rem 1rem",
+                    backgroundColor: "#ef4444",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "0.5rem",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    fontSize: "1rem",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    setShowVersionWarningDialog(false);
+                    const serverUrl = getServerUrl();
+                    if (!serverUrl) {
+                      setIsAdmin(true);
+                      return;
+                    }
+                    const lockInfo = await getAdminLockInfo();
+                    if (lockInfo.serverReachable === false) {
+                      alert("Cannot reach admin server. Please check:\n\n- Server URL is correct\n- Server is running\n- Network connection is active\n\nServer: " + serverUrl);
+                      return;
+                    }
+                    if (lockInfo.locked && lockInfo.holderId !== getClientId()) {
+                      setOverrideLockHolder(lockInfo.holderName || "Another user");
+                      setOverrideTimeout(Math.ceil((lockInfo.expiresAt! - Date.now()) / 1000));
+                      setShowOverrideDialog(true);
+                      return;
+                    }
+                    const acquired = await tryAcquireAdminLock();
+                    if (acquired) {
+                      setIsAdmin(true);
+                    } else {
+                      const lockInfo2 = await getAdminLockInfo();
+                      if (lockInfo2.serverReachable === false) {
+                        alert("Cannot reach admin server. Please check your connection.");
+                        return;
+                      }
+                      if (lockInfo2.locked && lockInfo2.holderId !== getClientId()) {
+                        setOverrideLockHolder(lockInfo2.holderName || "Another user");
+                        const expiresAt = lockInfo2.expiresAt;
+                        if (expiresAt && expiresAt > Date.now()) {
+                          setOverrideTimeout(Math.ceil((expiresAt - Date.now()) / 1000));
+                        } else {
+                          setOverrideTimeout(0);
+                        }
+                        setShowOverrideDialog(true);
+                      } else if (lockInfo2.locked && lockInfo2.holderId === getClientId()) {
+                        const forced = await forceAcquireAdminLock();
+                        if (forced) {
+                          setIsAdmin(true);
+                        } else {
+                          alert("Failed to reacquire admin lock. Try refreshing the page.");
+                        }
+                      } else {
+                        const forced = await forceAcquireAdminLock();
+                        if (forced) {
+                          setIsAdmin(true);
+                        } else {
+                          alert("Failed to acquire admin lock. Check the browser console for details.");
+                        }
+                      }
+                    }
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: "0.75rem 1rem",
+                    backgroundColor: "#f59e0b",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "0.5rem",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    fontSize: "1rem",
+                  }}
+                >
+                  Proceed Anyway
+                </button>
+              </div>
+            </div>
+          </div>
         )}
+
 
         <div
           style={{
@@ -3832,6 +4016,81 @@ export default function LadderForm({
           setProjectNameStorage(newTitle);
         }}
       />
+
+      {/* Version mismatch warning banner */}
+      {versionMismatch && (
+        <div style={{
+          backgroundColor: "#fef3c7",
+          border: "1px solid #fbbf24",
+          padding: "0.75rem 1rem",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "1rem",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+            <span style={{ fontSize: "1.25rem" }}>⚠️</span>
+            <span style={{ fontSize: "0.875rem", color: "#92400e" }}>
+              Server version mismatch detected. Client and server versions do not match.
+            </span>
+          </div>
+          <button
+            onClick={() => setVersionMismatch?.(false)}
+            style={{
+              padding: "0.25rem 0.75rem",
+              backgroundColor: "#f59e0b",
+              color: "white",
+              border: "none",
+              borderRadius: "0.25rem",
+              cursor: "pointer",
+              fontSize: "0.875rem",
+              fontWeight: 600,
+            }}
+          >
+            Dismiss
+          </button>
+        </div>
+       )}
+
+       {/* Write error warning banner */}
+       {writeErrors && (
+        <div style={{
+          backgroundColor: "#fef2f2",
+          border: "1px solid #fecaca",
+          padding: "0.75rem 1rem",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "1rem",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+            <span style={{ fontSize: "1.25rem" }}>🔴</span>
+            <div>
+              <span style={{ fontSize: "0.875rem", color: "#991b1b", fontWeight: 600 }}>
+                Server write failed ({writeErrors.count} consecutive)
+              </span>
+              <div style={{ fontSize: "0.75rem", color: "#b91c1c" }}>
+                {writeErrors.message}
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => setWriteErrors(null)}
+            style={{
+              padding: "0.25rem 0.75rem",
+              backgroundColor: "#ef4444",
+              color: "white",
+              border: "none",
+              borderRadius: "0.25rem",
+              cursor: "pointer",
+              fontSize: "0.875rem",
+              fontWeight: 600,
+            }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Desktop combined header with menu and title */}
       <div className="desktop-header-hidden" style={{ display: "flex" }}>
@@ -4556,16 +4815,16 @@ export default function LadderForm({
                                     return updatedPlayers;
                                   });
                                 }}
-                              >
-                                {displayValue}{tempResult}
-                              </span>
-                            ) : (
-                              // User mode: skip confirmed cells, go to first empty cell
-                              <span
-                                contentEditable={true}
-                                suppressContentEditableWarning={true}
-                                data-cell={`player-${player.rank}-game-${gCol}`}
-                                style={{ cursor: "text" }}
+                             >
+                                 {displayValue}
+                               </span>
+                             ) : (
+                               // User mode: only editable when entryCell points to this cell
+                               <span
+                                 contentEditable={!!(entryCell && entryCell.playerRank === player.rank && entryCell.round === gCol)}
+                                 suppressContentEditableWarning={true}
+                                 data-cell={`player-${player.rank}-game-${gCol}`}
+                                 style={{ cursor: "text" }}
                                 onClick={() => {
                                   const result = players.find(p => p.rank === player.rank)?.gameResults?.[gCol] || '';
 
