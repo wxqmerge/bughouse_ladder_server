@@ -306,6 +306,7 @@ export default function LadderForm({
   const [showDeleteHiddenDialog, setShowDeleteHiddenDialog] = useState(false);
   const [hiddenPlayersToDelete, setHiddenPlayersToDelete] = useState<PlayerData[]>([]);
   const [currentDeleteIndex, setCurrentDeleteIndex] = useState(0);
+  const [deleteAllPlayers, setDeleteAllPlayers] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const latestPendingPlayersRef = useRef<PlayerData[] | null>(null);
 
@@ -2709,25 +2710,29 @@ export default function LadderForm({
       console.log(">>> [MENU ACTION] Delete Hidden Players");
     }
     const hiddenPlayers = players.filter(p => p.group?.toLowerCase().endsWith('x'));
-    if (hiddenPlayers.length === 0) {
-      alert("No hidden players found.");
-      return;
+    if (hiddenPlayers.length > 0) {
+      setHiddenPlayersToDelete(hiddenPlayers);
+      setDeleteAllPlayers(false);
+    } else {
+      setHiddenPlayersToDelete(players);
+      setDeleteAllPlayers(true);
     }
-    setHiddenPlayersToDelete(hiddenPlayers);
     setCurrentDeleteIndex(0);
     setShowDeleteHiddenDialog(true);
   };
 
   const handleDeleteConfirm = () => {
-    const remainingPlayers = players.filter(p => !p.group?.toLowerCase().endsWith('x'));
+    const current = hiddenPlayersToDelete[currentDeleteIndex];
+    const remainingPlayers = players.filter(p => p.rank !== current.rank);
     setPlayers(remainingPlayers);
     savePlayers(remainingPlayers, true).catch((err) => {
-      console.error("Failed to save after deleting hidden players:", err);
+      console.error("Failed to save after deleting player:", err);
     });
     setCurrentDeleteIndex(prev => {
       if (prev >= hiddenPlayersToDelete.length - 1) {
         setShowDeleteHiddenDialog(false);
         setHiddenPlayersToDelete([]);
+        setDeleteAllPlayers(false);
         return 0;
       }
       return prev + 1;
@@ -2739,6 +2744,7 @@ export default function LadderForm({
       if (prev >= hiddenPlayersToDelete.length - 1) {
         setShowDeleteHiddenDialog(false);
         setHiddenPlayersToDelete([]);
+        setDeleteAllPlayers(false);
         return 0;
       }
       return prev + 1;
@@ -2749,6 +2755,7 @@ export default function LadderForm({
     setShowDeleteHiddenDialog(false);
     setHiddenPlayersToDelete([]);
     setCurrentDeleteIndex(0);
+    setDeleteAllPlayers(false);
   };
 
   const handleAddPlayer = () => {
@@ -5084,6 +5091,7 @@ export default function LadderForm({
           player={hiddenPlayersToDelete[currentDeleteIndex]}
           remainingCount={hiddenPlayersToDelete.length}
           processedCount={currentDeleteIndex + 1}
+          deleteAllPlayers={deleteAllPlayers}
         />
       )}
       
