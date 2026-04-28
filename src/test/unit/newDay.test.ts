@@ -132,12 +132,12 @@ describe('New Day Transformations', () => {
       const players = createTestPlayers();
       const result = processNewDayTransformations(players, false);
 
-      // Player 1 has 5 non-null results (W, L, W, W, D)
-      expect(result[0].num_games).toBe(5);
-      // Player 2 has no games
+      // Player 1: num_games(5) + today(5) = 10
+      expect(result[0].num_games).toBe(10);
+      // Player 2: num_games(0) + today(0) = 0
       expect(result[1].num_games).toBe(0);
-      // Player 3 has 1 game
-      expect(result[2].num_games).toBe(1);
+      // Player 3: num_games(3) + today(1) = 4
+      expect(result[2].num_games).toBe(4);
     });
 
     it('should reset gameResults to all null', () => {
@@ -350,34 +350,78 @@ describe('New Day Transformations', () => {
     });
   });
 
-  describe('rank gap detection', () => {
-    it('should detect gaps when ranks start above 1', () => {
-      const ranks = [101, 102, 103, 104, 105];
-      const rankSet = new Set(ranks);
-      const maxRank = ranks[ranks.length - 1];
-      const missing = Array.from({ length: maxRank }, (_, i) => i + 1).filter(r => !rankSet.has(r));
-      
-      expect(missing).toHaveLength(100);
-      expect(missing[0]).toBe(1);
-      expect(missing[100 - 1]).toBe(100);
+  describe('non-sequential ranks (deleted top players scenario)', () => {
+    const createGapPlayers = (): PlayerData[] => {
+      const players: PlayerData[] = [];
+      for (let i = 0; i < 20; i++) {
+        players.push({
+          rank: 141 + i,
+          group: 'A',
+          lastName: `Player${141 + i}`,
+          firstName: `P${141 + i}`,
+          rating: 1200 + i * 10,
+          nRating: 1250 + i * 10,
+          trophyEligible: true,
+          grade: '5',
+          num_games: 0,
+          attendance: 0,
+          info: '',
+          phone: '',
+          school: '',
+          room: '',
+          gameResults: Array(31).fill(null),
+        });
+      }
+      return players;
+    };
+
+    it('should renumber ranks to 1..N when reRank=true', () => {
+      const players = createGapPlayers();
+      const result = processNewDayTransformations(players, true);
+
+      expect(result[0].rank).toBe(1);
+      expect(result[1].rank).toBe(2);
+      expect(result[19].rank).toBe(20);
+      expect(result).toHaveLength(20);
     });
 
-    it('should detect gaps in the middle of rank range', () => {
-      const ranks = [1, 2, 4, 5, 6];
-      const rankSet = new Set(ranks);
-      const maxRank = ranks[ranks.length - 1];
-      const missing = Array.from({ length: maxRank }, (_, i) => i + 1).filter(r => !rankSet.has(r));
-      
-      expect(missing).toEqual([3]);
+    it('should sort by rating descending when reRank=true', () => {
+      const players = createGapPlayers();
+      const result = processNewDayTransformations(players, true);
+
+      // Highest rated player should be first (rank 1) — rating is set to nRating
+      expect(result[0].rating).toBe(1440); // Player160 nRating: 1250 + 19*10
+      expect(result[0].lastName).toBe('Player160');
+      // Lowest rated player should be last
+      expect(result[19].rating).toBe(1250); // Player141 nRating: 1250 + 0*10
+      expect(result[19].lastName).toBe('Player141');
     });
 
-    it('should find no gaps when ranks are sequential from 1', () => {
-      const ranks = [1, 2, 3, 4, 5];
-      const rankSet = new Set(ranks);
-      const maxRank = ranks[ranks.length - 1];
-      const missing = Array.from({ length: maxRank }, (_, i) => i + 1).filter(r => !rankSet.has(r));
-      
-      expect(missing).toEqual([]);
+    it('should preserve original ranks when reRank=false', () => {
+      const players = createGapPlayers();
+      const result = processNewDayTransformations(players, false);
+
+      expect(result[0].rank).toBe(141);
+      expect(result[19].rank).toBe(160);
+    });
+
+    it('should set rating to nRating and reset nRating to 0', () => {
+      const players = createGapPlayers();
+      const result = processNewDayTransformations(players, true);
+
+      result.forEach(player => {
+        expect(player.nRating).toBe(0);
+      });
+    });
+
+    it('should reset gameResults to all null', () => {
+      const players = createGapPlayers();
+      const result = processNewDayTransformations(players, true);
+
+      result.forEach(player => {
+        expect(player.gameResults).toHaveLength(31);
+        expect(player.gameResults.every(r => r === null)).toBe(true);
+      });
     });
   });
 });
