@@ -23,6 +23,7 @@ interface MobileMenuProps {
   onAddPlayer?: () => void;
   onEnterGames?: () => void;
   onRestoreBackup?: () => void;
+  onDeleteHiddenPlayers?: () => void;
   isAdmin: boolean;
   projectName?: string;
   onSetTitle?: (title: string) => void;
@@ -48,6 +49,7 @@ export default function MobileMenu({
   onAddPlayer,
   onEnterGames,
   onRestoreBackup,
+  onDeleteHiddenPlayers,
   isAdmin,
   projectName,
   onSetTitle,
@@ -139,16 +141,25 @@ export default function MobileMenu({
       onClick: () => handleItemClick(onToggleAdmin),
       dataMenuItem: isAdmin ? "Exit Admin Mode" : "Admin Mode",
     },
-    ...(isAdmin && onAddPlayer
-      ? [
-          {
-            label: "Add Player",
-            onClick: () => handleItemClick(onAddPlayer),
-            dataMenuItem: "Add Player",
-          },
-        ]
-      : []),
-    ...(isAdmin && onRestoreBackup
+...(isAdmin && onAddPlayer
+       ? [
+           {
+             label: "Add Player",
+             onClick: () => handleItemClick(onAddPlayer),
+             dataMenuItem: "Add Player",
+           },
+         ]
+       : []),
+     ...(isAdmin && onDeleteHiddenPlayers
+       ? [
+           {
+             label: "Delete Hidden Players",
+             onClick: () => handleItemClick(onDeleteHiddenPlayers),
+             dataMenuItem: "Delete Hidden Players",
+           },
+         ]
+       : []),
+     ...(isAdmin && onRestoreBackup
       ? [
           {
             label: "Restore Backup",
