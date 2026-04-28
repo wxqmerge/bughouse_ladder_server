@@ -8,6 +8,7 @@ interface DeleteHiddenPlayerDialogProps {
   player: PlayerData;
   remainingCount: number;
   processedCount: number;
+  deleteAllPlayers: boolean;
 }
 
 export default function DeleteHiddenPlayerDialog({
@@ -18,10 +19,12 @@ export default function DeleteHiddenPlayerDialog({
   player,
   remainingCount,
   processedCount,
+  deleteAllPlayers,
 }: DeleteHiddenPlayerDialogProps) {
   if (!isOpen) return null;
 
   const filledCount = (player.gameResults || []).filter((r) => r && r.trim() !== "").length;
+  const isHidden = player.group?.toLowerCase().endsWith('x');
 
   return (
     <div
@@ -50,12 +53,12 @@ export default function DeleteHiddenPlayerDialog({
         }}
       >
         <h2 style={{ fontSize: "1.125rem", fontWeight: "600", color: "#374151", marginBottom: "1rem" }}>
-          Delete Hidden Player
+          {deleteAllPlayers ? "Delete Player" : "Delete Hidden Player"}
         </h2>
 
         <div style={{ marginBottom: "1rem", fontSize: "0.875rem", color: "#4b5563" }}>
           <p style={{ margin: "0 0 0.25rem 0" }}>
-            <strong>Progress:</strong> {processedCount} of {remainingCount} hidden players reviewed
+            <strong>Progress:</strong> {processedCount} of {remainingCount} {deleteAllPlayers ? 'players' : 'hidden players'} reviewed
           </p>
         </div>
 
