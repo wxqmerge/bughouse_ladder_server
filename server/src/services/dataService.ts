@@ -1,4 +1,5 @@
 import fs from 'fs/promises';
+import fsSync from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { log as loggerLog } from '../utils/logger.js';
@@ -33,6 +34,9 @@ const withTiming = _withTiming;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Server version (read from package.json)
+export const serverVersion = JSON.parse(fsSync.readFileSync(path.join(__dirname, '../package.json'), 'utf-8')).version;
 
 // Define TAB_FILE_PATH before any function that uses it
 const TAB_FILE_PATH = process.env.TAB_FILE_PATH 
