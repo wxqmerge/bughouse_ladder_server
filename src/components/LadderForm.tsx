@@ -2723,7 +2723,7 @@ export default function LadderForm({
     }
   };
 
-  if (!players || players.length === 0) {
+  if ((!players || players.length === 0) && !pendingImport && !pendingRestore) {
     return (
       <div style={{ padding: "2rem", textAlign: "center", color: "#64748b" }}>
         <h1>{projectName}</h1>
@@ -2956,6 +2956,7 @@ export default function LadderForm({
         {/* Hidden file input for splash screen */}
         <input
           type="file"
+          ref={fileInputRef}
           accept=".txt,.tab,.xls"
           style={{ display: "none" }}
           onChange={(e) => {
