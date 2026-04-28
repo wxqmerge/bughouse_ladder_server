@@ -20,6 +20,7 @@ import {
   ChevronDown,
   Check,
   ClipboardPaste,
+  Trash2,
 } from "lucide-react";
 
 interface MenuBarProps {
@@ -36,6 +37,7 @@ interface MenuBarProps {
   onBulkPaste?: () => void;
   onEnterGames?: () => void;
   onRestoreBackup?: () => void;
+  onDeleteHiddenPlayers?: () => void;
   isAdmin: boolean;
   isWide: boolean;
   zoomLevel: "50%" | "70%" | "100%" | "140%" | "200%";
@@ -67,6 +69,7 @@ export default function MenuBar({
   onBulkPaste,
   onEnterGames,
   onRestoreBackup,
+  onDeleteHiddenPlayers,
   isAdmin,
   zoomLevel,
   projectName,
@@ -242,19 +245,32 @@ export default function MenuBar({
           },
         ]
       : []),
-    ...(adminModeDisabled
-      ? []
-      : [
-          {
-            icon: <Shield size={16} />,
-            label: isAdmin ? "Exit Admin Mode" : "Admin Mode",
-            onClick: () => {
-              onToggleAdmin();
-              closeAllMenus();
-            },
-            dataMenuItem: isAdmin ? "Exit Admin Mode" : "Admin Mode",
-          },
-        ]),
+    ...(!adminModeDisabled && onDeleteHiddenPlayers
+       ? [
+           {
+             icon: <Trash2 size={16} />,
+             label: "Delete Hidden Players",
+             onClick: () => {
+               onDeleteHiddenPlayers();
+               closeAllMenus();
+             },
+             dataMenuItem: "Delete Hidden Players",
+           },
+         ]
+       : []),
+     ...(adminModeDisabled
+       ? []
+       : [
+           {
+             icon: <Shield size={16} />,
+             label: isAdmin ? "Exit Admin Mode" : "Admin Mode",
+             onClick: () => {
+               onToggleAdmin();
+               closeAllMenus();
+             },
+             dataMenuItem: isAdmin ? "Exit Admin Mode" : "Admin Mode",
+           },
+         ]),
     // Restore Backup - admin only, before Settings
     ...(!adminModeDisabled && onRestoreBackup
       ? [

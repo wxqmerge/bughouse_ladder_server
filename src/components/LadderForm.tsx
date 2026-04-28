@@ -36,6 +36,7 @@ import {
 } from "../services/storageService";
 import RestoreBackupDialog from "./RestoreBackupDialog";
 import PreviewDialog from "./PreviewDialog";
+import DeleteHiddenPlayerDialog from "./DeleteHiddenPlayerDialog";
 import "../css/index.css";
 
 export const loadSampleData = () => {
@@ -302,6 +303,9 @@ export default function LadderForm({
   const [hasLocalPlayerData, setHasLocalPlayerData] = useState(false);
   const [isRetryingConnection, setIsRetryingConnection] = useState(false);
   const [retryErrorMessage, setRetryErrorMessage] = useState<string | null>(null);
+  const [showDeleteHiddenDialog, setShowDeleteHiddenDialog] = useState(false);
+  const [hiddenPlayersToDelete, setHiddenPlayersToDelete] = useState<PlayerData[]>([]);
+  const [currentDeleteIndex, setCurrentDeleteIndex] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const latestPendingPlayersRef = useRef<PlayerData[] | null>(null);
 
@@ -1284,12 +1288,12 @@ export default function LadderForm({
           console.log(`>>> [NEW DAY] Next title will be: "${nextTitle}"`);
 
           // Apply New Day transformations to calculatedPlayers
-          const finalPlayers = processNewDayTransformations(
-            calculatedPlayers,
-            reRank,
-          );
+           const finalPlayers = processNewDayTransformations(
+             normalizePlayersTrophy(calculatedPlayers),
+             reRank,
+           );
 
-          await savePlayers(finalPlayers);
+           await savePlayers(finalPlayers);
           setProjectNameStorage(nextTitle);
           localStorage.removeItem(getKeyPrefix() + "ladder_pending_newday");
           localStorage.removeItem(getKeyPrefix() + "ladder_settings");
@@ -1315,8 +1319,9 @@ export default function LadderForm({
       }
 
       console.log('[RECALC] Setting players and saving...');
-      setPlayers(calculatedPlayers);
-      await savePlayers(calculatedPlayers);
+      const normalizedPlayers = normalizePlayersTrophy(calculatedPlayers);
+      setPlayers(normalizedPlayers);
+      await savePlayers(normalizedPlayers);
       if (shouldLog(10)) {
         console.log("Rating calculation complete\n");
       }
@@ -1384,12 +1389,12 @@ export default function LadderForm({
          console.log(`>>> [NEW DAY] Next title will be: "${nextTitle}"`);
 
          // Apply New Day transformations to calculatedPlayers
-         const finalPlayers = processNewDayTransformations(
-           players,
-           reRank,
-         );
+          const finalPlayers = processNewDayTransformations(
+            normalizePlayersTrophy(players),
+            reRank,
+          );
 
-         await savePlayers(finalPlayers);
+          await savePlayers(finalPlayers);
          setProjectNameStorage(nextTitle);
          localStorage.removeItem(getKeyPrefix() + "ladder_pending_newday");
          localStorage.removeItem(getKeyPrefix() + "ladder_settings");
@@ -1497,11 +1502,12 @@ export default function LadderForm({
         }
 
         const calculatedPlayers = calculateRatings(processedPlayers, matches).players;
+        const normalizedPlayers = normalizePlayersTrophy(calculatedPlayers);
 
         // Save with waitForServer=true to wait for server confirmation
         (window as any).__ladder_setStatus?.('Saving to server...');
         log('[RECALC]', 'Saving to server...');
-        const saveResult = await savePlayers(calculatedPlayers, true);
+        const saveResult = await savePlayers(normalizedPlayers, true);
         
         if (saveResult.success) {
           if (saveResult.serverSynced) {
@@ -1516,7 +1522,7 @@ export default function LadderForm({
           log('[RECALC]', '⚠ Server save issue:', saveResult.error);
         }
         
-        setPlayers(calculatedPlayers);
+        setPlayers(normalizedPlayers);
         log('[RECALC]', 'Recalculate_Save complete');
         (window as any).__ladder_setStatus?.(null);
         return;
@@ -1545,42 +1551,43 @@ export default function LadderForm({
         console.log(`Matches to process: ${matches.length}`);
       }
 
-      const processedPlayers = repopulateGameResults(players, matches, 31, playerResultsByMatch);
-      const calculatedPlayers = calculateRatings(processedPlayers, matches).players;
+    const processedPlayers = repopulateGameResults(players, matches, 31, playerResultsByMatch);
+       const calculatedPlayers = calculateRatings(processedPlayers, matches).players;
+       const normalizedPlayers = normalizePlayersTrophy(calculatedPlayers);
 
-      // Push full table to server
-      (window as any).__ladder_setStatus?.('Saving to server...');
-      log('[RECALC]', 'Pushing full table to server...');
-      await savePlayers(calculatedPlayers, true);
-      clearLocalChangesFlag();
-      clearPendingDeletes();
+       // Push full table to server
+       (window as any).__ladder_setStatus?.('Saving to server...');
+       log('[RECALC]', 'Pushing full table to server...');
+       await savePlayers(normalizedPlayers, true);
+       clearLocalChangesFlag();
+       clearPendingDeletes();
 
-      // Pull fresh data back from server to ensure UI matches server exactly
-      log('[RECALC]', 'Pulling fresh data from server...');
-      try {
-        const userSettings = loadUserSettings();
-        const serverUrl = userSettings.server?.trim();
-        
-        if (serverUrl) {
-          const response = await fetch(`${serverUrl}/api/ladder`);
-          if (response.ok) {
-            const data = await response.json();
-            const serverPlayers = data.data?.players || [];
-            if (serverPlayers && serverPlayers.length > 0) {
-              setPlayers(serverPlayers);
-              log('[RECALC]', '✓ Synced with server - UI refreshed from server data');
-            } else {
-              setPlayers(calculatedPlayers);
-            }
-          } else {
-            setPlayers(calculatedPlayers);
-          }
-        } else {
-          setPlayers(calculatedPlayers);
-        }
-      } catch {
-        setPlayers(calculatedPlayers);
-      }
+       // Pull fresh data back from server to ensure UI matches server exactly
+       log('[RECALC]', 'Pulling fresh data from server...');
+       try {
+         const userSettings = loadUserSettings();
+         const serverUrl = userSettings.server?.trim();
+         
+         if (serverUrl) {
+           const response = await fetch(`${serverUrl}/api/ladder`);
+           if (response.ok) {
+             const data = await response.json();
+             const serverPlayers = data.data?.players || [];
+             if (serverPlayers && serverPlayers.length > 0) {
+               setPlayers(normalizePlayersTrophy(serverPlayers));
+               log('[RECALC]', '✓ Synced with server - UI refreshed from server data');
+             } else {
+               setPlayers(normalizedPlayers);
+             }
+           } else {
+             setPlayers(normalizedPlayers);
+           }
+         } else {
+           setPlayers(normalizedPlayers);
+         }
+       } catch {
+         setPlayers(normalizedPlayers);
+       }
 
       log('[RECALC]', 'Recalculate_Save complete');
       (window as any).__ladder_setStatus?.(null);
@@ -2496,6 +2503,16 @@ export default function LadderForm({
     "trophyEligible", "grade", "num_games", "attendance", "phone", "info", "school", "room"
   ];
 
+  const normalizeTrophy = (text: string): boolean => {
+    const trimmed = text.trim();
+    if (trimmed.includes("-")) return false;
+    return true;
+  };
+
+  const normalizePlayersTrophy = (players: PlayerData[]): PlayerData[] => {
+    return players.map(p => ({ ...p, trophyEligible: p.trophyEligible !== false }));
+  };
+
   const createPlayerFromMapped = (mapped: Record<string, string | number>, currentPlayers: PlayerData[]): PlayerData => {
     const lastPlayer = currentPlayers[currentPlayers.length - 1];
     const maxRank = currentPlayers.reduce((max, p) => Math.max(max, p.rank || 0), 0);
@@ -2505,8 +2522,8 @@ export default function LadderForm({
       group: String(mapped.group || '').trim() || lastPlayer?.group || "",
       lastName: String(mapped.lastName || '').trim(),
       firstName: String(mapped.firstName || '').trim(),
-      rating: typeof mapped.rating === 'number' ? mapped.rating : (parseInt(String(mapped.rating || '0')) || 0),
-      nRating: Math.abs(typeof mapped.nRating === 'number' ? mapped.nRating : (parseInt(String(mapped.nRating || '0')) || 1)),
+    rating: typeof mapped.rating === 'number' ? mapped.rating : (parseInt(String(mapped.rating || '0')) || 1),
+     nRating: typeof mapped.nRating === 'number' ? mapped.nRating : (parseInt(String(mapped.nRating || '0')) || 0),
       trophyEligible: String((mapped as any).trophyEligible || '').trim() === "-"
         ? false
         : (lastPlayer?.trophyEligible !== false),
@@ -2568,6 +2585,34 @@ export default function LadderForm({
     }
 
     return { createdPlayers, remainingCols };
+  };
+
+  const moveFocusDown = (currentCell: HTMLElement) => {
+    const cellId = currentCell.getAttribute('data-cell');
+    if (!cellId) return;
+    const playerRank = parseInt(cellId.match(/player-(\d+)/)?.[1] || '0');
+    const isGameCell = cellId.includes('-game-');
+    
+    if (isGameCell) {
+      const gameRound = parseInt(cellId.match(/game-(\d+)/)?.[1] || '0');
+      const nextPlayerRank = playerRank + 1;
+      if (nextPlayerRank > players.length) return;
+      const targetCell = document.querySelector(`[data-cell="player-${nextPlayerRank}-game-${gameRound}"]`) as HTMLElement;
+      if (targetCell) targetCell.focus();
+      return;
+    }
+    
+    const lastNum = parseInt(cellId.match(/-(\d+)$/)?.[1] || '0');
+    const nextPlayerRank = playerRank + 1;
+    if (nextPlayerRank > players.length) return;
+    
+    if (lastNum === 3) {
+      const targetCell = document.querySelector(`[data-cell="player-${nextPlayerRank}-2"]`) as HTMLElement;
+      if (targetCell) targetCell.focus();
+    } else {
+      const targetCell = document.querySelector(`[data-cell="player-${nextPlayerRank}-${lastNum}"]`) as HTMLElement;
+      if (targetCell) targetCell.focus();
+    }
   };
 
   const moveFocus = (currentCell: HTMLElement, direction: 'next' | 'prev') => {
@@ -2657,6 +2702,53 @@ export default function LadderForm({
     }
     targetPlayer.gameResults = newResults;
     setPlayers(updatedPlayers);
+  };
+
+  const handleDeleteHiddenPlayers = () => {
+    if (shouldLog(10)) {
+      console.log(">>> [MENU ACTION] Delete Hidden Players");
+    }
+    const hiddenPlayers = players.filter(p => p.group?.toLowerCase().endsWith('x'));
+    if (hiddenPlayers.length === 0) {
+      alert("No hidden players found.");
+      return;
+    }
+    setHiddenPlayersToDelete(hiddenPlayers);
+    setCurrentDeleteIndex(0);
+    setShowDeleteHiddenDialog(true);
+  };
+
+  const handleDeleteConfirm = () => {
+    const remainingPlayers = players.filter(p => !p.group?.toLowerCase().endsWith('x'));
+    setPlayers(remainingPlayers);
+    savePlayers(remainingPlayers, true).catch((err) => {
+      console.error("Failed to save after deleting hidden players:", err);
+    });
+    setCurrentDeleteIndex(prev => {
+      if (prev >= hiddenPlayersToDelete.length - 1) {
+        setShowDeleteHiddenDialog(false);
+        setHiddenPlayersToDelete([]);
+        return 0;
+      }
+      return prev + 1;
+    });
+  };
+
+  const handleDeleteSkip = () => {
+    setCurrentDeleteIndex(prev => {
+      if (prev >= hiddenPlayersToDelete.length - 1) {
+        setShowDeleteHiddenDialog(false);
+        setHiddenPlayersToDelete([]);
+        return 0;
+      }
+      return prev + 1;
+    });
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteHiddenDialog(false);
+    setHiddenPlayersToDelete([]);
+    setCurrentDeleteIndex(0);
   };
 
   const handleAddPlayer = () => {
@@ -3580,6 +3672,7 @@ export default function LadderForm({
         onAddPlayer={handleAddPlayer}
         onEnterGames={handleEnterGamesMenu}
         onRestoreBackup={isAdmin ? () => setShowRestoreBackupDialog(true) : undefined}
+        onDeleteHiddenPlayers={isAdmin ? handleDeleteHiddenPlayers : undefined}
         isAdmin={isAdmin}
         projectName={projectName}
         onSetTitle={(newTitle) => {
@@ -3602,6 +3695,7 @@ export default function LadderForm({
           onBulkPaste={handleBulkPaste}
           onEnterGames={handleEnterGamesMenu}
           onRestoreBackup={isAdmin ? () => setShowRestoreBackupDialog(true) : undefined}
+          onDeleteHiddenPlayers={isAdmin ? handleDeleteHiddenPlayers : undefined}
           isAdmin={isAdmin}
           isWide={zoomLevel === "140%"}
           zoomLevel={zoomLevel}
@@ -3936,7 +4030,7 @@ export default function LadderForm({
             </tr>
           </thead>
           <tbody>
-            {players.map((player, rowIndex) => {
+            {(isAdmin ? players : players.filter(p => !p.group?.toLowerCase().endsWith('x'))).map((player, rowIndex) => {
               const gameResults =
                 player.gameResults || new Array(31).fill(null);
 
@@ -4015,16 +4109,15 @@ export default function LadderForm({
                                   return updatedPlayers;
                                 });
                               }}
-                           onKeyDown={(e) => {
-                                  if (e.key === "Enter") {
-                                    e.preventDefault();
-                                    const current = e.currentTarget as HTMLElement;
-                                    current.blur();
-                                    setTimeout(() => {
-                                      const targetCell = document.querySelector(`[data-cell="player-${player.rank}-6"]`) as HTMLElement;
-                                      if (targetCell) targetCell.focus();
-                                    }, 10);
-                                  } else if (e.key === "Tab") {
+                          onKeyDown={(e) => {
+                                   if (e.key === "Enter") {
+                                     e.preventDefault();
+                                     const current = e.currentTarget as HTMLElement;
+                                     current.blur();
+                                     setTimeout(() => {
+                                       moveFocusDown(current);
+                                     }, 10);
+                                   } else if (e.key === "Tab") {
                                     e.preventDefault();
                                     const current = e.currentTarget as HTMLElement;
                                     current.blur();
@@ -4058,27 +4151,76 @@ export default function LadderForm({
                              }}
                            >
                            {isAdmin ? (
-                                <span
-                                  data-cell={`player-${player.rank}-6`}
-                                  style={{ cursor: "pointer", userSelect: "none" }}
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    setPlayers((prevPlayers) => {
-                                      const updatedPlayers = [...prevPlayers];
-                                      const targetPlayer = updatedPlayers.find(
-                                        (p) => p.rank === player.rank,
-                                      );
-                                      if (!targetPlayer) return prevPlayers;
-                                      targetPlayer.trophyEligible = targetPlayer.trophyEligible === false ? true : false;
-                                      return updatedPlayers;
-                                    });
-                                  }}
-                                >
-                                  {player.trophyEligible !== false ? "+" : "-"}
-                                </span>
-                              ) : (
-                                player.trophyEligible !== false ? "+" : "-"
-                              )}
+                                 <span
+                                   contentEditable={true}
+                                   suppressContentEditableWarning={true}
+                                   data-cell={`player-${player.rank}-6`}
+                                   style={{ cursor: "text" }}
+                                   onPaste={(e) => {
+                                     const text = e.clipboardData.getData('text').trim();
+                                     e.preventDefault();
+                                     setPlayers((prevPlayers) => {
+                                       const updatedPlayers = [...prevPlayers];
+                                       const targetPlayer = updatedPlayers.find((p) => p.rank === player.rank);
+                                       if (!targetPlayer) return prevPlayers;
+                                       targetPlayer.trophyEligible = normalizeTrophy(text);
+                                        return updatedPlayers;
+                                      });
+                                    }}
+                                  onKeyDown={(e) => {
+                                       if (e.key === "Enter") {
+                                         e.preventDefault();
+                                         const current = e.currentTarget as HTMLElement;
+                                         const value = (current.textContent || "").trim();
+                                         setPlayers((prevPlayers) => {
+                                           const updatedPlayers = [...prevPlayers];
+                                           const targetPlayer = updatedPlayers.find((p) => p.rank === player.rank);
+                                           if (!targetPlayer) return prevPlayers;
+                                           targetPlayer.trophyEligible = normalizeTrophy(value);
+                                           return updatedPlayers;
+                                         });
+                                         current.blur();
+                                         setTimeout(() => {
+                                           moveFocusDown(current);
+                                         }, 10);
+                                       } else if (e.key === "Tab") {
+                                         e.preventDefault();
+                                         const current = e.currentTarget as HTMLElement;
+                                         const value = (current.textContent || "").trim();
+                                         setPlayers((prevPlayers) => {
+                                           const updatedPlayers = [...prevPlayers];
+                                           const targetPlayer = updatedPlayers.find((p) => p.rank === player.rank);
+                                           if (!targetPlayer) return prevPlayers;
+                                           targetPlayer.trophyEligible = normalizeTrophy(value);
+                                           return updatedPlayers;
+                                         });
+                                         current.blur();
+                                         setTimeout(() => {
+                                           const targetCol = e.shiftKey ? 5 : 7;
+                                           const targetCell = document.querySelector(`[data-cell="player-${player.rank}-${targetCol}"]`) as HTMLElement;
+                                           if (targetCell) targetCell.focus();
+                                         }, 10);
+                                       } else if (e.key === "Escape") {
+                                        e.preventDefault();
+                                        e.currentTarget.blur();
+                                      }
+                                    }}
+                                    onBlur={(e) => {
+                                      const value = (e.target.textContent || "").trim();
+                                      setPlayers((prevPlayers) => {
+                                        const updatedPlayers = [...prevPlayers];
+                                        const targetPlayer = updatedPlayers.find((p) => p.rank === player.rank);
+                                        if (!targetPlayer) return prevPlayers;
+                                        targetPlayer.trophyEligible = normalizeTrophy(value);
+                                        return updatedPlayers;
+                                      });
+                                    }}
+                                 >
+                                   {player.trophyEligible !== false ? "+" : "-"}
+                                 </span>
+                               ) : (
+                                 player.trophyEligible !== false ? "+" : "-"
+                               )}
                            </td>
                         </>
                       );
@@ -4142,15 +4284,15 @@ export default function LadderForm({
                               e.preventDefault();
                               handleMainTablePaste(e, player.rank, INLINE_FIELD_ORDER.indexOf(field));
                             }}
-                            onKeyDown={(e) => {
+                           onKeyDown={(e) => {
                                if (e.key === "Enter") {
-                                 e.preventDefault();
-                                 const current = e.currentTarget as HTMLElement;
-                                 current.blur();
-                                 setTimeout(() => {
-                                   moveFocus(current, 'next');
-                                 }, 10);
-                               } else if (e.key === "Tab") {
+                                  e.preventDefault();
+                                  const current = e.currentTarget as HTMLElement;
+                                  current.blur();
+                                  setTimeout(() => {
+                                    moveFocusDown(current);
+                                  }, 10);
+                                } else if (e.key === "Tab") {
                                  e.preventDefault();
                                  const current = e.currentTarget as HTMLElement;
                                  current.blur();
@@ -4295,26 +4437,26 @@ export default function LadderForm({
                                   e.preventDefault();
                                   handleGameCellPaste(e, player.rank, gCol);
                                 }}
-                               onKeyDown={(e) => {
-                                  if (e.key === "Enter") {
-                                    e.preventDefault();
-                                    const current = e.currentTarget as HTMLElement;
-                                    current.blur();
-                                    setTimeout(() => {
-                                      moveFocus(current, 'next');
-                                    }, 10);
-                                  } else if (e.key === "Tab") {
-                                    e.preventDefault();
-                                    const current = e.currentTarget as HTMLElement;
-                                    current.blur();
-                                    setTimeout(() => {
-                                      moveFocus(current, e.shiftKey ? 'prev' : 'next');
-                                    }, 10);
-                                  } else if (e.key === "Escape") {
-                                    e.preventDefault();
-                                    e.currentTarget.blur();
-                                  }
-                                }}
+                              onKeyDown={(e) => {
+                                   if (e.key === "Enter") {
+                                     e.preventDefault();
+                                     const current = e.currentTarget as HTMLElement;
+                                     current.blur();
+                                     setTimeout(() => {
+                                       moveFocusDown(current);
+                                     }, 10);
+                                   } else if (e.key === "Tab") {
+                                     e.preventDefault();
+                                     const current = e.currentTarget as HTMLElement;
+                                     current.blur();
+                                     setTimeout(() => {
+                                       moveFocus(current, e.shiftKey ? 'prev' : 'next');
+                                     }, 10);
+                                   } else if (e.key === "Escape") {
+                                     e.preventDefault();
+                                     e.currentTarget.blur();
+                                   }
+                                 }}
                                onBlur={(e) => {
                                  const value = e.target.textContent || "";
                                  setPlayers((prevPlayers) => {
@@ -4358,60 +4500,64 @@ export default function LadderForm({
                  {["rank","group","lastName","firstName","rating","nRating","trophyEligible","grade","num_games","attendance","phone","info","school","room"].map((field, colIndex) => {
                      const isEditable = field !== "rank";
                       if (field === "trophyEligible") {
-                        return (
-                          <td
-                            key={`empty-trophy-${isAdmin}`}
-                            data-empty-cell={6}
-                            contentEditable={true}
-                            suppressContentEditableWarning={true}
-                            onClick={(e) => {
-                              e.preventDefault();
-                              const newVal = emptyPlayerRow.trophyEligible === false;
-                              setEmptyPlayerRow(prev => ({ ...prev, trophyEligible: newVal }));
-                              (e.currentTarget as HTMLElement).textContent = newVal ? "+" : "-";
-                            }}
-                            onPaste={(e) => {
-                              const text = e.clipboardData.getData('text').trim();
-                              e.preventDefault();
-                              setEmptyPlayerRow(prev => ({
-                                ...prev,
-                                trophyEligible: text !== "-"
-                              }));
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
+                         return (
+                           <td
+                             key={`empty-trophy-${isAdmin}`}
+                             data-empty-cell={6}
+                             contentEditable={true}
+                             suppressContentEditableWarning={true}
+                             onPaste={(e) => {
+                                const text = e.clipboardData.getData('text').trim();
                                 e.preventDefault();
-                                (document.querySelector('[data-empty-cell="7"]') as HTMLElement)?.focus();
-                              } else if (e.key === "Tab") {
-                                e.preventDefault();
-                                const targetCol = e.shiftKey ? 5 : 7;
-                                (document.querySelector(`[data-empty-cell="${targetCol}"]`) as HTMLElement)?.focus();
-                              } else if (e.key === "Escape") {
-                                e.preventDefault();
-                                e.currentTarget.blur();
-                              }
-                            }}
-                            onBlur={(e) => {
-                              const value = (e.target.textContent || "").trim();
-                              setEmptyPlayerRow(prev => ({
-                                ...prev,
-                                trophyEligible: value !== "-"
-                              }));
-                            }}
-                            style={{
-                              textAlign: "center",
-                              borderBottom: "2px solid #3b82f6",
-                              color: "#94a3b8",
-                              fontStyle: "italic",
-                              fontSize: "0.875rem",
-                              width: "40px",
-                              cursor: "text",
-                            }}
-                          >
-                            {emptyPlayerRow.trophyEligible !== false ? "+" : "-"}
-                          </td>
-                        );
-                      }
+                                setEmptyPlayerRow(prev => ({
+                                  ...prev,
+                                  trophyEligible: normalizeTrophy(text)
+                                }));
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  const value = (e.currentTarget as HTMLElement).textContent?.trim() || "";
+                                  setEmptyPlayerRow(prev => ({
+                                    ...prev,
+                                    trophyEligible: normalizeTrophy(value)
+                                  }));
+                                  (document.querySelector('[data-empty-cell="7"]') as HTMLElement)?.focus();
+                                } else if (e.key === "Tab") {
+                                  e.preventDefault();
+                                  const value = (e.currentTarget as HTMLElement).textContent?.trim() || "";
+                                  setEmptyPlayerRow(prev => ({
+                                    ...prev,
+                                    trophyEligible: normalizeTrophy(value)
+                                  }));
+                                  const targetCol = e.shiftKey ? 5 : 7;
+                                  (document.querySelector(`[data-empty-cell="${targetCol}"]`) as HTMLElement)?.focus();
+                                } else if (e.key === "Escape") {
+                                  e.preventDefault();
+                                  e.currentTarget.blur();
+                                }
+                              }}
+                              onBlur={(e) => {
+                                const value = (e.target.textContent || "").trim();
+                                setEmptyPlayerRow(prev => ({
+                                  ...prev,
+                                  trophyEligible: normalizeTrophy(value)
+                                }));
+                              }}
+                             style={{
+                               textAlign: "center",
+                               borderBottom: "2px solid #3b82f6",
+                               color: "#94a3b8",
+                               fontStyle: "italic",
+                               fontSize: "0.875rem",
+                               width: "40px",
+                               cursor: "text",
+                             }}
+                           >
+                             {emptyPlayerRow.trophyEligible !== false ? "+" : "-"}
+                           </td>
+                         );
+                       }
                       return (
                        <td
                            key={`empty-${colIndex}-${isAdmin}`}
@@ -4913,7 +5059,7 @@ export default function LadderForm({
         />
       )}
 
-      {pendingRestore && (
+     {pendingRestore && (
         <PreviewDialog
           title="Confirm Backup Restore"
           players={pendingRestore.players}
@@ -4925,6 +5071,19 @@ export default function LadderForm({
           confirmLabel="Restore & Save"
           onCancel={handleDeclineRestore}
           onConfirm={handleConfirmRestore}
+        />
+      )}
+
+      {/* Delete Hidden Player Dialog */}
+      {showDeleteHiddenDialog && hiddenPlayersToDelete.length > 0 && (
+        <DeleteHiddenPlayerDialog
+          isOpen={showDeleteHiddenDialog}
+          onClose={handleDeleteCancel}
+          onConfirm={handleDeleteConfirm}
+          onSkip={handleDeleteSkip}
+          player={hiddenPlayersToDelete[currentDeleteIndex]}
+          remainingCount={hiddenPlayersToDelete.length}
+          processedCount={currentDeleteIndex + 1}
         />
       )}
       
