@@ -8,16 +8,11 @@ import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import { serverVersion } from './services/dataService.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import fs from 'fs';
-
-// Get __dirname for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-// Server version (read from package.json)
-const serverVersion = JSON.parse(fs.readFileSync(path.join(__dirname, '../package.json'), 'utf-8')).version;
 
 // Import routes
 import { router as authRouter } from './routes/auth.routes.js';
