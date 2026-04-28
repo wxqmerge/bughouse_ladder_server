@@ -2567,6 +2567,95 @@ export default function LadderForm({
     return { createdPlayers, remainingCols };
   };
 
+  const moveFocus = (currentCell: HTMLElement, direction: 'next' | 'prev') => {
+    const cellId = currentCell.getAttribute('data-cell');
+    if (!cellId) return;
+    const playerRank = parseInt(cellId.match(/player-(\d+)/)?.[1] || '0');
+    const isGameCell = cellId.includes('-game-');
+    const gameRound = parseInt(cellId.match(/game-(\d+)/)?.[1] || '0');
+    let nextPlayerRank = playerRank;
+    let nextCol = 0;
+    let nextGameRound = gameRound;
+    if (isGameCell) {
+      nextGameRound = direction === 'next' ? gameRound + 1 : gameRound - 1;
+      if (nextGameRound >= 31) {
+        nextGameRound = 0;
+        nextPlayerRank = direction === 'next' ? playerRank + 1 : playerRank - 1;
+      }
+      if (nextGameRound < 0) {
+        nextGameRound = 30;
+        nextPlayerRank = direction === 'next' ? playerRank + 1 : playerRank - 1;
+      }
+      if (nextPlayerRank < 1 || nextPlayerRank > players.length) return;
+      const targetCell = document.querySelector(`[data-cell="player-${nextPlayerRank}-game-${nextGameRound}"]`) as HTMLElement;
+      if (targetCell) targetCell.focus();
+      return;
+    }
+    const lastNum = parseInt(cellId.match(/-(\d+)$/)?.[1] || '0');
+    nextCol = direction === 'next' ? lastNum + 1 : lastNum - 1;
+    if (nextCol >= INLINE_FIELD_ORDER.length) {
+      nextPlayerRank = direction === 'next' ? playerRank + 1 : playerRank - 1;
+      nextCol = 0;
+    }
+    if (nextCol < 0) {
+      nextPlayerRank = direction === 'next' ? playerRank + 1 : playerRank - 1;
+      nextCol = INLINE_FIELD_ORDER.length - 1;
+    }
+    if (nextPlayerRank < 1 || nextPlayerRank > players.length) return;
+    const field = INLINE_FIELD_ORDER[nextCol];
+    const trophyColIndex = field === 'trophyEligible' ? 6 : nextCol;
+    const targetCell = document.querySelector(`[data-cell="player-${nextPlayerRank}-${trophyColIndex}"]`) as HTMLElement;
+    if (targetCell) targetCell.focus();
+  };
+
+  const handleMainTablePaste = (e: any, playerRank: number, startCol: number) => {
+    const text = e.clipboardData?.getData('text') || '';
+    const rows = text.split('\n').filter((r: string) => r.trim());
+    if (rows.length <= 1) return;
+    e.preventDefault();
+    const updatedPlayers = [...players];
+    let col = startCol;
+    for (let r = 0; r < rows.length; r++) {
+      const cols = rows[r].split('\t');
+      let playerIdx = updatedPlayers.findIndex(p => p.rank === playerRank + r);
+      if (playerIdx < 0) continue;
+      for (let c = 0; c < cols.length; c++) {
+        const fieldIndex = col + c;
+        if (fieldIndex >= INLINE_FIELD_ORDER.length) break;
+        const field = INLINE_FIELD_ORDER[fieldIndex];
+        if (field === 'rank' || field === 'trophyEligible') continue;
+        const value = cols[c].trim();
+        if (!value) continue;
+        const targetPlayer = updatedPlayers[playerIdx];
+        if (!targetPlayer) continue;
+        if (field === 'rating' || field === 'nRating' || field === 'num_games' || field === 'attendance') {
+          (targetPlayer as any)[field] = parseInt(value) || 0;
+        } else {
+          (targetPlayer as any)[field] = value;
+        }
+      }
+      col = startCol;
+    }
+    setPlayers(updatedPlayers);
+  };
+
+  const handleGameCellPaste = (e: any, playerRank: number, startRound: number) => {
+    const text = e.clipboardData?.getData('text') || '';
+    const rows = text.split('\n').filter((r: string) => r.trim());
+    if (rows.length <= 1) return;
+    e.preventDefault();
+    const updatedPlayers = [...players];
+    const playerIdx = updatedPlayers.findIndex((p: PlayerData) => p.rank === playerRank);
+    if (playerIdx < 0) return;
+    const targetPlayer = updatedPlayers[playerIdx];
+    const newResults = [...(targetPlayer.gameResults || new Array(31).fill(null))];
+    for (let i = 0; i < rows.length && (startRound + i) < 31; i++) {
+      newResults[startRound + i] = rows[i].trim() || null;
+    }
+    targetPlayer.gameResults = newResults;
+    setPlayers(updatedPlayers);
+  };
+
   const handleAddPlayer = () => {
     if (shouldLog(10)) {
       console.log(">>> [MENU ACTION] Add Player");
@@ -3887,45 +3976,137 @@ export default function LadderForm({
                            }}
                          >
                            {isAdmin ? (
-                             <span
-                               contentEditable={true}
-                               suppressContentEditableWarning={true}
-                           onBlur={(e) => {
-                                   const value = (e.target.textContent || "").replace(/\n/g, "");
-                                   const val = parseInt(value) || 0;
-                                   e.target.textContent = String(Math.abs(val));
+                              <span
+                                contentEditable={true}
+                                suppressContentEditableWarning={true}
+                                data-cell={`player-${player.rank}-5`}
+                            onBlur={(e) => {
+                                    const value = (e.target.textContent || "").replace(/\n/g, "");
+                                    const val = parseInt(value) || 0;
+                                    e.target.textContent = String(Math.abs(val));
+                                    setPlayers((prevPlayers) => {
+                                      const updatedPlayers = [...prevPlayers];
+                                      const targetPlayer = updatedPlayers.find(
+                                        (p) => p.rank === player.rank,
+                                      );
+                                      if (!targetPlayer) return prevPlayers;
+                                      targetPlayer.nRating = Math.abs(val);
+                                      targetPlayer.trophyEligible = true;
+                                      return updatedPlayers;
+                                    });
+                                  }}
+                            onPaste={(e) => {
+                                const text = e.clipboardData.getData('text').trim();
+                                if (text === "-") {
+                                  return;
+                                }
+                                e.preventDefault();
+                                setPlayers((prevPlayers) => {
+                                  const updatedPlayers = [...prevPlayers];
+                                  const targetPlayer = updatedPlayers.find(
+                                    (p) => p.rank === player.rank,
+                                  );
+                                  if (!targetPlayer) return prevPlayers;
+                                  targetPlayer.nRating = parseInt(text) || 0;
+                                  targetPlayer.trophyEligible = true;
+                                  return updatedPlayers;
+                                });
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === "Tab") {
+                                  e.preventDefault();
+                                  const targetCol = e.key === "Tab" && e.shiftKey ? 4 : 6;
+                                  const targetCell = document.querySelector(`[data-cell="player-${player.rank}-${targetCol}"]`) as HTMLElement;
+                                  if (targetCell) targetCell.focus();
+                                } else if (e.key === "Escape") {
+                                  e.preventDefault();
+                                  e.currentTarget.blur();
+                                }
+                              }}
+                              >
+                                {cellValue}
+                              </span>
+                           ) : (
+                              cellValue
+                            )}
+                          </td>
+                          <td
+                             key={`${rowIndex}-trophy`}
+                             style={{
+                               padding: "0.5rem 0.75rem",
+                               borderBottom: "1px solid #e2e8f0",
+                               verticalAlign: "middle",
+                               borderRight: "1px solid #e2e8f0",
+                               backgroundColor: rowIndex % 2 >= 1 ? "#f8fafc" : "transparent",
+                               textAlign: "center",
+                               width: "40px",
+                             }}
+                           >
+                             {isAdmin ? (
+                               <span
+                                 contentEditable={true}
+                                 suppressContentEditableWarning={true}
+                                 data-cell={`player-${player.rank}-6`}
+                                 style={{ cursor: "text" }}
+                                 onClick={(e) => {
+                                   e.preventDefault();
                                    setPlayers((prevPlayers) => {
                                      const updatedPlayers = [...prevPlayers];
                                      const targetPlayer = updatedPlayers.find(
                                        (p) => p.rank === player.rank,
                                      );
                                      if (!targetPlayer) return prevPlayers;
-                                     targetPlayer.nRating = Math.abs(val);
-                                     targetPlayer.trophyEligible = true;
+                                     targetPlayer.trophyEligible = targetPlayer.trophyEligible === false ? true : false;
                                      return updatedPlayers;
                                    });
                                  }}
-                             >
-                               {cellValue}
-                             </span>
-                           ) : (
-                              cellValue
-                            )}
-                          </td>
-                          <td
-                            key={`${rowIndex}-trophy`}
-                            style={{
-                              padding: "0.5rem 0.75rem",
-                              borderBottom: "1px solid #e2e8f0",
-                              verticalAlign: "middle",
-                              borderRight: "1px solid #e2e8f0",
-                              backgroundColor: rowIndex % 2 >= 1 ? "#f8fafc" : "transparent",
-                              textAlign: "center",
-                              width: "40px",
-                            }}
-                          >
-                            {player.trophyEligible !== false ? "+" : "-"}
-                          </td>
+                                 onPaste={(e) => {
+                                   const text = e.clipboardData.getData('text').trim();
+                                   e.preventDefault();
+                                   setPlayers((prevPlayers) => {
+                                     const updatedPlayers = [...prevPlayers];
+                                     const targetPlayer = updatedPlayers.find(
+                                       (p) => p.rank === player.rank,
+                                     );
+                                     if (!targetPlayer) return prevPlayers;
+                                     targetPlayer.trophyEligible = text !== "-";
+                                     return updatedPlayers;
+                                   });
+                                 }}
+                                 onKeyDown={(e) => {
+                                   if (e.key === "Enter") {
+                                     e.preventDefault();
+                                     const nextCell = document.querySelector(`[data-cell="player-${player.rank}-7"]`) as HTMLElement;
+                                     if (nextCell) nextCell.focus();
+                                   } else if (e.key === "Tab") {
+                                     e.preventDefault();
+                                     const targetCol = e.shiftKey ? 5 : 7;
+                                     const targetCell = document.querySelector(`[data-cell="player-${player.rank}-${targetCol}"]`) as HTMLElement;
+                                     if (targetCell) targetCell.focus();
+                                   } else if (e.key === "Escape") {
+                                     e.preventDefault();
+                                     e.currentTarget.blur();
+                                   }
+                                 }}
+                                 onBlur={(e) => {
+                                   const value = (e.target.textContent || "").trim();
+                                   setPlayers((prevPlayers) => {
+                                     const updatedPlayers = [...prevPlayers];
+                                     const targetPlayer = updatedPlayers.find(
+                                       (p) => p.rank === player.rank,
+                                     );
+                                     if (!targetPlayer) return prevPlayers;
+                                     targetPlayer.trophyEligible = value !== "-";
+                                     return updatedPlayers;
+                                   });
+                                 }}
+                               >
+                                 {player.trophyEligible !== false ? "+" : "-"}
+                               </span>
+                             ) : (
+                               player.trophyEligible !== false ? "+" : "-"
+                             )}
+                           </td>
                         </>
                       );
                     }
@@ -3944,45 +4125,62 @@ export default function LadderForm({
                            width: cellWidth,
                          }}
                        >
-                        {isAdmin ? (
-                          <span
-                            contentEditable={true}
-                            suppressContentEditableWarning={true}
-                            onBlur={(e) => {
-                               let value = (e.target.textContent || "").replace(/\n/g, "");
-                               const numericFields = ["rating", "nRating", "num_games", "attendance", "rank"];
-                               if (numericFields.includes(field)) {
-                                 const numVal = parseInt(value) || 0;
-                                 e.target.textContent = String(numVal);
-                               } else {
-                                 e.target.textContent = value;
-                               }
-                               setPlayers((prevPlayers) => {
-                                 const updatedPlayers = [...prevPlayers];
-                                 const targetPlayer = updatedPlayers.find(
-                                   (p) => p.rank === player.rank,
-                                 );
-                                 if (!targetPlayer) return prevPlayers;
-                                 switch (field) {
-                                   case "group": targetPlayer.group = value; break;
-                                   case "lastName": targetPlayer.lastName = value; break;
-                                   case "firstName": targetPlayer.firstName = value; break;
-                                   case "rating": targetPlayer.rating = parseInt(value) || 0; break;
-                                   case "grade": targetPlayer.grade = value; break;
-                                   case "num_games": targetPlayer.num_games = parseInt(value) || 0; break;
-                                   case "attendance": targetPlayer.attendance = parseInt(value) || 0; break;
-                                   case "phone": targetPlayer.phone = value; break;
-                                   case "info": targetPlayer.info = value; break;
-                                   case "school": targetPlayer.school = value; break;
-                                   case "room": targetPlayer.room = value; break;
-                                   case "rank": targetPlayer.rank = parseInt(value) || 0; break;
-                                 }
-                                 return updatedPlayers;
-                               });
-                             }}
-                          >
-                            {cellValue}
-                          </span>
+                       {isAdmin ? (
+                           <span
+                             contentEditable={true}
+                             suppressContentEditableWarning={true}
+                             data-cell={`player-${player.rank}-${INLINE_FIELD_ORDER.indexOf(field)}`}
+                             onBlur={(e) => {
+                                let value = (e.target.textContent || "").replace(/\n/g, "");
+                                const numericFields = ["rating", "nRating", "num_games", "attendance", "rank"];
+                                if (numericFields.includes(field)) {
+                                  const numVal = parseInt(value) || 0;
+                                  e.target.textContent = String(numVal);
+                                } else {
+                                  e.target.textContent = value;
+                                }
+                                setPlayers((prevPlayers) => {
+                                  const updatedPlayers = [...prevPlayers];
+                                  const targetPlayer = updatedPlayers.find(
+                                    (p) => p.rank === player.rank,
+                                  );
+                                  if (!targetPlayer) return prevPlayers;
+                                  switch (field) {
+                                    case "group": targetPlayer.group = value; break;
+                                    case "lastName": targetPlayer.lastName = value; break;
+                                    case "firstName": targetPlayer.firstName = value; break;
+                                    case "rating": targetPlayer.rating = parseInt(value) || 0; break;
+                                    case "grade": targetPlayer.grade = value; break;
+                                    case "num_games": targetPlayer.num_games = parseInt(value) || 0; break;
+                                    case "attendance": targetPlayer.attendance = parseInt(value) || 0; break;
+                                    case "phone": targetPlayer.phone = value; break;
+                                    case "info": targetPlayer.info = value; break;
+                                    case "school": targetPlayer.school = value; break;
+                                    case "room": targetPlayer.room = value; break;
+                                    case "rank": targetPlayer.rank = parseInt(value) || 0; break;
+                                  }
+                                  return updatedPlayers;
+                                });
+                              }}
+                            onPaste={(e) => {
+                              const text = e.clipboardData.getData('text');
+                              const rows = text.split('\n').filter(r => r.trim());
+                              if (rows.length <= 1) return;
+                              e.preventDefault();
+                              handleMainTablePaste(e, player.rank, INLINE_FIELD_ORDER.indexOf(field));
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === "Tab") {
+                                e.preventDefault();
+                                moveFocus(e.currentTarget as HTMLElement, e.shiftKey ? 'prev' : 'next');
+                              } else if (e.key === "Escape") {
+                                e.preventDefault();
+                                e.currentTarget.blur();
+                              }
+                            }}
+                           >
+                             {cellValue}
+                           </span>
                         ) : (
                           cellValue
                         )}
@@ -4025,44 +4223,110 @@ export default function LadderForm({
                                  ? "#3b82f6"
                                  : "#e2e8f0",
                          }}
-                       >
-                          {isAdmin ? (
-                            // Admin mode: always allow editing any game result cell
-                            <span
-                              style={{ cursor: "pointer" }}
-                              onClick={() => {
-                                setEntryCell({
-                                  playerRank: player.rank,
-                                  round: gCol,
-                                });
-                              }}
-                            >
-                              {displayValue}{tempResult}
-                            </span>
-                          ) : (
-                            // User mode: skip confirmed cells, go to first empty cell
-                            <span
-                              style={{ cursor: "pointer" }}
-                              onClick={() => {
-                                const result = players.find(p => p.rank === player.rank)?.gameResults?.[gCol] || '';
-                                
-                                if (result.endsWith('_')) {
-                                  const emptyCell = findFirstEmptyCell();
-                                  if (emptyCell) {
-                                    setEntryCell(emptyCell);
-                                    return;
-                                  }
-                                }
-                                
-                                setEntryCell({
-                                  playerRank: player.rank,
-                                  round: gCol,
-                                });
-                              }}
-                            >
-                              {displayValue}{tempResult}
-                            </span>
-                          )}
+                         >
+                           {isAdmin ? (
+                             // Admin mode: always allow editing any game result cell
+                             <span
+                               contentEditable={true}
+                               suppressContentEditableWarning={true}
+                               data-cell={`player-${player.rank}-game-${gCol}`}
+                               style={{ cursor: "text" }}
+                               onClick={() => {
+                                 setEntryCell({
+                                   playerRank: player.rank,
+                                   round: gCol,
+                                 });
+                               }}
+                               onPaste={(e) => {
+                                 const text = e.clipboardData.getData('text');
+                                 const rows = text.split('\n').filter(r => r.trim());
+                                 if (rows.length <= 1) return;
+                                 e.preventDefault();
+                                 handleGameCellPaste(e, player.rank, gCol);
+                               }}
+                               onKeyDown={(e) => {
+                                 if (e.key === "Enter" || e.key === "Tab") {
+                                   e.preventDefault();
+                                   moveFocus(e.currentTarget as HTMLElement, e.shiftKey ? 'prev' : 'next');
+                                 } else if (e.key === "Escape") {
+                                   e.preventDefault();
+                                   e.currentTarget.blur();
+                                 }
+                               }}
+                               onBlur={(e) => {
+                                 const value = e.target.textContent || "";
+                                 setPlayers((prevPlayers) => {
+                                   const updatedPlayers = [...prevPlayers];
+                                   const targetPlayer = updatedPlayers.find(
+                                     (p) => p.rank === player.rank,
+                                   );
+                                   if (!targetPlayer) return prevPlayers;
+                                   const newResults = [...(targetPlayer.gameResults || new Array(31).fill(null))];
+                                   newResults[gCol] = value.trim() || null;
+                                   targetPlayer.gameResults = newResults;
+                                   return updatedPlayers;
+                                 });
+                               }}
+                             >
+                               {displayValue}{tempResult}
+                             </span>
+                           ) : (
+                             // User mode: skip confirmed cells, go to first empty cell
+                             <span
+                               contentEditable={true}
+                               suppressContentEditableWarning={true}
+                               data-cell={`player-${player.rank}-game-${gCol}`}
+                               style={{ cursor: "text" }}
+                               onClick={() => {
+                                 const result = players.find(p => p.rank === player.rank)?.gameResults?.[gCol] || '';
+                                 
+                                 if (result.endsWith('_')) {
+                                   const emptyCell = findFirstEmptyCell();
+                                   if (emptyCell) {
+                                     setEntryCell(emptyCell);
+                                     return;
+                                   }
+                                 }
+                                 
+                                 setEntryCell({
+                                    playerRank: player.rank,
+                                    round: gCol,
+                                  });
+                               }}
+                               onPaste={(e) => {
+                                 const text = e.clipboardData.getData('text');
+                                 const rows = text.split('\n').filter(r => r.trim());
+                                 if (rows.length <= 1) return;
+                                 e.preventDefault();
+                                 handleGameCellPaste(e, player.rank, gCol);
+                               }}
+                               onKeyDown={(e) => {
+                                 if (e.key === "Enter" || e.key === "Tab") {
+                                   e.preventDefault();
+                                   moveFocus(e.currentTarget as HTMLElement, e.shiftKey ? 'prev' : 'next');
+                                 } else if (e.key === "Escape") {
+                                   e.preventDefault();
+                                   e.currentTarget.blur();
+                                 }
+                               }}
+                               onBlur={(e) => {
+                                 const value = e.target.textContent || "";
+                                 setPlayers((prevPlayers) => {
+                                   const updatedPlayers = [...prevPlayers];
+                                   const targetPlayer = updatedPlayers.find(
+                                     (p) => p.rank === player.rank,
+                                   );
+                                   if (!targetPlayer) return prevPlayers;
+                                   const newResults = [...(targetPlayer.gameResults || new Array(31).fill(null))];
+                                   newResults[gCol] = value.trim() || null;
+                                   targetPlayer.gameResults = newResults;
+                                   return updatedPlayers;
+                                 });
+                               }}
+                             >
+                               {displayValue}{tempResult}
+                             </span>
+                           )}
                         </td>
                       );
                     })}
@@ -4083,7 +4347,7 @@ export default function LadderForm({
                 </tr>
               );
             })}
-               {isAdmin && (
+        {isAdmin && (
                <tr style={{ backgroundColor: "#f0f9ff" }}>
                  {["rank","group","lastName","firstName","rating","nRating","trophyEligible","grade","num_games","attendance","phone","info","school","room"].map((field, colIndex) => {
                      const isEditable = field !== "rank";
