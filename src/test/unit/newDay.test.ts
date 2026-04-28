@@ -349,4 +349,35 @@ describe('New Day Transformations', () => {
       expect(result[0].attendance).toBe(1); // No games = attendance increment
     });
   });
+
+  describe('rank gap detection', () => {
+    it('should detect gaps when ranks start above 1', () => {
+      const ranks = [101, 102, 103, 104, 105];
+      const rankSet = new Set(ranks);
+      const maxRank = ranks[ranks.length - 1];
+      const missing = Array.from({ length: maxRank }, (_, i) => i + 1).filter(r => !rankSet.has(r));
+      
+      expect(missing).toHaveLength(100);
+      expect(missing[0]).toBe(1);
+      expect(missing[100 - 1]).toBe(100);
+    });
+
+    it('should detect gaps in the middle of rank range', () => {
+      const ranks = [1, 2, 4, 5, 6];
+      const rankSet = new Set(ranks);
+      const maxRank = ranks[ranks.length - 1];
+      const missing = Array.from({ length: maxRank }, (_, i) => i + 1).filter(r => !rankSet.has(r));
+      
+      expect(missing).toEqual([3]);
+    });
+
+    it('should find no gaps when ranks are sequential from 1', () => {
+      const ranks = [1, 2, 3, 4, 5];
+      const rankSet = new Set(ranks);
+      const maxRank = ranks[ranks.length - 1];
+      const missing = Array.from({ length: maxRank }, (_, i) => i + 1).filter(r => !rankSet.has(r));
+      
+      expect(missing).toEqual([]);
+    });
+  });
 });

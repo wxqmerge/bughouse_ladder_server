@@ -1,6 +1,6 @@
 # Bughouse Chess Ladder - Administrator Manual
 
-**Version: 1.0.3**
+**Version: 1.1.0**
 
 ## Table of Contents
 
@@ -35,8 +35,9 @@ Admin mode is toggled via **Operations → Admin Mode** (or **Exit Admin Mode** 
 **Visual indicators of admin mode:**
 - File menu appears (Load, Export)
 - Sort menu appears (5 sorting options)
-- Add Player option visible in Operations menu
+- Add Player, Delete Hidden Players options visible in Operations menu
 - Project name becomes editable in header
+- Trophy column (T) appears between nRating and grade
 
 ### When Admin Mode is Disabled
 
@@ -51,6 +52,7 @@ Admin mode is automatically disabled when connected to a server without an admin
 | Title Menu | File → (dropdown) | Switch title among 8 options |
 | Sort Options | Sort menu | Reorder player display |
 | Add Player | Operations → Add Player | Create new player entries |
+| Delete Hidden Players | Operations → Delete Hidden Players | Review and delete hidden (or all) players |
 | Restore Backup | Operations → Restore Backup | Browse/restore/delete server backups |
 | Edit Project Name | Header (click title) | Change ladder name |
 
@@ -131,19 +133,90 @@ In server mode, changes are synchronized automatically via 5-second polling with
 When admin mode is enabled, an editable empty row appears at the bottom of the player table. You can type player data directly into the cells:
 
 1. Click into any editable cell in the bottom row
-2. Fill in fields — **Enter** key moves to the next column
-3. When both **First Name** and **Last Name** are filled, the player is automatically created and the row resets
-4. Press **Escape** to clear focus without creating
+2. Fill in fields — **Enter** or **Tab** moves to the next column, **Shift+Tab** moves backward
+3. **Ctrl+Enter** creates the player immediately (requires First Name + Last Name filled)
+4. When both **First Name** and **Last Name** are filled, the player is automatically created and the row resets
+5. Press **Escape** to clear focus without creating
 
 **Keyboard navigation:**
 - **Enter** — move to next column
+- **Tab** — move to next column
+- **Shift+Tab** — move to previous column
+- **Ctrl+Enter** — create player from current row data
 - **Escape** — cancel focus
 
 **Auto-assignment (both methods):**
 - Rank: max existing rank + 1 (read-only in inline row)
 - Attendance: set to rank number
 - Game Results: 31 empty slots
-- New Rating: starts at 1 (calculated on first Recalculate_Save)
+- New Rating: starts at 0 (calculated on first Recalculate_Save)
+
+### Bulk Pasting Players
+
+You can paste multiple players from a spreadsheet (Excel, Google Sheets) into the inline empty row:
+
+1. Copy player rows from your spreadsheet (tab-separated columns)
+2. Click into the starting column of the inline row that matches your data layout
+3. Press **Ctrl+V** to paste
+4. Each complete row (with both First Name and Last Name) is created as a player
+5. If the last row is incomplete, it stays in the inline row for continued typing
+6. A toast notification shows how many players were added
+
+**Dynamic field mapping:** The starting column determines what each pasted column represents:
+- Paste into **Group** column → maps: Group | LastName | FirstName | Rating | ...
+- Paste into **LastName** column → maps: LastName | FirstName | Rating | ...
+- Paste into **FirstName** column → maps: FirstName | Rating | nRating | ...
+
+**Auto-fill:** When pasting, empty values for Group, School, Room, and Grade are copied from the previous player in the list. This is useful when pasting a roster where most fields are identical.
+
+**Trophy column:** The Trophy cell (T) shows "+" or "−" and can be edited by typing directly. Use "−" to set `trophyEligible: false`, anything else for `true`.
+
+### Editing Existing Players (Main Table)
+
+In admin mode, all cells in the main player table are editable. Keyboard navigation works like a spreadsheet:
+
+- **Enter** — moves to the next cell down (same column, next player row). Special case: from FirstName, moves to LastName of the next player.
+- **Tab** — moves to the next cell right (same row, next column)
+- **Shift+Tab** — moves to the previous cell left (same row, previous column)
+- **Escape** — blurs the cell without saving
+
+**Multi-row paste:** You can paste multiple rows of data into any cell. Values fill cells sequentially, wrapping to the next player row when reaching the end of the current row.
+
+**Trophy column:** Click to focus the cell, then type "+" or "−". Enter/Tab saves the value. The value is normalized on save: any input containing "−" sets `trophyEligible: false`, otherwise `true`.
+
+### Hiding Players
+
+Players whose **Group** field ends with "x" (case-insensitive) are hidden in user/view modes but remain visible in admin mode. This allows administrators to mark players as inactive without deleting them.
+
+**Example:** A player with Group "A1x" is visible in admin mode but hidden when viewing the ladder as a non-admin user.
+
+### Deleting Players
+
+#### Hidden Players
+
+1. Go to **Operations → Delete Hidden Players** (Admin mode required)
+2. A dialog shows the first hidden player (group ends with "x") with their full details and game results
+3. Click **Delete** to remove the player, or **Skip** to keep them and review the next hidden player
+4. The dialog cycles through all hidden players one at a time
+5. When all hidden players have been reviewed, the remaining players are saved
+
+#### Any Player (when no hidden players exist)
+
+If there are no hidden players (no groups ending with "x"), the same menu opens the dialog with all players listed. You can review and delete any player using the same Delete/Skip workflow.
+
+### Sorting Players
+
+Access: Sort menu (Admin mode required)
+
+| Option | Description | Use Case |
+|--------|-------------|----------|
+| By Rank | Numerical order (1, 2, 3...) | Default view |
+| By Last Name | Alphabetical by surname | Finding specific players |
+| By First Name | Alphabetical by given name | Alternative lookup |
+| By New Rating | Highest to lowest | Current standings |
+| By Previous Rating | Highest to lowest old rating | Comparing changes |
+
+**Note:** Sorting is display-only — does not change actual rank assignments.
 
 ### Sorting Players
 
@@ -185,6 +258,14 @@ If errors are found:
 #### K-Factor
 
 Configurable in **Operations → Settings**. Default: **20** (range 1–100). Higher K = more volatile ratings. Lower K = more stable.
+
+#### Trophy Normalization
+
+During Recalculate_Save, the Trophy field (trophyEligible) is normalized:
+- Any value containing "−" (dash) → `trophyEligible: false`
+- Any other value → `trophyEligible: true`
+
+This ensures consistency even if the field contains mixed or malformed entries like "+-" or "-+".
 
 ---
 
@@ -377,6 +458,6 @@ These buttons only appear when admin mode is enabled.
 
 ---
 
-**Version:** 1.0.3  
+**Version:** 1.1.0  
 **Last Updated:** April 2026  
 **Prerequisites:** User Manual knowledge assumed

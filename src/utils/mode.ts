@@ -197,7 +197,7 @@ export function getProgramMode(): ProgramMode {
  * @returns Version string like "v1.0.2-local" or "v1.0.2-server"
  */
 export function getVersionString(): string {
-  const version = import.meta.env.PACKAGE_VERSION || '1.0.3';
+  const version = import.meta.env.PACKAGE_VERSION || '1.1.0';
   const mode = getProgramMode();
   const modeName = mode === 'local' ? 'local' : mode === 'server_down' ? 'server-down' : 'server';
   return `v${version}-${modeName}`;
