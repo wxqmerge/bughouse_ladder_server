@@ -24,6 +24,7 @@ interface MobileMenuProps {
   onEnterGames?: () => void;
   onRestoreBackup?: () => void;
   onDeleteHiddenPlayers?: () => void;
+  onAutoLetter?: () => void;
   isAdmin: boolean;
   projectName?: string;
   onSetTitle?: (title: string) => void;
@@ -50,6 +51,7 @@ export default function MobileMenu({
   onEnterGames,
   onRestoreBackup,
   onDeleteHiddenPlayers,
+  onAutoLetter,
   isAdmin,
   projectName,
   onSetTitle,
@@ -156,6 +158,15 @@ export default function MobileMenu({
              label: "Delete Hidden Players",
              onClick: () => handleItemClick(onDeleteHiddenPlayers),
              dataMenuItem: "Delete Hidden Players",
+           },
+         ]
+       : []),
+     ...(isAdmin && onAutoLetter
+       ? [
+           {
+             label: "Auto-Letter",
+             onClick: () => handleItemClick(onAutoLetter),
+             dataMenuItem: "Auto-Letter",
            },
          ]
        : []),

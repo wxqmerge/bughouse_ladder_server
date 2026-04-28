@@ -38,6 +38,7 @@ interface MenuBarProps {
   onEnterGames?: () => void;
   onRestoreBackup?: () => void;
   onDeleteHiddenPlayers?: () => void;
+  onAutoLetter?: () => void;
   isAdmin: boolean;
   isWide: boolean;
   zoomLevel: "50%" | "70%" | "100%" | "140%" | "200%";
@@ -70,6 +71,7 @@ export default function MenuBar({
   onEnterGames,
   onRestoreBackup,
   onDeleteHiddenPlayers,
+  onAutoLetter,
   isAdmin,
   zoomLevel,
   projectName,
@@ -255,6 +257,19 @@ export default function MenuBar({
                closeAllMenus();
              },
              dataMenuItem: "Delete Hidden Players",
+           },
+         ]
+       : []),
+     ...(!adminModeDisabled && onAutoLetter
+       ? [
+           {
+             icon: <Type size={16} />,
+             label: "Auto-Letter",
+             onClick: () => {
+               onAutoLetter();
+               closeAllMenus();
+             },
+             dataMenuItem: "Auto-Letter",
            },
          ]
        : []),

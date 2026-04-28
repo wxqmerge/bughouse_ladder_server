@@ -307,6 +307,7 @@ export default function LadderForm({
   const [hiddenPlayersToDelete, setHiddenPlayersToDelete] = useState<PlayerData[]>([]);
   const [currentDeleteIndex, setCurrentDeleteIndex] = useState(0);
   const [deleteAllPlayers, setDeleteAllPlayers] = useState(false);
+  const [rankLoadErrors, setRankLoadErrors] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const latestPendingPlayersRef = useRef<PlayerData[] | null>(null);
 
@@ -785,6 +786,14 @@ export default function LadderForm({
 
         if (isAdmin) {
           log('[LOAD_FILE]', 'Admin mode - showing import confirmation');
+          const { blockingErrors, warnings } = checkPlayerRanks(loadedPlayers);
+          const allErrors = [...blockingErrors, ...warnings];
+          if (allErrors.length > 0) {
+            log('[LOAD_FILE]', '⚠ Rank issues found:', allErrors);
+            setRankLoadErrors(allErrors);
+          } else {
+            setRankLoadErrors([]);
+          }
           setPendingImport({
             players: loadedPlayers,
             filename: projectName,
@@ -809,6 +818,7 @@ export default function LadderForm({
     log('[LOAD_FILE]', 'Admin mode - accepting import: ' + pendingImport.filename);
     setPlayers(pendingImport.players);
     setPendingImport(null);
+    setRankLoadErrors([]);
     
     (window as any).__ladder_setStatus?.('Saving to server...');
     try {
@@ -825,6 +835,7 @@ export default function LadderForm({
   const handleDeclineImport = async () => {
     log('[LOAD_FILE]', 'Admin mode - declined import: ' + pendingImport?.filename);
     setPendingImport(null);
+    setRankLoadErrors([]);
     
     (window as any).__ladder_setStatus?.('Restoring from server...');
     try {
@@ -948,12 +959,58 @@ export default function LadderForm({
     (window as any).__ladder_setStatus?.(null);
   };
 
+  const checkPlayerRanks = (playersList: PlayerData[]): { blockingErrors: string[], warnings: string[] } => {
+    const blockingErrors: string[] = [];
+    const warnings: string[] = [];
+    if (playersList.length === 0) return { blockingErrors, warnings };
+    
+    const ranks = playersList.map(p => p.rank).sort((a, b) => a - b);
+    const rankSet = new Set(ranks);
+    
+    // Check for duplicates (blocking)
+    if (rankSet.size !== ranks.length) {
+      const duplicates = ranks.filter((r, i) => ranks.indexOf(r) !== i);
+      const uniqueDups = [...new Set(duplicates)];
+      blockingErrors.push(`Duplicate ranks found: ${uniqueDups.join(', ')}`);
+    }
+    
+    // Check for gaps (warning)
+    const maxRank = ranks[ranks.length - 1];
+    const missing = Array.from({ length: maxRank }, (_, i) => i + 1).filter(r => !rankSet.has(r));
+    if (missing.length > 0) {
+      warnings.push(`Missing ranks: ${missing.join(', ')}`);
+    }
+    
+    return { blockingErrors, warnings };
+  };
+
+  const fixPlayerRanks = (playersList: PlayerData[]): PlayerData[] => {
+    const deduped = new Map<number, PlayerData>();
+    for (const p of playersList) {
+      if (!deduped.has(p.rank)) {
+        deduped.set(p.rank, p);
+      }
+    }
+    const sorted = [...deduped.values()].sort((a, b) => {
+      const ratingA = a.rating || 0;
+      const ratingB = b.rating || 0;
+      if (ratingA !== ratingB) return ratingB - ratingA;
+      return a.rank - b.rank;
+    });
+    return sorted.map((player, index) => ({
+      ...player,
+      rank: index + 1,
+    }));
+  };
+
   const checkGameErrors = (): {
     hasErrors: boolean;
     matches: MatchData[];
     errors: ValidationResult[];
     errorCount: number;
     playerResultsByMatch?: Map<string, any[]>;
+    rankBlockingErrors?: string[];
+    rankWarnings?: string[];
   } => {
     return checkGameErrorsWithPlayers(players);
   };
@@ -964,34 +1021,46 @@ export default function LadderForm({
     errors: ValidationResult[];
     errorCount: number;
     playerResultsByMatch?: Map<string, any[]>;
+    rankBlockingErrors?: string[];
+    rankWarnings?: string[];
   } => {
     if (playersList.length === 0) {
       console.error("No players to process");
       return { hasErrors: false, matches: [], errors: [], errorCount: 0 };
     }
 
+    const { blockingErrors, warnings } = checkPlayerRanks(playersList);
+    
     const { matches, hasErrors, errorCount, errors, playerResultsByMatch } =
       processGameResults(playersList, 31);
     if (shouldLog(4)) {
       console.log(`Validated ${matches.length} matches, errors: ${errorCount}`);
     }
 
-    if (hasErrors && errors.length > 0) {
-      console.warn("Errors detected. Opening dialog for correction.");
-      setIsRecalculating(true);
-      setPendingPlayers(playersList);
-      setPendingMatches(matches);
-      setPendingPlayerResultsByMatch(playerResultsByMatch);
-      setCurrentError(errors[0]);
-      setEntryCell({
-        playerRank: errors[0].playerRank,
-        round: errors[0].resultIndex,
-      });
-      setWalkthroughErrors(errors);
-      setWalkthroughIndex(0);
+    if (blockingErrors.length > 0 || warnings.length > 0 || (hasErrors && errors.length > 0)) {
+      if (blockingErrors.length > 0) {
+        console.warn("Rank blocking errors detected:", blockingErrors);
+      }
+      if (warnings.length > 0) {
+        console.warn("Rank warnings:", warnings);
+      }
+      if (hasErrors && errors.length > 0) {
+        console.warn("Game errors detected. Opening dialog for correction.");
+        setIsRecalculating(true);
+        setPendingPlayers(playersList);
+        setPendingMatches(matches);
+        setPendingPlayerResultsByMatch(playerResultsByMatch);
+        setCurrentError(errors[0]);
+        setEntryCell({
+          playerRank: errors[0].playerRank,
+          round: errors[0].resultIndex,
+        });
+        setWalkthroughErrors(errors);
+        setWalkthroughIndex(0);
+      }
     }
 
-    return { hasErrors, matches, errors, errorCount, playerResultsByMatch };
+    return { hasErrors, matches, errors, errorCount, playerResultsByMatch, rankBlockingErrors: blockingErrors.length > 0 ? blockingErrors : undefined, rankWarnings: warnings.length > 0 ? warnings : undefined };
   };
 
   /**
@@ -1215,6 +1284,33 @@ export default function LadderForm({
       const result = checkGameErrors();
       console.log(`[RECALC] Errors: ${result.hasErrors ? result.errors.length : 'none'}, Matches: ${result.matches.length}`);
 
+      // If there are rank blocking errors, show alert and return early
+      if (result.rankBlockingErrors && result.rankBlockingErrors.length > 0) {
+        console.log(`=== RECALC PAUSED === Rank blocking errors detected`);
+        alert('Rank Errors:\n\n' + result.rankBlockingErrors.join('\n') + '\n\nPlease fix ranks before recalculating.');
+        return;
+      }
+
+      // Fix rank warnings (missing/duplicate ranks) before New Day + ReRank
+      if (result.rankWarnings && result.rankWarnings.length > 0) {
+        const pendingNewDayJson = localStorage.getItem(getKeyPrefix() + "ladder_pending_newday");
+        if (pendingNewDayJson) {
+          try {
+            const pendingNewDay = JSON.parse(pendingNewDayJson);
+            if (pendingNewDay.reRank === true) {
+              console.log('[RECALC] Fixing rank warnings before New Day + ReRank');
+              const fixedPlayers = fixPlayerRanks(players);
+              console.log(`[RECALC] Fixed ${players.length} players to ${fixedPlayers.length} (removed duplicates)`);
+              setPlayers(fixedPlayers);
+              players.length = 0;
+              players.push(...fixedPlayers);
+            }
+          } catch {
+            // ignore
+          }
+        }
+      }
+
       // If there are errors, show the error dialog and return early
       if (result.hasErrors && result.errors.length > 0) {
         console.log(`=== RECALC PAUSED === Found ${result.errors.length} errors - showing error dialog`);
@@ -1288,11 +1384,16 @@ export default function LadderForm({
           })();
           console.log(`>>> [NEW DAY] Next title will be: "${nextTitle}"`);
 
-          // Apply New Day transformations to calculatedPlayers
-           const finalPlayers = processNewDayTransformations(
-             normalizePlayersTrophy(calculatedPlayers),
-             reRank,
-           );
+         // Fix rank issues before New Day transformations
+           let playersToTransform = normalizePlayersTrophy(calculatedPlayers);
+           if (reRank) {
+             playersToTransform = fixPlayerRanks(playersToTransform);
+           }
+           // Apply New Day transformations
+            const finalPlayers = processNewDayTransformations(
+              playersToTransform,
+              reRank,
+            );
 
            await savePlayers(finalPlayers);
           setProjectNameStorage(nextTitle);
@@ -1389,11 +1490,16 @@ export default function LadderForm({
          })();
          console.log(`>>> [NEW DAY] Next title will be: "${nextTitle}"`);
 
-         // Apply New Day transformations to calculatedPlayers
-          const finalPlayers = processNewDayTransformations(
-            normalizePlayersTrophy(players),
-            reRank,
-          );
+        // Fix rank issues before New Day transformations
+           let playersToTransform = normalizePlayersTrophy(players);
+           if (reRank) {
+             playersToTransform = fixPlayerRanks(playersToTransform);
+           }
+           // Apply New Day transformations
+            const finalPlayers = processNewDayTransformations(
+              playersToTransform,
+              reRank,
+            );
 
           await savePlayers(finalPlayers);
          setProjectNameStorage(nextTitle);
@@ -1459,6 +1565,13 @@ export default function LadderForm({
 
         // Build fresh matches from merged UI state (no caching)
         const result = checkGameErrorsWithPlayers(mergePlayers);
+
+        // If there are rank blocking errors, show alert and return early
+        if (result.rankBlockingErrors && result.rankBlockingErrors.length > 0) {
+          console.log(`=== RECALC PAUSED === Rank blocking errors detected`);
+          alert('Rank Errors:\n\n' + result.rankBlockingErrors.join('\n') + '\n\nPlease fix ranks before recalculating.');
+          return;
+        }
 
         // If there are errors, show the error dialog and return early
         if (result.hasErrors && result.errors.length > 0) {
@@ -1535,6 +1648,14 @@ export default function LadderForm({
       clearAllSaveStatus();
 
       const result = checkGameErrorsWithPlayers(players);
+
+      if (result.rankBlockingErrors && result.rankBlockingErrors.length > 0) {
+        if (shouldLog(5)) {
+          console.log(`\n=== RECALC PAUSED === Rank blocking errors detected`);
+        }
+        alert('Rank Errors:\n\n' + result.rankBlockingErrors.join('\n') + '\n\nPlease fix ranks before recalculating.');
+        return;
+      }
 
       if (result.hasErrors && result.errors.length > 0) {
         if (shouldLog(5)) {
@@ -1976,9 +2097,14 @@ export default function LadderForm({
           return currentTitle;
         })();
 
+        // Fix rank issues before New Day transformations
+        let playersToTransform = normalizePlayersTrophy(calculatedPlayers);
+        if (reRank) {
+          playersToTransform = fixPlayerRanks(playersToTransform);
+        }
         // Apply New Day transformations
         const finalPlayers = processNewDayTransformations(
-          calculatedPlayers,
+          playersToTransform,
           reRank,
         );
 
@@ -2756,6 +2882,28 @@ export default function LadderForm({
     setHiddenPlayersToDelete([]);
     setCurrentDeleteIndex(0);
     setDeleteAllPlayers(false);
+  };
+
+  const handleAutoLetter = () => {
+    if (shouldLog(10)) {
+      console.log(">>> [MENU ACTION] Auto-Letter");
+    }
+    const updatedPlayers = players.map(p => {
+      const nRating = p.nRating || 0;
+      const isHidden = p.group?.toLowerCase().endsWith('x');
+      let letter = "D";
+      if (nRating >= 1200) letter = "A1";
+      else if (nRating >= 1000) letter = "A";
+      else if (nRating >= 800) letter = "B";
+      else if (nRating >= 600) letter = "C";
+      const newGroup = isHidden ? letter + "x" : letter;
+      return { ...p, group: newGroup };
+    });
+    setPlayers(updatedPlayers);
+    savePlayers(updatedPlayers, true).catch((err) => {
+      console.error("Failed to save auto-letter:", err);
+    });
+    showToast(`Auto-lettered ${players.length} players`);
   };
 
   const handleAddPlayer = () => {
@@ -3680,6 +3828,7 @@ export default function LadderForm({
         onEnterGames={handleEnterGamesMenu}
         onRestoreBackup={isAdmin ? () => setShowRestoreBackupDialog(true) : undefined}
         onDeleteHiddenPlayers={isAdmin ? handleDeleteHiddenPlayers : undefined}
+        onAutoLetter={isAdmin ? handleAutoLetter : undefined}
         isAdmin={isAdmin}
         projectName={projectName}
         onSetTitle={(newTitle) => {
@@ -3703,6 +3852,7 @@ export default function LadderForm({
           onEnterGames={handleEnterGamesMenu}
           onRestoreBackup={isAdmin ? () => setShowRestoreBackupDialog(true) : undefined}
           onDeleteHiddenPlayers={isAdmin ? handleDeleteHiddenPlayers : undefined}
+          onAutoLetter={isAdmin ? handleAutoLetter : undefined}
           isAdmin={isAdmin}
           isWide={zoomLevel === "140%"}
           zoomLevel={zoomLevel}
@@ -4247,43 +4397,42 @@ export default function LadderForm({
                            width: cellWidth,
                          }}
                        >
-                       {isAdmin ? (
-                           <span
-                             contentEditable={true}
-                             suppressContentEditableWarning={true}
-                             data-cell={`player-${player.rank}-${INLINE_FIELD_ORDER.indexOf(field)}`}
-                             onBlur={(e) => {
-                                let value = (e.target.textContent || "").replace(/\n/g, "");
-                                const numericFields = ["rating", "nRating", "num_games", "attendance", "rank"];
-                                if (numericFields.includes(field)) {
-                                  const numVal = parseInt(value) || 0;
-                                  e.target.textContent = String(numVal);
-                                } else {
-                                  e.target.textContent = value;
-                                }
-                                setPlayers((prevPlayers) => {
-                                  const updatedPlayers = [...prevPlayers];
-                                  const targetPlayer = updatedPlayers.find(
-                                    (p) => p.rank === player.rank,
-                                  );
-                                  if (!targetPlayer) return prevPlayers;
-                                  switch (field) {
-                                    case "group": targetPlayer.group = value; break;
-                                    case "lastName": targetPlayer.lastName = value; break;
-                                    case "firstName": targetPlayer.firstName = value; break;
-                                    case "rating": targetPlayer.rating = parseInt(value) || 0; break;
-                                    case "grade": targetPlayer.grade = value; break;
-                                    case "num_games": targetPlayer.num_games = parseInt(value) || 0; break;
-                                    case "attendance": targetPlayer.attendance = parseInt(value) || 0; break;
-                                    case "phone": targetPlayer.phone = value; break;
-                                    case "info": targetPlayer.info = value; break;
-                                    case "school": targetPlayer.school = value; break;
-                                    case "room": targetPlayer.room = value; break;
-                                    case "rank": targetPlayer.rank = parseInt(value) || 0; break;
-                                  }
-                                  return updatedPlayers;
-                                });
-                              }}
+                      {isAdmin ? (
+                            <span
+                              contentEditable={field !== "rank"}
+                              suppressContentEditableWarning={true}
+                              data-cell={`player-${player.rank}-${INLINE_FIELD_ORDER.indexOf(field)}`}
+                              onBlur={(e) => {
+                                 let value = (e.target.textContent || "").replace(/\n/g, "");
+                                 const numericFields = ["rating", "nRating", "num_games", "attendance"];
+                                 if (numericFields.includes(field)) {
+                                   const numVal = parseInt(value) || 0;
+                                   e.target.textContent = String(numVal);
+                                 } else {
+                                   e.target.textContent = value;
+                                 }
+                                 setPlayers((prevPlayers) => {
+                                   const updatedPlayers = [...prevPlayers];
+                                   const targetPlayer = updatedPlayers.find(
+                                     (p) => p.rank === player.rank,
+                                   );
+                                   if (!targetPlayer) return prevPlayers;
+                                   switch (field) {
+                                     case "group": targetPlayer.group = value; break;
+                                     case "lastName": targetPlayer.lastName = value; break;
+                                     case "firstName": targetPlayer.firstName = value; break;
+                                     case "rating": targetPlayer.rating = parseInt(value) || 0; break;
+                                     case "grade": targetPlayer.grade = value; break;
+                                     case "num_games": targetPlayer.num_games = parseInt(value) || 0; break;
+                                     case "attendance": targetPlayer.attendance = parseInt(value) || 0; break;
+                                     case "phone": targetPlayer.phone = value; break;
+                                     case "info": targetPlayer.info = value; break;
+                                     case "school": targetPlayer.school = value; break;
+                                     case "room": targetPlayer.room = value; break;
+                                   }
+                                   return updatedPlayers;
+                                 });
+                               }}
                             onPaste={(e) => {
                               const text = e.clipboardData.getData('text');
                               const rows = text.split('\n').filter(r => r.trim());
@@ -4292,28 +4441,28 @@ export default function LadderForm({
                               handleMainTablePaste(e, player.rank, INLINE_FIELD_ORDER.indexOf(field));
                             }}
                            onKeyDown={(e) => {
-                               if (e.key === "Enter") {
+                                if (e.key === "Enter") {
+                                   e.preventDefault();
+                                   const current = e.currentTarget as HTMLElement;
+                                   current.blur();
+                                   setTimeout(() => {
+                                     moveFocusDown(current);
+                                   }, 10);
+                                 } else if (e.key === "Tab") {
                                   e.preventDefault();
                                   const current = e.currentTarget as HTMLElement;
                                   current.blur();
                                   setTimeout(() => {
-                                    moveFocusDown(current);
+                                    moveFocus(current, e.shiftKey ? 'prev' : 'next');
                                   }, 10);
-                                } else if (e.key === "Tab") {
-                                 e.preventDefault();
-                                 const current = e.currentTarget as HTMLElement;
-                                 current.blur();
-                                 setTimeout(() => {
-                                   moveFocus(current, e.shiftKey ? 'prev' : 'next');
-                                 }, 10);
-                               } else if (e.key === "Escape") {
-                                 e.preventDefault();
-                                 e.currentTarget.blur();
-                               }
-                             }}
-                           >
-                             {cellValue}
-                           </span>
+                                } else if (e.key === "Escape") {
+                                  e.preventDefault();
+                                  e.currentTarget.blur();
+                                }
+                              }}
+                            >
+                              {cellValue}
+                            </span>
                         ) : (
                           cellValue
                         )}
@@ -5050,20 +5199,80 @@ export default function LadderForm({
 
       {/* Import Confirmation Dialog (Admin mode) */}
       {pendingImport && (
-        <PreviewDialog
-          title="Confirm File Import"
-          players={pendingImport.players}
-          extraInfo={[
-            { label: "File", value: pendingImport.filename },
-            { label: "Players", value: pendingImport.playerCount },
-            { label: "Rounds filled", value: pendingImport.totalRoundsFilled },
-            { label: "Games played", value: `~${pendingImport.totalGamesPlayed}` },
-          ]}
-          cancelLabel="Decline"
-          confirmLabel="Accept & Save to Server"
-          onCancel={handleDeclineImport}
-          onConfirm={handleConfirmImport}
-        />
+        <>
+          {rankLoadErrors.length > 0 && (
+            <div
+              style={{
+                position: "fixed",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: "rgba(0, 0, 0, 0.5)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 999,
+              }}
+              onClick={() => setRankLoadErrors([])}
+            >
+              <div
+                style={{
+                  backgroundColor: "#fef2f2",
+                  border: "2px solid #ef4444",
+                  borderRadius: "0.5rem",
+                  padding: "1.5rem",
+                  maxWidth: "500px",
+                  width: "90%",
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <h2 style={{ fontSize: "1.125rem", fontWeight: "600", color: "#991b1b", marginBottom: "1rem" }}>
+                  ⚠ Rank Errors Detected
+                </h2>
+                <ul style={{ margin: "0 0 1rem 1rem", fontSize: "0.875rem", color: "#7f1d1d" }}>
+                  {rankLoadErrors.map((err, i) => (
+                    <li key={i} style={{ marginBottom: "0.25rem" }}>{err}</li>
+                  ))}
+                </ul>
+                <p style={{ fontSize: "0.75rem", color: "#991b1b", marginBottom: "1rem" }}>
+                  Ranks were not modified. You may still accept the import.
+                </p>
+                <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                  <button
+                    onClick={() => setRankLoadErrors([])}
+                    style={{
+                      padding: "0.5rem 1rem",
+                      background: "#ef4444",
+                      border: "none",
+                      borderRadius: "0.25rem",
+                      cursor: "pointer",
+                      fontSize: "0.875rem",
+                      color: "white",
+                      fontWeight: "600",
+                    }}
+                  >
+                    Dismiss & View Import
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          <PreviewDialog
+            title="Confirm File Import"
+            players={pendingImport.players}
+            extraInfo={[
+              { label: "File", value: pendingImport.filename },
+              { label: "Players", value: pendingImport.playerCount },
+              { label: "Rounds filled", value: pendingImport.totalRoundsFilled },
+              { label: "Games played", value: `~${pendingImport.totalGamesPlayed}` },
+            ]}
+            cancelLabel="Decline"
+            confirmLabel="Accept & Save to Server"
+            onCancel={handleDeclineImport}
+            onConfirm={handleConfirmImport}
+          />
+        </>
       )}
 
      {pendingRestore && (
