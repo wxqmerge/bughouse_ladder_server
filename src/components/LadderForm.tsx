@@ -4012,17 +4012,27 @@ export default function LadderForm({
                                   return updatedPlayers;
                                 });
                               }}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter" || e.key === "Tab") {
-                                  e.preventDefault();
-                                  const targetCol = e.key === "Tab" && e.shiftKey ? 4 : 6;
-                                  const targetCell = document.querySelector(`[data-cell="player-${player.rank}-${targetCol}"]`) as HTMLElement;
-                                  if (targetCell) targetCell.focus();
-                                } else if (e.key === "Escape") {
-                                  e.preventDefault();
-                                  e.currentTarget.blur();
-                                }
-                              }}
+                            onKeyDown={(e) => {
+                                 if (e.key === "Enter") {
+                                   e.preventDefault();
+                                   e.currentTarget.blur();
+                                   setTimeout(() => {
+                                     const targetCell = document.querySelector(`[data-cell="player-${player.rank}-6"]`) as HTMLElement;
+                                     if (targetCell) targetCell.focus();
+                                   }, 10);
+                                 } else if (e.key === "Tab") {
+                                   e.preventDefault();
+                                   e.currentTarget.blur();
+                                   setTimeout(() => {
+                                     const targetCol = e.shiftKey ? 4 : 6;
+                                     const targetCell = document.querySelector(`[data-cell="player-${player.rank}-${targetCol}"]`) as HTMLElement;
+                                     if (targetCell) targetCell.focus();
+                                   }, 10);
+                                 } else if (e.key === "Escape") {
+                                   e.preventDefault();
+                                   e.currentTarget.blur();
+                                 }
+                               }}
                               >
                                 {cellValue}
                               </span>
@@ -4074,20 +4084,26 @@ export default function LadderForm({
                                    });
                                  }}
                                  onKeyDown={(e) => {
-                                   if (e.key === "Enter") {
-                                     e.preventDefault();
-                                     const nextCell = document.querySelector(`[data-cell="player-${player.rank}-7"]`) as HTMLElement;
-                                     if (nextCell) nextCell.focus();
-                                   } else if (e.key === "Tab") {
-                                     e.preventDefault();
-                                     const targetCol = e.shiftKey ? 5 : 7;
-                                     const targetCell = document.querySelector(`[data-cell="player-${player.rank}-${targetCol}"]`) as HTMLElement;
-                                     if (targetCell) targetCell.focus();
-                                   } else if (e.key === "Escape") {
-                                     e.preventDefault();
-                                     e.currentTarget.blur();
-                                   }
-                                 }}
+                                    if (e.key === "Enter") {
+                                      e.preventDefault();
+                                      e.currentTarget.blur();
+                                      setTimeout(() => {
+                                        const nextCell = document.querySelector(`[data-cell="player-${player.rank}-7"]`) as HTMLElement;
+                                        if (nextCell) nextCell.focus();
+                                      }, 10);
+                                    } else if (e.key === "Tab") {
+                                      e.preventDefault();
+                                      e.currentTarget.blur();
+                                      setTimeout(() => {
+                                        const targetCol = e.shiftKey ? 5 : 7;
+                                        const targetCell = document.querySelector(`[data-cell="player-${player.rank}-${targetCol}"]`) as HTMLElement;
+                                        if (targetCell) targetCell.focus();
+                                      }, 10);
+                                    } else if (e.key === "Escape") {
+                                      e.preventDefault();
+                                      e.currentTarget.blur();
+                                    }
+                                  }}
                                  onBlur={(e) => {
                                    const value = (e.target.textContent || "").trim();
                                    setPlayers((prevPlayers) => {
@@ -4170,14 +4186,23 @@ export default function LadderForm({
                               handleMainTablePaste(e, player.rank, INLINE_FIELD_ORDER.indexOf(field));
                             }}
                             onKeyDown={(e) => {
-                              if (e.key === "Enter" || e.key === "Tab") {
-                                e.preventDefault();
-                                moveFocus(e.currentTarget as HTMLElement, e.shiftKey ? 'prev' : 'next');
-                              } else if (e.key === "Escape") {
-                                e.preventDefault();
-                                e.currentTarget.blur();
-                              }
-                            }}
+                               if (e.key === "Enter") {
+                                 e.preventDefault();
+                                 e.currentTarget.blur();
+                                 setTimeout(() => {
+                                   moveFocus(e.currentTarget as HTMLElement, 'next');
+                                 }, 10);
+                               } else if (e.key === "Tab") {
+                                 e.preventDefault();
+                                 e.currentTarget.blur();
+                                 setTimeout(() => {
+                                   moveFocus(e.currentTarget as HTMLElement, e.shiftKey ? 'prev' : 'next');
+                                 }, 10);
+                               } else if (e.key === "Escape") {
+                                 e.preventDefault();
+                                 e.currentTarget.blur();
+                               }
+                             }}
                            >
                              {cellValue}
                            </span>
@@ -4245,70 +4270,88 @@ export default function LadderForm({
                                  handleGameCellPaste(e, player.rank, gCol);
                                }}
                                onKeyDown={(e) => {
-                                 if (e.key === "Enter" || e.key === "Tab") {
-                                   e.preventDefault();
-                                   moveFocus(e.currentTarget as HTMLElement, e.shiftKey ? 'prev' : 'next');
-                                 } else if (e.key === "Escape") {
-                                   e.preventDefault();
-                                   e.currentTarget.blur();
-                                 }
-                               }}
-                               onBlur={(e) => {
-                                 const value = e.target.textContent || "";
-                                 setPlayers((prevPlayers) => {
-                                   const updatedPlayers = [...prevPlayers];
-                                   const targetPlayer = updatedPlayers.find(
-                                     (p) => p.rank === player.rank,
-                                   );
-                                   if (!targetPlayer) return prevPlayers;
-                                   const newResults = [...(targetPlayer.gameResults || new Array(31).fill(null))];
-                                   newResults[gCol] = value.trim() || null;
-                                   targetPlayer.gameResults = newResults;
-                                   return updatedPlayers;
-                                 });
-                               }}
-                             >
-                               {displayValue}{tempResult}
-                             </span>
-                           ) : (
-                             // User mode: skip confirmed cells, go to first empty cell
-                             <span
-                               contentEditable={true}
-                               suppressContentEditableWarning={true}
-                               data-cell={`player-${player.rank}-game-${gCol}`}
-                               style={{ cursor: "text" }}
-                               onClick={() => {
-                                 const result = players.find(p => p.rank === player.rank)?.gameResults?.[gCol] || '';
-                                 
-                                 if (result.endsWith('_')) {
-                                   const emptyCell = findFirstEmptyCell();
-                                   if (emptyCell) {
-                                     setEntryCell(emptyCell);
-                                     return;
-                                   }
-                                 }
-                                 
-                                 setEntryCell({
-                                    playerRank: player.rank,
-                                    round: gCol,
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    e.currentTarget.blur();
+                                    setTimeout(() => {
+                                      moveFocus(e.currentTarget as HTMLElement, 'next');
+                                    }, 10);
+                                  } else if (e.key === "Tab") {
+                                    e.preventDefault();
+                                    e.currentTarget.blur();
+                                    setTimeout(() => {
+                                      moveFocus(e.currentTarget as HTMLElement, e.shiftKey ? 'prev' : 'next');
+                                    }, 10);
+                                  } else if (e.key === "Escape") {
+                                    e.preventDefault();
+                                    e.currentTarget.blur();
+                                  }
+                                }}
+                                onBlur={(e) => {
+                                  const value = e.target.textContent || "";
+                                  setPlayers((prevPlayers) => {
+                                    const updatedPlayers = [...prevPlayers];
+                                    const targetPlayer = updatedPlayers.find(
+                                      (p) => p.rank === player.rank,
+                                    );
+                                    if (!targetPlayer) return prevPlayers;
+                                    const newResults = [...(targetPlayer.gameResults || new Array(31).fill(null))];
+                                    newResults[gCol] = value.trim() || null;
+                                    targetPlayer.gameResults = newResults;
+                                    return updatedPlayers;
                                   });
-                               }}
-                               onPaste={(e) => {
-                                 const text = e.clipboardData.getData('text');
-                                 const rows = text.split('\n').filter(r => r.trim());
-                                 if (rows.length <= 1) return;
-                                 e.preventDefault();
-                                 handleGameCellPaste(e, player.rank, gCol);
-                               }}
-                               onKeyDown={(e) => {
-                                 if (e.key === "Enter" || e.key === "Tab") {
-                                   e.preventDefault();
-                                   moveFocus(e.currentTarget as HTMLElement, e.shiftKey ? 'prev' : 'next');
-                                 } else if (e.key === "Escape") {
-                                   e.preventDefault();
-                                   e.currentTarget.blur();
-                                 }
-                               }}
+                                }}
+                              >
+                                {displayValue}{tempResult}
+                              </span>
+                            ) : (
+                              // User mode: skip confirmed cells, go to first empty cell
+                              <span
+                                contentEditable={true}
+                                suppressContentEditableWarning={true}
+                                data-cell={`player-${player.rank}-game-${gCol}`}
+                                style={{ cursor: "text" }}
+                                onClick={() => {
+                                  const result = players.find(p => p.rank === player.rank)?.gameResults?.[gCol] || '';
+
+                                  if (result.endsWith('_')) {
+                                    const emptyCell = findFirstEmptyCell();
+                                    if (emptyCell) {
+                                      setEntryCell(emptyCell);
+                                      return;
+                                    }
+                                  }
+
+                                  setEntryCell({
+                                     playerRank: player.rank,
+                                     round: gCol,
+                                   });
+                                }}
+                                onPaste={(e) => {
+                                  const text = e.clipboardData.getData('text');
+                                  const rows = text.split('\n').filter(r => r.trim());
+                                  if (rows.length <= 1) return;
+                                  e.preventDefault();
+                                  handleGameCellPaste(e, player.rank, gCol);
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    e.currentTarget.blur();
+                                    setTimeout(() => {
+                                      moveFocus(e.currentTarget as HTMLElement, 'next');
+                                    }, 10);
+                                  } else if (e.key === "Tab") {
+                                    e.preventDefault();
+                                    e.currentTarget.blur();
+                                    setTimeout(() => {
+                                      moveFocus(e.currentTarget as HTMLElement, e.shiftKey ? 'prev' : 'next');
+                                    }, 10);
+                                  } else if (e.key === "Escape") {
+                                    e.preventDefault();
+                                    e.currentTarget.blur();
+                                  }
+                                }}
                                onBlur={(e) => {
                                  const value = e.target.textContent || "";
                                  setPlayers((prevPlayers) => {
