@@ -976,7 +976,8 @@ export default function LadderForm({
     
     // Check for gaps (warning)
     const maxRank = ranks[ranks.length - 1];
-    const missing = Array.from({ length: maxRank }, (_, i) => i + 1).filter(r => !rankSet.has(r));
+    const expectedRanks = new Set(Array.from({ length: maxRank }, (_, i) => i + 1));
+    const missing = ranks.filter(r => !expectedRanks.has(r));
     if (missing.length > 0) {
       warnings.push(`Missing ranks: ${missing.join(', ')}`);
     }
@@ -1384,16 +1385,11 @@ export default function LadderForm({
           })();
           console.log(`>>> [NEW DAY] Next title will be: "${nextTitle}"`);
 
-         // Fix rank issues before New Day transformations
-           let playersToTransform = normalizePlayersTrophy(calculatedPlayers);
-           if (reRank) {
-             playersToTransform = fixPlayerRanks(playersToTransform);
-           }
-           // Apply New Day transformations
-            const finalPlayers = processNewDayTransformations(
-              playersToTransform,
-              reRank,
-            );
+       // Apply New Day transformations
+        const finalPlayers = processNewDayTransformations(
+          calculatedPlayers,
+          reRank,
+        );
 
            await savePlayers(finalPlayers);
           setProjectNameStorage(nextTitle);
@@ -2099,9 +2095,9 @@ export default function LadderForm({
 
         // Fix rank issues before New Day transformations
         let playersToTransform = normalizePlayersTrophy(calculatedPlayers);
-        if (reRank) {
-          playersToTransform = fixPlayerRanks(playersToTransform);
-        }
+          if (reRank) {
+              playersToTransform = fixPlayerRanks(players);
+            }
         // Apply New Day transformations
         const finalPlayers = processNewDayTransformations(
           playersToTransform,

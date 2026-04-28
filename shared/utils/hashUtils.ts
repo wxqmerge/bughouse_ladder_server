@@ -735,8 +735,8 @@ export function processGameResults(
         continue;
       }
 
-      const player1 = playersList[player1Rank - 1];
-      const player2 = playersList[player2Rank - 1];
+      const player1 = playersList.find(p => p.rank === player1Rank);
+      const player2 = playersList.find(p => p.rank === player2Rank);
 
       if (!player1 || !player2) {
         errorCount++;
