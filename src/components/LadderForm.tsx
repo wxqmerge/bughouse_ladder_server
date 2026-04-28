@@ -291,6 +291,7 @@ export default function LadderForm({
   } | null>(null);
   const [currentMode, setCurrentMode] = useState<'local' | 'server_down' | 'server'>('local');
   const [debugMode, setDebugMode] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   // Enter Games mode state
   const [enterGamesError, setEnterGamesError] = useState<ValidationResult | null>(null);
   const [isEnterGamesMode, setIsEnterGamesMode] = useState(false);
@@ -2485,6 +2486,87 @@ export default function LadderForm({
     }
   };
 
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 2000);
+  };
+
+  const INLINE_FIELD_ORDER = [
+    "rank", "group", "lastName", "firstName", "rating", "nRating",
+    "trophyEligible", "grade", "num_games", "attendance", "phone", "info", "school", "room"
+  ];
+
+  const createPlayerFromMapped = (mapped: Record<string, string | number>, currentPlayers: PlayerData[]): PlayerData => {
+    const lastPlayer = currentPlayers[currentPlayers.length - 1];
+    const maxRank = currentPlayers.reduce((max, p) => Math.max(max, p.rank || 0), 0);
+    
+    return {
+      rank: maxRank + 1,
+      group: String(mapped.group || '').trim() || lastPlayer?.group || "",
+      lastName: String(mapped.lastName || '').trim(),
+      firstName: String(mapped.firstName || '').trim(),
+      rating: typeof mapped.rating === 'number' ? mapped.rating : (parseInt(String(mapped.rating || '0')) || 0),
+      nRating: Math.abs(typeof mapped.nRating === 'number' ? mapped.nRating : (parseInt(String(mapped.nRating || '0')) || 1)),
+      trophyEligible: String((mapped as any).trophyEligible || '').trim() === "-"
+        ? false
+        : (lastPlayer?.trophyEligible !== false),
+      grade: String(mapped.grade || '').trim() || lastPlayer?.grade || "",
+      num_games: typeof mapped.num_games === 'number' ? mapped.num_games : (parseInt(String(mapped.num_games || '0')) || 0),
+      attendance: typeof mapped.attendance === 'number' ? mapped.attendance : (parseInt(String(mapped.attendance || '0')) || 0),
+      phone: String(mapped.phone || '').trim() || lastPlayer?.phone || "",
+      info: String(mapped.info || '').trim() || lastPlayer?.info || "",
+      school: String(mapped.school || '').trim() || lastPlayer?.school || "",
+      room: String(mapped.room || '').trim() || lastPlayer?.room || "",
+      gameResults: ((mapped as any).gameResults as (string | null)[]) || new Array(31).fill(null),
+    };
+  };
+
+  const handleInlinePaste = (pastedText: string, startColIndex: number, currentPlayers: PlayerData[]) => {
+    const rows = pastedText.split('\n').filter(r => r.trim());
+    
+    if (rows.length <= 1) {
+      return { createdPlayers: [] as PlayerData[], remainingCols: null as string[] | null };
+    }
+    
+    const createdPlayers: PlayerData[] = [];
+    let remainingCols: string[] | null = null;
+
+    for (let i = 0; i < rows.length; i++) {
+      const cols = rows[i].split('\t');
+      const mapped: Record<string, string | number> = {};
+      const gameResults: (string | null)[] = [];
+
+      for (let j = 0; j < cols.length; j++) {
+        const fieldIndex = startColIndex + j;
+        if (fieldIndex < INLINE_FIELD_ORDER.length) {
+          const field = INLINE_FIELD_ORDER[fieldIndex];
+          if (field === "rank") continue;
+          mapped[field] = cols[j].trim();
+        } else {
+          gameResults[fieldIndex - INLINE_FIELD_ORDER.length] = cols[j].trim() || null;
+        }
+      }
+
+      ['rating', 'nRating', 'num_games', 'attendance'].forEach(f => {
+        if (mapped[f]) {
+          mapped[f] = parseInt(String(mapped[f])) || 0;
+        }
+      });
+
+      (mapped as any).gameResults = gameResults.length ? gameResults : new Array(31).fill(null);
+
+      const hasNames = String(mapped.lastName || '').trim() && String(mapped.firstName || '').trim();
+
+      if (hasNames) {
+        createdPlayers.push(createPlayerFromMapped(mapped, currentPlayers));
+      } else if (i === rows.length - 1) {
+        remainingCols = cols;
+      }
+    }
+
+    return { createdPlayers, remainingCols };
+  };
+
   const handleAddPlayer = () => {
     if (shouldLog(10)) {
       console.log(">>> [MENU ACTION] Add Player");
@@ -4003,27 +4085,198 @@ export default function LadderForm({
             })}
                {isAdmin && (
                <tr style={{ backgroundColor: "#f0f9ff" }}>
-                 {["rank","group","lastName","firstName","rating","nRating","grade","num_games","attendance","phone","info","school","room"].map((field, colIndex) => {
+                 {["rank","group","lastName","firstName","rating","nRating","trophyEligible","grade","num_games","attendance","phone","info","school","room"].map((field, colIndex) => {
                      const isEditable = field !== "rank";
-                     return (
-                      <td
-                         key={`empty-${colIndex}-${isAdmin}`}
-                         data-empty-cell={colIndex}
-                         contentEditable={isEditable}
-                         suppressContentEditableWarning={true}
-                         onKeyDown={(e) => {
-                           if (e.key === "Enter") {
-                             e.preventDefault();
-                             const nextCol = colIndex + 1;
-                             const nextCell = document.querySelector(`[data-empty-cell="${nextCol}"]`) as HTMLElement;
-                             if (nextCell) {
-                               nextCell.focus();
-                             }
-                           } else if (e.key === "Escape") {
-                             e.preventDefault();
-                             e.currentTarget.blur();
-                           }
-                         }}
+                      if (field === "trophyEligible") {
+                        return (
+                          <td
+                            key={`empty-trophy-${isAdmin}`}
+                            data-empty-cell={6}
+                            contentEditable={true}
+                            suppressContentEditableWarning={true}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              const newVal = emptyPlayerRow.trophyEligible === false;
+                              setEmptyPlayerRow(prev => ({ ...prev, trophyEligible: newVal }));
+                              (e.currentTarget as HTMLElement).textContent = newVal ? "+" : "-";
+                            }}
+                            onPaste={(e) => {
+                              const text = e.clipboardData.getData('text').trim();
+                              e.preventDefault();
+                              setEmptyPlayerRow(prev => ({
+                                ...prev,
+                                trophyEligible: text !== "-"
+                              }));
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                (document.querySelector('[data-empty-cell="7"]') as HTMLElement)?.focus();
+                              } else if (e.key === "Tab") {
+                                e.preventDefault();
+                                const targetCol = e.shiftKey ? 5 : 7;
+                                (document.querySelector(`[data-empty-cell="${targetCol}"]`) as HTMLElement)?.focus();
+                              } else if (e.key === "Escape") {
+                                e.preventDefault();
+                                e.currentTarget.blur();
+                              }
+                            }}
+                            onBlur={(e) => {
+                              const value = (e.target.textContent || "").trim();
+                              setEmptyPlayerRow(prev => ({
+                                ...prev,
+                                trophyEligible: value !== "-"
+                              }));
+                            }}
+                            style={{
+                              textAlign: "center",
+                              borderBottom: "2px solid #3b82f6",
+                              color: "#94a3b8",
+                              fontStyle: "italic",
+                              fontSize: "0.875rem",
+                              width: "40px",
+                              cursor: "text",
+                            }}
+                          >
+                            {emptyPlayerRow.trophyEligible !== false ? "+" : "-"}
+                          </td>
+                        );
+                      }
+                      return (
+                       <td
+                           key={`empty-${colIndex}-${isAdmin}`}
+                           data-empty-cell={colIndex}
+                           contentEditable={isEditable}
+                           suppressContentEditableWarning={true}
+                           onPaste={(e) => {
+                             if (!isEditable) return;
+                             const text = e.clipboardData.getData('text');
+                             const result = handleInlinePaste(text, colIndex, players);
+                            
+                            if (result.createdPlayers.length > 0) {
+                              e.preventDefault();
+                              const updatedPlayers = [...players, ...result.createdPlayers];
+                              setPlayers(updatedPlayers);
+                              savePlayers(updatedPlayers, true).catch((err) => {
+                                console.error("Failed to save added players:", err);
+                              });
+                              showToast(`${result.createdPlayers.length} player${result.createdPlayers.length > 1 ? 's' : ''} added`);
+                              
+                              if (result.remainingCols) {
+                                const newGameResults = Array(31).fill(null);
+                                const newEmptyRow = {
+                                  firstName: "", lastName: "", group: "", rating: 0, nRating: 0,
+                                  trophyEligible: true, grade: "", num_games: 0, attendance: 0,
+                                  phone: "", info: "", school: "", room: "",
+                                  gameResults: newGameResults,
+                                } as typeof emptyPlayerRow;
+                                
+                                const lastPlayer = players[players.length - 1];
+                                for (let j = 0; j < result.remainingCols.length; j++) {
+                                  const fieldIndex = colIndex + j;
+                                  if (fieldIndex < INLINE_FIELD_ORDER.length) {
+                                    const field = INLINE_FIELD_ORDER[fieldIndex];
+                                    if (field !== "rank") {
+                                      if (field === "rating" || field === "nRating" || field === "num_games" || field === "attendance") {
+                                        (newEmptyRow as any)[field] = parseInt(result.remainingCols[j]) || 0;
+                                      } else {
+                                        (newEmptyRow as any)[field] = result.remainingCols[j].trim();
+                                      }
+                                    }
+                                  }
+                                }
+                                
+                                if (!newEmptyRow.group && lastPlayer?.group) newEmptyRow.group = lastPlayer.group;
+                                if (!newEmptyRow.grade && lastPlayer?.grade) newEmptyRow.grade = lastPlayer.grade;
+                                if (!newEmptyRow.phone && lastPlayer?.phone) newEmptyRow.phone = lastPlayer.phone;
+                                if (!newEmptyRow.info && lastPlayer?.info) newEmptyRow.info = lastPlayer.info;
+                                if (!newEmptyRow.school && lastPlayer?.school) newEmptyRow.school = lastPlayer.school;
+                                if (!newEmptyRow.room && lastPlayer?.room) newEmptyRow.room = lastPlayer.room;
+                                
+                                setEmptyPlayerRow(newEmptyRow);
+                                emptyPlayerRowRef.current = newEmptyRow;
+                                
+                                document.querySelectorAll('[data-empty-cell]').forEach((cell) => {
+                                  cell.textContent = '';
+                                });
+                                
+                                const firstFilledCol = result.remainingCols.findIndex((c, idx) => {
+                                  const field = INLINE_FIELD_ORDER[colIndex + idx];
+                                  if (!field || field === "rank") return false;
+                                  return (newEmptyRow as any)[field] && String((newEmptyRow as any)[field]).trim();
+                                });
+                                const focusCol = firstFilledCol >= 0 ? colIndex + firstFilledCol + 1 : colIndex + 1;
+                                const focusCell = document.querySelector(`[data-empty-cell="${focusCol}"]`) as HTMLElement;
+                                if (focusCell) focusCell.focus();
+                              }
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && e.ctrlKey) {
+                              e.preventDefault();
+                              const currentValues = { ...emptyPlayerRowRef.current };
+                              if ((currentValues.firstName || "").trim() && (currentValues.lastName || "").trim()) {
+                                const gameData = currentValues as typeof emptyPlayerRow & { rank?: number };
+                                const newPlayer: PlayerData = {
+                                   rank: 0,
+                                   nRating: Math.abs(currentValues.nRating || 1),
+                                   trophyEligible: emptyPlayerRowRef.current.trophyEligible !== false,
+                                   gameResults: currentValues.gameResults,
+                                  group: gameData.group,
+                                  lastName: gameData.lastName,
+                                  firstName: gameData.firstName,
+                                  rating: gameData.rating,
+                                  grade: gameData.grade,
+                                  num_games: gameData.num_games,
+                                  attendance: gameData.attendance,
+                                  phone: gameData.phone,
+                                  info: gameData.info,
+                                  school: gameData.school,
+                                  room: gameData.room,
+                                };
+                                const maxRank = players.reduce((max, p) => Math.max(max, p.rank || 0), 0);
+                                const rankedPlayer = { ...newPlayer, rank: maxRank + 1 };
+                                const updatedPlayers = [...players, rankedPlayer];
+                                setPlayers(updatedPlayers);
+                                savePlayers(updatedPlayers, true).catch((err) => {
+                                  console.error("Failed to save added player:", err);
+                                });
+                                const emptyReset = {
+                                  firstName: "", lastName: "", group: "", rating: 0, nRating: 0,
+                                  trophyEligible: true, grade: "", num_games: 0, attendance: 0,
+                                  phone: "", info: "", school: "", room: "",
+                                  gameResults: Array(31).fill(null),
+                                } as typeof emptyPlayerRow;
+                                setEmptyPlayerRow(emptyReset);
+                                emptyPlayerRowRef.current = emptyReset;
+                                document.querySelectorAll('[data-empty-cell]').forEach((cell) => {
+                                  cell.textContent = '';
+                                });
+                                const groupCell = document.querySelector('[data-empty-cell="1"]') as HTMLElement;
+                                if (groupCell) groupCell.focus();
+                                showToast(`${updatedPlayers.length} player(s) in ladder`);
+                              }
+                              return;
+                            }
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              const nextCol = colIndex + 1;
+                              const nextCell = document.querySelector(`[data-empty-cell="${nextCol}"]`) as HTMLElement;
+                              if (nextCell) {
+                                nextCell.focus();
+                              }
+                            } else if (e.key === "Tab") {
+                              e.preventDefault();
+                              const targetCol = e.shiftKey ? colIndex - 1 : colIndex + 1;
+                              const targetCell = document.querySelector(`[data-empty-cell="${targetCol}"]`) as HTMLElement;
+                              if (targetCell) {
+                                targetCell.focus();
+                              }
+                            } else if (e.key === "Escape") {
+                              e.preventDefault();
+                              e.currentTarget.blur();
+                            }
+                          }}
                          onBlur={(e) => {
                            if (!isEditable || !e.target.textContent) return;
 
@@ -4148,9 +4401,24 @@ export default function LadderForm({
                 {Array.from({ length: 31 }).map((_, roundIndex) => (
                   <td
                     key={`empty-round-${roundIndex}-${isAdmin}`}
-                    data-empty-cell={13 + roundIndex}
+                    data-empty-cell={14 + roundIndex}
                     contentEditable={true}
                     suppressContentEditableWarning={true}
+                    onPaste={(e) => {
+                      const text = e.clipboardData.getData('text');
+                      const values = text.split('\n').filter(r => r.trim());
+                      
+                      if (values.length <= 1) {
+                        return;
+                      }
+                      
+                      e.preventDefault();
+                      const newResults = [...emptyPlayerRow.gameResults];
+                      for (let i = 0; i < values.length && (roundIndex + i) < 31; i++) {
+                        newResults[roundIndex + i] = values[i].trim() || null;
+                      }
+                      setEmptyPlayerRow(prev => ({ ...prev, gameResults: newResults }));
+                    }}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
@@ -4390,11 +4658,31 @@ export default function LadderForm({
         />
       )}
       
+      {/* Toast notification */}
+      {toastMessage && (
+        <div style={{
+          position: 'fixed', bottom: '20px', right: '20px',
+          backgroundColor: '#10b981', color: 'white',
+          padding: '0.75rem 1.5rem', borderRadius: '0.5rem',
+          zIndex: 9999, fontSize: '0.875rem', fontWeight: '600',
+          boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+          animation: 'fadeInOut 2s ease-in-out'
+        }}>
+          {toastMessage}
+        </div>
+      )}
+      
       {/* CSS animation for retry spinner */}
       <style>{`
         @keyframes spin {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
+        }
+        @keyframes fadeInOut {
+          0% { opacity: 0; transform: translateY(10px); }
+          10% { opacity: 1; transform: translateY(0); }
+          90% { opacity: 1; transform: translateY(0); }
+          100% { opacity: 0; transform: translateY(-10px); }
         }
       `}</style>
     </div>
