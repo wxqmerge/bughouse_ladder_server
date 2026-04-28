@@ -10,10 +10,14 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 
 // Get __dirname for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Server version (read from package.json)
+const serverVersion = JSON.parse(fs.readFileSync(path.join(__dirname, '../package.json'), 'utf-8')).version;
 
 // Import routes
 import { router as authRouter } from './routes/auth.routes.js';
@@ -24,6 +28,7 @@ import { router as adminLockRouter } from './routes/adminLock.routes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { initializeDefaultLadder } from './services/dataService.js';
 import { generatePerformanceReport, clearSlowOperations } from './utils/performance.js';
+import { getWriteHealth } from './services/dataService.js';
 
 const app: Application = express();
 const PORT = process.env.PORT || 3000;
@@ -176,7 +181,19 @@ if (isProduction) {
 
 // Health check endpoint
 app.get('/health', (req: Request, res: Response) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  const wh = getWriteHealth();
+  res.json({
+    status: 'ok',
+    version: serverVersion,
+    timestamp: new Date().toISOString(),
+    writeHealth: {
+      lastWriteTime: wh.lastWriteTime,
+      lastWriteSuccess: wh.lastWriteSuccess,
+      lastError: wh.lastError,
+      lastErrorTime: wh.lastErrorTime,
+      consecutiveFailures: wh.consecutiveFailures,
+    },
+  });
 });
 
 // API Routes

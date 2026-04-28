@@ -43,6 +43,27 @@ const BACKUP_DIR = process.env.BACKUP_DIR
 
 const MAX_BACKUPS = 20;
 
+// Write health tracking
+export interface WriteHealth {
+  lastWriteTime: string;
+  lastWriteSuccess: boolean;
+  lastError: string | null;
+  lastErrorTime: string | null;
+  consecutiveFailures: number;
+}
+
+const writeHealth: WriteHealth = {
+  lastWriteTime: '',
+  lastWriteSuccess: true,
+  lastError: null,
+  lastErrorTime: null,
+  consecutiveFailures: 0,
+};
+
+export function getWriteHealth(): WriteHealth {
+  return { ...writeHealth };
+}
+
 // Initialize on module load
 initializeDefaultLadder().catch(err => 
   loggerLog('[SERVER]', 'Failed to initialize default ladder:', err)
@@ -169,7 +190,7 @@ export async function readLadderFile(): Promise<LadderData> {
 export function generateTabContent(ladderData: LadderData): string {
   // Output format matches LadderForm export (new LadderForm format with Gms preserved)
   
-  const headerLine = 'Group\tLast Name\tFirst Name\tRating\tRnk\tN Rate\tGr\tGms\tAttendance\tPhone\tInfo\tSchool\tRoom\t1\t2\t3\t4\t5\t6\t7\t8\t9\t10\t11\t12\t13\t14\t15\t16\t17\t18\t19\t20\t21\t22\t23\t24\t25\t26\t27\t28\t29\t30\t31\tVersion 1.21';
+  const headerLine = `Group\tLast Name\tFirst Name\tRating\tRnk\tN Rate\tGr\tGms\tAttendance\tPhone\tInfo\tSchool\tRoom\t1\t2\t3\t4\t5\t6\t7\t8\t9\t10\t11\t12\t13\t14\t15\t16\t17\t18\t19\t20\t21\t22\t23\t24\t25\t26\t27\t28\t29\t30\t31\tVersion ${serverVersion}`;
   
   const playerLines = ladderData.players.map(player => {
     const baseFields = [
@@ -209,14 +230,30 @@ export async function writeLadderFile(ladderData: LadderData): Promise<void> {
       
       // Create backup before write (skip during tests)
       if (!process.env.VITEST) {
-        const backupPath = await createBackup();
-        if (backupPath) {
-          await rotateBackups();
+        try {
+          const backupPath = await createBackup();
+          if (backupPath) {
+            await rotateBackups();
+          }
+        } catch (backupErr) {
+          loggerLog('[SERVER]', `Backup failed (continuing write): ${(backupErr as Error).message}`);
         }
       }
       
       const content = generateTabContent(ladderData);
       await fs.writeFile(TAB_FILE_PATH, content, 'utf-8');
+      
+      writeHealth.lastWriteTime = new Date().toISOString();
+      writeHealth.lastWriteSuccess = true;
+      writeHealth.lastError = null;
+      writeHealth.lastErrorTime = null;
+      writeHealth.consecutiveFailures = 0;
+    } catch (err) {
+      writeHealth.lastWriteSuccess = false;
+      writeHealth.lastError = (err as Error).message;
+      writeHealth.lastErrorTime = new Date().toISOString();
+      writeHealth.consecutiveFailures++;
+      throw err;
     } finally {
       releaseLock();
     }
