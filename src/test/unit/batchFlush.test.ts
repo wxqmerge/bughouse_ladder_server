@@ -8,14 +8,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import {
-  startBatch,
-  endBatch,
-  isInBatch,
-  savePlayers,
-  getPlayers,
-  _resetBatchState,
-} from '../../../src/services/storageService';
+import { getKeyPrefix, startBatch, endBatch, savePlayers, getPlayers, isInBatch, _resetBatchState } from '../../../src/services/storageService';
 
 describe('New Day Batch Flush', () => {
   beforeEach(() => {
@@ -53,7 +46,7 @@ describe('New Day Batch Flush', () => {
       const initialPlayers = [
         { rank: 1, group: 'A', lastName: 'Player1', firstName: 'Test', rating: 1200, nRating: 1200, trophyEligible: true, grade: '5', num_games: 0, attendance: 0, info: '', phone: '', school: '', room: '', gameResults: Array(31).fill(null) }
       ];
-      localStorage.setItem('ladder_ladder_players', JSON.stringify(initialPlayers));
+      localStorage.setItem(getKeyPrefix() + 'ladder_players', JSON.stringify(initialPlayers));
 
       startBatch();
 
@@ -63,7 +56,7 @@ describe('New Day Batch Flush', () => {
       await savePlayers(modifiedPlayers);
 
       // localStorage should still have original data (batch mode prevents writes)
-      const storedData = JSON.parse(localStorage.getItem('ladder_ladder_players') || '[]');
+      const storedData = JSON.parse(localStorage.getItem(getKeyPrefix() + 'ladder_players') || '[]');
       expect(storedData[0].lastName).toBe('Player1');
 
       await endBatch();
@@ -73,7 +66,7 @@ describe('New Day Batch Flush', () => {
       const initialPlayers = [
         { rank: 1, group: 'A', lastName: 'Player1', firstName: 'Test', rating: 1200, nRating: 1200, trophyEligible: true, grade: '5', num_games: 0, attendance: 0, info: '', phone: '', school: '', room: '', gameResults: Array(31).fill(null) }
       ];
-      localStorage.setItem('ladder_ladder_players', JSON.stringify(initialPlayers));
+      localStorage.setItem(getKeyPrefix() + 'ladder_players', JSON.stringify(initialPlayers));
 
       startBatch();
 
@@ -83,13 +76,13 @@ describe('New Day Batch Flush', () => {
       await savePlayers(modifiedPlayers);
 
       // Before endBatch, localStorage should still have original data
-      let storedData = JSON.parse(localStorage.getItem('ladder_ladder_players') || '[]');
+      let storedData = JSON.parse(localStorage.getItem(getKeyPrefix() + 'ladder_players') || '[]');
       expect(storedData[0].lastName).toBe('Player1');
 
       await endBatch();
 
       // After endBatch, localStorage should have modified data
-      storedData = JSON.parse(localStorage.getItem('ladder_ladder_players') || '[]');
+      storedData = JSON.parse(localStorage.getItem(getKeyPrefix() + 'ladder_players') || '[]');
       expect(storedData[0].lastName).toBe('Modified');
       expect(storedData[0].rating).toBe(1300);
     });
@@ -116,7 +109,7 @@ describe('New Day Batch Flush', () => {
       const initialPlayers = [
         { rank: 1, group: 'A', lastName: 'Player1', firstName: 'Test', rating: 1200, nRating: 1200, trophyEligible: true, grade: '5', num_games: 0, attendance: 0, info: '', phone: '', school: '', room: '', gameResults: Array(31).fill(null) }
       ];
-      localStorage.setItem('ladder_ladder_players', JSON.stringify(initialPlayers));
+      localStorage.setItem(getKeyPrefix() + 'ladder_players', JSON.stringify(initialPlayers));
 
       startBatch();
       startBatch();
@@ -132,7 +125,7 @@ describe('New Day Batch Flush', () => {
       // Second endBatch should commit
       await endBatch();
 
-      const storedData = JSON.parse(localStorage.getItem('ladder_ladder_players') || '[]');
+      const storedData = JSON.parse(localStorage.getItem(getKeyPrefix() + 'ladder_players') || '[]');
       expect(storedData[0].lastName).toBe('NestedBatch');
       expect(storedData[0].rating).toBe(1500);
     });
@@ -143,7 +136,7 @@ describe('New Day Batch Flush', () => {
       const initialPlayers = [
         { rank: 1, group: 'A', lastName: 'Player1', firstName: 'Test', rating: 1200, nRating: 1200, trophyEligible: true, grade: '5', num_games: 0, attendance: 0, info: '', phone: '', school: '', room: '', gameResults: Array(31).fill(null) }
       ];
-      localStorage.setItem('ladder_ladder_players', JSON.stringify(initialPlayers));
+      localStorage.setItem(getKeyPrefix() + 'ladder_players', JSON.stringify(initialPlayers));
 
       startBatch();
 
@@ -166,7 +159,7 @@ describe('New Day Batch Flush', () => {
       const initialPlayers = [
         { rank: 1, group: 'A', lastName: 'Player1', firstName: 'Test', rating: 1200, nRating: 1500, trophyEligible: true, grade: '5', num_games: 0, attendance: 0, info: '', phone: '', school: '', room: '', gameResults: Array(31).fill(null) }
       ];
-      localStorage.setItem('ladder_ladder_players', JSON.stringify(initialPlayers));
+      localStorage.setItem(getKeyPrefix() + 'ladder_players', JSON.stringify(initialPlayers));
 
       // Simulate New Day flow: start batch, process, save, flush
       startBatch();
@@ -177,14 +170,14 @@ describe('New Day Batch Flush', () => {
       await savePlayers(processedPlayers);
 
       // Before flush, localStorage unchanged
-      let stored = JSON.parse(localStorage.getItem('ladder_ladder_players') || '[]');
+      let stored = JSON.parse(localStorage.getItem(getKeyPrefix() + 'ladder_players') || '[]');
       expect(stored[0].rating).toBe(1200);
 
       // Flush (endBatch) commits to localStorage
       await endBatch();
 
       // After flush, localStorage has new data
-      stored = JSON.parse(localStorage.getItem('ladder_ladder_players') || '[]');
+      stored = JSON.parse(localStorage.getItem(getKeyPrefix() + 'ladder_players') || '[]');
       expect(stored[0].rating).toBe(1500);
       expect(stored[0].num_games).toBe(5);
     });
@@ -193,7 +186,7 @@ describe('New Day Batch Flush', () => {
       const initialPlayers = [
         { rank: 1, group: 'A', lastName: 'Player1', firstName: 'Test', rating: 1200, nRating: 1200, trophyEligible: true, grade: '5', num_games: 0, attendance: 0, info: '', phone: '', school: '', room: '', gameResults: Array(31).fill(null) }
       ];
-      localStorage.setItem('ladder_ladder_players', JSON.stringify(initialPlayers));
+      localStorage.setItem(getKeyPrefix() + 'ladder_players', JSON.stringify(initialPlayers));
 
       startBatch();
 
@@ -204,7 +197,7 @@ describe('New Day Batch Flush', () => {
 
       await endBatch();
 
-      const stored = JSON.parse(localStorage.getItem('ladder_ladder_players') || '[]');
+      const stored = JSON.parse(localStorage.getItem(getKeyPrefix() + 'ladder_players') || '[]');
       expect(stored[0].rating).toBe(1500);
       expect(stored[0].lastName).toBe('Final');
     });
