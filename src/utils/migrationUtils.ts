@@ -1,4 +1,5 @@
 import { PlayerData } from '../../shared/types';
+import { getKeyPrefix } from '../services/storageService';
 
 const SESSION_LAST_MODE_KEY = 'ladder_last_mode';
 
@@ -245,10 +246,10 @@ export async function applyMigration(
     finalPlayers = mergePlayerLists(localPlayers, serverPlayers, customOptions!);
   }
   
-  // Save to both locations
+  // Save to current ladder's storage
   const playerJson = JSON.stringify(finalPlayers);
-  localStorage.setItem('ladder_ladder_players', playerJson);
-  localStorage.setItem('ladder_server_ladder_players', playerJson);
+  const prefix = getKeyPrefix();
+  localStorage.setItem(prefix + 'ladder_players', playerJson);
   
   // Update current mode
   storeCurrentMode('server');
