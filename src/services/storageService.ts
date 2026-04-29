@@ -10,17 +10,22 @@
 import { PlayerData } from '../../shared/types';
 import { log } from '../utils/log';
 import { dataService, DataServiceMode } from './dataService';
-import { getProgramMode } from '../utils/mode';
+
 import { loadUserSettings, normalizeServerUrl } from './userSettingsStorage';
 
 /**
- * Get the storage key prefix based on current mode
- * Local mode uses 'ladder_' prefix (backward compatible)
- * Dev/Server modes use 'ladder_server_' prefix for isolation during testing
+ * Get the storage key prefix based on server URL
+ * Local mode uses 'ladder_' prefix
+ * Each unique server URL gets its own isolated namespace (e.g., ladder_omen_com_)
+ * This ensures different ladders are fully independent in the same browser
  */
 export function getKeyPrefix(): string {
-  const mode = getProgramMode();
-  return mode === 'local' || mode === 'server_down' ? 'ladder_' : 'ladder_server_';
+  const userSettings = loadUserSettings();
+  const server = userSettings.server?.trim() || '';
+  if (!server) return 'ladder_';
+  
+  const host = server.replace(/^https?:\/\//, '').replace(/:\d+$/, '').replace(/[.\-:]/g, '_');
+  return 'ladder_' + host + '_';
 }
 
 // ==================== SAVE STATUS TRACKING ====================
@@ -340,7 +345,8 @@ let batchBuffer: PlayerData[] | null = null;
 export function startBatch(): void {
   if (batchOperationCount === 0) {
     // First level of nesting - load current data into buffer
-    const localData = localStorage.getItem('ladder_ladder_players');
+    const prefix = getKeyPrefix();
+    const localData = localStorage.getItem(prefix + 'ladder_players');
     batchBuffer = localData ? JSON.parse(localData) : [];
   }
   batchOperationCount++;
@@ -383,7 +389,8 @@ function getCurrentPlayers(): PlayerData[] {
   if (batchBuffer !== null) {
     return batchBuffer;
   }
-  const localData = localStorage.getItem('ladder_ladder_players');
+  const prefix = getKeyPrefix();
+  const localData = localStorage.getItem(prefix + 'ladder_players');
   return localData ? JSON.parse(localData) : [];
 }
 
@@ -395,11 +402,9 @@ async function commitBatchBuffer(): Promise<void> {
   
   const playerJson = JSON.stringify(batchBuffer);
   
-  // Write to localStorage (both keys in server mode)
-  localStorage.setItem('ladder_ladder_players', playerJson);
-  if (dataService.getMode() !== DataServiceMode.LOCAL) {
-    localStorage.setItem('ladder_server_ladder_players', playerJson);
-  }
+  // Write to localStorage
+  const prefix = getKeyPrefix();
+  localStorage.setItem(prefix + 'ladder_players', playerJson);
   
   // Sync to server (fire-and-forget)
   if (dataService.getMode() !== DataServiceMode.LOCAL) {
@@ -431,7 +436,8 @@ export async function getPlayers(): Promise<PlayerData[]> {
   if (dataService.getMode() === DataServiceMode.LOCAL) {
     // Local mode: use localStorage directly
     (window as any).__ladder_setStatus?.('Reading localStorage...');
-    const data = localStorage.getItem('ladder_ladder_players');
+    const prefix = getKeyPrefix();
+    const data = localStorage.getItem(prefix + 'ladder_players');
     const players = data ? JSON.parse(data) : [];
     (window as any).__ladder_setStatus?.(null);
     return players;
@@ -445,11 +451,9 @@ export async function getPlayers(): Promise<PlayerData[]> {
     } catch (error) {
       log('[STORAGE]', 'Failed to fetch players:', error);
       (window as any).__ladder_setStatus?.('Using cached data...');
-      // Fallback to localStorage - try server key first, then local
-      let data = localStorage.getItem('ladder_server_ladder_players');
-      if (!data) {
-        data = localStorage.getItem('ladder_ladder_players');
-      }
+      // Fallback to localStorage
+      const prefix = getKeyPrefix();
+      const data = localStorage.getItem(prefix + 'ladder_players');
       const players = data ? JSON.parse(data) : [];
       (window as any).__ladder_setStatus?.(null);
       return players;
@@ -485,7 +489,8 @@ export async function savePlayers(players: PlayerData[], waitForServer = false, 
   
   if (mode === DataServiceMode.LOCAL && !serverUrl) {
     // Local mode with no server: use localStorage directly - mark all cells as saved
-    localStorage.setItem('ladder_ladder_players', playerJson);
+    const prefix = getKeyPrefix();
+    localStorage.setItem(prefix + 'ladder_players', playerJson);
     // Mark all non-empty cells as saved in local mode
     for (const player of players) {
       if (player.gameResults) {
@@ -499,9 +504,9 @@ export async function savePlayers(players: PlayerData[], waitForServer = false, 
     }
     return { success: true, serverSynced: true };
   } else {
-    // Server mode: save to BOTH locations
-    localStorage.setItem('ladder_ladder_players', playerJson);
-    localStorage.setItem('ladder_server_ladder_players', playerJson);
+    // Server mode: save to localStorage with URL-based prefix
+    const prefix = getKeyPrefix();
+    localStorage.setItem(prefix + 'ladder_players', playerJson);
     
     if (waitForServer) {
       // Wait for server confirmation
@@ -674,125 +679,68 @@ export async function submitGameResult(
 
 /**
  * Get ladder settings from localStorage
- * In server mode, prefers ladder_server_* but falls back to ladder_*
  */
 export function getSettings(): any {
-  let data: string | null = null;
-  
-  if (dataService.getMode() !== DataServiceMode.LOCAL) {
-    // Server mode: try server key first, then local
-    data = localStorage.getItem('ladder_server_ladder_settings');
-    if (!data) {
-      data = localStorage.getItem('ladder_ladder_settings');
-    }
-  } else {
-    data = localStorage.getItem('ladder_ladder_settings');
-  }
-  
+  const prefix = getKeyPrefix();
+  const data = localStorage.getItem(prefix + 'ladder_settings');
   return data ? JSON.parse(data) : {};
 }
 
 /**
  * Save ladder settings to localStorage
- * In server mode, saves to BOTH ladder_* and ladder_server_* keys
  */
 export function saveSettings(settings: any): void {
+  const prefix = getKeyPrefix();
   const settingsJson = JSON.stringify(settings);
-  localStorage.setItem('ladder_ladder_settings', settingsJson);
-  
-  // In server mode, also save to server key
-  if (dataService.getMode() !== DataServiceMode.LOCAL) {
-    localStorage.setItem('ladder_server_ladder_settings', settingsJson);
-  }
+  localStorage.setItem(prefix + 'ladder_settings', settingsJson);
 }
 
 /**
  * Get project name
- * In server mode, prefers ladder_server_* but falls back to ladder_*
  */
 export function getProjectName(): string {
-  let data: string | null = null;
-  
-  if (dataService.getMode() !== DataServiceMode.LOCAL) {
-    // Server mode: try server key first, then local
-    data = localStorage.getItem('ladder_server_ladder_project_name');
-    if (!data) {
-      data = localStorage.getItem('ladder_ladder_project_name');
-    }
-  } else {
-    data = localStorage.getItem('ladder_ladder_project_name');
-  }
-  
+  const prefix = getKeyPrefix();
+  const data = localStorage.getItem(prefix + 'ladder_project_name');
   return data || 'Bughouse Chess Ladder';
 }
 
 /**
  * Set project name
- * In server mode, saves to BOTH ladder_* and ladder_server_* keys
  */
 export function setProjectName(name: string): void {
-  localStorage.setItem('ladder_ladder_project_name', name);
-  
-  // In server mode, also save to server key
-  if (dataService.getMode() !== DataServiceMode.LOCAL) {
-    localStorage.setItem('ladder_server_ladder_project_name', name);
-  }
+  const prefix = getKeyPrefix();
+  localStorage.setItem(prefix + 'ladder_project_name', name);
 }
 
 /**
  * Get zoom level
- * In server mode, prefers ladder_server_* but falls back to ladder_*
  */
 export function getZoomLevel(): number {
-  let data: string | null = null;
-  
-  if (dataService.getMode() !== DataServiceMode.LOCAL) {
-    // Server mode: try server key first, then local
-    data = localStorage.getItem('ladder_server_ladder_zoom');
-    if (!data) {
-      data = localStorage.getItem('ladder_ladder_zoom');
-    }
-  } else {
-    data = localStorage.getItem('ladder_ladder_zoom');
-  }
-  
+  const prefix = getKeyPrefix();
+  const data = localStorage.getItem(prefix + 'ladder_zoom');
   return data ? Number(data) : 100;
 }
 
 /**
  * Set zoom level
- * In server mode, saves to BOTH ladder_* and ladder_server_* keys
  */
 export function setZoomLevel(level: number): void {
-  const levelStr = level.toString();
-  localStorage.setItem('ladder_ladder_zoom', levelStr);
-  
-  // In server mode, also save to server key
-  if (dataService.getMode() !== DataServiceMode.LOCAL) {
-    localStorage.setItem('ladder_server_ladder_zoom', levelStr);
-  }
+  const prefix = getKeyPrefix();
+  localStorage.setItem(prefix + 'ladder_zoom', level.toString());
 }
 
 // ==================== UTILITY ====================
 
 /**
- * Clear all ladder data
- * Clears both ladder_* and ladder_server_* keys
+ * Clear all ladder data for the current ladder
  */
 export async function clearAllData(): Promise<void> {
-  // Clear local keys
-  localStorage.removeItem('ladder_ladder_players');
-  localStorage.removeItem('ladder_ladder_settings');
-  localStorage.removeItem('ladder_ladder_project_name');
-  localStorage.removeItem('ladder_ladder_zoom');
+  const prefix = getKeyPrefix();
   
-  // Clear server keys
-  localStorage.removeItem('ladder_server_ladder_players');
-  localStorage.removeItem('ladder_server_ladder_settings');
-  localStorage.removeItem('ladder_server_ladder_project_name');
-  localStorage.removeItem('ladder_server_ladder_zoom');
-  
-  // In server modes, you might want to call an API endpoint here
+  localStorage.removeItem(prefix + 'ladder_players');
+  localStorage.removeItem(prefix + 'ladder_settings');
+  localStorage.removeItem(prefix + 'ladder_project_name');
+  localStorage.removeItem(prefix + 'ladder_zoom');
 }
 
 /**

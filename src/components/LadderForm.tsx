@@ -203,7 +203,7 @@ export default function LadderForm({
   >("100%");
   const [isAdmin, setIsAdmin] = useState(() => {
     try {
-      const saved = localStorage.getItem('ladder_admin_mode');
+      const saved = localStorage.getItem(getKeyPrefix() + 'ladder_admin_mode');
       return saved === 'true';
     } catch {
       return false;
@@ -370,11 +370,10 @@ export default function LadderForm({
       }
       
       // Check for local player data
-      const localData = localStorage.getItem('ladder_ladder_players');
-      const serverLocalData = localStorage.getItem('ladder_server_ladder_players');
+      const prefix = getKeyPrefix();
+      const localData = localStorage.getItem(prefix + 'ladder_players');
       const hasLocalPlayers = !!(localData && JSON.parse(localData).length > 0);
-      const hasServerLocalPlayers = !!(serverLocalData && JSON.parse(serverLocalData).length > 0);
-      setHasLocalPlayerData(hasLocalPlayers || hasServerLocalPlayers);
+      setHasLocalPlayerData(hasLocalPlayers);
     } catch (error) {
       console.error('Failed to load localStorage for splash:', error);
     }
@@ -457,7 +456,7 @@ export default function LadderForm({
 
   // Persist admin mode to localStorage
   useEffect(() => {
-    localStorage.setItem('ladder_admin_mode', JSON.stringify(isAdmin));
+    localStorage.setItem(getKeyPrefix() + 'ladder_admin_mode', JSON.stringify(isAdmin));
   }, [isAdmin]);
 
   // Override dialog: Timer countdown
@@ -579,13 +578,12 @@ export default function LadderForm({
         }
 
         // PRIORITY 2: Fall back to localStorage if no server or server failed
-        const localData = localStorage.getItem('ladder_ladder_players');
-        const serverLocalData = localStorage.getItem('ladder_server_ladder_players');
+        const prefix = getKeyPrefix();
+        const localData = localStorage.getItem(prefix + 'ladder_players');
         
-        console.log('[INIT]', 'localStorage has data:', !!localData, '| server localStorage has data:', !!serverLocalData);
+        console.log('[INIT]', 'localStorage has data:', !!localData);
 
-        // Try server localStorage first (used in server mode), then regular localStorage
-        const playersJson = serverLocalData || localData;
+        const playersJson = localData;
         if (playersJson) {
           try {
             const players: PlayerData[] = JSON.parse(playersJson);
@@ -2076,7 +2074,7 @@ export default function LadderForm({
     let calculatedPlayers = calculateRatings(processedPlayers, pendingMatches).players;
 
     // Check for pending New Day operation
-    const pendingNewDayJson = localStorage.getItem("ladder_pending_newday");
+    const pendingNewDayJson = localStorage.getItem(getKeyPrefix() + "ladder_pending_newday");
     if (pendingNewDayJson) {
       console.log(
         `>>> [COMPLETE CALC] Pending New Day detected: ${pendingNewDayJson}`,
@@ -3089,7 +3087,7 @@ export default function LadderForm({
       // Exiting admin mode - release lock
       releaseAdminLock().catch(err => console.error('[ADMIN_LOCK] Failed to release lock:', err));
       setIsAdmin(false);
-      localStorage.removeItem('ladder_admin_mode');
+      localStorage.removeItem(getKeyPrefix() + 'ladder_admin_mode');
     }
   };
 
