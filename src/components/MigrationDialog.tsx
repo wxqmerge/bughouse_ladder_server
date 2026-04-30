@@ -6,6 +6,7 @@ import {
   MigrationNonResultStrategy,
   MigrationResultsStrategy,
 } from '../utils/migrationUtils';
+import { getJson } from '../services/storageService';
 
 interface MigrationDialogProps {
   isAdmin: boolean;
@@ -24,11 +25,8 @@ export function MigrationDialog({ isAdmin, onClose }: MigrationDialogProps) {
   const [selectedOption, setSelectedOption] = useState<'simple' | 'custom'>('simple');
 
   useEffect(() => {
-    const localData = localStorage.getItem('ladder_ladder_players');
-    const serverData = localStorage.getItem('ladder_server_ladder_players');
-    
-    const local = localData ? JSON.parse(localData) : [];
-    const server = serverData ? JSON.parse(serverData) : [];
+    const local = getJson<PlayerData[]>('ladder_ladder_players') || [];
+    const server = getJson<PlayerData[]>('ladder_server_ladder_players') || [];
     
     setLocalPlayers(local);
     setServerPlayers(server);

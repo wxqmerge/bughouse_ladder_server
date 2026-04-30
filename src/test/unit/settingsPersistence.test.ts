@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { getKeyPrefix } from '../../../src/services/storageService';
+import { getKeyPrefix, derivePrefixFromLocation } from '../../../src/services/storageService';
 
 describe('Settings persistence', () => {
   beforeEach(() => {
@@ -15,75 +15,75 @@ describe('Settings persistence', () => {
     vi.restoreAllMocks();
   });
 
-  describe('getKeyPrefix', () => {
+  describe('derivePrefixFromLocation', () => {
     it('should return a non-empty string', () => {
-      const prefix = getKeyPrefix();
+      const prefix = derivePrefixFromLocation('localhost', '/');
       expect(prefix).toBeDefined();
       expect(typeof prefix).toBe('string');
       expect(prefix.length).toBeGreaterThan(0);
     });
 
-    it('should return the same prefix on repeated calls', () => {
-      const prefix1 = getKeyPrefix();
-      const prefix2 = getKeyPrefix();
-      expect(prefix1).toBe(prefix2);
+    it('should return ladder_localhost_ for localhost', () => {
+      const prefix = derivePrefixFromLocation('localhost', '/');
+      expect(prefix).toBe('ladder_localhost_');
     });
 
-    it('should return ladder_ prefix in local mode (no server)', () => {
-      // No user settings = local mode
-      localStorage.removeItem('bughouse-ladder-user-settings');
-      const prefix = getKeyPrefix();
-      expect(prefix).toBe('ladder_');
-    });
-
-    it('should derive prefix from server URL', () => {
-      localStorage.setItem('bughouse-ladder-user-settings', JSON.stringify({
-        server: 'http://test.com:3000',
-        apiKey: '',
-        debugMode: false,
-      }));
-      const prefix = getKeyPrefix();
+    it('should derive prefix from hostname', () => {
+      const prefix = derivePrefixFromLocation('test.com', '/');
       expect(prefix).toBe('ladder_test_com_');
     });
 
-    it('should produce different prefixes for different servers', () => {
-      localStorage.setItem('bughouse-ladder-user-settings', JSON.stringify({
-        server: 'http://production.com:3000',
-        apiKey: '',
-        debugMode: false,
-      }));
-      const prefix1 = getKeyPrefix();
-      
-      localStorage.setItem('bughouse-ladder-user-settings', JSON.stringify({
-        server: 'http://staging.com:3001',
-        apiKey: '',
-        debugMode: false,
-      }));
-      const prefix2 = getKeyPrefix();
+    it('should produce different prefixes for different hostnames', () => {
+      const prefix1 = derivePrefixFromLocation('production.com', '/');
+      const prefix2 = derivePrefixFromLocation('staging.com', '/');
       
       expect(prefix1).not.toBe(prefix2);
       expect(prefix1).toMatch(/^ladder_production_com_/);
       expect(prefix2).toMatch(/^ladder_staging_com_/);
     });
 
-    it('should strip protocol and port from server URL', () => {
-      localStorage.setItem('bughouse-ladder-user-settings', JSON.stringify({
-        server: 'https://omen.com:3000',
-        apiKey: '',
-        debugMode: false,
-      }));
-      const prefix = getKeyPrefix();
-      expect(prefix).toBe('ladder_omen_com_');
+    it('should include pathname in prefix', () => {
+      const prefix = derivePrefixFromLocation('bughouse-ladder.com', '/omen');
+      expect(prefix).toBe('ladder_bughouse_ladder_com_omen_');
+    });
+
+    it('should produce different prefixes for same host different paths', () => {
+      const prefixA = derivePrefixFromLocation('bughouse-ladder.com', '/omen');
+      const prefixB = derivePrefixFromLocation('bughouse-ladder.com', '/staging');
+      
+      expect(prefixA).not.toBe(prefixB);
+      expect(prefixA).toBe('ladder_bughouse_ladder_com_omen_');
+      expect(prefixB).toBe('ladder_bughouse_ladder_com_staging_');
     });
 
     it('should handle subdomains', () => {
-      localStorage.setItem('bughouse-ladder-user-settings', JSON.stringify({
-        server: 'https://staging.omen.com:3001',
-        apiKey: '',
-        debugMode: false,
-      }));
-      const prefix = getKeyPrefix();
+      const prefix = derivePrefixFromLocation('staging.omen.com', '/');
       expect(prefix).toBe('ladder_staging_omen_com_');
+    });
+
+    it('should handle ports in hostname', () => {
+      const prefix = derivePrefixFromLocation('localhost:3000', '/');
+      expect(prefix).toBe('ladder_localhost_3000_');
+    });
+
+    it('should strip special chars from pathname', () => {
+      const prefix = derivePrefixFromLocation('test.com', '/my-ladder/v2');
+      expect(prefix).toBe('ladder_test_com_my_ladder_v2_');
+    });
+  });
+
+  describe('getKeyPrefix', () => {
+    it('should return the same prefix on repeated calls', () => {
+      const prefix1 = getKeyPrefix();
+      const prefix2 = getKeyPrefix();
+      expect(prefix1).toBe(prefix2);
+    });
+
+    it('should return a non-empty string', () => {
+      const prefix = getKeyPrefix();
+      expect(prefix).toBeDefined();
+      expect(typeof prefix).toBe('string');
+      expect(prefix.length).toBeGreaterThan(0);
     });
   });
 
@@ -131,11 +131,12 @@ describe('Settings persistence', () => {
   });
 
   describe('user settings key', () => {
-    it('should use consistent user settings key', () => {
-      const userSettingsKey = 'bughouse-ladder-user-settings';
+    it('should use per-ladder user settings key', () => {
+      const prefix = derivePrefixFromLocation('bughouse-ladder.com', '/omen');
+      const userSettingsKey = prefix + 'ladder_user_settings';
       
       const settings = {
-        server: 'http://test.com:3000',
+        server: 'http://omen.com:3000',
         apiKey: 'test-key',
         debugMode: true,
       };
@@ -148,7 +149,8 @@ describe('Settings persistence', () => {
     });
 
     it('should persist across simulated sessions', () => {
-      const userSettingsKey = 'bughouse-ladder-user-settings';
+      const prefix = derivePrefixFromLocation('bughouse-ladder.com', '/omen');
+      const userSettingsKey = prefix + 'ladder_user_settings';
       
       // Save
       const settings = { server: 'http://omen.com:3000', apiKey: '', debugMode: false };
@@ -187,23 +189,11 @@ describe('Settings persistence', () => {
     });
 
     it('should isolate different ladders from each other', () => {
-      // Set up ladder A
-      localStorage.setItem('bughouse-ladder-user-settings', JSON.stringify({
-        server: 'http://ladder-a.com:3000',
-        apiKey: '',
-        debugMode: false,
-      }));
-      const prefixA = getKeyPrefix();
+      const prefixA = derivePrefixFromLocation('bughouse-ladder.com', '/omen');
       localStorage.setItem(prefixA + 'ladder_settings', 'ladder-a-data');
       localStorage.setItem(prefixA + 'ladder_admin_mode', 'true');
       
-      // Switch to ladder B
-      localStorage.setItem('bughouse-ladder-user-settings', JSON.stringify({
-        server: 'http://ladder-b.com:3001',
-        apiKey: '',
-        debugMode: false,
-      }));
-      const prefixB = getKeyPrefix();
+      const prefixB = derivePrefixFromLocation('bughouse-ladder.com', '/staging');
       localStorage.setItem(prefixB + 'ladder_settings', 'ladder-b-data');
       localStorage.setItem(prefixB + 'ladder_admin_mode', 'false');
       

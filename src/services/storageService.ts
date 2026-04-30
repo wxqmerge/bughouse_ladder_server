@@ -14,21 +14,147 @@ import { dataService, DataServiceMode } from './dataService';
 import { loadUserSettings, normalizeServerUrl } from './userSettingsStorage';
 
 /**
- * Get the storage key prefix based on server URL
- * Local mode uses 'ladder_' prefix
- * Each unique server URL gets its own isolated namespace (e.g., ladder_omen_com_)
+ * Derive the ladder prefix from hostname and pathname
+ * Pure function — accepts strings so it can be tested independently
+ */
+export function derivePrefixFromLocation(hostname: string, pathname: string): string {
+  const host = hostname.replace(/[.\-:]/g, '_');
+  const path = pathname
+    .replace(/[^a-zA-Z0-9]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '');
+  const combined = host + (path ? '_' + path : '');
+  return 'ladder_' + combined + '_';
+}
+
+/**
+ * Get the storage key prefix based on window location
+ * Uses hostname + pathname to create a unique per-ladder namespace
+ * e.g., bughouse-ladder.com/omen → ladder_bughouse_ladder_com_omen_
  * This ensures different ladders are fully independent in the same browser
  */
 export function getKeyPrefix(): string {
-  const userSettings = loadUserSettings();
-  const server = userSettings.server?.trim() || '';
-  if (!server) return 'ladder_';
-  
-  const host = server.replace(/^https?:\/\//, '').replace(/:\d+$/, '').replace(/[.\-:]/g, '_');
-  return 'ladder_' + host + '_';
+  return derivePrefixFromLocation(window.location.hostname, window.location.pathname);
+}
+
+/**
+ * Synchronously get players from localStorage (bypasses dataService)
+ * Used for splash screen and initialization checks
+ */
+export function getLocalPlayers(): PlayerData[] {
+  const data = getJson<PlayerData[]>('ladder_players');
+  return Array.isArray(data) ? data : [];
+}
+
+/**
+ * Remove all keys with the given prefix
+ * Used for cleanup operations (e.g., during file import)
+ */
+export function removeAllKeysWithPrefix(prefix: string): void {
+  const keysToRemove: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith(prefix)) {
+      keysToRemove.push(key);
+    }
+  }
+  keysToRemove.forEach(key => localStorage.removeItem(key));
+}
+
+// ==================== GENERIC JSON STORAGE WRAPPER ====================
+
+/**
+ * Generic JSON storage key builder
+ * Combines the URL-derived prefix with a key name
+ */
+function buildKey(keyName: string): string {
+  return getKeyPrefix() + keyName;
+}
+
+/**
+ * Read a JSON value from localStorage by key name
+ * Returns null if key doesn't exist or parsing fails
+ */
+export function getJson<T = any>(keyName: string): T | null {
+  try {
+    const data = localStorage.getItem(buildKey(keyName));
+    return data ? JSON.parse(data) : null;
+  } catch (error) {
+    log('[STORAGE]', `Failed to parse JSON for key "${keyName}":`, error);
+    return null;
+  }
+}
+
+/**
+ * Write a JSON value to localStorage by key name
+ * Automatically stringifies the value
+ */
+export function setJson(keyName: string, value: any): void {
+  try {
+    localStorage.setItem(buildKey(keyName), JSON.stringify(value));
+  } catch (error) {
+    log('[STORAGE]', `Failed to save JSON for key "${keyName}":`, error);
+  }
+}
+
+/**
+ * Delete a key from localStorage by key name
+ */
+export function removeJson(keyName: string): void {
+  localStorage.removeItem(buildKey(keyName));
+}
+
+/**
+ * Read a JSON array from localStorage by key name
+ * Returns empty array if key doesn't exist or parsing fails
+ */
+export function getJsonArray<T = any>(keyName: string): T[] {
+  const data = getJson<T[]>(keyName);
+  return Array.isArray(data) ? data : [];
+}
+
+// ==================== META-STATE STORAGE ====================
+
+/**
+ * Admin mode is stored per-ladder
+ */
+export function isAdminMode(): boolean {
+  const saved = getJson<boolean>('ladder_admin_mode');
+  return saved === true;
+}
+
+export function setAdminMode(isAdmin: boolean): void {
+  setJson('ladder_admin_mode', isAdmin);
+}
+
+export function clearAdminMode(): void {
+  removeJson('ladder_admin_mode');
+}
+
+/**
+ * Pending New Day state is stored per-ladder
+ */
+export function getPendingNewDay(): any {
+  return getJson('ladder_pending_newday');
+}
+
+export function setPendingNewDay(data: any): void {
+  setJson('ladder_pending_newday', data);
+}
+
+export function clearPendingNewDay(): void {
+  removeJson('ladder_pending_newday');
+}
+
+/**
+ * Clear specific settings key
+ */
+export function clearSettings(): void {
+  removeJson('ladder_settings');
 }
 
 // ==================== SAVE STATUS TRACKING ====================
+
 
 /**
  * Tracks save status per cell: "playerRank:round" -> boolean (true = saved)
@@ -150,15 +276,10 @@ function getServerDownMode(): boolean {
  * Load pending sync queue from localStorage on init
  */
 function loadPendingSyncQueue(): void {
-  try {
-    const stored = localStorage.getItem(getKeyPrefix() + 'ladder_pending_sync');
-    if (stored) {
-      pendingSyncQueue = JSON.parse(stored);
-      log('[STORAGE]', 'Loaded ' + pendingSyncQueue.length + ' pending sync entries');
-    }
-  } catch (err) {
-    log('[STORAGE]', 'Failed to load pending sync queue:', err);
-    pendingSyncQueue = [];
+  const stored = getJsonArray<PendingSyncEntry>('ladder_pending_sync');
+  if (stored.length > 0) {
+    pendingSyncQueue = stored;
+    log('[STORAGE]', 'Loaded ' + pendingSyncQueue.length + ' pending sync entries');
   }
 }
 
@@ -169,11 +290,7 @@ loadPendingSyncQueue();
  * Save pending sync queue to localStorage
  */
 function savePendingSyncQueue(): void {
-  try {
-    localStorage.setItem(getKeyPrefix() + 'ladder_pending_sync', JSON.stringify(pendingSyncQueue));
-  } catch (err) {
-    log('[STORAGE]', 'Failed to save pending sync queue:', err);
-  }
+  setJson('ladder_pending_sync', pendingSyncQueue);
 }
 
 /**
@@ -248,11 +365,9 @@ export function queueDelete(playerRank: number, round: number): void {
   const key = `${playerRank}:${round}`;
   
   // Add to pending queue
-  let deletes = new Set(
-    JSON.parse(localStorage.getItem(getKeyPrefix() + 'ladder_pending_deletes') || '[]')
-  );
+  let deletes = new Set(getJsonArray<string>('ladder_pending_deletes'));
   deletes.add(key);
-  localStorage.setItem(getKeyPrefix() + 'ladder_pending_deletes', JSON.stringify([...deletes]));
+  setJson('ladder_pending_deletes', [...deletes]);
   
   // Try immediate DELETE (non-blocking)
   (async () => {
@@ -265,7 +380,7 @@ export function queueDelete(playerRank: number, round: number): void {
         });
         // Remove from queue on success
         deletes.delete(key);
-        localStorage.setItem(getKeyPrefix() + 'ladder_pending_deletes', JSON.stringify([...deletes]));
+        setJson('ladder_pending_deletes', [...deletes]);
       }
     } catch (err) {
       log('[STORAGE]', 'Delete queued for retry:', key);
@@ -277,16 +392,14 @@ export function queueDelete(playerRank: number, round: number): void {
  * Get all pending deletes from queue
  */
 export function getPendingDeletes(): Set<string> {
-  return new Set(
-    JSON.parse(localStorage.getItem(getKeyPrefix() + 'ladder_pending_deletes') || '[]')
-  );
+  return new Set(getJsonArray<string>('ladder_pending_deletes'));
 }
 
 /**
  * Clear pending delete queue (call after successful save)
  */
 export function clearPendingDeletes(): void {
-  localStorage.removeItem(getKeyPrefix() + 'ladder_pending_deletes');
+  removeJson('ladder_pending_deletes');
 }
 
 /**
@@ -345,9 +458,7 @@ let batchBuffer: PlayerData[] | null = null;
 export function startBatch(): void {
   if (batchOperationCount === 0) {
     // First level of nesting - load current data into buffer
-    const prefix = getKeyPrefix();
-    const localData = localStorage.getItem(prefix + 'ladder_players');
-    batchBuffer = localData ? JSON.parse(localData) : [];
+    batchBuffer = getJsonArray<PlayerData>('ladder_players');
   }
   batchOperationCount++;
 }
@@ -389,9 +500,7 @@ function getCurrentPlayers(): PlayerData[] {
   if (batchBuffer !== null) {
     return batchBuffer;
   }
-  const prefix = getKeyPrefix();
-  const localData = localStorage.getItem(prefix + 'ladder_players');
-  return localData ? JSON.parse(localData) : [];
+  return getJsonArray<PlayerData>('ladder_players');
 }
 
 /**
@@ -400,11 +509,8 @@ function getCurrentPlayers(): PlayerData[] {
 async function commitBatchBuffer(): Promise<void> {
   if (!batchBuffer) return;
   
-  const playerJson = JSON.stringify(batchBuffer);
-  
   // Write to localStorage
-  const prefix = getKeyPrefix();
-  localStorage.setItem(prefix + 'ladder_players', playerJson);
+  setJson('ladder_players', batchBuffer);
   
   // Sync to server (fire-and-forget)
   if (dataService.getMode() !== DataServiceMode.LOCAL) {
@@ -436,9 +542,7 @@ export async function getPlayers(): Promise<PlayerData[]> {
   if (dataService.getMode() === DataServiceMode.LOCAL) {
     // Local mode: use localStorage directly
     (window as any).__ladder_setStatus?.('Reading localStorage...');
-    const prefix = getKeyPrefix();
-    const data = localStorage.getItem(prefix + 'ladder_players');
-    const players = data ? JSON.parse(data) : [];
+    const players = getJsonArray<PlayerData>('ladder_players');
     (window as any).__ladder_setStatus?.(null);
     return players;
   } else {
@@ -452,9 +556,7 @@ export async function getPlayers(): Promise<PlayerData[]> {
       log('[STORAGE]', 'Failed to fetch players:', error);
       (window as any).__ladder_setStatus?.('Using cached data...');
       // Fallback to localStorage
-      const prefix = getKeyPrefix();
-      const data = localStorage.getItem(prefix + 'ladder_players');
-      const players = data ? JSON.parse(data) : [];
+      const players = getJsonArray<PlayerData>('ladder_players');
       (window as any).__ladder_setStatus?.(null);
       return players;
     }
@@ -489,8 +591,7 @@ export async function savePlayers(players: PlayerData[], waitForServer = false, 
   
   if (mode === DataServiceMode.LOCAL && !serverUrl) {
     // Local mode with no server: use localStorage directly - mark all cells as saved
-    const prefix = getKeyPrefix();
-    localStorage.setItem(prefix + 'ladder_players', playerJson);
+    setJson('ladder_players', players);
     // Mark all non-empty cells as saved in local mode
     for (const player of players) {
       if (player.gameResults) {
@@ -505,8 +606,7 @@ export async function savePlayers(players: PlayerData[], waitForServer = false, 
     return { success: true, serverSynced: true };
   } else {
     // Server mode: save to localStorage with URL-based prefix
-    const prefix = getKeyPrefix();
-    localStorage.setItem(prefix + 'ladder_players', playerJson);
+    setJson('ladder_players', players);
     
     if (waitForServer) {
       // Wait for server confirmation
@@ -681,26 +781,22 @@ export async function submitGameResult(
  * Get ladder settings from localStorage
  */
 export function getSettings(): any {
-  const prefix = getKeyPrefix();
-  const data = localStorage.getItem(prefix + 'ladder_settings');
-  return data ? JSON.parse(data) : {};
+  const data = getJson('ladder_settings');
+  return data || {};
 }
 
 /**
  * Save ladder settings to localStorage
  */
 export function saveSettings(settings: any): void {
-  const prefix = getKeyPrefix();
-  const settingsJson = JSON.stringify(settings);
-  localStorage.setItem(prefix + 'ladder_settings', settingsJson);
+  setJson('ladder_settings', settings);
 }
 
 /**
  * Get project name
  */
 export function getProjectName(): string {
-  const prefix = getKeyPrefix();
-  const data = localStorage.getItem(prefix + 'ladder_project_name');
+  const data = getJson<string>('ladder_project_name');
   return data || 'Bughouse Chess Ladder';
 }
 
@@ -708,25 +804,22 @@ export function getProjectName(): string {
  * Set project name
  */
 export function setProjectName(name: string): void {
-  const prefix = getKeyPrefix();
-  localStorage.setItem(prefix + 'ladder_project_name', name);
+  setJson('ladder_project_name', name);
 }
 
 /**
  * Get zoom level
  */
 export function getZoomLevel(): number {
-  const prefix = getKeyPrefix();
-  const data = localStorage.getItem(prefix + 'ladder_zoom');
-  return data ? Number(data) : 100;
+  const data = getJson<number>('ladder_zoom');
+  return data ?? 100;
 }
 
 /**
  * Set zoom level
  */
 export function setZoomLevel(level: number): void {
-  const prefix = getKeyPrefix();
-  localStorage.setItem(prefix + 'ladder_zoom', level.toString());
+  setJson('ladder_zoom', level);
 }
 
 // ==================== UTILITY ====================
@@ -735,12 +828,10 @@ export function setZoomLevel(level: number): void {
  * Clear all ladder data for the current ladder
  */
 export async function clearAllData(): Promise<void> {
-  const prefix = getKeyPrefix();
-  
-  localStorage.removeItem(prefix + 'ladder_players');
-  localStorage.removeItem(prefix + 'ladder_settings');
-  localStorage.removeItem(prefix + 'ladder_project_name');
-  localStorage.removeItem(prefix + 'ladder_zoom');
+  removeJson('ladder_players');
+  removeJson('ladder_settings');
+  removeJson('ladder_project_name');
+  removeJson('ladder_zoom');
 }
 
 /**
@@ -812,9 +903,7 @@ function getClientName(clientId: string): string {
  */
 export function getServerUrl(): string | null {
   try {
-    const userSettingsJson = localStorage.getItem('bughouse-ladder-user-settings');
-    if (!userSettingsJson) return null;
-    const userSettings = JSON.parse(userSettingsJson);
+    const userSettings = loadUserSettings();
     const serverUrl = normalizeServerUrl(userSettings.server || '');
     return serverUrl || null;
   } catch (error) {
@@ -1009,12 +1098,7 @@ function notifyServerOfLockAction(action: 'acquire' | 'release' | 'force', clien
   console.log(`[ADMIN_LOCK_NOTIFY] >>> CALLED with action=${action}, clientId=${clientId}, clientName=${clientName}`);
   // Fetch server URL from user settings
   try {
-    const userSettingsJson = localStorage.getItem('bughouse-ladder-user-settings');
-    if (!userSettingsJson) {
-      console.log('[ADMIN_LOCK_NOTIFY] No user settings found');
-      return;
-    }
-    const userSettings = JSON.parse(userSettingsJson);
+    const userSettings = loadUserSettings();
     const serverUrl = normalizeServerUrl(userSettings.server || '');
     if (!serverUrl) {
       console.log('[ADMIN_LOCK_NOTIFY] No server URL configured (local mode?)');

@@ -4,10 +4,9 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { loadUserSettings, saveUserSettings } from '../../../src/services/userSettingsStorage';
+import { derivePrefixFromLocation } from '../../../src/services/storageService';
 
 describe('saveUserSettings', () => {
-  const USER_SETTINGS_KEY = 'bughouse-ladder-user-settings';
-
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
@@ -114,7 +113,8 @@ describe('saveUserSettings', () => {
 
     it('should default debugMode to false when not set', () => {
       // Simulate old localStorage without debugMode field
-      localStorage.setItem(USER_SETTINGS_KEY, JSON.stringify({
+      const key = derivePrefixFromLocation('localhost', '/') + 'ladder_user_settings';
+      localStorage.setItem(key, JSON.stringify({
         server: 'http://omen.com:3000',
         apiKey: 'test',
       }));
@@ -196,7 +196,8 @@ describe('saveUserSettings', () => {
 
     it('should handle missing fields gracefully', () => {
       // Old data without all fields — loadUserSettings returns raw stored values
-      localStorage.setItem(USER_SETTINGS_KEY, JSON.stringify({
+      const key = derivePrefixFromLocation('localhost', '/') + 'ladder_user_settings';
+      localStorage.setItem(key, JSON.stringify({
         server: 'http://omen.com:3000',
       }));
 
@@ -208,14 +209,15 @@ describe('saveUserSettings', () => {
   });
 
   describe('localStorage key', () => {
-    it('should use the correct key name', () => {
+    it('should use the correct per-ladder key', () => {
       saveUserSettings({
         server: 'omen.com:3000',
         apiKey: '',
         debugMode: false,
       });
 
-      expect(localStorage.getItem(USER_SETTINGS_KEY)).not.toBeNull();
+      const key = derivePrefixFromLocation('localhost', '/') + 'ladder_user_settings';
+      expect(localStorage.getItem(key)).not.toBeNull();
     });
 
     it('should store valid JSON', () => {
@@ -225,8 +227,37 @@ describe('saveUserSettings', () => {
         debugMode: true,
       });
 
-      const stored = localStorage.getItem(USER_SETTINGS_KEY);
+      const key = derivePrefixFromLocation('localhost', '/') + 'ladder_user_settings';
+      const stored = localStorage.getItem(key);
       expect(() => JSON.parse(stored!)).not.toThrow();
+    });
+
+    it('should use different keys for different ladders', () => {
+      const omenKey = derivePrefixFromLocation('bughouse-ladder.com', '/omen') + 'ladder_user_settings';
+      const stagingKey = derivePrefixFromLocation('bughouse-ladder.com', '/staging') + 'ladder_user_settings';
+
+      // Simulate two different ladders by writing to their respective keys
+      localStorage.setItem(omenKey, JSON.stringify({
+        server: 'http://omen.com:3000',
+        apiKey: 'omen-key',
+        debugMode: true,
+      }));
+
+      localStorage.setItem(stagingKey, JSON.stringify({
+        server: 'http://staging.com:3001',
+        apiKey: 'staging-key',
+        debugMode: false,
+      }));
+
+      // When we load, we get the current location's key (localhost)
+      // But we can verify both keys exist with correct data
+      const omenSettings = JSON.parse(localStorage.getItem(omenKey)!);
+      const stagingSettings = JSON.parse(localStorage.getItem(stagingKey)!);
+
+      expect(omenSettings.server).toBe('http://omen.com:3000');
+      expect(omenSettings.apiKey).toBe('omen-key');
+      expect(stagingSettings.server).toBe('http://staging.com:3001');
+      expect(stagingSettings.apiKey).toBe('staging-key');
     });
   });
 });

@@ -29,6 +29,8 @@ import {
   getHasLocalChanges,
   clearLocalChangesFlag,
   replayPendingDeletes,
+  clearSettings,
+  setPendingNewDay,
 } from "./services/storageService";
 import { dataService } from "./services/dataService";
 import "./css/index.css";
@@ -206,7 +208,7 @@ function App() {
 
   const handleClearAll = async () => {
     await savePlayers([]);
-    localStorage.removeItem(getKeyPrefix() + "ladder_settings");
+    clearSettings();
     window.location.reload();
   };
 
@@ -219,10 +221,10 @@ function App() {
 
         const finalPlayers = processNewDayTransformations(players, reRank);
 
-        await savePlayers(finalPlayers);
-        setProjectNameStorage(nextTitle);
-        localStorage.removeItem(getKeyPrefix() + "ladder_settings");
-        window.location.reload();
+      await savePlayers(finalPlayers);
+      setProjectNameStorage(nextTitle);
+      clearSettings();
+      window.location.reload();
       }
     } catch (err) {
       console.error("Failed to process new day:", err);
@@ -234,10 +236,7 @@ function App() {
     // First, trigger recalculate ratings to check for errors
     if (recalculateRef.current) {
       // Set a flag indicating New Day is pending
-      localStorage.setItem(
-        getKeyPrefix() + "ladder_pending_newday",
-        JSON.stringify({ reRank }),
-      );
+      setPendingNewDay({ reRank });
       console.log(
         `>>> [NEW DAY] Pending flag set: ${JSON.stringify({ reRank })}`,
       );

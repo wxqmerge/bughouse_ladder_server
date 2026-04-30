@@ -23,7 +23,37 @@ import { getVersionString, isLocalMode, isServerDownMode, getProgramMode, testSe
 import { log } from "../utils/log";
 import { mergeServerWithLocal as _mergeServerWithLocal } from "../utils/mergeUtils";
 import { loadUserSettings, saveUserSettings, saveLastWorkingConfig, normalizeServerUrl } from "../services/userSettingsStorage";
-import { getKeyPrefix, startBatch, endBatch, saveToServer, clearAllSaveStatus, isCellSaved, markCellAsSaved, markLocalChanges, getHasLocalChanges, clearLocalChangesFlag, getPendingDeletes, clearPendingDeletes, queueDelete, isAdminLocked, tryAcquireAdminLock, forceAcquireAdminLock, releaseAdminLock, getAdminLockInfo, getClientId, getServerUrl } from "../services/storageService";
+import { 
+  getKeyPrefix, 
+  startBatch, 
+  endBatch, 
+  saveToServer, 
+  clearAllSaveStatus, 
+  isCellSaved, 
+  markCellAsSaved, 
+  markLocalChanges, 
+  getHasLocalChanges, 
+  clearLocalChangesFlag, 
+  getPendingDeletes, 
+  clearPendingDeletes, 
+  queueDelete, 
+  isAdminLocked, 
+  tryAcquireAdminLock, 
+  forceAcquireAdminLock, 
+  releaseAdminLock, 
+  getAdminLockInfo, 
+  getClientId, 
+  getServerUrl,
+  isAdminMode,
+  setAdminMode,
+  clearAdminMode,
+  getPendingNewDay,
+  setPendingNewDay,
+  clearPendingNewDay,
+  clearSettings,
+  getLocalPlayers,
+  removeAllKeysWithPrefix
+} from "../services/storageService";
 import {
   getPlayers,
   savePlayers,
@@ -201,14 +231,13 @@ export default function LadderForm({
   const [zoomLevel, setZoomLevel] = useState<
     "50%" | "70%" | "100%" | "140%" | "200%"
   >("100%");
-  const [isAdmin, setIsAdmin] = useState(() => {
-    try {
-      const saved = localStorage.getItem(getKeyPrefix() + 'ladder_admin_mode');
-      return saved === 'true';
-    } catch {
-      return false;
-    }
-  });
+    const [isAdmin, setIsAdmin] = useState(() => {
+      try {
+        return isAdminMode();
+      } catch {
+        return false;
+      }
+    });
   const [showOverrideDialog, setShowOverrideDialog] = useState(false);
   const [overrideLockHolder, setOverrideLockHolder] = useState<string | null>(null);
   const [overrideTimeout, setOverrideTimeout] = useState<number>(0);
@@ -361,19 +390,16 @@ export default function LadderForm({
       }
       
       // Check for user settings
-      const userSettingsJson = localStorage.getItem('bughouse-ladder-user-settings');
-      if (userSettingsJson) {
-        const userSettings = JSON.parse(userSettingsJson);
+      const userSettings = loadUserSettings();
+      if (userSettings.server && userSettings.server.trim()) {
         setSplashServerUrl(normalizeServerUrl(userSettings.server) || '');
         setSplashApiKey(userSettings.apiKey || '');
         setHadExistingUserSettings(true);
       }
       
       // Check for local player data
-      const prefix = getKeyPrefix();
-      const localData = localStorage.getItem(prefix + 'ladder_players');
-      const hasLocalPlayers = !!(localData && JSON.parse(localData).length > 0);
-      setHasLocalPlayerData(hasLocalPlayers);
+      const localPlayers = getLocalPlayers();
+      setHasLocalPlayerData(localPlayers.length > 0);
     } catch (error) {
       console.error('Failed to load localStorage for splash:', error);
     }
@@ -455,9 +481,9 @@ export default function LadderForm({
   }, [isAdmin, onAdminChange]);
 
   // Persist admin mode to localStorage
-  useEffect(() => {
-    localStorage.setItem(getKeyPrefix() + 'ladder_admin_mode', JSON.stringify(isAdmin));
-  }, [isAdmin]);
+    useEffect(() => {
+      setAdminMode(isAdmin);
+    }, [isAdmin]);
 
   // Override dialog: Timer countdown
   useEffect(() => {
@@ -477,16 +503,12 @@ export default function LadderForm({
   }, [showOverrideDialog, overrideTimeout]);
 
   // VB6 Line: 894 - Initialize with storage data or sample data
-  useEffect(() => {
-    const initializeData = async () => {
-      try {
-        // Get server configuration
-        const userSettingsJson = localStorage.getItem('bughouse-ladder-user-settings');
-        let serverUrl = '';
-        if (userSettingsJson) {
-          const userSettings = JSON.parse(userSettingsJson);
-          serverUrl = userSettings.server?.trim() || '';
-        }
+    useEffect(() => {
+      const initializeData = async () => {
+        try {
+          // Get server configuration
+          const userSettings = loadUserSettings();
+          let serverUrl = userSettings.server?.trim() || '';
 
         console.log('[INIT]', 'Server URL:', serverUrl || '(none)');
 
@@ -507,9 +529,8 @@ export default function LadderForm({
           setZoomLevel(zoomPercent);
         }
 
-        // Load debug mode from user settings
-        const userSettings = loadUserSettings();
-        setDebugMode(userSettings.debugMode || false);
+         // Load debug mode from user settings
+         setDebugMode(userSettings.debugMode || false);
 
         // PRIORITY 1: If server is configured, ALWAYS fetch from server first
         if (serverUrl) {
@@ -578,31 +599,26 @@ export default function LadderForm({
         }
 
         // PRIORITY 2: Fall back to localStorage if no server or server failed
-        const prefix = getKeyPrefix();
-        const localData = localStorage.getItem(prefix + 'ladder_players');
+        const localPlayers = getLocalPlayers();
         
-        console.log('[INIT]', 'localStorage has data:', !!localData);
+        console.log('[INIT]', 'localStorage has data:', localPlayers.length > 0);
 
-        const playersJson = localData;
-        if (playersJson) {
+        if (localPlayers.length > 0) {
           try {
-            const players: PlayerData[] = JSON.parse(playersJson);
-            console.log('[INIT]', 'Parsed', players.length, 'players from localStorage');
+            console.log('[INIT]', 'Parsed', localPlayers.length, 'players from localStorage');
             
-            if (players.length > 0) {
-              const playersWithResults = players.map((player) => ({
-                ...player,
-                gameResults: player.gameResults || new Array(31).fill(null),
-              }));
-              setPlayers(playersWithResults);
-              setSortBy(null);
-              if (shouldLog(10)) {
-                console.log(
-                  `[LadderForm] Loaded ${playersWithResults.length} players from localStorage`,
-                );
-              }
-              return;
+            const playersWithResults = localPlayers.map((player) => ({
+              ...player,
+              gameResults: player.gameResults || new Array(31).fill(null),
+            }));
+            setPlayers(playersWithResults);
+            setSortBy(null);
+            if (shouldLog(10)) {
+              console.log(
+                `[LadderForm] Loaded ${playersWithResults.length} players from localStorage`,
+              );
             }
+            return;
           } catch (parseErr) {
             console.error('[INIT]', 'Failed to parse localStorage:', parseErr);
           }
@@ -643,15 +659,12 @@ export default function LadderForm({
       `>>> [LOAD FILE] Setting title from filename: "${projectName}"`,
     );
     setProjectName(projectName);
-    localStorage.setItem(
-      getKeyPrefix() + "ladder_project_name",
-      projectName,
-    );
+    setProjectNameStorage(projectName);
     setLastFile(fileToLoad);
     setSortBy(null);
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       const text = e.target?.result as string;
       const lines = text.split("\n");
       let loadedPlayers: PlayerData[] = [];
@@ -732,16 +745,7 @@ export default function LadderForm({
 
       if (loadedPlayers.length > 0) {
         const numRounds = 31;
-        const keysToRemove = [
-          getKeyPrefix() + "ladder_players",
-          getKeyPrefix() + "ladder_project_name",
-          getKeyPrefix() + "ladder_settings",
-          getKeyPrefix() + "ladder_saved_cells",
-          getKeyPrefix() + "ladder_zoom_level",
-          "ladder_ladder_players",
-          "ladder_server_ladder_players",
-        ];
-        keysToRemove.forEach((k) => localStorage.removeItem(k));
+        removeAllKeysWithPrefix(getKeyPrefix());
 
         if (sortBy === "rank") {
           loadedPlayers.sort((a, b) => a.rank - b.rank);
@@ -785,10 +789,7 @@ export default function LadderForm({
       );
       const totalGamesPlayed = Math.floor(totalRoundsFilled / 2);
 
-      localStorage.setItem(
-          getKeyPrefix() + "ladder_players",
-          JSON.stringify(loadedPlayers),
-        );
+      await savePlayers(loadedPlayers);
 
         if (isAdmin) {
           log('[LOAD_FILE]', 'Admin mode - showing import confirmation');
@@ -1300,7 +1301,7 @@ export default function LadderForm({
 
       // Fix rank warnings (missing/duplicate ranks) before New Day + ReRank
       if (result.rankWarnings && result.rankWarnings.length > 0) {
-        const pendingNewDayJson = localStorage.getItem(getKeyPrefix() + "ladder_pending_newday");
+        const pendingNewDayJson = getPendingNewDay();
         if (pendingNewDayJson) {
           try {
             const pendingNewDay = JSON.parse(pendingNewDayJson);
@@ -1357,15 +1358,13 @@ export default function LadderForm({
       console.log('[RECALC] Ratings calculated.');
 
       // Check for pending New Day operation (set by App.tsx before calling recalculate)
-      const pendingNewDayJson = localStorage.getItem(
-        getKeyPrefix() + "ladder_pending_newday",
-      );
-      if (pendingNewDayJson) {
+      const pendingNewDayData = getPendingNewDay();
+      if (pendingNewDayData) {
         console.log(
-          `>>> [RECALC COMPLETE] Pending New Day detected: ${pendingNewDayJson}`,
+          `>>> [RECALC COMPLETE] Pending New Day detected: ${JSON.stringify(pendingNewDayData)}`,
         );
         try {
-          const pendingNewDay = JSON.parse(pendingNewDayJson);
+          const pendingNewDay = pendingNewDayData;
           const reRank = pendingNewDay.reRank === true;
           console.log(`>>> [NEW DAY] Processing with reRank=${reRank}`);
 
@@ -1399,8 +1398,8 @@ export default function LadderForm({
 
            await savePlayers(finalPlayers);
           setProjectNameStorage(nextTitle);
-          localStorage.removeItem(getKeyPrefix() + "ladder_pending_newday");
-          localStorage.removeItem(getKeyPrefix() + "ladder_settings");
+          clearPendingNewDay();
+          clearSettings();
 
           if (shouldLog(10)) {
             console.log(
@@ -1418,7 +1417,7 @@ export default function LadderForm({
           return;
         } catch (err) {
           console.error("Failed to process pending New Day:", err);
-          localStorage.removeItem(getKeyPrefix() + "ladder_pending_newday");
+          clearPendingNewDay();
         }
       }
 
@@ -1457,16 +1456,14 @@ export default function LadderForm({
    const recalculateAndSave = async () => {
      log('[RECALC]', 'Starting recalculate_and_save');
 
-     // Check for pending New Day operation (set by App.tsx before calling recalculate)
-     const pendingNewDayJson = localStorage.getItem(
-       getKeyPrefix() + "ladder_pending_newday",
-     );
-     if (pendingNewDayJson) {
-       console.log(
-         `>>> [RECALC COMPLETE] Pending New Day detected: ${pendingNewDayJson}`,
-       );
-       try {
-         const pendingNewDay = JSON.parse(pendingNewDayJson);
+   // Check for pending New Day operation (set by App.tsx before calling recalculate)
+    const pendingNewDayData = getPendingNewDay();
+    if (pendingNewDayData) {
+      console.log(
+        `>>> [RECALC COMPLETE] Pending New Day detected: ${JSON.stringify(pendingNewDayData)}`,
+      );
+      try {
+        const pendingNewDay = pendingNewDayData;
          const reRank = pendingNewDay.reRank === true;
          console.log(`>>> [NEW DAY] Processing with reRank=${reRank}`);
 
@@ -1505,8 +1502,8 @@ export default function LadderForm({
 
           await savePlayers(finalPlayers);
          setProjectNameStorage(nextTitle);
-         localStorage.removeItem(getKeyPrefix() + "ladder_pending_newday");
-         localStorage.removeItem(getKeyPrefix() + "ladder_settings");
+         clearPendingNewDay();
+         clearSettings();
 
          if (shouldLog(10)) {
            console.log(
@@ -1524,7 +1521,7 @@ export default function LadderForm({
           return;
         } catch (err) {
           console.error("Failed to process pending New Day (recalculateAndSave):", err);
-          localStorage.removeItem(getKeyPrefix() + "ladder_pending_newday");
+          clearPendingNewDay();
         }
       }
 
@@ -2042,7 +2039,7 @@ export default function LadderForm({
     }
 
     // Clear pending New Day flag since user is cancelling
-    localStorage.removeItem(getKeyPrefix() + "ladder_pending_newday");
+    clearPendingNewDay();
 
     // If we have pendingPlayers with corrections, complete the calculation first
     // Use the ref to get the latest updated players (not the stale state)
@@ -2074,7 +2071,7 @@ export default function LadderForm({
     let calculatedPlayers = calculateRatings(processedPlayers, pendingMatches).players;
 
     // Check for pending New Day operation
-    const pendingNewDayJson = localStorage.getItem(getKeyPrefix() + "ladder_pending_newday");
+    const pendingNewDayJson = getPendingNewDay();
     if (pendingNewDayJson) {
       console.log(
         `>>> [COMPLETE CALC] Pending New Day detected: ${pendingNewDayJson}`,
@@ -2114,8 +2111,8 @@ export default function LadderForm({
 
         await savePlayers(finalPlayers);
         setProjectNameStorage(nextTitle);
-        localStorage.removeItem(getKeyPrefix() + "ladder_pending_newday");
-        localStorage.removeItem(getKeyPrefix() + "ladder_settings");
+        clearPendingNewDay();
+        clearSettings();
 
         if (shouldLog(10)) {
           console.log(
@@ -2137,7 +2134,7 @@ export default function LadderForm({
         return;
       } catch (err) {
         console.error("Failed to process pending New Day:", err);
-        localStorage.removeItem(getKeyPrefix() + "ladder_pending_newday");
+        clearPendingNewDay();
       }
     }
 
@@ -3087,7 +3084,7 @@ export default function LadderForm({
       // Exiting admin mode - release lock
       releaseAdminLock().catch(err => console.error('[ADMIN_LOCK] Failed to release lock:', err));
       setIsAdmin(false);
-      localStorage.removeItem(getKeyPrefix() + 'ladder_admin_mode');
+      clearAdminMode();
     }
   };
 
@@ -3466,12 +3463,8 @@ export default function LadderForm({
 
   // Server-down blocking dialog - shown at startup when server is unreachable
   if (showServerDownBlocking) {
-    const userSettingsJson = localStorage.getItem('bughouse-ladder-user-settings');
-    let configuredServerUrl = '';
-    if (userSettingsJson) {
-      const userSettings = JSON.parse(userSettingsJson);
-      configuredServerUrl = userSettings.server?.trim() || '';
-    }
+    const userSettings = loadUserSettings();
+    let configuredServerUrl = userSettings.server?.trim() || '';
 
     return (
       <>

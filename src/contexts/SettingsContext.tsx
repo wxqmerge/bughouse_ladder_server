@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { dataService, DataServiceMode, DataServiceConfig } from '../services/dataService';
+import { setJson, getJson, removeJson } from '../services/storageService';
 
 interface SettingsContextType {
   mode: DataServiceMode;
@@ -14,28 +15,28 @@ const SettingsContext = createContext<SettingsContextType | undefined>(undefined
 
 export function SettingsProvider({ children }: { children: ReactNode }): JSX.Element {
   const [mode, setMode] = useState<DataServiceMode>(() => {
-    const saved = localStorage.getItem('ladder_settings_mode');
-    return (saved as DataServiceMode) || DataServiceMode.LOCAL;
+    const saved = getJson<DataServiceMode>('settings_mode');
+    return saved || DataServiceMode.LOCAL;
   });
 
   const [serverUrl, setServerUrl] = useState<string>(() => {
-    return localStorage.getItem('ladder_server_url') || '';
+    return getJson<string>('server_url') || '';
   });
 
   const [authToken, setAuthToken] = useState<string | null>(() => {
-    return localStorage.getItem('ladder_auth_token');
+    return getJson<string>('auth_token');
   });
 
   useEffect(() => {
-    localStorage.setItem('ladder_settings_mode', mode);
+    setJson('settings_mode', mode);
     dataService.updateConfig({ mode, serverUrl: serverUrl || undefined });
   }, [mode, serverUrl]);
 
   useEffect(() => {
     if (authToken) {
-      localStorage.setItem('ladder_auth_token', authToken);
+      setJson('auth_token', authToken);
     } else {
-      localStorage.removeItem('ladder_auth_token');
+      removeJson('auth_token');
     }
     // No longer used - auth removed
   }, [authToken]);
@@ -46,7 +47,7 @@ export function SettingsProvider({ children }: { children: ReactNode }): JSX.Ele
 
   const handleSetServerUrl = (url: string): void => {
     setServerUrl(url);
-    localStorage.setItem('ladder_server_url', url);
+    setJson('server_url', url);
   };
 
   const handleSetAuthToken = (token: string | null): void => {
