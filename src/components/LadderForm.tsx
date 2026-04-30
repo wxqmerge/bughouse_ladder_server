@@ -322,6 +322,7 @@ export default function LadderForm({
     playerCount: number;
     totalRoundsFilled: number;
     totalGamesPlayed: number;
+    file: File;
   } | null>(null);
   const [pendingRestore, setPendingRestore] = useState<{
     players: PlayerData[];
@@ -792,7 +793,10 @@ export default function LadderForm({
       );
       const totalGamesPlayed = Math.floor(totalRoundsFilled / 2);
 
-      await savePlayers(loadedPlayers);
+      if (!isAdmin) {
+        await savePlayers(loadedPlayers);
+      }
+
 
         if (isAdmin) {
           log('[LOAD_FILE]', 'Admin mode - showing import confirmation');
@@ -804,13 +808,14 @@ export default function LadderForm({
           } else {
             setRankLoadErrors([]);
           }
-          setPendingImport({
-            players: loadedPlayers,
-            filename: projectName,
-            playerCount: loadedPlayers.length,
-            totalRoundsFilled,
-            totalGamesPlayed,
-          });
+           setPendingImport({
+             players: loadedPlayers,
+             filename: projectName,
+             playerCount: loadedPlayers.length,
+             totalRoundsFilled,
+             totalGamesPlayed,
+             file: fileToLoad,
+           });
         } else {
           setPlayers(loadedPlayers);
           setSortBy(null);
@@ -832,8 +837,24 @@ export default function LadderForm({
     
     (window as any).__ladder_setStatus?.('Saving to server...');
     try {
-      await savePlayers(pendingImport.players, true);
-      log('[LOAD_FILE]', '✓ Import saved to server');
+      const serverUrl = getServerUrl();
+      if (!serverUrl) throw new Error('No server URL configured');
+
+      const formData = new FormData();
+      formData.append('file', pendingImport.file);
+
+      const response = await fetch(`${serverUrl}/api/admin/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || 'Upload failed');
+      }
+
+      await savePlayers(pendingImport.players, false, true);
+      log('[LOAD_FILE]', '✓ Import uploaded to server');
       (window as any).__ladder_setStatus?.(null);
     } catch (err) {
       log('[LOAD_FILE]', '✗ Failed to save import:', err);
@@ -2108,7 +2129,7 @@ export default function LadderForm({
         // Fix rank issues before New Day transformations
         let playersToTransform = normalizePlayersTrophy(calculatedPlayers);
           if (reRank) {
-              playersToTransform = fixPlayerRanks(players);
+              playersToTransform = fixPlayerRanks(playersToTransform);
             }
         // Apply New Day transformations
         const finalPlayers = processNewDayTransformations(
