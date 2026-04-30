@@ -56,8 +56,8 @@ export function processNewDayTransformations(
 
    return {
        ...player,
-       rating: (player.trophyEligible !== false ? player.nRating : 0),
-       nRating: 0, // Reset so next recalc reads from rating column
+        rating: player.nRating,
+        nRating: 0, // Reset so next recalc reads from rating column
        num_games: (player.num_games || 0) + gameCount,
        attendance: newAttendance,
        gameResults: Array(31).fill(null),
