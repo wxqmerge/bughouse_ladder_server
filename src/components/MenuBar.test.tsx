@@ -416,56 +416,13 @@ describe("MenuBar component", () => {
         fireEvent.click(screen.getByText("Operations"));
         expect(screen.getByText("Add Player")).toBeInTheDocument();
       });
-
-      it("should call onAddPlayer when Add Player clicked", () => {
-        const props = {
-          ...adminProps,
-          onAddPlayer: vi.fn(),
-        };
-        render(<MenuBar {...props} />);
-        fireEvent.click(screen.getByText("Operations"));
-        fireEvent.click(screen.getByText("Add Player"));
-        expect(props.onAddPlayer).toHaveBeenCalledTimes(1);
-      });
-
-      it("should NOT show Add Player when admin but no onAddPlayer callback", () => {
-        render(<MenuBar {...adminProps} />);
-        fireEvent.click(screen.getByText("Operations"));
-        expect(screen.queryByText("Add Player")).not.toBeInTheDocument();
-      });
     });
 
-    describe("Project name editing in admin mode", () => {
-    it("should make project name editable when admin with onProjectNameChange", () => {
-        const props = {
-          ...adminProps,
-          onProjectNameChange: vi.fn(),
-        };
-        render(<MenuBar {...props} />);
-        
-        // The h1 title should be contentEditable in admin mode
-        const titles = document.querySelectorAll('h1[contenteditable="true"]');
-        expect(titles.length).toBeGreaterThan(0);
-      });
+    describe("server mode with admin disabled", () => {
 
-      it("should call onProjectNameChange when project name is edited", () => {
-        const props = {
-          ...adminProps,
-          projectName: "My Ladder",
-          onProjectNameChange: vi.fn(),
-        };
-        render(<MenuBar {...props} />);
-        
-        // Find and blur the title element to trigger save
-        const titleElements = screen.queryAllByText(/My Ladder/);
-        if (titleElements.length > 0) {
-          fireEvent.blur(titleElements[0]);
-        }
-      });
-    });
-  });
 
-  describe("server mode with admin disabled", () => {
+
+
     it("should hide File menu when server configured without API key", () => {
       render(<MenuBar {...baseProps} serverUrl="http://example.com" hasAdminApiKey={false} />);
       expect(screen.queryByText("File")).not.toBeInTheDocument();

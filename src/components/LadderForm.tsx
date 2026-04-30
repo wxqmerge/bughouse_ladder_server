@@ -4137,16 +4137,16 @@ export default function LadderForm({
           isAdmin={isAdmin}
           isWide={zoomLevel === "140%"}
           zoomLevel={zoomLevel}
-          projectName={projectName}
-          onProjectNameChange={(name) => {
-            setProjectName(name);
-            setProjectNameStorage(name);
-          }}
-          onSetTitle={(newTitle) => {
-            setProjectName(newTitle);
-            setProjectNameStorage(newTitle);
-          }}
-          playerCount={players.length}
+           projectName={projectName}
+           onSetTitle={(newTitle) => {
+             setProjectName(newTitle);
+             setProjectNameStorage(newTitle);
+           }}
+
+           playerCount={players.length}
+
+
+
           serverUrl={splashServerUrl}
           hasAdminApiKey={!!splashApiKey && splashApiKey.trim().length > 0}
         />
