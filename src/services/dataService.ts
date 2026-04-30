@@ -7,7 +7,7 @@
  * - SERVER: Client-server flow targeting production server
  */
 
-import { PlayerData } from '../../shared/types';
+import { PlayerData, DeltaOperation } from '../../shared/types';
 import {
   getKeyPrefix,
   getPlayers as storageGetPlayers,
@@ -387,6 +387,25 @@ class DataService {
 
     if (!response.ok) {
       throw new Error('Failed to submit game');
+    }
+
+    this.notifySubscribers();
+  }
+
+  async submitDeltaBatch(deltas: DeltaOperation[]): Promise<void> {
+    const response = await fetch(`${this.getApiUrl()}/api/ladder/batch`, {
+      method: 'POST',
+      headers: {
+        ...this.getAuthHeaders(),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ deltas }),
+    });
+
+    if (!response.ok) {
+      const error = new Error(`Failed to submit delta batch: ${response.status}`);
+      (error as any).status = response.status;
+      throw error;
     }
 
     this.notifySubscribers();
