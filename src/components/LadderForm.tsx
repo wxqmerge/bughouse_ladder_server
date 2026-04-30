@@ -1431,7 +1431,7 @@ export default function LadderForm({
       }
 
       console.log('[RECALC] Setting players and saving...');
-      const normalizedPlayers = normalizePlayersTrophy(calculatedPlayers);
+      const normalizedPlayers = normalizePlayersAttendance(normalizePlayersTrophy(calculatedPlayers));
       setPlayers(normalizedPlayers);
       await savePlayers(normalizedPlayers);
       if (shouldLog(10)) {
@@ -1499,7 +1499,7 @@ export default function LadderForm({
          console.log(`>>> [NEW DAY] Next title will be: "${nextTitle}"`);
 
         // Fix rank issues before New Day transformations
-           let playersToTransform = normalizePlayersTrophy(players);
+           let playersToTransform = normalizePlayersAttendance(normalizePlayersTrophy(players));
            if (reRank) {
              playersToTransform = fixPlayerRanks(playersToTransform);
            }
@@ -1624,7 +1624,7 @@ export default function LadderForm({
         }
 
         const calculatedPlayers = calculateRatings(processedPlayers, matches).players;
-        const normalizedPlayers = normalizePlayersTrophy(calculatedPlayers);
+        const normalizedPlayers = normalizePlayersAttendance(normalizePlayersTrophy(calculatedPlayers));
 
         // Save with waitForServer=true to wait for server confirmation
         (window as any).__ladder_setStatus?.('Saving to server...');
@@ -1683,7 +1683,7 @@ export default function LadderForm({
 
     const processedPlayers = repopulateGameResults(players, matches, 31, playerResultsByMatch);
        const calculatedPlayers = calculateRatings(processedPlayers, matches).players;
-       const normalizedPlayers = normalizePlayersTrophy(calculatedPlayers);
+       const normalizedPlayers = normalizePlayersAttendance(normalizePlayersTrophy(calculatedPlayers));
 
        // Push full table to server
        (window as any).__ladder_setStatus?.('Saving to server...');
@@ -1704,7 +1704,7 @@ export default function LadderForm({
              const data = await response.json();
              const serverPlayers = data.data?.players || [];
              if (serverPlayers && serverPlayers.length > 0) {
-               setPlayers(normalizePlayersTrophy(serverPlayers));
+               setPlayers(normalizePlayersAttendance(normalizePlayersTrophy(serverPlayers)));
                log('[RECALC]', '✓ Synced with server - UI refreshed from server data');
              } else {
                setPlayers(normalizedPlayers);
@@ -2647,6 +2647,10 @@ export default function LadderForm({
 
   const normalizePlayersTrophy = (players: PlayerData[]): PlayerData[] => {
     return players.map(p => ({ ...p, trophyEligible: p.trophyEligible !== false }));
+  };
+
+  const normalizePlayersAttendance = (players: PlayerData[]): PlayerData[] => {
+    return players.map(p => ({ ...p, attendance: typeof p.attendance === 'number' ? p.attendance : (parseInt(String(p.attendance || '0')) || 0) }));
   };
 
   const createPlayerFromMapped = (mapped: Record<string, string | number>, currentPlayers: PlayerData[]): PlayerData => {
@@ -4238,7 +4242,7 @@ export default function LadderForm({
                 key="head-rank"
                 style={{
                   padding: "0.5rem 0.75rem",
-                  textAlign: "left",
+                  textAlign: "right",
                   fontWeight: "500",
                   borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
                   backgroundColor: "#0f172a",
@@ -4290,7 +4294,7 @@ export default function LadderForm({
                 key="head-rating"
                 style={{
                   padding: "0.5rem 0.75rem",
-                  textAlign: "left",
+                  textAlign: "right",
                   fontWeight: "500",
                   borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
                   backgroundColor: "#0f172a",
@@ -4303,7 +4307,7 @@ export default function LadderForm({
                 key="head-nRating"
                 style={{
                   padding: "0.5rem 0.75rem",
-                  textAlign: "left",
+                  textAlign: "right",
                   fontWeight: "500",
                   borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
                   backgroundColor: "#0f172a",
@@ -4332,7 +4336,7 @@ export default function LadderForm({
                     key="head-grade"
                     style={{
                       padding: "0.5rem 0.75rem",
-                      textAlign: "left",
+                      textAlign: "right",
                       fontWeight: "500",
                       borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
                       backgroundColor: "#0f172a",
@@ -4345,7 +4349,7 @@ export default function LadderForm({
                     key="head-num_games"
                     style={{
                       padding: "0.5rem 0.75rem",
-                      textAlign: "left",
+                      textAlign: "right",
                       fontWeight: "500",
                       borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
                       backgroundColor: "#0f172a",
@@ -4358,7 +4362,7 @@ export default function LadderForm({
                     key="head-attendance"
                     style={{
                       padding: "0.5rem 0.75rem",
-                      textAlign: "left",
+                      textAlign: "right",
                       fontWeight: "500",
                       borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
                       backgroundColor: "#0f172a",
@@ -4476,14 +4480,15 @@ export default function LadderForm({
                             <>
                               <td
                                 key={`${rowIndex}-${col}`}
-                           style={{
-                             padding: "0.5rem 0.75rem",
-                             borderBottom: "1px solid #e2e8f0",
-                             verticalAlign: "middle",
-                             borderRight: "1px solid #e2e8f0",
-                             backgroundColor:
-                               rowIndex % 2 >= 1 ? "#f8fafc" : "transparent",
-                           }}
+                            style={{
+                              padding: "0.5rem 0.75rem",
+                              borderBottom: "1px solid #e2e8f0",
+                              verticalAlign: "middle",
+                              borderRight: "1px solid #e2e8f0",
+                              backgroundColor:
+                                rowIndex % 2 >= 1 ? "#f8fafc" : "transparent",
+                              textAlign: "right",
+                            }}
                          >
                            {isAdmin ? (
                               <span
@@ -4638,21 +4643,24 @@ export default function LadderForm({
                         </>
                       );
                     }
-                    const narrowFields = ["attendance", "info", "school", "room"];
-                     const cellWidth = isAdmin && narrowFields.includes(field) ? "40px" : undefined;
-                     return (
-                       <td
-                         key={`${rowIndex}-${col}`}
-                         style={{
-                           padding: "0.5rem 0.75rem",
-                           borderBottom: "1px solid #e2e8f0",
-                           verticalAlign: "middle",
-                           borderRight: "1px solid #e2e8f0",
-                           backgroundColor:
-                             rowIndex % 2 >= 1 ? "#f8fafc" : "transparent",
-                           width: cellWidth,
-                         }}
-                       >
+                   const narrowFields = ["attendance", "info", "school", "room"];
+                      const numericFields = ["rank", "rating", "grade", "num_games", "attendance"];
+                      const cellWidth = isAdmin && narrowFields.includes(field) ? "40px" : undefined;
+                      const isNumeric = numericFields.includes(field);
+                      return (
+                        <td
+                          key={`${rowIndex}-${col}`}
+                          style={{
+                            padding: "0.5rem 0.75rem",
+                            borderBottom: "1px solid #e2e8f0",
+                            verticalAlign: "middle",
+                            borderRight: "1px solid #e2e8f0",
+                            backgroundColor:
+                              rowIndex % 2 >= 1 ? "#f8fafc" : "transparent",
+                            width: cellWidth,
+                            textAlign: isNumeric ? "right" : "left",
+                          }}
+                        >
                       {isAdmin ? (
                             <span
                               contentEditable={field !== "rank"}
