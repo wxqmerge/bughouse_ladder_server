@@ -35,18 +35,15 @@ export function onModeChange(callback: (newMode: string, oldMode: string) => voi
 export function initializeConnectionState(): void {
   // Read from localStorage user settings only
   try {
-    const userSettingsJson = localStorage.getItem('bughouse-ladder-user-settings');
-    if (userSettingsJson) {
-      const userSettings = JSON.parse(userSettingsJson);
-      if (userSettings.server && userSettings.server.trim()) {
-        connectionState.configuredForServer = true;
-        connectionState.serverUrl = userSettings.server.trim();
-        console.log('[mode.ts] Using USER SETTINGS server:', connectionState.serverUrl);
-        connectionState.serverReachable = null;
-        connectionState.lastCheckTime = Date.now();
-        connectionState.previousMode = null;
-        return;
-      }
+    const userSettings = loadUserSettings();
+    if (userSettings.server && userSettings.server.trim()) {
+      connectionState.configuredForServer = true;
+      connectionState.serverUrl = userSettings.server.trim();
+      console.log('[mode.ts] Using USER SETTINGS server:', connectionState.serverUrl);
+      connectionState.serverReachable = null;
+      connectionState.lastCheckTime = Date.now();
+      connectionState.previousMode = null;
+      return;
     }
   } catch (err) {
     console.error('[mode.ts] Failed to read user settings:', err);

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { AlertTriangle, Check, Trash2, Loader2 } from "lucide-react";
+import { loadUserSettings } from "../services/userSettingsStorage";
 
 interface PlayerData {
   rank: number;
@@ -46,7 +47,7 @@ export default function RestoreBackupDialog({
     
     setPreviewLoading(prev => ({ ...prev, [filename]: true }));
     try {
-      const userSettings = JSON.parse(localStorage.getItem("bughouse-ladder-user-settings") || "{}");
+      const userSettings = loadUserSettings();
       const serverUrl = (userSettings.server || "").trim();
       
       const response = await fetch(`${serverUrl}/api/admin/backups/restore/${encodeURIComponent(filename)}`, {
@@ -75,7 +76,7 @@ export default function RestoreBackupDialog({
     try {
       setLoading(true);
       setError(null);
-      const userSettings = JSON.parse(localStorage.getItem("bughouse-ladder-user-settings") || "{}");
+      const userSettings = loadUserSettings();
       const serverUrl = (userSettings.server || "").trim();
       
       if (!serverUrl) {
@@ -122,7 +123,7 @@ export default function RestoreBackupDialog({
 
     setDeleting(filename);
     try {
-      const userSettings = JSON.parse(localStorage.getItem("bughouse-ladder-user-settings") || "{}");
+      const userSettings = loadUserSettings();
       const serverUrl = (userSettings.server || "").trim();
 
       const response = await fetch(`${serverUrl}/api/admin/backups/${filename}`, {

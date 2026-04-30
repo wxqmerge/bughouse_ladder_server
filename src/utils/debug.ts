@@ -2,12 +2,13 @@
  * Debug utility for conditional logging based on settings
  */
 
+import { getSettings } from '../services/storageService';
+
 export function getDebugLevel(): number {
   try {
-    const savedSettings = localStorage.getItem("ladder_settings");
-    if (savedSettings) {
-      const parsed = JSON.parse(savedSettings);
-      return parsed.debugLevel ?? 5;
+    const settings = getSettings();
+    if (settings) {
+      return settings.debugLevel ?? 5;
     }
   } catch (err) {
     // Ignore errors, use default
