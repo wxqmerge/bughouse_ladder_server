@@ -37,6 +37,7 @@ import {
   getPendingDeletes, 
   clearPendingDeletes, 
   queueDelete, 
+  addDelta,
   isAdminLocked, 
   tryAcquireAdminLock, 
   forceAcquireAdminLock, 
@@ -1216,6 +1217,10 @@ export default function LadderForm({
         fillCell(p2Rank, resultForTeam1);
         fillCell(p3Rank, resultForTeam2);
         fillCell(p4Rank, resultForTeam2);
+        addDelta({ type: 'GAME_RESULT', playerRank: p1Rank, round: roundIndex, result: resultForTeam1 });
+        addDelta({ type: 'GAME_RESULT', playerRank: p2Rank, round: roundIndex, result: resultForTeam1 });
+        addDelta({ type: 'GAME_RESULT', playerRank: p3Rank, round: roundIndex, result: resultForTeam2 });
+        addDelta({ type: 'GAME_RESULT', playerRank: p4Rank, round: roundIndex, result: resultForTeam2 });
       } else {
         // 2-player game: format is "AWB" where A vs B, outcome is A's result
         const outcome = valueToSave[1]; // Character at position 1: "5W3"[1] = 'W'
@@ -1235,6 +1240,8 @@ export default function LadderForm({
         // Fill cells for BOTH players (including current player)
         fillCell(p1Rank, resultForP1);
         fillCell(p2Rank, resultForP2);
+        addDelta({ type: 'GAME_RESULT', playerRank: p1Rank, round: roundIndex, result: resultForP1 });
+        addDelta({ type: 'GAME_RESULT', playerRank: p2Rank, round: roundIndex, result: resultForP2 });
       }
     }
 
