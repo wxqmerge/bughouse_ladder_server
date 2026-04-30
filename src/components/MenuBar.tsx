@@ -43,7 +43,6 @@ interface MenuBarProps {
   isWide: boolean;
   zoomLevel: "50%" | "70%" | "100%" | "140%" | "200%";
   projectName?: string;
-  onProjectNameChange?: (name: string) => void;
   onSetTitle?: (title: string) => void;
   playerCount?: number;
   serverUrl?: string; // Server URL - if set without API key, admin mode is disabled
@@ -75,7 +74,6 @@ export default function MenuBar({
   isAdmin,
   zoomLevel,
   projectName,
-  onProjectNameChange,
   onSetTitle,
   playerCount,
   serverUrl,
@@ -514,26 +512,11 @@ export default function MenuBar({
         {/* Title and player count */}
         {projectName && (
           <h1
-            contentEditable={isAdmin && onProjectNameChange !== undefined}
-            suppressContentEditableWarning={true}
-            onBlur={(e) => {
-              if (isAdmin && onProjectNameChange && e.target.textContent) {
-                onProjectNameChange(e.target.textContent);
-              }
-            }}
             style={{
               margin: 0,
               color: "white",
               padding: "0 1rem",
               fontSize: "0.875rem",
-              cursor:
-                isAdmin && onProjectNameChange !== undefined
-                  ? "text"
-                  : "default",
-              backgroundColor:
-                isAdmin && onProjectNameChange !== undefined
-                  ? "rgba(255, 255, 255, 0.1)"
-                  : "transparent",
             }}
           >
             {projectName} {getVersionString()}
