@@ -2895,13 +2895,13 @@ export default function LadderForm({
       console.log(">>> [MENU ACTION] Auto-Letter");
     }
     const updatedPlayers = players.map(p => {
-      const nRating = p.nRating || 0;
+      const effectiveRating = (p.nRating && p.nRating !== 0) ? p.nRating : p.rating;
       const isHidden = p.group?.toLowerCase().endsWith('x');
       let letter = "D";
-      if (nRating >= 1200) letter = "A1";
-      else if (nRating >= 1000) letter = "A";
-      else if (nRating >= 800) letter = "B";
-      else if (nRating >= 600) letter = "C";
+      if (effectiveRating >= 1200) letter = "A1";
+      else if (effectiveRating >= 1000) letter = "A";
+      else if (effectiveRating >= 800) letter = "B";
+      else if (effectiveRating >= 600) letter = "C";
       const newGroup = isHidden ? letter + "x" : letter;
       return { ...p, group: newGroup };
     });
