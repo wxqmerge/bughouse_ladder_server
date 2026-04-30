@@ -752,10 +752,12 @@ export default function LadderForm({
           loadedPlayers.sort((a, b) => a.rank - b.rank);
         } else if (sortBy === "nRating") {
           loadedPlayers.sort((a, b) => {
-            // Pseudo-rating: eligible = nRating, ineligible = -nRating
+            // Pseudo-rating: eligible = effective rating, ineligible = -effective rating
             // Descending: highest + first, then lowest - first
-            const pseudoA = a.trophyEligible !== false ? (a.nRating || 0) : -(a.nRating || 0);
-            const pseudoB = b.trophyEligible !== false ? (b.nRating || 0) : -(b.nRating || 0);
+            const effectiveA = (a.nRating && a.nRating !== 0) ? a.nRating : a.rating;
+            const effectiveB = (b.nRating && b.nRating !== 0) ? b.nRating : b.rating;
+            const pseudoA = a.trophyEligible !== false ? effectiveA : -effectiveA;
+            const pseudoB = b.trophyEligible !== false ? effectiveB : -effectiveB;
             if (pseudoA !== pseudoB) return pseudoB - pseudoA;
             return a.rank - b.rank;
           });
@@ -2519,13 +2521,14 @@ export default function LadderForm({
       if (sortMethod === "rank") {
         return a.rank - b.rank;
       } else if (sortMethod === "nRating") {
-        // Pseudo-rating: eligible = nRating, ineligible = -nRating
-        // Descending: highest + first, then lowest - first
-        const pseudoA = a.trophyEligible !== false ? (a.nRating || 0) : -(a.nRating || 0);
-        const pseudoB = b.trophyEligible !== false ? (b.nRating || 0) : -(b.nRating || 0);
+        const effA = (a.nRating && a.nRating !== 0) ? a.nRating : a.rating;
+        const effB = (b.nRating && b.nRating !== 0) ? b.nRating : b.rating;
+        const pseudoA = a.trophyEligible !== false ? effA : -effA;
+        const pseudoB = b.trophyEligible !== false ? effB : -effB;
         if (pseudoA !== pseudoB) return pseudoB - pseudoA;
         return a.rank - b.rank;
       } else if (sortMethod === "rating") {
+
         // Pseudo-rating: eligible = rating, ineligible = -rating
         // Descending: highest + first, then lowest - first
         const pseudoA = a.trophyEligible !== false ? (a.rating || 0) : -(a.rating || 0);

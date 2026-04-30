@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, waitFor } from '@testing-library/react';
+import { render, waitFor, screen } from '@testing-library/react';
 import LadderForm from '../../components/LadderForm';
 import * as storageService from '../../services/storageService';
 import * as dataService from '../../services/dataService';
@@ -13,6 +13,7 @@ vi.mock('../../services/storageService', async () => {
     addDelta: vi.fn(),
     savePlayers: vi.fn().mockResolvedValue({ success: true, serverSynced: true }),
     getPlayers: vi.fn().mockResolvedValue([]),
+    getLocalPlayers: vi.fn().mockReturnValue([]),
     getJson: vi.fn(),
     setJson: vi.fn(),
     removeJson: vi.fn(),
@@ -91,7 +92,6 @@ vi.mock('../../utils/hashUtils', async () => {
 
 vi.mock('../../components/MenuBar', () => ({
   default: ({ onAutoLetter }: any) => {
-    console.log('[TEST] MenuBar rendering, onAutoLetter:', onAutoLetter);
     (globalThis as any).__capturedOnAutoLetter = onAutoLetter;
     return <div data-testid="mock-menubar">MenuBar</div>;
   },
@@ -102,29 +102,27 @@ describe('LadderForm Auto-Letter Logic', () => {
     vi.clearAllMocks();
     localStorage.clear();
     (globalThis as any).__capturedOnAutoLetter = undefined;
-    // Ensure isAdminMode returns true for these tests
     (storageService.isAdminMode as any).mockReturnValue(true);
   });
 
   it('should use nRating if available and non-zero, otherwise use rating', async () => {
-    // Player 1: rating 1200, nRating 1300 -> should use 1300 -> 'A'
-    // Player 2: rating 800, nRating 0 -> should use 800 -> 'B'
-    const mockPlayers = [
-      { rank: 1, group: 'A', lastName: 'User1', firstName: 'F1', rating: 1200, nRating: 1300, trophyEligible: true, grade: 'A', num_games: 0, attendance: 0, info: '', phone: '', school: '', room: '', gameResults: [] },
-      { rank: 2, group: 'B', lastName: 'User2', firstName: 'F2', rating: 800, nRating: 0, trophyEligible: true, grade: 'B', num_games: 0, attendance: 0, info: '', phone: '', school: '', room: '', gameResults: [] },
-    ];
-    (storageService.getPlayers as any).mockResolvedValue(mockPlayers);
+     const mockPlayers = [
+       { rank: 1, group: 'A', lastName: 'User1', firstName: 'F1', rating: 1200, nRating: 1300, trophyEligible: true, grade: 'A', num_games: 0, attendance: 0, info: '', phone: '', school: '', room: '', gameResults: [] },
+       { rank: 2, group: 'B', lastName: 'User2', firstName: 'F2', rating: 800, nRating: 0, trophyEligible: true, grade: 'B', num_games: 0, attendance: 0, info: '', phone: '', school: '', room: '', gameResults: [] },
+     ];
+     (storageService.getLocalPlayers as any).mockReturnValue(mockPlayers);
 
-    render(<LadderForm />);
+     render(<LadderForm />);
 
     await waitFor(() => {
-      expect((globalThis as any).__capturedOnAutoLetter).toBeDefined();
+      expect(screen.getByTestId('mock-menubar')).toBeInTheDocument();
     });
 
     const onAutoLetter = (globalThis as any).__capturedOnAutoLetter;
+    expect(onAutoLetter).toBeDefined();
+
     onAutoLetter();
 
-    // Verify results
     await waitFor(() => {
       expect(storageService.savePlayers).toHaveBeenCalledWith(
         expect.arrayContaining([
@@ -137,69 +135,23 @@ describe('LadderForm Auto-Letter Logic', () => {
   });
 
   it('should use rating if nRating is zero', async () => {
-    // Player 1: rating 1200, nRating 0 -> should use 1200 -> 'A'
-    // Player 2: rating 800, nRating 0 -> should use 800 -> 'B'
-    const mockPlayers = [
-      { rank: 1, group: 'A', lastName: 'User1', firstName: 'F1', rating: 1200, nRating: 0, trophyEligible: true, grade: 'A', num_games: 0, attendance: 0, info: '', phone: '', school: '', room: '', gameResults: [] },
-      { rank: 2, group: 'B', lastName: 'User2', firstName: 'F2', rating: 800, nRating: 0, trophyEligible: true, grade: 'B', num_games: 0, attendance: 0, info: '', phone: '', school: '', room: '', gameResults: [] },
-    ];
-    (storageService.getPlayers as any).mockResolvedValue(mockPlayers);
+     const mockPlayers = [
+       { rank: 1, group: 'A', lastName: 'User1', firstName: 'F1', rating: 1200, nRating: 0, trophyEligible: true, grade: 'A', num_games: 0, attendance: 0, info: '', phone: '', school: '', room: '', gameResults: [] },
+       { rank: 2, group: 'B', lastName: 'User2', firstName: 'F2', rating: 800, nRating: 0, trophyEligible: true, grade: 'B', num_games: 0, attendance: 0, info: '', phone: '', school: '', room: '', gameResults: [] },
+     ];
+     (storageService.getLocalPlayers as any).mockReturnValue(mockPlayers);
 
-    render(<LadderForm />);
+     render(<LadderForm />);
 
     await waitFor(() => {
-      expect((globalThis as any).__capturedOnAutoLetter).toBeDefined();
+      expect(screen.getByTestId('mock-menubar')).toBeInTheDocument();
     });
 
     const onAutoLetter = (globalThis as any).__capturedOnAutoLetter;
+    expect(onAutoLetter).toBeDefined();
+
     onAutoLetter();
 
-    // Verify results
-    await waitFor(() => {
-      expect(storageService.savePlayers).toHaveBeenCalledWith(
-        expect.arrayContaining([
-          expect.objectContaining({ rank: 1, group: 'A' }),
-          expect.objectContaining({ rank: 2, group: 'B' }),
-        ]),
-        true
-      );
-    });
-  });
-
-
-    const onAutoLetter = (globalThis as any).__capturedOnAutoLetter;
-    onAutoLetter();
-
-    // Verify results
-    await waitFor(() => {
-      expect(storageService.savePlayers).toHaveBeenCalledWith(
-        expect.arrayContaining([
-          expect.objectContaining({ rank: 1, group: 'A' }), // 1300 -> A
-          expect.objectContaining({ rank: 2, group: 'B' }), // 800 -> B
-        ]),
-        true
-      );
-    });
-  });
-
-  it('should use rating if nRating is zero', async () => {
-    // Player 1: rating 1200, nRating 0 -> should use 1200 -> 'A'
-    // Player 2: rating 800, nRating 0 -> should use 800 -> 'B'
-    (storageService.getPlayers as any).mockResolvedValue([
-      { rank: 1, group: 'A', lastName: 'User1', firstName: 'F1', rating: 1200, nRating: 0, trophyEligible: true, grade: 'A', num_games: 0, attendance: 0, info: '', phone: '', school: '', room: '', gameResults: [] },
-      { rank: 2, group: 'B', lastName: 'User2', firstName: 'F2', rating: 800, nRating: 0, trophyEligible: true, grade: 'B', num_games: 0, attendance: 0, info: '', phone: '', school: '', room: '', gameResults: [] },
-    ]);
-
-    render(<LadderForm />);
-
-    await waitFor(() => {
-      expect((globalThis as any).__capturedOnAutoLetter).toBeDefined();
-    });
-
-    const onAutoLetter = (globalThis as any).__capturedOnAutoLetter;
-    onAutoLetter();
-
-    // Verify results
     await waitFor(() => {
       expect(storageService.savePlayers).toHaveBeenCalledWith(
         expect.arrayContaining([
