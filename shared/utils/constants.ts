@@ -56,7 +56,7 @@ export function processNewDayTransformations(
 
    return {
        ...player,
-        rating: player.nRating,
+        rating: player.nRating > 0 ? player.nRating : player.rating,
         nRating: 0, // Reset so next recalc reads from rating column
        num_games: (player.num_games || 0) + gameCount,
        attendance: newAttendance,
