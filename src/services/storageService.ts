@@ -72,10 +72,14 @@ export function getLocalPlayers(): PlayerData[] {
  */
 export function removeAllKeysWithPrefix(prefix: string): void {
   const keysToRemove: string[] = [];
+  const preservedKeys = ['ladder_user_settings', 'ladder_last_working_config'];
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
     if (key && key.startsWith(prefix)) {
-      keysToRemove.push(key);
+      const keyName = key.replace(prefix, '');
+      if (!preservedKeys.includes(keyName)) {
+        keysToRemove.push(key);
+      }
     }
   }
   keysToRemove.forEach(key => localStorage.removeItem(key));
