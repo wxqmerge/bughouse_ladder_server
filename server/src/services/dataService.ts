@@ -17,7 +17,7 @@ export interface PlayerData {
   trophyEligible: boolean;
   grade: string;
   num_games: number;
-  attendance: number | string;
+  attendance: number;
   info: string;
   phone: string;
   school: string;
@@ -165,7 +165,7 @@ export async function readLadderFile(): Promise<LadderData> {
         trophyEligible: !isNegRating,
         grade: fields[6] || '',
         num_games: parseInt(fields[7]) || 0,
-        attendance: fields[8] || '',
+        attendance: parseInt(fields[8]) || 0,
         phone: fields[9] || '',
         info: fields[10] || '',
         school: fields[11] || '',

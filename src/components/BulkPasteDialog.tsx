@@ -4,8 +4,9 @@ import { updatePlayerGameData } from "../utils/hashUtils";
 import type { PlayerData } from "../utils/hashUtils";
 
 interface AssignmentPreview {
-  playerRank: number;
-  playerName: string;
+  cellOwnerRank: number;
+  parsedPlayerRank: number;
+  parsedPlayerName: string;
   roundIndex: number;
   resultString: string;
 }
@@ -76,12 +77,19 @@ export function BulkPasteDialog({
 
       if (targetPlayerRank > 0 && minRoundIndex < Infinity) {
         const player = players.find((p) => p.rank === targetPlayerRank);
+        const parsed = updatePlayerGameData(entry, false);
+        const primaryPlayerRank = parsed.parsedPlayer1Rank || 0;
+        const primaryPlayer = players.find((p) => p.rank === primaryPlayerRank);
+        
         if (player) {
           preview.push({
-            playerRank: targetPlayerRank,
-            playerName: `${player.firstName} ${player.lastName}`,
+            cellOwnerRank: targetPlayerRank,
+            parsedPlayerRank: primaryPlayerRank,
+            parsedPlayerName: primaryPlayer
+              ? `${primaryPlayer.firstName} ${primaryPlayer.lastName}`
+              : `Unknown (${primaryPlayerRank})`,
             roundIndex: minRoundIndex,
-            resultString: entry, // No underscore!
+            resultString: entry,
           });
 
           // Update next empty round for this player
@@ -280,7 +288,7 @@ export function BulkPasteDialog({
               }}
             >
               <Table size={16} />
-              Preview: Entries will be placed in first empty rounds:
+              Preview: Parsed entries:
             </label>
             <div
               style={{
@@ -314,18 +322,7 @@ export function BulkPasteDialog({
                         color: "#374151",
                       }}
                     >
-                      Player
-                    </th>
-                    <th
-                      style={{
-                        textAlign: "center",
-                        padding: "0.5rem",
-                        borderBottom: "2px solid #e5e7eb",
-                        fontWeight: "600",
-                        color: "#374151",
-                      }}
-                    >
-                      Round
+                      Input
                     </th>
                     <th
                       style={{
@@ -336,7 +333,7 @@ export function BulkPasteDialog({
                         color: "#374151",
                       }}
                     >
-                      Result
+                      Player
                     </th>
                   </tr>
                 </thead>
@@ -346,29 +343,19 @@ export function BulkPasteDialog({
                       <td
                         style={{
                           padding: "0.5rem",
-                          color: "#374151",
-                        }}
-                      >
-                        <strong>{item.playerRank}</strong>. {item.playerName}
-                      </td>
-                      <td
-                        style={{
-                          textAlign: "center",
-                          padding: "0.5rem",
-                          color: "#059669",
-                          fontWeight: "600",
-                        }}
-                      >
-                        {item.roundIndex + 1}
-                      </td>
-                      <td
-                        style={{
-                          padding: "0.5rem",
                           fontFamily: "monospace",
                           color: "#1e40af",
                         }}
                       >
                         {item.resultString}
+                      </td>
+                      <td
+                        style={{
+                          padding: "0.5rem",
+                          color: "#374151",
+                        }}
+                      >
+                        <strong>{item.parsedPlayerRank}</strong>. {item.parsedPlayerName}
                       </td>
                     </tr>
                   ))}
@@ -382,7 +369,7 @@ export function BulkPasteDialog({
                 marginTop: "0.25rem",
               }}
             >
-              Each result is entered for all participating players in their first available round.
+              Each result is placed in the first available empty round for the assigned player.
             </p>
           </div>
         )}
