@@ -7,6 +7,7 @@ import { StatusBanner } from "./components/StatusBanner";
 import { loadSampleData } from "./components/LadderForm";
 import type { PlayerData } from "./utils/hashUtils";
 import { getNextTitle, processNewDayTransformations } from "./utils/constants";
+import { formatPrefixToTitle } from "./utils/titleUtils";
 import {
   updateConnectionState,
   initializeConnectionState,
@@ -60,9 +61,9 @@ function App() {
   const recalculateRef = useRef<(() => void) | undefined>(undefined);
   const refreshPlayersRef = useRef<(() => void) | undefined>(undefined);
 
-  // Set document title to the key prefix
+  // Set document title to the formatted prefix
   useEffect(() => {
-    document.title = getKeyPrefix();
+    document.title = formatPrefixToTitle(getKeyPrefix());
   }, []);
 
   // Load URL-based config, initialize connection state, and test connectivity on mount
@@ -97,7 +98,7 @@ function App() {
             console.log('[APP] Starting data polling (5 second interval)');
             dataService.startPolling(5000);
 
-           const unsubscribe = dataService.subscribe(() => {
+            const unsubscribe = dataService.subscribe(() => {
               console.log('[APP] Data changed - notifying LadderForm');
               if (refreshPlayersRef.current) {
                 refreshPlayersRef.current();
@@ -380,7 +381,7 @@ function App() {
         />
       )}
       
-
+      
       
       {showReconnectDialog && (
         <ReconnectDialog
