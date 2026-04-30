@@ -2,6 +2,11 @@
  * VB6 Bughouse Ladder - Shared Types
  */
 
+export type DeltaOperation = 
+  | { type: 'GAME_RESULT'; playerRank: number; round: number; result: string }
+  | { type: 'PLAYER_UPDATE'; player: PlayerData }
+  | { type: 'CLEAR_CELL'; playerRank: number; round: number };
+
 export interface PlayerData {
   rank: number;
   group: string;
