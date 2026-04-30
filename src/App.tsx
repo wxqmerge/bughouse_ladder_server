@@ -60,12 +60,9 @@ function App() {
   const recalculateRef = useRef<(() => void) | undefined>(undefined);
   const refreshPlayersRef = useRef<(() => void) | undefined>(undefined);
 
-  // Set up status callback for child components
+  // Set document title to the key prefix
   useEffect(() => {
-    setStatusCallback = setStatus;
-    return () => {
-      setStatusCallback = null;
-    };
+    document.title = getKeyPrefix();
   }, []);
 
   // Load URL-based config, initialize connection state, and test connectivity on mount
