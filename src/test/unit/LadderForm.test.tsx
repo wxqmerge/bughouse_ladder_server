@@ -5,32 +5,72 @@ import * as storageService from '../../services/storageService';
 import * as dataService from '../../services/dataService';
 import '@testing-library/jest-dom';
 
-// Mocking dependencies
-vi.mock('../../services/storageService', async () => {
-  const actual = await vi.importActual('../../services/storageService') as any;
+// Completely manual mock - no importActual to avoid real localStorage reads
+vi.mock('../../services/storageService', () => {
+  const m = vi.fn;
   return {
-    ...actual,
-    addDelta: vi.fn(),
-    savePlayers: vi.fn().mockResolvedValue({ success: true, serverSynced: true }),
-    getPlayers: vi.fn().mockResolvedValue([]),
-    getLocalPlayers: vi.fn().mockReturnValue([]),
-    getJson: vi.fn(),
-    setJson: vi.fn(),
-    removeJson: vi.fn(),
-    markLocalChanges: vi.fn(),
-    isServerDownMode: vi.fn().mockReturnValue(false),
-    isAdminMode: vi.fn().mockReturnValue(true),
-    getPendingNewDay: vi.fn().mockReturnValue(null),
-    clearPendingNewDay: vi.fn(),
-    clearAllSaveStatus: vi.fn(),
-    clearLocalChangesFlag: vi.fn(),
-    clearPendingDeletes: vi.fn(),
-    getPendingDeletes: vi.fn().mockReturnValue(new Set()),
-    queueDelete: vi.fn(),
-    startBatch: vi.fn(),
-    endBatch: vi.fn(),
-    getHasLocalChanges: vi.fn().mockReturnValue(false),
-    getKeyPrefix: vi.fn().mockReturnValue('test_'),
+    derivePrefixFromLocation: m(),
+    getKeyPrefix: m().mockReturnValue('test_'),
+    getJson: m(),
+    setJson: m(),
+    removeJson: m(),
+    getJsonArray: m().mockReturnValue([]),
+    getLocalPlayers: m().mockReturnValue([]),
+    removeAllKeysWithPrefix: m(),
+    isAdminMode: m().mockReturnValue(true),
+    setAdminMode: m(),
+    clearAdminMode: m(),
+    getPendingNewDay: m().mockReturnValue(null),
+    setPendingNewDay: m(),
+    clearPendingNewDay: m(),
+    clearSettings: m(),
+    isCellSaved: m().mockReturnValue(false),
+    markCellAsSaved: m(),
+    markCellAsUnsaved: m(),
+    clearAllSaveStatus: m(),
+    markLocalChanges: m(),
+    getHasLocalChanges: m().mockReturnValue(false),
+    clearLocalChangesFlag: m(),
+    getServerDownMode: m().mockReturnValue(false),
+    addPendingSync: m(),
+    clearPendingSyncQueue: m(),
+    getPendingSyncQueue: m().mockReturnValue([]),
+    hasPendingSync: m().mockReturnValue(false),
+    getPendingSyncCount: m().mockReturnValue(0),
+    addDelta: m(),
+    getPendingDeltaCount: m().mockReturnValue(0),
+    queueDelete: m(),
+    getPendingDeletes: m().mockReturnValue(new Set()),
+    clearPendingDeletes: m(),
+    replayPendingDeletes: m().mockResolvedValue(undefined),
+    startBatch: m(),
+    endBatch: m().mockResolvedValue(undefined),
+    isInBatch: m().mockReturnValue(false),
+    _resetBatchState: m(),
+    getPlayers: m().mockResolvedValue([]),
+    savePlayers: m().mockResolvedValue({ success: true, serverSynced: true }),
+    getPlayer: m().mockResolvedValue(undefined),
+    updatePlayer: m().mockResolvedValue(undefined),
+    clearPlayerCell: m().mockResolvedValue(undefined),
+    submitGameResult: m().mockResolvedValue(undefined),
+    getSettings: m().mockReturnValue({}),
+    saveSettings: m(),
+    getProjectName: m().mockReturnValue('Bughouse Chess Ladder'),
+    setProjectName: m(),
+    getZoomLevel: m().mockReturnValue(100),
+    setZoomLevel: m(),
+    clearAllData: m().mockResolvedValue(undefined),
+    saveToServer: m().mockResolvedValue({ success: true }),
+    getClientId: m().mockReturnValue('test-client'),
+    getClientName: m().mockReturnValue('Client test'),
+    getServerUrl: m().mockReturnValue(null),
+    tryAcquireAdminLock: m().mockResolvedValue(true),
+    forceAcquireAdminLock: m().mockResolvedValue(true),
+    releaseAdminLock: m().mockResolvedValue(undefined),
+    refreshAdminLock: m().mockResolvedValue(undefined),
+    getAdminLockInfo: m().mockResolvedValue({ locked: false }),
+    isAdminLocked: m().mockResolvedValue(false),
+    notifyServerOfLockAction: m(),
   };
 });
 
@@ -55,7 +95,7 @@ vi.mock('../../services/dataService', () => ({
 }));
 
 vi.mock('../../services/userSettingsStorage', () => ({
-  loadUserSettings: vi.fn().mockReturnValue({ server: 'http://localhost:3000', apiKey: 'test-key' }),
+  loadUserSettings: vi.fn().mockReturnValue({ server: '', apiKey: '' }),
   normalizeServerUrl: vi.fn((url) => url),
   saveUserSettings: vi.fn(),
   saveLastWorkingConfig: vi.fn(),
@@ -106,13 +146,13 @@ describe('LadderForm Auto-Letter Logic', () => {
   });
 
   it('should use nRating if available and non-zero, otherwise use rating', async () => {
-     const mockPlayers = [
-       { rank: 1, group: 'A', lastName: 'User1', firstName: 'F1', rating: 1200, nRating: 1300, trophyEligible: true, grade: 'A', num_games: 0, attendance: 0, info: '', phone: '', school: '', room: '', gameResults: [] },
-       { rank: 2, group: 'B', lastName: 'User2', firstName: 'F2', rating: 800, nRating: 0, trophyEligible: true, grade: 'B', num_games: 0, attendance: 0, info: '', phone: '', school: '', room: '', gameResults: [] },
-     ];
-     (storageService.getLocalPlayers as any).mockReturnValue(mockPlayers);
+    const mockPlayers = [
+      { rank: 1, group: 'D', lastName: 'User1', firstName: 'F1', rating: 1200, nRating: 1300, trophyEligible: true, grade: 'A', num_games: 0, attendance: 0, info: '', phone: '', school: '', room: '', gameResults: [] as (string | null)[] },
+      { rank: 2, group: 'D', lastName: 'User2', firstName: 'F2', rating: 800, nRating: 0, trophyEligible: true, grade: 'B', num_games: 0, attendance: 0, info: '', phone: '', school: '', room: '', gameResults: [] as (string | null)[] },
+    ];
+    (storageService.getLocalPlayers as any).mockImplementation(() => mockPlayers);
 
-     render(<LadderForm />);
+    render(<LadderForm />);
 
     await waitFor(() => {
       expect(screen.getByTestId('mock-menubar')).toBeInTheDocument();
@@ -126,7 +166,7 @@ describe('LadderForm Auto-Letter Logic', () => {
     await waitFor(() => {
       expect(storageService.savePlayers).toHaveBeenCalledWith(
         expect.arrayContaining([
-          expect.objectContaining({ rank: 1, group: 'A' }), // 1300 -> A
+          expect.objectContaining({ rank: 1, group: 'A1' }), // 1300 -> A1
           expect.objectContaining({ rank: 2, group: 'B' }), // 800 -> B
         ]),
         true
@@ -135,13 +175,13 @@ describe('LadderForm Auto-Letter Logic', () => {
   });
 
   it('should use rating if nRating is zero', async () => {
-     const mockPlayers = [
-       { rank: 1, group: 'A', lastName: 'User1', firstName: 'F1', rating: 1200, nRating: 0, trophyEligible: true, grade: 'A', num_games: 0, attendance: 0, info: '', phone: '', school: '', room: '', gameResults: [] },
-       { rank: 2, group: 'B', lastName: 'User2', firstName: 'F2', rating: 800, nRating: 0, trophyEligible: true, grade: 'B', num_games: 0, attendance: 0, info: '', phone: '', school: '', room: '', gameResults: [] },
-     ];
-     (storageService.getLocalPlayers as any).mockReturnValue(mockPlayers);
+    const mockPlayers = [
+      { rank: 1, group: 'D', lastName: 'User1', firstName: 'F1', rating: 1200, nRating: 0, trophyEligible: true, grade: 'A', num_games: 0, attendance: 0, info: '', phone: '', school: '', room: '', gameResults: [] as (string | null)[] },
+      { rank: 2, group: 'D', lastName: 'User2', firstName: 'F2', rating: 800, nRating: 0, trophyEligible: true, grade: 'B', num_games: 0, attendance: 0, info: '', phone: '', school: '', room: '', gameResults: [] as (string | null)[] },
+    ];
+    (storageService.getLocalPlayers as any).mockImplementation(() => mockPlayers);
 
-     render(<LadderForm />);
+    render(<LadderForm />);
 
     await waitFor(() => {
       expect(screen.getByTestId('mock-menubar')).toBeInTheDocument();
@@ -155,8 +195,8 @@ describe('LadderForm Auto-Letter Logic', () => {
     await waitFor(() => {
       expect(storageService.savePlayers).toHaveBeenCalledWith(
         expect.arrayContaining([
-          expect.objectContaining({ rank: 1, group: 'A' }),
-          expect.objectContaining({ rank: 2, group: 'B' }),
+          expect.objectContaining({ rank: 1, group: 'A1' }), // rating 1200 -> A1
+          expect.objectContaining({ rank: 2, group: 'B' }), // rating 800 -> B
         ]),
         true
       );

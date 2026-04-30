@@ -17,7 +17,7 @@ export interface PlayerData {
   trophyEligible: boolean;
   grade: string;
   num_games: number;
-  attendance: number | string;
+  attendance: number;
   info: string;
   phone: string;
   school: string;

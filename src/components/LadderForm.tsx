@@ -2593,7 +2593,7 @@ export default function LadderForm({
   };
 
   const handleApplyBulkResults = async (
-    results: { playerRank: number; roundIndex: number; resultString: string; playerName?: string }[],
+    results: { cellOwnerRank: number; roundIndex: number; resultString: string }[],
   ) => {
     if (shouldLog(10)) {
       console.log(`>>> [BULK PASTE] Applying ${results.length} entries`);
@@ -2608,7 +2608,7 @@ export default function LadderForm({
       const playersCopy = players.map((p) => ({ ...p }));
       for (const result of results) {
         const playerIndex = playersCopy.findIndex(
-          (p) => p.rank === result.playerRank,
+          (p) => p.rank === result.cellOwnerRank,
         );
         if (playerIndex !== -1) {
           const player = playersCopy[playerIndex];
