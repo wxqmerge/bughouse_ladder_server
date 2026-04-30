@@ -4,9 +4,28 @@
  * Stores per-user configuration in localStorage that persists across sessions:
  * - Server URL (e.g., "omen.com:3000") - empty = local mode
  * - API Key for authentication
+ * 
+ * Keys are per-ladder (derived from window.location) so different ladders are fully independent.
+ * 
+ * NOTE: This module does NOT import getKeyPrefix to avoid circular dependency with storageService.
+ * The key derivation logic is duplicated here intentionally.
  */
 
-const USER_SETTINGS_KEY = 'bughouse-ladder-user-settings';
+function getLadderPrefix(): string {
+  // Same logic as derivePrefixFromLocation in storageService.ts
+  // Duplicated to avoid circular dependency
+  const host = window.location.hostname.replace(/[.\-:]/g, '_');
+  const path = window.location.pathname
+    .replace(/[^a-zA-Z0-9]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '');
+  const combined = host + (path ? '_' + path : '');
+  return 'ladder_' + combined + '_';
+}
+
+function getUserSettingsKey(): string {
+  return getLadderPrefix() + 'ladder_user_settings';
+}
 
 export interface UserSettings {
   server: string;    // e.g., "omen.com:3000" or "http://localhost:3000" - empty = local mode
@@ -31,7 +50,7 @@ export function normalizeServerUrl(input: string): string {
  */
 export const loadUserSettings = (): UserSettings => {
   try {
-    const stored = localStorage.getItem(USER_SETTINGS_KEY);
+    const stored = localStorage.getItem(getUserSettingsKey());
     if (stored) {
       const parsed = JSON.parse(stored);
       return {
@@ -52,7 +71,7 @@ export const loadUserSettings = (): UserSettings => {
 export const saveUserSettings = (settings: UserSettings): void => {
   try {
     const normalizedServer = normalizeServerUrl(settings.server);
-    localStorage.setItem(USER_SETTINGS_KEY, JSON.stringify({ ...settings, server: normalizedServer }));
+    localStorage.setItem(getUserSettingsKey(), JSON.stringify({ ...settings, server: normalizedServer }));
     console.log('[UserSettings] Saved settings:', { server: normalizedServer || '(empty)', apiKey: settings.apiKey ? '(set)' : '(empty)', debugMode: settings.debugMode });
   } catch (error) {
     console.error('[UserSettings] Failed to save settings:', error);
@@ -63,11 +82,13 @@ export const saveUserSettings = (settings: UserSettings): void => {
  * Clear user settings from localStorage
  */
 const clearUserSettings = (): void => {
-  localStorage.removeItem(USER_SETTINGS_KEY);
+  localStorage.removeItem(getUserSettingsKey());
   console.log('[UserSettings] Cleared user settings');
 };
 
-const LAST_WORKING_CONFIG_KEY = 'bughouse-ladder-last-working-config';
+function getLastWorkingConfigKey(): string {
+  return getLadderPrefix() + 'ladder_last_working_config';
+}
 
 export interface LastWorkingConfig {
   server: string;
@@ -77,7 +98,7 @@ export interface LastWorkingConfig {
 export function saveLastWorkingConfig(server: string, apiKey: string): void {
   try {
     const normalizedServer = normalizeServerUrl(server);
-    localStorage.setItem(LAST_WORKING_CONFIG_KEY, JSON.stringify({ server: normalizedServer, apiKey }));
+    localStorage.setItem(getLastWorkingConfigKey(), JSON.stringify({ server: normalizedServer, apiKey }));
     console.log('[UserSettings] Saved last working config:', { server: normalizedServer, hasKey: !!apiKey });
   } catch (error) {
     console.error('[UserSettings] Failed to save last working config:', error);
@@ -86,7 +107,7 @@ export function saveLastWorkingConfig(server: string, apiKey: string): void {
 
 export function getLastWorkingConfig(): LastWorkingConfig | null {
   try {
-    const stored = localStorage.getItem(LAST_WORKING_CONFIG_KEY);
+    const stored = localStorage.getItem(getLastWorkingConfigKey());
     if (stored) {
       return JSON.parse(stored);
     }
@@ -97,7 +118,7 @@ export function getLastWorkingConfig(): LastWorkingConfig | null {
 }
 
 function clearLastWorkingConfig(): void {
-  localStorage.removeItem(LAST_WORKING_CONFIG_KEY);
+  localStorage.removeItem(getLastWorkingConfigKey());
   console.log('[UserSettings] Cleared last working config');
 }
 

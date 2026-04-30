@@ -15,7 +15,7 @@ import {
   Key,
 } from "lucide-react";
 import "../css/index.css";
-import { getKeyPrefix } from "../services/storageService";
+import { getSettings, saveSettings } from "../services/storageService";
 import { loadUserSettings, saveUserSettings, normalizeServerUrl, getLastWorkingConfig, type UserSettings } from "../services/userSettingsStorage";
 
 interface SettingsProps {
@@ -47,15 +47,12 @@ export default function Settings({
   const [lastWorkingConfig, setLastWorkingConfig] = useState<{ server: string; apiKey: string } | null>(null);
 
   useEffect(() => {
-    const savedSettings = localStorage.getItem(
-      getKeyPrefix() + "ladder_settings",
-    );
+    const savedSettings = getSettings();
     if (savedSettings) {
       try {
-        const parsedSettings = JSON.parse(savedSettings);
-        setShowRatings(parsedSettings.showRatings ?? true);
-        setDebugLevel(parsedSettings.debugLevel ?? 5);
-        setKFactor(parsedSettings.kFactor ?? 20);
+        setShowRatings(savedSettings.showRatings ?? true);
+        setDebugLevel(savedSettings.debugLevel ?? 5);
+        setKFactor(savedSettings.kFactor ?? 20);
       } catch (err) {
         console.error("Failed to parse settings:", err);
       }
@@ -81,10 +78,7 @@ export default function Settings({
         debugLevel: debugLevel,
         kFactor: Math.max(1, Math.min(100, kFactor || 20)),
       };
-      localStorage.setItem(
-        getKeyPrefix() + "ladder_settings",
-        JSON.stringify(settings),
-      );
+      saveSettings(settings);
     }
 
     // Save user server settings
