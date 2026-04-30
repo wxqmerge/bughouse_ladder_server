@@ -69,9 +69,10 @@ export function processNewDayTransformations(
   }
 
   const sortedPlayers = [...newDayPlayers].sort((a, b) => {
-    const ratingA = a.rating || 0;
-    const ratingB = b.rating || 0;
-    if (ratingA !== ratingB) return ratingB - ratingA;
+    const pseudoA = a.trophyEligible !== false ? a.rating : -a.rating;
+    const pseudoB = b.trophyEligible !== false ? b.rating : -b.rating;
+
+    if (pseudoA !== pseudoB) return pseudoB - pseudoA;
     return a.rank - b.rank;
   });
 
