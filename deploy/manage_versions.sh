@@ -11,25 +11,34 @@ TEMPLATE_FILE="./deploy/nginx/subdomain.conf.template"
 # Derive version name from current directory
 VERSION=$(basename "$(pwd)")
 
-# Domain from .env (falls back to hostname)
-DOMAIN=""
-if [ -f "server/.env" ]; then
-    DOMAIN=$(grep '^DOMAIN=' server/.env 2>/dev/null | cut -d= -f2 | tr -d '[:space:]')
-fi
-if [ -z "$DOMAIN" ]; then
-    DOMAIN=$(hostname -f 2>/dev/null || hostname)
-fi
-
-# Port from .env
-PORT=""
-if [ -f "server/.env" ]; then
-    PORT=$(grep '^PORT=' server/.env 2>/dev/null | cut -d= -f2 | tr -d '[:space:]')
-fi
-if [ -z "$PORT" ]; then
-    echo "Error: PORT not set in server/.env"
+# Check running as root
+if [ "$(id -u)" -ne 0 ]; then
+    echo "Error: This script must be run as root (sudo)."
     exit 1
 fi
 
+# Check required .env entries
+ERRORS=0
+if [ -f "server/.env" ]; then
+    for VAR in PORT ADMIN_API_KEY USER_API_KEY DOMAIN; do
+        VAL=$(grep "^${VAR}=" server/.env 2>/dev/null | cut -d= -f2 | tr -d '[:space:]')
+        if [ -z "$VAL" ]; then
+            echo "Error: $VAR not set in server/.env"
+            ERRORS=$((ERRORS + 1))
+        fi
+    done
+else
+    echo "Error: server/.env not found"
+    exit 1
+fi
+
+if [ $ERRORS -gt 0 ]; then
+    echo "Fix the errors above and re-run."
+    exit 1
+fi
+
+DOMAIN=$(grep '^DOMAIN=' server/.env | cut -d= -f2 | tr -d '[:space:]')
+PORT=$(grep '^PORT=' server/.env | cut -d= -f2 | tr -d '[:space:]')
 SUBDOMAIN="${VERSION}.${DOMAIN}"
 
 usage() {
