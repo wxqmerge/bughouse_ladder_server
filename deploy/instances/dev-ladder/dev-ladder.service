@@ -1,0 +1,19 @@
+[Unit]
+Description=Bughouse Chess Ladder - Development
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/bughouse-ladder/deploy/instances/dev-ladder
+Environment=NODE_ENV=production
+Environment=PORT=3000
+ExecStart=/usr/bin/node dist/index.js
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

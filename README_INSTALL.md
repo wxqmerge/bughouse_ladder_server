@@ -30,8 +30,9 @@ Users configure the server URL through the **Settings menu** in the browser - no
 3. [Manual Installation](#manual-installation)
 4. [Configuration](#configuration)
 5. [Nginx Setup](#nginx-setup)
-6. [Verification](#verification)
-7. [Troubleshooting](#troubleshooting)
+6. [Multi-Version Deployment](#multi-version-deployment)
+7. [Verification](#verification)
+8. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -477,6 +478,190 @@ server {
 
 ---
 
+## Multi-Version Deployment
+
+To run multiple ladder versions (e.g., development and release) on the same server, each version runs as a separate systemd service on its own port, with Nginx routing traffic via subdomains.
+
+### Architecture
+
+```
+Browser → omen.com/dev/dist/ → dev.omen.com (HTTPS) → Nginx → localhost:3000 (dev-ladder)
+Browser → omen.com/rel/dist/ → rel.omen.com (HTTPS) → Nginx → localhost:3001 (rel-ladder)
+```
+
+### Service Files
+
+Each ladder version needs a systemd service file.
+
+**dev-ladder.service** (`/etc/systemd/system/dev-ladder.service`):
+
+```ini
+[Unit]
+Description=Bughouse Chess Ladder - Development
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/bughouse-ladder/deploy/instances/dev-ladder
+Environment=NODE_ENV=production
+Environment=PORT=3000
+ExecStart=/usr/bin/node dist/index.js
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+```
+
+**rel-ladder.service** (`/etc/systemd/system/rel-ladder.service`):
+
+```ini
+[Unit]
+Description=Bughouse Chess Ladder - Release
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/bughouse-ladder/deploy/instances/rel-ladder
+Environment=NODE_ENV=production
+Environment=PORT=3001
+ExecStart=/usr/bin/node dist/index.js
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+```
+
+### Deploying Service Files
+
+```bash
+# Copy service files from deploy directory
+sudo cp deploy/instances/dev-ladder/dev-ladder.service /etc/systemd/system/
+sudo cp deploy/instances/rel-ladder/rel-ladder.service /etc/systemd/system/
+
+# Enable and start both services
+sudo systemctl daemon-reload
+sudo systemctl enable dev-ladder rel-ladder
+sudo systemctl start dev-ladder rel-ladder
+
+# Verify both are running
+sudo systemctl status dev-ladder rel-ladder
+```
+
+### Nginx Configuration for Multiple Versions
+
+**dev.omen.com** (`/etc/nginx/sites-available/dev.omen.com.conf`):
+
+```nginx
+server {
+    listen 80;
+    server_name dev.omen.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+**rel.omen.com** (`/etc/nginx/sites-available/rel.omen.com.conf`):
+
+```nginx
+server {
+    listen 80;
+    server_name rel.omen.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+### Deploying Nginx Configs
+
+```bash
+# Copy configs to Nginx
+sudo cp deploy/nginx/dev.omen.com.conf /etc/nginx/sites-available/dev.omen.com.conf
+sudo cp deploy/nginx/rel.omen.com.conf /etc/nginx/sites-available/rel.omen.com.conf
+
+# Enable them (symlink)
+sudo ln -s /etc/nginx/sites-available/dev.omen.com.conf /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/rel.omen.com.conf /etc/nginx/sites-enabled/
+
+# Test and reload
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+### Frontend Config Strings
+
+**Development:**
+```
+http://omen.com/dev/dist/?config=1&server=https://dev.omen.com&key=mykey
+```
+
+**Release:**
+```
+http://omen.com/rel/dist/?config=1&server=https://rel.omen.com&key=mykey
+```
+
+### SSL for Multiple Subdomains
+
+```bash
+sudo certbot --nginx -d dev.omen.com
+sudo certbot --nginx -d rel.omen.com
+```
+
+### Tracing Logs
+
+```bash
+# Live logs for dev-ladder
+sudo journalctl -u dev-ladder -f
+
+# Live logs for rel-ladder
+sudo journalctl -u rel-ladder -f
+```
+
+### Managing Services
+
+```bash
+# Restart a specific version
+sudo systemctl restart dev-ladder
+sudo systemctl restart rel-ladder
+
+# Check status
+sudo systemctl status dev-ladder
+sudo systemctl status rel-ladder
+
+# Stop a version
+sudo systemctl stop dev-ladder
+```
+
+---
+
 ## Verification
 
 ### 1. Check Server Health
@@ -513,7 +698,12 @@ curl -I https://your-domain.com/api/ladder
 ### 4. Check Service Status
 
 ```bash
+# Single version
 sudo systemctl status bughouse-ladder
+
+# Multi-version
+sudo systemctl status dev-ladder
+sudo systemctl status rel-ladder
 ```
 
 Should show `active (running)`.
@@ -525,11 +715,16 @@ Should show `active (running)`.
 ### Server Won't Start
 
 ```bash
-# Check logs
+# Check logs (single version)
 sudo journalctl -u bughouse-ladder -n 50 --no-pager
+
+# Check logs (multi-version)
+sudo journalctl -u dev-ladder -n 50 --no-pager
+sudo journalctl -u rel-ladder -n 50 --no-pager
 
 # Check if port is in use
 sudo lsof -i :3000
+sudo lsof -i :3001
 
 # Test server directly
 cd /var/www/bughouse-ladder/server
@@ -539,11 +734,16 @@ NODE_ENV=production node dist/index.js
 ### Nginx 502 Bad Gateway
 
 ```bash
-# Check if backend is running
+# Check if backend is running (single version)
 sudo systemctl status bughouse-ladder
+
+# Check if backend is running (multi-version)
+sudo systemctl status dev-ladder
+sudo systemctl status rel-ladder
 
 # Test backend directly
 curl http://localhost:3000/health
+curl http://localhost:3001/health
 
 # Check Nginx error log
 sudo tail -f /var/log/nginx/error.log
@@ -603,8 +803,11 @@ git pull
 npm run build
 cd server && npm run build && cd ..
 
-# Restart service
+# Restart service (single version)
 sudo systemctl restart bughouse-ladder
+
+# Restart services (multi-version)
+sudo systemctl restart dev-ladder rel-ladder
 ```
 
 ### Backup Data
@@ -619,8 +822,12 @@ sudo tar -czf /var/backups/bughouse-ladder-$(date +%Y%m%d).tar.gz \
 ### View Logs
 
 ```bash
-# Application logs
+# Application logs (single version)
 sudo journalctl -u bughouse-ladder -f
+
+# Application logs (multi-version)
+sudo journalctl -u dev-ladder -f
+sudo journalctl -u rel-ladder -f
 
 # Nginx access log
 sudo tail -f /var/log/nginx/access.log
