@@ -3,64 +3,73 @@
 ## Architecture
 
 ```
-Browser → omen.com/dev/dist/ → dev.omen.com (HTTPS) → Nginx → localhost:3000
+Browser → your-domain.com/dev-ladder/dist/ → dev-ladder.your-domain.com (HTTPS) → Nginx → localhost:3000
 ```
 
-The frontend is served from `omen.com/dev/dist/`. When it needs API data, it calls `https://dev.omen.com/api/...`, which Nginx proxies to the backend on port 3000.
+The frontend is served from `your-domain.com/<project-name>/dist/`. The subdomain `<project-name>.your-domain.com` is always the same as the project directory name. When the client needs API data, it calls `https://<project-name>.your-domain.com/api/...`, which Nginx proxies to the backend.
 
 ## Quick Setup
 
-The script automatically uses your machine's hostname. Run `hostname` to see what it will use.
+The script automatically derives the project name from the current directory. Run `basename "$(pwd)"` to see what it will use.
 
 ### Add a new version
 
 ```bash
-sudo ./deploy/manage_versions.sh add dev-ladder 3000
-sudo ./deploy/manage_versions.sh add rel-ladder 3001
+cd /var/www/html/dev-ladder
+sudo ./deploy/manage_versions.sh add
 ```
 
 ### Start a backend
 
 ```bash
-cd deploy/instances/dev-ladder && PORT=3000 node dist/index.js
-cd deploy/instances/rel-ladder && PORT=3001 node dist/index.js
+sudo systemctl start dev-ladder
 ```
 
 ### Remove a version
 
 ```bash
-sudo ./deploy/manage_versions.sh remove dev-ladder
+cd /var/www/html/dev-ladder
+sudo ./deploy/manage_versions.sh remove
 ```
 
 ## Example URLs
 
-| Ladder  | Subdomain     | Port | API Key |
-|---------|---------------|------|---------|
-| dev     | dev.omen.com  | 3000 | mykey   |
-| rel     | rel.omen.com  | 3001 | mykey   |
+| Project  | Subdomain              | Config URL |
+|----------|------------------------|------------|
+| dev-ladder | dev-ladder.your-domain.com | https://your-domain.com/dev-ladder/dist/?config=1&server=https://dev-ladder.your-domain.com&key=mykey |
+| rel-ladder | rel-ladder.your-domain.com | https://your-domain.com/rel-ladder/dist/?config=1&server=https://rel-ladder.your-domain.com&key=mykey |
 
 ## Frontend Config Strings
 
 **Development:**
 ```
-http://omen.com/dev/dist/?config=1&server=https://dev.omen.com&key=mykey
+https://your-domain.com/dev-ladder/dist/?config=1&server=https://dev-ladder.your-domain.com&key=mykey
 ```
 
 **Release:**
 ```
-http://omen.com/rel/dist/?config=1&server=https://rel.omen.com&key=mykey
+https://your-domain.com/rel-ladder/dist/?config=1&server=https://rel-ladder.your-domain.com&key=mykey
 ```
 
 Enter the API key in Settings > Server Connection.
 
+## Naming Convention
+
+**SUBDOMAIN == PROJECT_NAME** — The subdomain always matches the project directory name:
+
+- Directory: `/var/www/html/dev-ladder` → Subdomain: `dev-ladder.your-domain.com`
+- Directory: `/var/www/html/rel-ladder` → Subdomain: `rel-ladder.your-domain.com`
+
+This convention is enforced by `manage_versions.sh` which derives the project name from `basename "$(pwd)"`.
+
 ## Nginx Configs
 
-### dev.omen.com
+### dev-ladder.your-domain.com
 
 ```
 server {
     listen 80;
-    server_name dev.omen.com;
+    server_name dev-ladder.your-domain.com;
 
     location / {
         proxy_pass http://127.0.0.1:3000;
@@ -76,12 +85,12 @@ server {
 }
 ```
 
-### rel.omen.com
+### rel-ladder.your-domain.com
 
 ```
 server {
     listen 80;
-    server_name rel.omen.com;
+    server_name rel-ladder.your-domain.com;
 
     location / {
         proxy_pass http://127.0.0.1:3001;
@@ -103,12 +112,12 @@ Copy the config files to your server and enable them:
 
 ```bash
 # Copy configs to Nginx
-sudo cp deploy/nginx/dev.omen.com.conf /etc/nginx/sites-available/dev.omen.com.conf
-sudo cp deploy/nginx/rel.omen.com.conf /etc/nginx/sites-available/rel.omen.com.conf
+sudo cp deploy/nginx/dev-ladder.<hostname>.conf /etc/nginx/sites-available/dev-ladder.<hostname>.conf
+sudo cp deploy/nginx/rel-ladder.<hostname>.conf /etc/nginx/sites-available/rel-ladder.<hostname>.conf
 
 # Enable them (symlink)
-sudo ln -s /etc/nginx/sites-available/dev.omen.com.conf /etc/nginx/sites-enabled/
-sudo ln -s /etc/nginx/sites-available/rel.omen.com.conf /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/dev-ladder.<hostname>.conf /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/rel-ladder.<hostname>.conf /etc/nginx/sites-enabled/
 
 # Test and reload
 sudo nginx -t && sudo systemctl reload nginx
@@ -117,14 +126,14 @@ sudo nginx -t && sudo systemctl reload nginx
 ## DNS
 
 Ensure A records exist for:
-- `dev.omen.com` → your server IP
-- `rel.omen.com` → your server IP
+- `dev-ladder.your-domain.com` → your server IP
+- `rel-ladder.your-domain.com` → your server IP
 
 ## SSL
 
 ```bash
-sudo certbot --nginx -d dev.omen.com
-sudo certbot --nginx -d rel.omen.com
+sudo certbot --nginx -d dev-ladder.your-domain.com
+sudo certbot --nginx -d rel-ladder.your-domain.com
 ```
 
 ## Systemd Service Files

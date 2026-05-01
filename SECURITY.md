@@ -9,7 +9,7 @@
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `NODE_ENV` | Must be `production` | `production` |
-| `CORS_ORIGINS` | Allowed frontend domains, comma-separated | `https://omen.com` |
+| `CORS_ORIGINS` | Allowed frontend domains, comma-separated | `https://your-domain.com` |
 
 ### Optional
 
@@ -24,7 +24,7 @@
 ```env
 PORT=3000
 NODE_ENV=production
-CORS_ORIGINS=https://omen.com
+CORS_ORIGINS=https://your-domain.com
 USER_API_KEY=a1b2c3d4e5f6...
 ADMIN_API_KEY=f6e5d4c3b2a1...
 ```

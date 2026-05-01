@@ -238,23 +238,20 @@ if [ -f "server/.env" ]; then
     USER_KEY=$(grep '^USER_API_KEY=' server/.env 2>/dev/null | cut -d= -f2 | tr -d '[:space:]')
 fi
 
-# Extract domain from server nginx config
-CONF_DOMAIN=$(grep 'server_name' "/etc/nginx/sites-available/${PROJECT_NAME}.${DOMAIN}.conf" 2>/dev/null | sed 's/server_name//;s/;//' | tr -s ' ' | awk '{print $1}')
-
-if [ -n "$CONF_DOMAIN" ]; then
-    echo "  [INFO] Domain: $CONF_DOMAIN"
+if [ -f "/etc/nginx/sites-available/${PROJECT_NAME}.${DOMAIN}.conf" ]; then
+    echo "  [INFO] Subdomain: ${PROJECT_NAME}.${DOMAIN}"
     echo ""
     echo "    Admin:"
-    echo "      http://$CONF_DOMAIN/dist/?config=1&server=https://$CONF_DOMAIN&key=$ADMIN_KEY"
+    echo "      https://$DOMAIN/$PROJECT_NAME/dist/?config=1&server=https://${PROJECT_NAME}.${DOMAIN}&key=$ADMIN_KEY"
     echo ""
     echo "    User:"
-    echo "      http://$CONF_DOMAIN/dist/?config=1&server=https://$CONF_DOMAIN&key=$USER_KEY"
+    echo "      https://$DOMAIN/$PROJECT_NAME/dist/?config=1&server=https://${PROJECT_NAME}.${DOMAIN}&key=$USER_KEY"
     echo ""
     echo "    View:"
-    echo "      http://$CONF_DOMAIN/dist/?config=1&server=https://$CONF_DOMAIN"
+    echo "      https://$DOMAIN/$PROJECT_NAME/dist/?config=1&server=https://${PROJECT_NAME}.${DOMAIN}"
     echo ""
 else
-    echo "  [WARN] No domain found in /etc/nginx/sites-available/${PROJECT_NAME}.${DOMAIN}.conf - cannot generate config strings"
+    echo "  [WARN] No config found in /etc/nginx/sites-available/${PROJECT_NAME}.${DOMAIN}.conf - cannot generate config strings"
 fi
 echo ""
 
