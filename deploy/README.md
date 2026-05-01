@@ -51,6 +51,8 @@ cd /var/www/html/dev-ladder
 sudo ./deploy/manage_versions.sh add
 ```
 
+Requires root — checks that you're running as sudo and that `server/.env` contains `PORT`, `DOMAIN`, `ADMIN_API_KEY`, and `USER_API_KEY`.
+
 This creates:
 - Nginx config at `/etc/nginx/sites-available/dev-ladder.your-domain.com.conf`
 - Systemd service at `/etc/systemd/system/dev-ladder.service`
