@@ -3,8 +3,12 @@
 # Verify setup - checks everything without sudo
 # Run: ./deploy/verify.sh
 
+# Derive project name from directory (e.g., /var/www/html/dev-ladder -> dev-ladder)
+PROJECT_NAME=$(basename "$(pwd)")
+
 echo "========================================"
 echo "  Chess Ladder - Verify Setup"
+echo "  Project: $PROJECT_NAME"
 echo "========================================"
 echo ""
 
@@ -84,13 +88,11 @@ echo "6. Nginx"
 if command -v nginx > /dev/null 2>&1; then
     echo "  [INFO] nginx version: $(nginx -v 2>&1)"
     check "nginx config test" "sudo nginx -t"
-    echo "  [INFO] sites-available:"
-    if [ -d /etc/nginx/sites-available ]; then
-        ls /etc/nginx/sites-available/ 2>/dev/null | sed 's/^/    /'
-    fi
-    echo "  [INFO] sites-enabled:"
-    if [ -d /etc/nginx/sites-enabled ]; then
-        ls -la /etc/nginx/sites-enabled/ 2>/dev/null | sed 's/^/    /'
+    echo "  [INFO] Project nginx config:"
+    if [ -f "deploy/nginx/${PROJECT_NAME}.conf" ]; then
+        echo "    deploy/nginx/${PROJECT_NAME}.conf [OK]"
+    else
+        echo "    deploy/nginx/${PROJECT_NAME}.conf [MISSING]"
     fi
 else
     warn "nginx not installed"
@@ -99,24 +101,33 @@ echo ""
 
 # --- Systemd services ---
 echo "7. Systemd services"
-for svc_file in /etc/systemd/system/*.service; do
-    if basename "$svc_file" | grep -q "ladder"; then
-        svc_name=$(basename "$svc_file" .service)
-        echo "  [INFO] Service file exists: ${svc_name}.service"
-        if systemctl is-active "$svc_name" 2>/dev/null | grep -q "active"; then
-            echo "    [INFO] Status: running"
-        else
-            echo "    [WARN] Status: not running"
-        fi
+svc_file="/etc/systemd/system/${PROJECT_NAME}.service"
+if [ -f "$svc_file" ]; then
+    echo "  [INFO] Service file exists: ${PROJECT_NAME}.service"
+    if systemctl is-active "$PROJECT_NAME" 2>/dev/null | grep -q "active"; then
+        echo "    [INFO] Status: running"
+    else
+        echo "    [WARN] Status: not running"
     fi
-done
+else
+    echo "  [WARN] Service file missing: ${PROJECT_NAME}.service"
+fi
 echo ""
 
 # --- SSL certificates ---
 echo "8. SSL certificates"
 if command -v certbot > /dev/null 2>&1; then
     echo "  [INFO] Certbot certificates:"
-    certbot certificates 2>/dev/null | grep -E "Domain|Path" | sed 's/^/    /'
+    proj_domain=$(grep 'server_name' "deploy/nginx/${PROJECT_NAME}.conf" 2>/dev/null | sed 's/server_name//;s/;//' | tr -s ' ' | awk '{print $1}')
+    if [ -n "$proj_domain" ]; then
+        certbot certificates 2>/dev/null | grep -E "Domain|Path" | while read -r line; do
+            if echo "$line" | grep -q "$proj_domain"; then
+                echo "    $line"
+            fi
+        done
+    else
+        echo "    [WARN] No domain found in deploy/nginx/${PROJECT_NAME}.conf"
+    fi
 else
     warn "certbot not installed"
 fi
@@ -124,34 +135,25 @@ echo ""
 
 # --- DNS ---
 echo "9. DNS resolution"
-# Extract domains from enabled nginx configs
-if [ -d /etc/nginx/sites-enabled ]; then
-    domains_found=0
-    for conf in /etc/nginx/sites-enabled/*; do
-        if [ -f "$conf" ]; then
-            domains=$(grep 'server_name' "$conf" 2>/dev/null | sed 's/server_name//;s/;//' | tr -s ' ')
-            for domain in $domains; do
-                if command -v dig > /dev/null 2>&1; then
-                    ip=$(dig +short "$domain" 2>/dev/null | head -1)
-                elif command -v nslookup > /dev/null 2>&1; then
-                    ip=$(nslookup "$domain" 2>/dev/null | grep "Address" | tail -1 | awk '{print $2}')
-                else
-                    ip="tool not available"
-                fi
-                if [ -n "$ip" ] && [ "$ip" != "tool not available" ]; then
-                    echo "  [PASS] $domain -> $ip"
-                else
-                    echo "  [FAIL] $domain -> no DNS record"
-                fi
-                domains_found=1
-            done
+CONF="deploy/nginx/${PROJECT_NAME}.conf"
+if [ -f "$CONF" ]; then
+    domains=$(grep 'server_name' "$CONF" 2>/dev/null | sed 's/server_name//;s/;//' | tr -s ' ')
+    for domain in $domains; do
+        if command -v dig > /dev/null 2>&1; then
+            ip=$(dig +short "$domain" 2>/dev/null | head -1)
+        elif command -v nslookup > /dev/null 2>&1; then
+            ip=$(nslookup "$domain" 2>/dev/null | grep "Address" | tail -1 | awk '{print $2}')
+        else
+            ip="tool not available"
+        fi
+        if [ -n "$ip" ] && [ "$ip" != "tool not available" ]; then
+            echo "  [PASS] $domain -> $ip"
+        else
+            echo "  [FAIL] $domain -> no DNS record"
         fi
     done
-    if [ $domains_found -eq 0 ]; then
-        echo "  [INFO] No domains found in nginx configs"
-    fi
 else
-    echo "  [WARN] /etc/nginx/sites-enabled not found"
+    echo "  [WARN] No config found: $CONF"
 fi
 echo ""
 
@@ -163,7 +165,7 @@ if sudo -n true 2>/dev/null; then
     echo "    [PASS] Passwordless sudo works"
 else
     echo "    [FAIL] sudo requires password (will hang in SSH without TTY)"
-    echo "    [FIX] Add this to /etc/sudoers.d/bughouse-ladder:"
+    echo "    [FIX] Add this to /etc/sudoers.d/${PROJECT_NAME}:"
     echo "          $(whoami) ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart *"
     echo "          $(whoami) ALL=(ALL) NOPASSWD: /usr/bin/systemctl status *"
     echo "          $(whoami) ALL=(ALL) NOPASSWD: /usr/bin/systemctl is-active *"
@@ -185,16 +187,14 @@ fi
 
 echo "  [INFO] PORT from server/.env: $PORT"
 
-# Also check systemd service files for their PORT
-for svc_file in deploy/instances/*/\*.service; do
-    if [ -f "$svc_file" ]; then
-        svc_name=$(basename "$(dirname "$svc_file")")
-        svc_port=$(grep '^Environment=PORT=' "$svc_file" 2>/dev/null | cut -d= -f2 | tr -d '[:space:]')
-        if [ -n "$svc_port" ]; then
-            echo "  [INFO] $svc_name.service: PORT=$svc_port"
-        fi
+# Also check systemd service file for its PORT
+svc_file="/etc/systemd/system/${PROJECT_NAME}.service"
+if [ -f "$svc_file" ]; then
+    svc_port=$(grep '^Environment=PORT=' "$svc_file" 2>/dev/null | cut -d= -f2 | tr -d '[:space:]')
+    if [ -n "$svc_port" ]; then
+        echo "  [INFO] ${PROJECT_NAME}.service: PORT=$svc_port"
     fi
-done
+fi
 
 # Check the configured port
 if command -v ss > /dev/null 2>&1; then
@@ -222,32 +222,23 @@ if [ -f "server/.env" ]; then
     USER_KEY=$(grep '^USER_API_KEY=' server/.env 2>/dev/null | cut -d= -f2 | tr -d '[:space:]')
 fi
 
-# Extract first domain from nginx configs
-DOMAIN=""
-if [ -d /etc/nginx/sites-enabled ]; then
-    for conf in /etc/nginx/sites-enabled/*; do
-        if [ -f "$conf" ]; then
-            DOMAIN=$(grep 'server_name' "$conf" 2>/dev/null | sed 's/server_name//;s/;//' | tr -s ' ' | awk '{print $1}')
-            if [ -n "$DOMAIN" ]; then
-                break
-            fi
-        fi
-    done
-fi
+# Extract domain from project nginx config
+DOMAIN=$(grep 'server_name' "deploy/nginx/${PROJECT_NAME}.conf" 2>/dev/null | sed 's/server_name//;s/;//' | tr -s ' ' | awk '{print $1}')
 
 if [ -n "$DOMAIN" ]; then
-    echo "  [INFO] Detected domain: $DOMAIN"
+    echo "  [INFO] Domain: $DOMAIN"
     echo ""
-    echo "  Admin access:"
-    echo "    http://$DOMAIN/dist/?config=1&server=https://$DOMAIN&key=$ADMIN_KEY"
+    echo "    Admin:"
+    echo "      http://$DOMAIN/dist/?config=1&server=https://$DOMAIN&key=$ADMIN_KEY"
     echo ""
-    echo "  User access:"
-    echo "    http://$DOMAIN/dist/?config=1&server=https://$DOMAIN&key=$USER_KEY"
+    echo "    User:"
+    echo "      http://$DOMAIN/dist/?config=1&server=https://$DOMAIN&key=$USER_KEY"
     echo ""
-    echo "  View access:"
-    echo "    http://$DOMAIN/dist/?config=1&server=https://$DOMAIN"
+    echo "    View:"
+    echo "      http://$DOMAIN/dist/?config=1&server=https://$DOMAIN"
+    echo ""
 else
-    echo "  [WARN] No domain found in nginx configs - cannot generate config strings"
+    echo "  [WARN] No domain found in deploy/nginx/${PROJECT_NAME}.conf - cannot generate config strings"
 fi
 echo ""
 
