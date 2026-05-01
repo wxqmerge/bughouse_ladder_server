@@ -87,7 +87,7 @@ After=network.target
 Type=simple
 User=www-data
 Group=www-data
-WorkingDirectory=$(pwd)/instances/$VERSION
+WorkingDirectory=$(pwd)/server
 Environment=NODE_ENV=production
 Environment=PORT=$PORT
 ExecStart=/usr/bin/node dist/index.js
