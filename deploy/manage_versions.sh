@@ -7,6 +7,7 @@ INSTANCES_DIR="./instances"
 NGINX_CONF_DIR="/etc/nginx/sites-available"
 NGINX_ENABLED_DIR="/etc/nginx/sites-enabled"
 TEMPLATE_FILE="./deploy/nginx/subdomain.conf.template"
+HOSTNAME=$(hostname -f 2>/dev/null || hostname)
 
 usage() {
     echo "Usage: $0 {add|remove|list} [args]"
@@ -24,7 +25,7 @@ case "$1" in
         fi
         VERSION=$2
         PORT=$3
-        SUBDOMAIN="${VERSION}.omen.com"
+        SUBDOMAIN="${VERSION}.${HOSTNAME}"
 
         echo "Creating instance: $VERSION on port $PORT ($SUBDOMAIN)"
 
@@ -33,7 +34,7 @@ case "$1" in
         
         # 2. Generate Nginx config
         CONF_FILE="$NGINX_CONF_DIR/$SUBDOMAIN.conf"
-        sed "s/{{SUBDOMAIN}}/$VERSION/g; s/{{PORT}}/$PORT/g" "$TEMPLATE_FILE" > "$CONF_FILE"
+        sed "s/{{SUBDOMAIN}}/$SUBDOMAIN/g; s/{{PORT}}/$PORT/g" "$TEMPLATE_FILE" > "$CONF_FILE"
 
         # 3. Enable Nginx config
         ln -s "$CONF_FILE" "$NGINX_ENABLED_DIR/"
@@ -57,7 +58,7 @@ case "$1" in
             exit 1
         fi
         VERSION=$2
-        SUBDOMAIN="${VERSION}.omen.com"
+        SUBDOMAIN="${VERSION}.${HOSTNAME}"
         CONF_FILE="$NGINX_CONF_DIR/$SUBDOMAIN.conf"
 
         echo "Removing instance: $VERSION"

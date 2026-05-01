@@ -10,6 +10,8 @@ The frontend is served from `omen.com/dev/dist/`. When it needs API data, it cal
 
 ## Quick Setup
 
+The script automatically uses your machine's hostname. Run `hostname` to see what it will use.
+
 ### Add a new version
 
 ```bash
