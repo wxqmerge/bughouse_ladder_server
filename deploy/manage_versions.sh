@@ -11,6 +11,15 @@ TEMPLATE_FILE="./deploy/nginx/subdomain.conf.template"
 # Derive version name from current directory
 VERSION=$(basename "$(pwd)")
 
+# Validate directory name for URL compatibility
+if echo "$VERSION" | grep -q '[^a-zA-Z0-9-]'; then
+    echo "Error: Directory name '$VERSION' contains invalid characters for a URL."
+    echo "Allowed: letters, numbers, hyphens (-)."
+    echo "Invalid: underscores (_), spaces, dots, etc."
+    echo "Rename the directory and re-run."
+    exit 1
+fi
+
 # Check running as root
 if [ "$(id -u)" -ne 0 ]; then
     echo "Error: This script must be run as root (sudo)."
