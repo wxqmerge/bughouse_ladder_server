@@ -75,10 +75,12 @@ fi
 
 # 6. Restart service
 echo "[6/6] Restarting service: $SERVICE"
-if ! sudo systemctl restart "$SERVICE"; then
+if ! sudo -n systemctl restart "$SERVICE" 2>&1; then
     echo "  ERROR: systemctl restart failed."
-    echo "  Check: sudo systemctl status $SERVICE"
-    echo "  Check: sudo journalctl -u $SERVICE --no-pager -n 20"
+    echo "  If this says 'sudo: a password is required', you need passwordless sudo."
+    echo "  Run: sudo visudo"
+    echo "  Add: $(whoami) ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart *"
+    echo "  Then re-run this script."
     exit 1
 fi
 
