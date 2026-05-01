@@ -1,6 +1,6 @@
 # Bughouse Chess Ladder - User Manual
 
-**Version: 1.1.0**
+**Version: 1.1.5**
 
 ## Getting Started
 
