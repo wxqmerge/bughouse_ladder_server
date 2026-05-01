@@ -99,10 +99,11 @@ echo ""
 
 # --- Systemd services ---
 echo "7. Systemd services"
-for svc in dev-ladder rel-ladder bughouse-ladder; do
-    if systemctl list-unit-files "${svc}.service" 2>/dev/null | grep -q "${svc}.service"; then
-        echo "  [INFO] Service file exists: ${svc}.service"
-        if systemctl is-active "${svc}" 2>/dev/null | grep -q "active"; then
+for svc_file in /etc/systemd/system/*.service; do
+    if basename "$svc_file" | grep -q "ladder"; then
+        svc_name=$(basename "$svc_file" .service)
+        echo "  [INFO] Service file exists: ${svc_name}.service"
+        if systemctl is-active "$svc_name" 2>/dev/null | grep -q "active"; then
             echo "    [INFO] Status: running"
         else
             echo "    [WARN] Status: not running"
@@ -123,26 +124,35 @@ echo ""
 
 # --- DNS ---
 echo "9. DNS resolution"
-for domain in dev-ladder.chess4.us rel.omen.com dev.omen.com; do
-    if command -v dig > /dev/null 2>&1; then
-        ip=$(dig +short "$domain" 2>/dev/null | head -1)
-        if [ -n "$ip" ]; then
-            echo "  [PASS] $domain -> $ip"
-        else
-            echo "  [FAIL] $domain -> no DNS record"
+# Extract domains from enabled nginx configs
+if [ -d /etc/nginx/sites-enabled ]; then
+    domains_found=0
+    for conf in /etc/nginx/sites-enabled/*; do
+        if [ -f "$conf" ]; then
+            domains=$(grep 'server_name' "$conf" 2>/dev/null | sed 's/server_name//;s/;//' | tr -s ' ')
+            for domain in $domains; do
+                if command -v dig > /dev/null 2>&1; then
+                    ip=$(dig +short "$domain" 2>/dev/null | head -1)
+                elif command -v nslookup > /dev/null 2>&1; then
+                    ip=$(nslookup "$domain" 2>/dev/null | grep "Address" | tail -1 | awk '{print $2}')
+                else
+                    ip="tool not available"
+                fi
+                if [ -n "$ip" ] && [ "$ip" != "tool not available" ]; then
+                    echo "  [PASS] $domain -> $ip"
+                else
+                    echo "  [FAIL] $domain -> no DNS record"
+                fi
+                domains_found=1
+            done
         fi
-    elif command -v nslookup > /dev/null 2>&1; then
-        ip=$(nslookup "$domain" 2>/dev/null | grep "Address" | tail -1 | awk '{print $2}')
-        if [ -n "$ip" ]; then
-            echo "  [PASS] $domain -> $ip"
-        else
-            echo "  [FAIL] $domain -> no DNS record"
-        fi
-    else
-        echo "  [WARN] dig/nslookup not found, skipping DNS check"
-        break
+    done
+    if [ $domains_found -eq 0 ]; then
+        echo "  [INFO] No domains found in nginx configs"
     fi
-done
+else
+    echo "  [WARN] /etc/nginx/sites-enabled not found"
+fi
 echo ""
 
 # --- Sudo config ---
@@ -186,20 +196,59 @@ for svc_file in deploy/instances/*/\*.service; do
     fi
 done
 
-for port in $PORT 3001 3002; do
-    if command -v ss > /dev/null 2>&1; then
-        listener=$(ss -tlnp 2>/dev/null | grep ":$port " | head -1)
-    elif command -v netstat > /dev/null 2>&1; then
-        listener=$(netstat -tlnp 2>/dev/null | grep ":$port " | head -1)
-    else
-        listener=""
-    fi
-    if [ -n "$listener" ]; then
-        echo "  [INFO] Port $port: IN USE ($listener)"
-    else
-        echo "  [INFO] Port $port: free"
-    fi
-done
+# Check the configured port
+if command -v ss > /dev/null 2>&1; then
+    listener=$(ss -tlnp 2>/dev/null | grep ":$PORT " | head -1)
+elif command -v netstat > /dev/null 2>&1; then
+    listener=$(netstat -tlnp 2>/dev/null | grep ":$PORT " | head -1)
+else
+    listener=""
+fi
+if [ -n "$listener" ]; then
+    echo "  [INFO] Port $PORT: IN USE ($listener)"
+else
+    echo "  [INFO] Port $PORT: free"
+fi
+echo ""
+
+# --- Client Config Strings ---
+echo "12. Client Config Strings"
+
+# Read API keys from server/.env
+ADMIN_KEY=""
+USER_KEY=""
+if [ -f "server/.env" ]; then
+    ADMIN_KEY=$(grep '^ADMIN_API_KEY=' server/.env 2>/dev/null | cut -d= -f2 | tr -d '[:space:]')
+    USER_KEY=$(grep '^USER_API_KEY=' server/.env 2>/dev/null | cut -d= -f2 | tr -d '[:space:]')
+fi
+
+# Extract first domain from nginx configs
+DOMAIN=""
+if [ -d /etc/nginx/sites-enabled ]; then
+    for conf in /etc/nginx/sites-enabled/*; do
+        if [ -f "$conf" ]; then
+            DOMAIN=$(grep 'server_name' "$conf" 2>/dev/null | sed 's/server_name//;s/;//' | tr -s ' ' | awk '{print $1}')
+            if [ -n "$DOMAIN" ]; then
+                break
+            fi
+        fi
+    done
+fi
+
+if [ -n "$DOMAIN" ]; then
+    echo "  [INFO] Detected domain: $DOMAIN"
+    echo ""
+    echo "  Admin access:"
+    echo "    http://$DOMAIN/dist/?config=1&server=https://$DOMAIN&key=$ADMIN_KEY"
+    echo ""
+    echo "  User access:"
+    echo "    http://$DOMAIN/dist/?config=1&server=https://$DOMAIN&key=$USER_KEY"
+    echo ""
+    echo "  View access:"
+    echo "    http://$DOMAIN/dist/?config=1&server=https://$DOMAIN"
+else
+    echo "  [WARN] No domain found in nginx configs - cannot generate config strings"
+fi
 echo ""
 
 # --- Summary ---
