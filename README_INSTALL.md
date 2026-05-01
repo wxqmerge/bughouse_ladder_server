@@ -193,7 +193,7 @@ ADMIN_API_KEY=
 ```
 
 **Key values explained:**
-- `CORS_ORIGINS` - **Required** - Your domain(s) (e.g., `https://omen.com`), comma-separated. Prevents cross-site attacks.
+- `CORS_ORIGINS` - **Required** - Your domain(s) (e.g., `https://your-domain.com`), comma-separated. Prevents cross-site attacks.
 - `USER_API_KEY` - Optional — protects write operations. Admin key also works here.
 - `ADMIN_API_KEY` - Optional — protects admin endpoints. Generate with: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
 
@@ -260,6 +260,8 @@ server {
     }
 }
 ```
+
+> **Note:** For multi-version deployments, use subdomains where the subdomain matches the project directory name (e.g., `dev-ladder.your-domain.com` for the `dev-ladder` project). See [Multi-Version Deployment](#multi-version-deployment) below.
 
 Enable the site:
 
@@ -358,7 +360,7 @@ nohup NODE_ENV=production node dist/index.js > server.log 2>&1 &
 |----------|-----------|-------------|
 | `PORT` | No | Server port (default: 3000) |
 | `NODE_ENV` | Yes | Set to `production` |
-| `CORS_ORIGINS` | **Yes** | Your domain(s) (e.g., `https://omen.com`), comma-separated |
+| `CORS_ORIGINS` | **Yes** | Your domain(s) (e.g., `https://your-domain.com`), comma-separated |
 | `TAB_FILE_PATH` | No | Path to ladder data file (default: `./data/ladder.tab`) |
 | `REQUEST_SIZE_LIMIT` | No | Max request body size (default: `1mb`) |
 | `USER_API_KEY` | Optional | API key for write operations (PUT/POST/DELETE) |
@@ -372,7 +374,7 @@ Users can configure the application in three ways:
 
 1. Open the application
 2. Click **Operations → Settings**
-3. Enter server URL (e.g., `omen.com:3000` or `http://localhost:3000`)
+3. Enter server URL (e.g., `your-domain.com:3000` or `http://localhost:3000`)
 4. Optionally enter API key — user key allows editing, admin key grants full admin access
 5. Click **Save** - page reloads with new configuration
 
@@ -482,11 +484,18 @@ server {
 
 To run multiple ladder versions (e.g., development and release) on the same server, each version runs as a separate systemd service on its own port, with Nginx routing traffic via subdomains.
 
+### Naming Convention
+
+**SUBDOMAIN == PROJECT_NAME** — The subdomain always matches the project directory name:
+
+- Directory: `/var/www/html/dev-ladder` → Subdomain: `dev-ladder.your-domain.com`
+- Directory: `/var/www/html/rel-ladder` → Subdomain: `rel-ladder.your-domain.com`
+
 ### Architecture
 
 ```
-Browser → omen.com/dev/dist/ → dev.omen.com (HTTPS) → Nginx → localhost:3000 (dev-ladder)
-Browser → omen.com/rel/dist/ → rel.omen.com (HTTPS) → Nginx → localhost:3001 (rel-ladder)
+Browser → your-domain.com/dev-ladder/dist/ → dev-ladder.your-domain.com (HTTPS) → Nginx → localhost:3000
+Browser → your-domain.com/rel-ladder/dist/ → rel-ladder.your-domain.com (HTTPS) → Nginx → localhost:3001
 ```
 
 ### Service Files
@@ -559,12 +568,12 @@ sudo systemctl status dev-ladder rel-ladder
 
 ### Nginx Configuration for Multiple Versions
 
-**dev.omen.com** (`/etc/nginx/sites-available/dev.omen.com.conf`):
+**dev-ladder.your-domain.com** (`/etc/nginx/sites-available/dev-ladder.your-domain.com.conf`):
 
 ```nginx
 server {
     listen 80;
-    server_name dev.omen.com;
+    server_name dev-ladder.your-domain.com;
 
     location / {
         proxy_pass http://127.0.0.1:3000;
@@ -580,12 +589,12 @@ server {
 }
 ```
 
-**rel.omen.com** (`/etc/nginx/sites-available/rel.omen.com.conf`):
+**rel-ladder.your-domain.com** (`/etc/nginx/sites-available/rel-ladder.your-domain.com.conf`):
 
 ```nginx
 server {
     listen 80;
-    server_name rel.omen.com;
+    server_name rel-ladder.your-domain.com;
 
     location / {
         proxy_pass http://127.0.0.1:3001;
@@ -605,12 +614,12 @@ server {
 
 ```bash
 # Copy configs to Nginx
-sudo cp deploy/nginx/dev.omen.com.conf /etc/nginx/sites-available/dev.omen.com.conf
-sudo cp deploy/nginx/rel.omen.com.conf /etc/nginx/sites-available/rel.omen.com.conf
+sudo cp deploy/nginx/dev-ladder.<hostname>.conf /etc/nginx/sites-available/dev-ladder.<hostname>.conf
+sudo cp deploy/nginx/rel-ladder.<hostname>.conf /etc/nginx/sites-available/rel-ladder.<hostname>.conf
 
 # Enable them (symlink)
-sudo ln -s /etc/nginx/sites-available/dev.omen.com.conf /etc/nginx/sites-enabled/
-sudo ln -s /etc/nginx/sites-available/rel.omen.com.conf /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/dev-ladder.<hostname>.conf /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/rel-ladder.<hostname>.conf /etc/nginx/sites-enabled/
 
 # Test and reload
 sudo nginx -t && sudo systemctl reload nginx
@@ -620,19 +629,19 @@ sudo nginx -t && sudo systemctl reload nginx
 
 **Development:**
 ```
-http://omen.com/dev/dist/?config=1&server=https://dev.omen.com&key=mykey
+https://your-domain.com/dev-ladder/dist/?config=1&server=https://dev-ladder.your-domain.com&key=mykey
 ```
 
 **Release:**
 ```
-http://omen.com/rel/dist/?config=1&server=https://rel.omen.com&key=mykey
+https://your-domain.com/rel-ladder/dist/?config=1&server=https://rel-ladder.your-domain.com&key=mykey
 ```
 
 ### SSL for Multiple Subdomains
 
 ```bash
-sudo certbot --nginx -d dev.omen.com
-sudo certbot --nginx -d rel.omen.com
+sudo certbot --nginx -d dev-ladder.your-domain.com
+sudo certbot --nginx -d rel-ladder.your-domain.com
 ```
 
 ### Tracing Logs
@@ -780,7 +789,7 @@ Check that `CORS_ORIGINS` in `server/.env` matches your domain exactly:
 ```env
 # Correct - must match browser's origin
 CORS_ORIGINS=https://your-domain.com  
-CORS_ORIGINS=https://omen.com
+CORS_ORIGINS=https://your-domain.com
 
 # Wrong - trailing slash, http instead of https
 CORS_ORIGINS=https://your-domain.com/
