@@ -30,6 +30,8 @@ cd dev-ladder
 
 The directory name becomes the project name, subdomain, and systemd service name.
 
+**Naming rules:** Only letters, numbers, and hyphens (`-`). No underscores (`_`), spaces, or dots. Examples: `dev-ladder`, `rel-ladder`, `test-ladder`.
+
 ### 2. Configure server/.env
 
 ```bash
