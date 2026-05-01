@@ -104,10 +104,10 @@ if command -v nginx > /dev/null 2>&1; then
     echo "  [INFO] nginx version: $(nginx -v 2>&1)"
     check "nginx config test" "sudo nginx -t"
     echo "  [INFO] Project nginx config:"
-    if [ -f "deploy/nginx/${PROJECT_NAME}.${DOMAIN}.conf" ]; then
-        echo "    deploy/nginx/${PROJECT_NAME}.${DOMAIN}.conf [OK]"
+    if [ -f "/etc/nginx/sites-available/${PROJECT_NAME}.${DOMAIN}.conf" ]; then
+        echo "    /etc/nginx/sites-available/${PROJECT_NAME}.${DOMAIN}.conf [OK]"
     else
-        echo "    deploy/nginx/${PROJECT_NAME}.${DOMAIN}.conf [MISSING]"
+        echo "    /etc/nginx/sites-available/${PROJECT_NAME}.${DOMAIN}.conf [MISSING]"
     fi
 else
     warn "nginx not installed"
@@ -133,7 +133,8 @@ echo ""
 echo "8. SSL certificates"
 if command -v certbot > /dev/null 2>&1; then
     echo "  [INFO] Certbot certificates:"
-    proj_domain=$(grep 'server_name' "deploy/nginx/${PROJECT_NAME}.${DOMAIN}.conf" 2>/dev/null | sed 's/server_name//;s/;//' | tr -s ' ' | awk '{print $1}')
+    SERVER_CONF="/etc/nginx/sites-available/${PROJECT_NAME}.${DOMAIN}.conf"
+    proj_domain=$(grep 'server_name' "$SERVER_CONF" 2>/dev/null | sed 's/server_name//;s/;//' | tr -s ' ' | awk '{print $1}')
     if [ -n "$proj_domain" ]; then
         certbot certificates 2>/dev/null | grep -E "Domain|Path" | while read -r line; do
             if echo "$line" | grep -q "$proj_domain"; then
@@ -141,7 +142,7 @@ if command -v certbot > /dev/null 2>&1; then
             fi
         done
     else
-        echo "    [WARN] No domain found in deploy/nginx/${PROJECT_NAME}.${DOMAIN}.conf"
+        echo "    [WARN] No domain found in $SERVER_CONF"
     fi
 else
     warn "certbot not installed"
@@ -150,9 +151,9 @@ echo ""
 
 # --- DNS ---
 echo "9. DNS resolution"
-CONF="deploy/nginx/${PROJECT_NAME}.${DOMAIN}.conf"
-if [ -f "$CONF" ]; then
-    domains=$(grep 'server_name' "$CONF" 2>/dev/null | sed 's/server_name//;s/;//' | tr -s ' ')
+SERVER_CONF="/etc/nginx/sites-available/${PROJECT_NAME}.${DOMAIN}.conf"
+if [ -f "$SERVER_CONF" ]; then
+    domains=$(grep 'server_name' "$SERVER_CONF" 2>/dev/null | sed 's/server_name//;s/;//' | tr -s ' ')
     for domain in $domains; do
         if command -v dig > /dev/null 2>&1; then
             ip=$(dig +short "$domain" 2>/dev/null | head -1)
@@ -168,7 +169,7 @@ if [ -f "$CONF" ]; then
         fi
     done
 else
-    echo "  [WARN] No config found: $CONF"
+    echo "  [WARN] No config found: $SERVER_CONF"
 fi
 echo ""
 
@@ -237,8 +238,8 @@ if [ -f "server/.env" ]; then
     USER_KEY=$(grep '^USER_API_KEY=' server/.env 2>/dev/null | cut -d= -f2 | tr -d '[:space:]')
 fi
 
-# Extract domain from project nginx config
-CONF_DOMAIN=$(grep 'server_name' "deploy/nginx/${PROJECT_NAME}.${DOMAIN}.conf" 2>/dev/null | sed 's/server_name//;s/;//' | tr -s ' ' | awk '{print $1}')
+# Extract domain from server nginx config
+CONF_DOMAIN=$(grep 'server_name' "/etc/nginx/sites-available/${PROJECT_NAME}.${DOMAIN}.conf" 2>/dev/null | sed 's/server_name//;s/;//' | tr -s ' ' | awk '{print $1}')
 
 if [ -n "$CONF_DOMAIN" ]; then
     echo "  [INFO] Domain: $CONF_DOMAIN"
@@ -253,7 +254,7 @@ if [ -n "$CONF_DOMAIN" ]; then
     echo "      http://$CONF_DOMAIN/dist/?config=1&server=https://$CONF_DOMAIN"
     echo ""
 else
-    echo "  [WARN] No domain found in deploy/nginx/${PROJECT_NAME}.${DOMAIN}.conf - cannot generate config strings"
+    echo "  [WARN] No domain found in /etc/nginx/sites-available/${PROJECT_NAME}.${DOMAIN}.conf - cannot generate config strings"
 fi
 echo ""
 
