@@ -62,6 +62,21 @@ function App() {
   const recalculateRef = useRef<(() => void) | undefined>(undefined);
   const refreshPlayersRef = useRef<(() => void) | undefined>(undefined);
 
+  // Cache bust: reload if build timestamp differs from last visit
+  useEffect(() => {
+    const metaTag = document.querySelector('meta[name="build-timestamp"]');
+    const buildTs = metaTag?.getAttribute('content');
+    if (buildTs) {
+      const lastBuildTs = localStorage.getItem('last-build-timestamp');
+      if (lastBuildTs && lastBuildTs !== buildTs) {
+        localStorage.setItem('last-build-timestamp', buildTs);
+        window.location.reload();
+        return;
+      }
+      localStorage.setItem('last-build-timestamp', buildTs);
+    }
+  }, []);
+
   // Set document title to the formatted prefix
   useEffect(() => {
     document.title = formatPrefixToTitle(getKeyPrefix());
