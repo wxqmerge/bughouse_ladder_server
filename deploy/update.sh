@@ -39,10 +39,10 @@ if ! git pull; then
     exit 1
 fi
 
-# 3. Install dependencies
+# 3. Install dependencies (no --production: we need devDeps for building)
 echo "[3/6] Installing dependencies..."
 if [ -f "package.json" ]; then
-    if ! npm install --production; then
+    if ! npm install; then
         echo "  ERROR: Frontend npm install failed."
         exit 1
     fi
@@ -59,7 +59,7 @@ fi
 # 5. Build server
 echo "[5/6] Building server..."
 if [ -d "server" ] && [ -f "server/package.json" ]; then
-    if ! (cd server && npm install --production); then
+    if ! (cd server && npm install); then
         echo "  ERROR: Server npm install failed."
         exit 1
     fi
