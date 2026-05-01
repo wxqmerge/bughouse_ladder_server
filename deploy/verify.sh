@@ -83,7 +83,7 @@ echo ""
 echo "6. Nginx"
 if command -v nginx > /dev/null 2>&1; then
     echo "  [INFO] nginx version: $(nginx -v 2>&1)"
-    check "nginx config test" "nginx -t"
+    check "nginx config test" "sudo nginx -t"
     echo "  [INFO] sites-available:"
     if [ -d /etc/nginx/sites-available ]; then
         ls /etc/nginx/sites-available/ 2>/dev/null | sed 's/^/    /'
@@ -163,7 +163,30 @@ echo ""
 
 # --- Port usage ---
 echo "11. Port usage"
-for port in 3000 3001 3002; do
+
+# Read PORT from server/.env
+PORT=3000
+if [ -f "server/.env" ]; then
+    env_port=$(grep '^PORT=' server/.env 2>/dev/null | cut -d= -f2 | tr -d '[:space:]')
+    if [ -n "$env_port" ]; then
+        PORT=$env_port
+    fi
+fi
+
+echo "  [INFO] PORT from server/.env: $PORT"
+
+# Also check systemd service files for their PORT
+for svc_file in deploy/instances/*/\*.service; do
+    if [ -f "$svc_file" ]; then
+        svc_name=$(basename "$(dirname "$svc_file")")
+        svc_port=$(grep '^Environment=PORT=' "$svc_file" 2>/dev/null | cut -d= -f2 | tr -d '[:space:]')
+        if [ -n "$svc_port" ]; then
+            echo "  [INFO] $svc_name.service: PORT=$svc_port"
+        fi
+    fi
+done
+
+for port in $PORT 3001 3002; do
     if command -v ss > /dev/null 2>&1; then
         listener=$(ss -tlnp 2>/dev/null | grep ":$port " | head -1)
     elif command -v netstat > /dev/null 2>&1; then
@@ -187,15 +210,17 @@ echo "========================================"
 if [ $FAIL -gt 0 ]; then
     echo ""
     echo "Fix the [FAIL] items above and re-run."
-    exit 1
 fi
 
 if [ $WARN -gt 0 ]; then
     echo ""
     echo "Fix the [WARN] items above if needed."
-    exit 0
 fi
 
 echo ""
-echo "Everything looks good!"
+if [ $FAIL -eq 0 ]; then
+    echo "Everything looks good!"
+fi
+
+# Always exit 0 to avoid killing SSH session
 exit 0
