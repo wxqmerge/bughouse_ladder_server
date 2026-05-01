@@ -98,8 +98,24 @@ if [ -f server/dist/index.js ]; then
 fi
 echo ""
 
+# --- Version consistency ---
+echo "6. Version consistency"
+CLIENT_VERSION=$(grep '"version"' package.json 2>/dev/null | head -1 | sed 's/.*"version": *"//;s/".*//')
+SERVER_VERSION=$(grep '"version"' server/package.json 2>/dev/null | head -1 | sed 's/.*"version": *"//;s/".*//')
+if [ -n "$CLIENT_VERSION" ] && [ -n "$SERVER_VERSION" ]; then
+    if [ "$CLIENT_VERSION" = "$SERVER_VERSION" ]; then
+        echo "  [PASS] Client $CLIENT_VERSION == Server $SERVER_VERSION"
+    else
+        echo "  [FAIL] Client $CLIENT_VERSION != Server $SERVER_VERSION"
+        FAIL=$((FAIL + 1))
+    fi
+else
+    warn "Could not read version from package.json files"
+fi
+echo ""
+
 # --- Nginx ---
-echo "6. Nginx"
+echo "7. Nginx"
 if command -v nginx > /dev/null 2>&1; then
     echo "  [INFO] nginx version: $(nginx -v 2>&1)"
     check "nginx config test" "sudo nginx -t"
@@ -115,7 +131,7 @@ fi
 echo ""
 
 # --- Systemd services ---
-echo "7. Systemd services"
+echo "8. Systemd services"
 svc_file="/etc/systemd/system/${PROJECT_NAME}.service"
 if [ -f "$svc_file" ]; then
     echo "  [INFO] Service file exists: ${PROJECT_NAME}.service"
@@ -132,7 +148,7 @@ fi
 echo ""
 
 # --- SSL certificates ---
-echo "8. SSL certificates"
+echo "9. SSL certificates"
 if command -v certbot > /dev/null 2>&1; then
     echo "  [INFO] Certbot certificates:"
     SERVER_CONF="/etc/nginx/sites-available/${PROJECT_NAME}.${DOMAIN}.conf"
@@ -165,7 +181,7 @@ fi
 echo ""
 
 # --- DNS ---
-echo "9. DNS resolution"
+echo "10. DNS resolution"
 SERVER_CONF="/etc/nginx/sites-available/${PROJECT_NAME}.${DOMAIN}.conf"
 if [ -f "$SERVER_CONF" ]; then
     domains=$(grep 'server_name' "$SERVER_CONF" 2>/dev/null | sed 's/server_name//;s/;//' | tr -s ' ')
@@ -190,7 +206,7 @@ fi
 echo ""
 
 # --- Sudo config ---
-echo "10. Sudo configuration"
+echo "11. Sudo configuration"
 echo "  [INFO] Current user: $(whoami)"
 echo "  [INFO] sudoers check:"
 if sudo -n true 2>/dev/null; then
@@ -206,7 +222,7 @@ fi
 echo ""
 
 # --- Port usage ---
-echo "11. Port usage"
+echo "12. Port usage"
 
 # Read PORT from server/.env
 PORT=3000
@@ -244,7 +260,7 @@ fi
 echo ""
 
 # --- Client Config Strings ---
-echo "12. Client Config Strings"
+echo "13. Client Config Strings"
 
 # Read API keys from server/.env
 ADMIN_KEY=""

@@ -1,6 +1,6 @@
 # Bughouse Chess Ladder - Production Installation Guide
 
-**Version: 1.1.5**
+**Version: 1.1.6**
 
 **Communication:** TCP/HTTP (NOT UDP). Default port is 3000.
 
