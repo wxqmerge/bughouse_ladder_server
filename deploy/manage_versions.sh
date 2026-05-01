@@ -55,18 +55,54 @@ case "$1" in
         # 3. Enable Nginx config
         ln -s "$CONF_FILE" "$NGINX_ENABLED_DIR/"
 
-        # 4. Reload Nginx
+        # 4. Generate systemd service file
+        SVC_FILE="/etc/systemd/system/${VERSION}.service"
+        if [ -f "$SVC_FILE" ]; then
+            echo "  [WARN] Service file already exists: ${VERSION}.service"
+        else
+            cat > "$SVC_FILE" << EOF
+[Unit]
+Description=Bughouse Chess Ladder - $VERSION
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=$(pwd)/instances/$VERSION
+Environment=NODE_ENV=production
+Environment=PORT=$PORT
+ExecStart=/usr/bin/node dist/index.js
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+EOF
+            echo "  Created service file: ${VERSION}.service"
+        fi
+
+        # 5. Reload Nginx
         nginx -t && systemctl reload nginx
+
+        # 6. Enable and start the service
+        systemctl daemon-reload
+        systemctl enable "$VERSION"
+        systemctl start "$VERSION"
+        echo "  Service started: $VERSION"
 
         echo "------------------------------------------------------------"
         echo "SUCCESS: Instance $VERSION is configured."
         echo "  Subdomain: $SUBDOMAIN"
         echo "  Port:      $PORT"
         echo "Next Steps:"
-        echo "1. Start the backend for this version:"
-        echo "   cd $INSTANCES_DIR/$VERSION && PORT=$PORT node dist/index.js"
-        echo "2. Secure the subdomain with SSL:"
+        echo "1. Secure the subdomain with SSL:"
         echo "   sudo certbot --nginx -d $SUBDOMAIN"
+        echo "2. Check status:"
+        echo "   sudo systemctl status $VERSION"
+        echo "   sudo journalctl -u $VERSION -f"
         echo "------------------------------------------------------------"
         ;;
 
@@ -75,14 +111,19 @@ case "$1" in
 
         echo "Removing instance: $VERSION"
 
-        # 1. Remove Nginx config
+        # 1. Stop and disable service
+        systemctl stop "$VERSION" 2>/dev/null
+        systemctl disable "$VERSION" 2>/dev/null
+        rm -f "/etc/systemd/system/${VERSION}.service"
+
+        # 2. Remove Nginx config
         rm -f "$NGINX_ENABLED_DIR/$SUBDOMAIN.conf"
         rm -f "$CONF_FILE"
 
-        # 2. Reload Nginx
+        # 3. Reload Nginx
         nginx -t && systemctl reload nginx
 
-        # 3. Remove instance directory
+        # 4. Remove instance directory
         rm -rf "$INSTANCES_DIR/$VERSION"
 
         echo "SUCCESS: Instance $VERSION removed."
