@@ -7,7 +7,15 @@ INSTANCES_DIR="./instances"
 NGINX_CONF_DIR="/etc/nginx/sites-available"
 NGINX_ENABLED_DIR="/etc/nginx/sites-enabled"
 TEMPLATE_FILE="./deploy/nginx/subdomain.conf.template"
-HOSTNAME=$(hostname -f 2>/dev/null || hostname)
+
+# Domain from .env (falls back to hostname)
+DOMAIN=""
+if [ -f "server/.env" ]; then
+    DOMAIN=$(grep '^DOMAIN=' server/.env 2>/dev/null | cut -d= -f2 | tr -d '[:space:]')
+fi
+if [ -z "$DOMAIN" ]; then
+    DOMAIN=$(hostname -f 2>/dev/null || hostname)
+fi
 
 usage() {
     echo "Usage: $0 {add|remove|list} [args]"
@@ -25,7 +33,7 @@ case "$1" in
         fi
         VERSION=$2
         PORT=$3
-        SUBDOMAIN="${VERSION}.${HOSTNAME}"
+        SUBDOMAIN="${VERSION}.${DOMAIN}"
 
         echo "Creating instance: $VERSION on port $PORT ($SUBDOMAIN)"
 
@@ -58,7 +66,7 @@ case "$1" in
             exit 1
         fi
         VERSION=$2
-        SUBDOMAIN="${VERSION}.${HOSTNAME}"
+        SUBDOMAIN="${VERSION}.${DOMAIN}"
         CONF_FILE="$NGINX_CONF_DIR/$SUBDOMAIN.conf"
 
         echo "Removing instance: $VERSION"
