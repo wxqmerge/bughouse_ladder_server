@@ -6,6 +6,21 @@
 # Derive project name from directory (e.g., /var/www/html/dev-ladder -> dev-ladder)
 PROJECT_NAME=$(basename "$(pwd)")
 
+# Domain: CLI arg > .env > scan for matching config
+DOMAIN="${1:-}"
+if [ -z "$DOMAIN" ] && [ -f "server/.env" ]; then
+    DOMAIN=$(grep '^DOMAIN=' server/.env 2>/dev/null | cut -d= -f2 | tr -d '[:space:]')
+fi
+if [ -z "$DOMAIN" ]; then
+    # Scan for any config matching project-name.*.conf
+    for conf in deploy/nginx/${PROJECT_NAME}.*.conf; do
+        if [ -f "$conf" ]; then
+            DOMAIN=$(basename "$conf" | sed "s/${PROJECT_NAME}\.//;s/\.conf//")
+            break
+        fi
+    done
+fi
+
 echo "========================================"
 echo "  Chess Ladder - Verify Setup"
 echo "  Project: $PROJECT_NAME"
@@ -89,10 +104,10 @@ if command -v nginx > /dev/null 2>&1; then
     echo "  [INFO] nginx version: $(nginx -v 2>&1)"
     check "nginx config test" "sudo nginx -t"
     echo "  [INFO] Project nginx config:"
-    if [ -f "deploy/nginx/${PROJECT_NAME}.conf" ]; then
-        echo "    deploy/nginx/${PROJECT_NAME}.conf [OK]"
+    if [ -f "deploy/nginx/${PROJECT_NAME}.${DOMAIN}.conf" ]; then
+        echo "    deploy/nginx/${PROJECT_NAME}.${DOMAIN}.conf [OK]"
     else
-        echo "    deploy/nginx/${PROJECT_NAME}.conf [MISSING]"
+        echo "    deploy/nginx/${PROJECT_NAME}.${DOMAIN}.conf [MISSING]"
     fi
 else
     warn "nginx not installed"
@@ -118,7 +133,7 @@ echo ""
 echo "8. SSL certificates"
 if command -v certbot > /dev/null 2>&1; then
     echo "  [INFO] Certbot certificates:"
-    proj_domain=$(grep 'server_name' "deploy/nginx/${PROJECT_NAME}.conf" 2>/dev/null | sed 's/server_name//;s/;//' | tr -s ' ' | awk '{print $1}')
+    proj_domain=$(grep 'server_name' "deploy/nginx/${PROJECT_NAME}.${DOMAIN}.conf" 2>/dev/null | sed 's/server_name//;s/;//' | tr -s ' ' | awk '{print $1}')
     if [ -n "$proj_domain" ]; then
         certbot certificates 2>/dev/null | grep -E "Domain|Path" | while read -r line; do
             if echo "$line" | grep -q "$proj_domain"; then
@@ -126,7 +141,7 @@ if command -v certbot > /dev/null 2>&1; then
             fi
         done
     else
-        echo "    [WARN] No domain found in deploy/nginx/${PROJECT_NAME}.conf"
+        echo "    [WARN] No domain found in deploy/nginx/${PROJECT_NAME}.${DOMAIN}.conf"
     fi
 else
     warn "certbot not installed"
@@ -135,7 +150,7 @@ echo ""
 
 # --- DNS ---
 echo "9. DNS resolution"
-CONF="deploy/nginx/${PROJECT_NAME}.conf"
+CONF="deploy/nginx/${PROJECT_NAME}.${DOMAIN}.conf"
 if [ -f "$CONF" ]; then
     domains=$(grep 'server_name' "$CONF" 2>/dev/null | sed 's/server_name//;s/;//' | tr -s ' ')
     for domain in $domains; do
@@ -165,7 +180,7 @@ if sudo -n true 2>/dev/null; then
     echo "    [PASS] Passwordless sudo works"
 else
     echo "    [FAIL] sudo requires password (will hang in SSH without TTY)"
-    echo "    [FIX] Add this to /etc/sudoers.d/${PROJECT_NAME}:"
+    echo "    [FIX] Add this to /etc/sudoers.d/${PROJECT_NAME}.${DOMAIN}:"
     echo "          $(whoami) ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart *"
     echo "          $(whoami) ALL=(ALL) NOPASSWD: /usr/bin/systemctl status *"
     echo "          $(whoami) ALL=(ALL) NOPASSWD: /usr/bin/systemctl is-active *"
@@ -223,22 +238,22 @@ if [ -f "server/.env" ]; then
 fi
 
 # Extract domain from project nginx config
-DOMAIN=$(grep 'server_name' "deploy/nginx/${PROJECT_NAME}.conf" 2>/dev/null | sed 's/server_name//;s/;//' | tr -s ' ' | awk '{print $1}')
+CONF_DOMAIN=$(grep 'server_name' "deploy/nginx/${PROJECT_NAME}.${DOMAIN}.conf" 2>/dev/null | sed 's/server_name//;s/;//' | tr -s ' ' | awk '{print $1}')
 
-if [ -n "$DOMAIN" ]; then
-    echo "  [INFO] Domain: $DOMAIN"
+if [ -n "$CONF_DOMAIN" ]; then
+    echo "  [INFO] Domain: $CONF_DOMAIN"
     echo ""
     echo "    Admin:"
-    echo "      http://$DOMAIN/dist/?config=1&server=https://$DOMAIN&key=$ADMIN_KEY"
+    echo "      http://$CONF_DOMAIN/dist/?config=1&server=https://$CONF_DOMAIN&key=$ADMIN_KEY"
     echo ""
     echo "    User:"
-    echo "      http://$DOMAIN/dist/?config=1&server=https://$DOMAIN&key=$USER_KEY"
+    echo "      http://$CONF_DOMAIN/dist/?config=1&server=https://$CONF_DOMAIN&key=$USER_KEY"
     echo ""
     echo "    View:"
-    echo "      http://$DOMAIN/dist/?config=1&server=https://$DOMAIN"
+    echo "      http://$CONF_DOMAIN/dist/?config=1&server=https://$CONF_DOMAIN"
     echo ""
 else
-    echo "  [WARN] No domain found in deploy/nginx/${PROJECT_NAME}.conf - cannot generate config strings"
+    echo "  [WARN] No domain found in deploy/nginx/${PROJECT_NAME}.${DOMAIN}.conf - cannot generate config strings"
 fi
 echo ""
 
