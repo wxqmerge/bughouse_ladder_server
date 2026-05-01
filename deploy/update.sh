@@ -42,17 +42,15 @@ fi
 # 3. Install dependencies
 echo "[3/6] Installing dependencies..."
 if [ -f "package.json" ]; then
-    if ! npm ci --production --silent 2>/dev/null; then
-        echo "  WARNING: npm ci failed, trying npm install..."
-        if ! npm install --production --silent 2>/dev/null; then
-            echo "  WARNING: npm install also failed, continuing anyway..."
-        fi
+    if ! npm install --production; then
+        echo "  ERROR: Frontend npm install failed."
+        exit 1
     fi
 fi
 
 # 4. Build frontend
 echo "[4/6] Building frontend..."
-if ! npm run build 2>/dev/null; then
+if ! npm run build; then
     echo "  ERROR: Frontend build failed."
     echo "  Aborting. Check build output above."
     exit 1
@@ -61,10 +59,11 @@ fi
 # 5. Build server
 echo "[5/6] Building server..."
 if [ -d "server" ] && [ -f "server/package.json" ]; then
-    if ! (cd server && npm ci --production --silent 2>/dev/null || npm install --production --silent 2>/dev/null); then
-        echo "  WARNING: Server npm install failed, continuing anyway..."
+    if ! (cd server && npm install --production); then
+        echo "  ERROR: Server npm install failed."
+        exit 1
     fi
-    if ! (cd server && npm run build 2>/dev/null); then
+    if ! (cd server && npm run build); then
         echo "  ERROR: Server build failed."
         echo "  Aborting. Check build output above."
         exit 1
