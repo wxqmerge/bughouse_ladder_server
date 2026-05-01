@@ -122,10 +122,12 @@ if [ -f "$svc_file" ]; then
     if systemctl is-active "$PROJECT_NAME" 2>/dev/null | grep -q "active"; then
         echo "    [INFO] Status: running"
     else
-        echo "    [WARN] Status: not running"
+        echo "    [FAIL] Status: not running"
+        FAIL=$((FAIL + 1))
     fi
 else
-    echo "  [WARN] Service file missing: ${PROJECT_NAME}.service"
+    echo "  [FAIL] Service file missing: ${PROJECT_NAME}.service"
+    FAIL=$((FAIL + 1))
 fi
 echo ""
 
@@ -136,16 +138,29 @@ if command -v certbot > /dev/null 2>&1; then
     SERVER_CONF="/etc/nginx/sites-available/${PROJECT_NAME}.${DOMAIN}.conf"
     proj_domain=$(grep 'server_name' "$SERVER_CONF" 2>/dev/null | sed 's/server_name//;s/;//' | tr -s ' ' | awk '{print $1}')
     if [ -n "$proj_domain" ]; then
-        certbot certificates 2>/dev/null | grep -E "Domain|Path" | while read -r line; do
-            if echo "$line" | grep -q "$proj_domain"; then
-                echo "    $line"
+        if certbot certificates 2>/dev/null | grep -q "$proj_domain"; then
+            certbot certificates 2>/dev/null | grep -E "Domain|Path" | while read -r line; do
+                if echo "$line" | grep -q "$proj_domain"; then
+                    echo "    $line"
+                fi
+            done
+        else
+            echo "    [INFO] No SSL cert for $proj_domain yet"
+        fi
+        
+        # Check if nginx is using SSL (listen 443 ssl)
+        if [ -f "$SERVER_CONF" ]; then
+            if grep -q 'listen 443 ssl' "$SERVER_CONF"; then
+                echo "    [INFO] SSL: configured in nginx"
+            else
+                echo "    [INFO] SSL: nginx not yet configured with 443"
             fi
-        done
+        fi
     else
-        echo "    [WARN] No domain found in $SERVER_CONF"
+        echo "    [INFO] No domain found in $SERVER_CONF"
     fi
 else
-    warn "certbot not installed"
+    echo "  [INFO] certbot not installed"
 fi
 echo ""
 
@@ -169,7 +184,8 @@ if [ -f "$SERVER_CONF" ]; then
         fi
     done
 else
-    echo "  [WARN] No config found: $SERVER_CONF"
+    echo "  [FAIL] No config found: $SERVER_CONF"
+    FAIL=$((FAIL + 1))
 fi
 echo ""
 
@@ -251,9 +267,28 @@ if [ -f "/etc/nginx/sites-available/${PROJECT_NAME}.${DOMAIN}.conf" ]; then
     echo "      https://$DOMAIN/$PROJECT_NAME/dist/?config=1&server=https://${PROJECT_NAME}.${DOMAIN}"
     echo ""
 else
-    echo "  [WARN] No config found in /etc/nginx/sites-available/${PROJECT_NAME}.${DOMAIN}.conf - cannot generate config strings"
+    echo "  [FAIL] No config found in /etc/nginx/sites-available/${PROJECT_NAME}.${DOMAIN}.conf - cannot generate config strings"
+    FAIL=$((FAIL + 1))
 fi
 echo ""
+
+# --- Suggestions ---
+if [ $FAIL -gt 0 ]; then
+    echo "SUGGESTIONS:"
+    SERVER_CONF="/etc/nginx/sites-available/${PROJECT_NAME}.${DOMAIN}.conf"
+    if [ -f "$SERVER_CONF" ]; then
+        proj_domain=$(grep 'server_name' "$SERVER_CONF" 2>/dev/null | sed 's/server_name//;s/;//' | tr -s ' ' | awk '{print $1}')
+        if [ -n "$proj_domain" ]; then
+            if ! certbot certificates 2>/dev/null | grep -q "$proj_domain"; then
+                echo "  - No SSL cert: sudo certbot --nginx -d $proj_domain"
+            fi
+            if ! grep -q 'listen 443 ssl' "$SERVER_CONF" 2>/dev/null; then
+                echo "  - SSL not in nginx: sudo certbot --nginx -d $proj_domain"
+            fi
+        fi
+    fi
+    echo ""
+fi
 
 # --- Summary ---
 echo "========================================"
