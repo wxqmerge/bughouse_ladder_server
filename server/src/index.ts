@@ -73,7 +73,7 @@ app.use((req, res, next) => {
 // Rate limiting for authentication endpoints (strict - prevent brute force)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // Limit each IP to 10 attempts per window
+  max: isProduction ? 20 : 100, // 20 in production, 100 in dev
   message: {
     success: false,
     error: { message: 'Too many authentication attempts. Please try again later.' },
@@ -82,10 +82,10 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// General API rate limiter (moderate - balance usability and protection)
+// General API rate limiter (scaled for concurrent clients polling ladder + admin-lock)
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: isProduction ? 100 : 1000, // 100 in production, 1000 in dev
+  max: isProduction ? 5000 : 1000, // 5000 in production (~167 req/min, supports ~100 concurrent clients), 1000 in dev
   message: {
     success: false,
     error: { message: 'Too many requests. Please slow down.' },
@@ -94,10 +94,10 @@ const apiLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// Admin lock rate limiter (very lenient - status checks happen every second)
+// Admin lock rate limiter (lenient - status checks happen every 10 seconds)
 const adminLockLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 600, // 10 requests per second allowed
+  max: isProduction ? 1200 : 600, // 20 req/sec in production (~100 concurrent clients polling at 10s), 600 in dev
   message: { success: false, error: { message: 'Too many admin lock requests.' } },
   standardHeaders: true,
   legacyHeaders: false,
@@ -227,7 +227,7 @@ async function startServer() {
       console.log(`✓ CORS Origins: ${process.env.CORS_ORIGINS || '*'}`);
       const adminKeySet = !!process.env.ADMIN_API_KEY;
       console.log(`✓ Admin API Key: ${adminKeySet ? 'Enabled' : '⚠️  NOT SET (endpoints unprotected)'}`);
-      console.log(`✓ Rate Limit: ${isProduction ? '100' : '1000'} req/15min`);
+      console.log(`✓ Rate Limit: ${isProduction ? '5000' : '1000'} req/15min (general API)`);
       console.log('');
       
       // Connection instructions for clients
