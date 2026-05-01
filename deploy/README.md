@@ -8,29 +8,93 @@ Browser → your-domain.com/dev-ladder/dist/ → dev-ladder.your-domain.com (HTT
 
 The frontend is served from `your-domain.com/<project-name>/dist/`. The subdomain `<project-name>.your-domain.com` is always the same as the project directory name. When the client needs API data, it calls `https://<project-name>.your-domain.com/api/...`, which Nginx proxies to the backend.
 
-## Quick Setup
+## Naming Convention
 
-The script automatically derives the project name from the current directory. Run `basename "$(pwd)"` to see what it will use.
+**SUBDOMAIN == PROJECT_NAME** — The subdomain always matches the project directory name:
 
-### Add a new version
+- Directory: `/var/www/html/dev-ladder` → Subdomain: `dev-ladder.your-domain.com`
+- Directory: `/var/www/html/rel-ladder` → Subdomain: `rel-ladder.your-domain.com`
+
+This convention is enforced by `manage_versions.sh` which derives the project name from `basename "$(pwd)"`.
+
+## Deployment Workflow
+
+### 1. Clone and name the directory
+
+```bash
+sudo mkdir -p /var/www/html
+cd /var/www/html
+git clone <repo-url> dev-ladder
+cd dev-ladder
+```
+
+The directory name becomes the project name, subdomain, and systemd service name.
+
+### 2. Configure server/.env
+
+```bash
+cd server
+cp .env.example .env
+nano .env
+```
+
+Set at minimum:
+- `PORT=<port>` — backend port
+- `DOMAIN=your-domain.com` — public domain
+- `ADMIN_API_KEY=<key>` — admin access key
+- `USER_API_KEY=<key>` — user write key
+
+### 3. Create the instance (nginx + systemd)
 
 ```bash
 cd /var/www/html/dev-ladder
 sudo ./deploy/manage_versions.sh add
 ```
 
-### Start a backend
+This creates:
+- Nginx config at `/etc/nginx/sites-available/dev-ladder.your-domain.com.conf`
+- Systemd service at `/etc/systemd/system/dev-ladder.service`
+- Starts the service automatically
+
+### 4. Provision SSL
 
 ```bash
-sudo systemctl start dev-ladder
+sudo certbot --nginx -d dev-ladder.your-domain.com
 ```
 
-### Remove a version
+### 5. Build and deploy
+
+```bash
+cd /var/www/html/dev-ladder
+sudo ./deploy/update.sh
+```
+
+This installs dependencies, builds frontend + server, and restarts the service.
+
+### 6. Verify and get config strings
+
+```bash
+./deploy/verify.sh
+```
+
+Output shows health checks and client config strings for admin/user/view access.
+
+## Updating an Existing Instance
+
+```bash
+cd /var/www/html/dev-ladder
+git pull          # or make your changes
+sudo ./deploy/update.sh
+```
+
+## Removing an Instance
 
 ```bash
 cd /var/www/html/dev-ladder
 sudo ./deploy/manage_versions.sh remove
 ```
+
+This stops the service, removes nginx config, and deletes the instance directory.
 
 ## Example URLs
 
@@ -52,15 +116,6 @@ https://your-domain.com/rel-ladder/dist/?config=1&server=https://rel-ladder.your
 ```
 
 Enter the API key in Settings > Server Connection.
-
-## Naming Convention
-
-**SUBDOMAIN == PROJECT_NAME** — The subdomain always matches the project directory name:
-
-- Directory: `/var/www/html/dev-ladder` → Subdomain: `dev-ladder.your-domain.com`
-- Directory: `/var/www/html/rel-ladder` → Subdomain: `rel-ladder.your-domain.com`
-
-This convention is enforced by `manage_versions.sh` which derives the project name from `basename "$(pwd)"`.
 
 ## Nginx Configs
 
@@ -106,52 +161,28 @@ server {
 }
 ```
 
-## Deploying Nginx
-
-Copy the config files to your server and enable them:
-
-```bash
-# Copy configs to Nginx
-sudo cp deploy/nginx/dev-ladder.<hostname>.conf /etc/nginx/sites-available/dev-ladder.<hostname>.conf
-sudo cp deploy/nginx/rel-ladder.<hostname>.conf /etc/nginx/sites-available/rel-ladder.<hostname>.conf
-
-# Enable them (symlink)
-sudo ln -s /etc/nginx/sites-available/dev-ladder.<hostname>.conf /etc/nginx/sites-enabled/
-sudo ln -s /etc/nginx/sites-available/rel-ladder.<hostname>.conf /etc/nginx/sites-enabled/
-
-# Test and reload
-sudo nginx -t && sudo systemctl reload nginx
-```
-
 ## DNS
 
 Ensure A records exist for:
 - `dev-ladder.your-domain.com` → your server IP
 - `rel-ladder.your-domain.com` → your server IP
 
-## SSL
-
-```bash
-sudo certbot --nginx -d dev-ladder.your-domain.com
-sudo certbot --nginx -d rel-ladder.your-domain.com
-```
-
 ## Systemd Service Files
 
-Each ladder version needs a systemd service file to run as a background service.
+`manage_versions.sh add` generates these automatically. No manual file creation needed.
 
 ### dev-ladder.service
 
 ```ini
 [Unit]
-Description=Bughouse Chess Ladder - Development
+Description=Bughouse Chess Ladder - dev-ladder
 After=network.target
 
 [Service]
 Type=simple
 User=www-data
 Group=www-data
-WorkingDirectory=/var/www/bughouse-ladder/deploy/instances/dev-ladder
+WorkingDirectory=/var/www/html/dev-ladder/instances/dev-ladder
 Environment=NODE_ENV=production
 Environment=PORT=3000
 ExecStart=/usr/bin/node dist/index.js
@@ -168,14 +199,14 @@ WantedBy=multi-user.target
 
 ```ini
 [Unit]
-Description=Bughouse Chess Ladder - Release
+Description=Bughouse Chess Ladder - rel-ladder
 After=network.target
 
 [Service]
 Type=simple
 User=www-data
 Group=www-data
-WorkingDirectory=/var/www/bughouse-ladder/deploy/instances/rel-ladder
+WorkingDirectory=/var/www/html/rel-ladder/instances/rel-ladder
 Environment=NODE_ENV=production
 Environment=PORT=3001
 ExecStart=/usr/bin/node dist/index.js
@@ -186,22 +217,6 @@ StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
-```
-
-### Deploying Service Files
-
-```bash
-# Copy service files
-sudo cp deploy/instances/dev-ladder/dev-ladder.service /etc/systemd/system/
-sudo cp deploy/instances/rel-ladder/rel-ladder.service /etc/systemd/system/
-
-# Enable and start
-sudo systemctl daemon-reload
-sudo systemctl enable dev-ladder rel-ladder
-sudo systemctl start dev-ladder rel-ladder
-
-# Verify
-sudo systemctl status dev-ladder rel-ladder
 ```
 
 ### Tracing Logs
