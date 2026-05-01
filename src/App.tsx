@@ -57,6 +57,7 @@ function App() {
   // Show server-down blocking dialog on first load if server is unreachable
   const [showServerDownBlocking, setShowServerDownBlocking] = useState(false);
   const [versionMismatch, setVersionMismatch] = useState(false);
+  const [urlConfigApplied, setUrlConfigApplied] = useState(false);
   const [status, setStatus] = useState<string | null>("Initializing...");
   const recalculateRef = useRef<(() => void) | undefined>(undefined);
   const refreshPlayersRef = useRef<(() => void) | undefined>(undefined);
@@ -70,7 +71,10 @@ function App() {
   useEffect(() => {
     const init = async () => {
       // Step 1: Load URL params (saves server+key to localStorage)
-      await loadConfigFromUrl();
+      const configApplied = await loadConfigFromUrl();
+      if (configApplied) {
+        setUrlConfigApplied(true);
+      }
 
       // Step 2: Initialize connection state from localStorage (now has fresh config)
       initializeConnectionState();
@@ -372,6 +376,46 @@ function App() {
 
   return (
     <>
+      {urlConfigApplied && (
+        <div style={{
+          backgroundColor: '#fef3c7',
+          border: '1px solid #f59e0b',
+          borderRadius: '0.5rem',
+          padding: '1rem 1.5rem',
+          marginBottom: '1rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '1rem',
+        }}>
+          <div>
+            <p style={{ margin: 0, fontWeight: 600, color: '#92400e' }}>
+              URL configuration applied
+            </p>
+            <p style={{ margin: '0.25rem 0 0', fontSize: '0.875rem', color: '#a16207' }}>
+              Server settings have been saved. Open Settings to verify or edit.
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              setUrlConfigApplied(false);
+              setShowSettings(true);
+            }}
+            style={{
+              backgroundColor: '#f59e0b',
+              color: 'white',
+              border: 'none',
+              borderRadius: '0.375rem',
+              padding: '0.5rem 1rem',
+              cursor: 'pointer',
+              fontWeight: 500,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Open Settings
+          </button>
+        </div>
+      )}
       <StatusBanner status={status} />
       
       {showMigrationDialog && (

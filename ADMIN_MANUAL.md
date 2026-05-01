@@ -1,6 +1,6 @@
 # Bughouse Chess Ladder - Administrator Manual
 
-**Version: 1.1.0**
+**Version: 1.1.5**
 
 ## Table of Contents
 
