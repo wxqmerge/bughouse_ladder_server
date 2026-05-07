@@ -6,7 +6,7 @@ import { ReconnectDialog } from "./components/ReconnectDialog";
 import { StatusBanner } from "./components/StatusBanner";
 import { loadSampleData } from "./components/LadderForm";
 import type { PlayerData } from "./utils/hashUtils";
-import { getNextTitle, processNewDayTransformations } from "./utils/constants";
+import { getNextTitle, processNewDayTransformations, isMiniGameTitle } from "./utils/constants";
 import { formatPrefixToTitle } from "./utils/titleUtils";
 import {
   updateConnectionState,
@@ -19,12 +19,13 @@ import {
 } from "./utils/mode";
 import { loadUserSettings, loadConfigFromUrl } from "./services/userSettingsStorage";
 import { dataService } from "./services/dataService";
-import { setTournamentState, clearTournamentState, isTournamentActive, getTournamentState } from "./services/storageService";
+import { clearTournamentState, getTournamentState } from "./services/storageService";
 import { checkMigrationNeeded, storeCurrentMode } from "./utils/migrationUtils";
 import {
   savePlayers,
   getPlayers,
   getProjectName,
+  setProjectName,
   setProjectName as setProjectNameStorage,
   getKeyPrefix,
   startBatch,
@@ -281,6 +282,8 @@ function App() {
       
       clearTournamentState();
       setTournamentActive(false);
+      setProjectName('Ladder');
+      setProjectNameStorage('Ladder');
       alert('Mini-game files cleared');
       window.location.reload();
     } catch (error) {
@@ -347,34 +350,6 @@ function App() {
 
   // ==================== TOURNAMENT HANDLERS ====================
 
-  const handleStartTournament = async (mode: 'regular' | 'bughouse') => {
-    try {
-      const userSettings = loadUserSettings();
-      const serverUrl = userSettings.server?.trim();
-      
-      if (serverUrl) {
-        // Server mode - call API
-        const state = await dataService.startTournament(mode);
-        setTournamentState(state);
-        setTournamentActive(true);
-        alert(`Tournament started (${mode})`);
-      } else {
-        // Local mode - set state in localStorage
-        const state = {
-          active: true,
-          startedAt: new Date().toISOString(),
-          mode,
-        };
-        setTournamentState(state);
-        setTournamentActive(true);
-        alert(`Tournament started (${mode})`);
-      }
-    } catch (error) {
-      console.error('Failed to start tournament:', error);
-      alert('Failed to start tournament: ' + (error as Error).message);
-    }
-  };
-
   const handleEndTournament = async () => {
     try {
       const userSettings = loadUserSettings();
@@ -396,6 +371,11 @@ function App() {
       console.error('Failed to end tournament:', error);
       alert('Failed to end tournament: ' + (error as Error).message);
     }
+  };
+
+  const handleEndTournamentOnly = () => {
+    clearTournamentState();
+    setTournamentActive(false);
   };
 
   const handleExportTournamentFiles = async () => {
@@ -435,14 +415,12 @@ function App() {
   const handleTitleSwitch = async (newTitle: string) => {
     const currentTitle = getProjectName();
     const isTournament = tournamentActive;
-    const currentIsMiniGame = currentTitle.toLowerCase().trim() === 'bughouse' || 
-      ['bg_game', 'bishop_game', 'pillar_game', 'kings_cross', 'pawn_game', 'queen_game'].includes(currentTitle.toLowerCase().trim());
-    const newIsMiniGame = newTitle.toLowerCase().trim() === 'bughouse' || 
-      ['bg_game', 'bishop_game', 'pillar_game', 'kings_cross', 'pawn_game', 'queen_game'].includes(newTitle.toLowerCase().trim());
+    const currentIsMiniGame = isMiniGameTitle(currentTitle);
+    const newIsMiniGame = isMiniGameTitle(newTitle);
     
     if (isTournament && currentIsMiniGame && !newIsMiniGame) {
-      if (window.confirm(`End tournament and switch to "${newTitle}"? This will keep all mini-game files.`)) {
-        await handleEndTournament();
+      if (window.confirm(`End tournament and switch to "${newTitle}"? Mini-game files will be preserved.`)) {
+        handleEndTournamentOnly();
       } else {
         return false;
       }

@@ -120,7 +120,6 @@ export function clearSettings(): void {
 export interface TournamentState {
   active: boolean;
   startedAt: string;
-  mode: 'regular' | 'bughouse';
 }
 
 export function getTournamentState(): TournamentState | null {
