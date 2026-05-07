@@ -24,15 +24,13 @@ import {
 } from "lucide-react";
 
 interface MenuBarProps {
-  onFileAction: (action: "load" | "export") => void;
-  onSort: (
-    type: "rank" | "byLastName" | "byFirstName" | "nRating" | "rating",
-  ) => void;
-  onRecalculateRatings: () => void;
-  onCheckErrors: () => void;
-  onToggleAdmin: () => void;
-  onSetZoom: (level: "50%" | "70%" | "100%" | "140%" | "200%") => void;
-  onOpenSettings: () => void;
+  onFileAction?: (action: "load" | "export") => void;
+  onSort?: (sortType: "rank" | "byLastName" | "byFirstName" | "nRating" | "rating") => void;
+  onRecalculateRatings?: () => void;
+  onCheckErrors?: () => void;
+  onToggleAdmin?: () => void;
+  onSetZoom?: (level: "50%" | "70%" | "100%" | "140%" | "200%") => void;
+  onOpenSettings?: () => void;
   onAddPlayer?: () => void;
   onBulkPaste?: () => void;
   onEnterGames?: () => void;
@@ -40,13 +38,14 @@ interface MenuBarProps {
   onDeleteHiddenPlayers?: () => void;
   onAutoLetter?: () => void;
   isAdmin: boolean;
-  isWide: boolean;
+  isWide?: boolean;
   zoomLevel: "50%" | "70%" | "100%" | "140%" | "200%";
   projectName?: string;
   onSetTitle?: (title: string) => void;
   playerCount?: number;
-  serverUrl?: string; // Server URL - if set without API key, admin mode is disabled
-  hasAdminApiKey?: boolean; // If true and serverUrl is set, admin mode is enabled
+  serverUrl?: string | null;
+  hasAdminApiKey?: boolean;
+  tournamentMode?: boolean;
 }
 
 interface MenuItem {
@@ -78,6 +77,7 @@ export default function MenuBar({
   playerCount,
   serverUrl,
   hasAdminApiKey,
+  tournamentMode = false,
 }: MenuBarProps) {
   // Admin mode disabled: connected to server WITH API key but not actually admin
   // Enabled: no server URL (local mode) OR server unreachable (repair mode) OR has API key
@@ -109,7 +109,7 @@ export default function MenuBar({
       icon: <Upload size={16} />,
       label: "Load",
       onClick: () => {
-        onFileAction("load");
+        onFileAction?.("load");
         closeAllMenus();
       },
       dataMenuItem: "Load",
@@ -118,7 +118,7 @@ export default function MenuBar({
       icon: <Download size={16} />,
       label: "Export",
       onClick: () => {
-        onFileAction("export");
+        onFileAction?.("export");
         closeAllMenus();
       },
       dataMenuItem: "Export",
@@ -152,7 +152,7 @@ export default function MenuBar({
       icon: <Hash size={16} />,
       label: "By Rank",
       onClick: () => {
-        onSort("rank");
+        onSort?.("rank");
         closeAllMenus();
       },
       dataMenuItem: "By Rank",
@@ -161,7 +161,7 @@ export default function MenuBar({
       icon: <Type size={16} />,
       label: "By Last Name",
       onClick: () => {
-        onSort("byLastName");
+        onSort?.("byLastName");
         closeAllMenus();
       },
       dataMenuItem: "By Last Name",
@@ -170,7 +170,7 @@ export default function MenuBar({
       icon: <Type size={16} />,
       label: "By First Name",
       onClick: () => {
-        onSort("byFirstName");
+        onSort?.("byFirstName");
         closeAllMenus();
       },
       dataMenuItem: "By First Name",
@@ -179,7 +179,7 @@ export default function MenuBar({
       icon: <TrendingUp size={16} />,
       label: "By New Rating",
       onClick: () => {
-        onSort("nRating");
+        onSort?.("nRating");
         closeAllMenus();
       },
       dataMenuItem: "By New Rating",
@@ -188,7 +188,7 @@ export default function MenuBar({
       icon: <History size={16} />,
       label: "By Previous Rating",
       onClick: () => {
-        onSort("rating");
+        onSort?.("rating");
         closeAllMenus();
       },
       dataMenuItem: "By Previous Rating",
@@ -200,7 +200,7 @@ export default function MenuBar({
       icon: <RefreshCw size={16} />,
       label: "Recalculate_Save",
       onClick: () => {
-        onRecalculateRatings();
+        onRecalculateRatings?.();
         closeAllMenus();
       },
       dataMenuItem: "Recalculate_Save",
@@ -209,7 +209,7 @@ export default function MenuBar({
       icon: <AlertTriangle size={16} />,
       label: "Check Errors",
       onClick: () => {
-        onCheckErrors();
+        onCheckErrors?.();
         closeAllMenus();
       },
       dataMenuItem: "Check Errors",
@@ -238,7 +238,7 @@ export default function MenuBar({
             icon: <Plus size={16} />,
             label: "Add Player",
             onClick: () => {
-              onAddPlayer();
+              onAddPlayer?.();
               closeAllMenus();
             },
             dataMenuItem: "Add Player",
@@ -251,7 +251,7 @@ export default function MenuBar({
              icon: <Trash2 size={16} />,
              label: "Delete Hidden Players",
              onClick: () => {
-               onDeleteHiddenPlayers();
+               onDeleteHiddenPlayers?.();
                closeAllMenus();
              },
              dataMenuItem: "Delete Hidden Players",
@@ -264,7 +264,7 @@ export default function MenuBar({
              icon: <Type size={16} />,
              label: "Auto-Letter",
              onClick: () => {
-               onAutoLetter();
+               onAutoLetter?.();
                closeAllMenus();
              },
              dataMenuItem: "Auto-Letter",
@@ -278,7 +278,7 @@ export default function MenuBar({
              icon: <Shield size={16} />,
              label: isAdmin ? "Exit Admin Mode" : "Admin Mode",
              onClick: () => {
-               onToggleAdmin();
+               onToggleAdmin?.();
                closeAllMenus();
              },
              dataMenuItem: isAdmin ? "Exit Admin Mode" : "Admin Mode",
@@ -291,7 +291,7 @@ export default function MenuBar({
             icon: <History size={16} />,
             label: "Restore Backup",
             onClick: () => {
-              onRestoreBackup();
+              onRestoreBackup?.();
               closeAllMenus();
             },
             dataMenuItem: "Restore Backup",
@@ -303,7 +303,7 @@ export default function MenuBar({
       icon: <SettingsIcon size={16} />,
       label: "Settings",
       onClick: () => {
-        onOpenSettings();
+        onOpenSettings?.();
         closeAllMenus();
       },
       dataMenuItem: "Settings",
@@ -315,7 +315,7 @@ export default function MenuBar({
       icon: <Minus size={16} />,
       label: "Zoom 50%",
       onClick: () => {
-        onSetZoom("50%");
+        onSetZoom?.("50%");
         closeAllMenus();
       },
       dataMenuItem: "Zoom 50%",
@@ -324,7 +324,7 @@ export default function MenuBar({
       icon: <Minus size={16} />,
       label: "Zoom 70%",
       onClick: () => {
-        onSetZoom("70%");
+        onSetZoom?.("70%");
         closeAllMenus();
       },
       dataMenuItem: "Zoom 70%",
@@ -333,7 +333,7 @@ export default function MenuBar({
       icon: <Eye size={16} />,
       label: "Zoom 100%",
       onClick: () => {
-        onSetZoom("100%");
+        onSetZoom?.("100%");
         closeAllMenus();
       },
       dataMenuItem: "Zoom 100%",
@@ -342,7 +342,7 @@ export default function MenuBar({
       icon: <Plus size={16} />,
       label: "Zoom 140%",
       onClick: () => {
-        onSetZoom("140%");
+        onSetZoom?.("140%");
         closeAllMenus();
       },
       dataMenuItem: "Zoom 140%",
@@ -351,7 +351,7 @@ export default function MenuBar({
       icon: <ZoomIn size={16} />,
       label: "Zoom 200%",
       onClick: () => {
-        onSetZoom("200%");
+        onSetZoom?.("200%");
         closeAllMenus();
       },
       dataMenuItem: "Zoom 200%",
@@ -482,7 +482,7 @@ export default function MenuBar({
         style={{
           display: "flex",
           alignItems: "center",
-          backgroundColor: "#1e293b",
+          backgroundColor: tournamentMode ? "#1e40af" : "#1e293b",
           borderBottom: "1px solid #334155",
           fontSize: getFontSize(),
         }}

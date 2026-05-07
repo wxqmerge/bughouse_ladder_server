@@ -394,8 +394,7 @@ router.get('/tournament/status', async (req: Request, res: Response): Promise<vo
 // Start tournament
 router.post('/tournament/start', async (req: Request, res: Response): Promise<void> => {
   try {
-    const mode = (req.body.mode as 'regular' | 'bughouse') || 'regular';
-    const state = await startTournament(mode);
+    const state = await startTournament();
     
     res.json({
       success: true,
