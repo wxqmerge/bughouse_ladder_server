@@ -1,7 +1,11 @@
 import fs from 'fs/promises';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { log as loggerLog } from '../utils/logger.js';
 import { readLadderFile, writeLadderFile, generateTabContent, PlayerData, LadderData, withTiming } from './dataService.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Mini-game file names (7 files, same as MINI_GAMES + bughouse)
 export const MINI_GAME_FILES = [
