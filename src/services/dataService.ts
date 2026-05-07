@@ -473,14 +473,13 @@ class DataService {
     return data.data;
   }
 
-  async startTournament(mode: 'regular' | 'bughouse' = 'regular'): Promise<any> {
+  async startTournament(): Promise<any> {
     const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/start`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         ...this.getAuthHeaders(),
       },
-      body: JSON.stringify({ mode }),
     });
 
     if (!response.ok) {

@@ -33,14 +33,12 @@ export const MINI_GAME_DIFFICULTY_ORDER = [
 export interface TournamentState {
   active: boolean;
   startedAt: string;
-  mode: 'regular' | 'bughouse';
 }
 
 // In-memory tournament state (persisted to file on changes)
 let tournamentState: TournamentState = {
   active: false,
   startedAt: '',
-  mode: 'regular',
 };
 
 const TOURNAMENT_STATE_FILE = path.join(
@@ -59,7 +57,6 @@ export async function loadTournamentState(): Promise<TournamentState> {
     tournamentState = {
       active: false,
       startedAt: '',
-      mode: 'regular',
     };
   }
   return tournamentState;
@@ -83,14 +80,13 @@ export function getTournamentState(): TournamentState {
 }
 
 // Start tournament
-export async function startTournament(mode: 'regular' | 'bughouse' = 'regular'): Promise<TournamentState> {
+export async function startTournament(): Promise<TournamentState> {
   tournamentState = {
     active: true,
     startedAt: new Date().toISOString(),
-    mode,
   };
   await saveTournamentState();
-  loggerLog('[TOURNAMENT]', `Tournament started (mode: ${mode})`);
+  loggerLog('[TOURNAMENT]', 'Tournament started');
   return { ...tournamentState };
 }
 

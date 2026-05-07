@@ -2625,6 +2625,13 @@ export default function LadderForm({
       if (!allowed) return;
     }
     
+    // Confirm when switching from Ladder to tournament mode
+    if (!currentIsMiniGame && newIsMiniGame && !isTournament) {
+      if (!window.confirm(`Start a ${newTitle} tournament? This will copy all players and ratings to ${newTitle}.tab. Games entered will be saved to this mini-game file.`)) {
+        return;
+      }
+    }
+    
     setProjectName(newTitle);
     setProjectNameStorage(newTitle);
     
@@ -4156,117 +4163,6 @@ export default function LadderForm({
         </div>
       )}
 
-      {/* Tournament status banner */}
-      {isTournamentActive() && (
-        <div style={{
-          backgroundColor: "#f0fdf4",
-          border: "1px solid #86efac",
-          padding: "0.75rem 1rem",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: "1rem",
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-            <span style={{ fontSize: "1.25rem" }}>🏆</span>
-            <span style={{ fontSize: "0.875rem", color: "#166534", fontWeight: "500" }}>
-              Tournament Active: {projectName}
-            </span>
-          </div>
-          <div style={{ display: "flex", gap: "0.5rem" }}>
-            <button
-              onClick={async () => {
-                try {
-                  if (window.confirm('Save current mini-game file?')) {
-                    const userSettings = loadUserSettings();
-                    const serverUrl = userSettings.server?.trim();
-                    if (serverUrl) {
-                      await dataService.saveMiniGameFile(projectName);
-                      alert('Mini-game file saved');
-                    }
-                  }
-                } catch (error) {
-                  console.error('Failed to save mini-game file:', error);
-                  alert('Failed to save: ' + (error as Error).message);
-                }
-              }}
-              style={{
-                padding: "0.25rem 0.75rem",
-                backgroundColor: "#16a34a",
-                color: "white",
-                border: "none",
-                borderRadius: "0.25rem",
-                cursor: "pointer",
-                fontSize: "0.875rem",
-                fontWeight: 600,
-              }}
-            >
-              Save Mini-Game
-            </button>
-            <button
-              onClick={async () => {
-                try {
-                  const blob = await dataService.exportTournamentFiles();
-                  const url = window.URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `tournament_${new Date().toISOString().split('T')[0]}.zip`;
-                  document.body.appendChild(a);
-                  a.click();
-                  window.URL.revokeObjectURL(url);
-                  document.body.removeChild(a);
-                } catch (error) {
-                  console.error('Failed to export:', error);
-                  alert('Failed to export: ' + (error as Error).message);
-                }
-              }}
-              style={{
-                padding: "0.25rem 0.75rem",
-                backgroundColor: "#0284c7",
-                color: "white",
-                border: "none",
-                borderRadius: "0.25rem",
-                cursor: "pointer",
-                fontSize: "0.875rem",
-                fontWeight: 600,
-              }}
-            >
-              Export Files
-            </button>
-            <button
-              onClick={async () => {
-                try {
-                  const blob = await dataService.generateTrophyReport();
-                  const url = window.URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `tournament_trophies_${new Date().toISOString().split('T')[0]}.tab`;
-                  document.body.appendChild(a);
-                  a.click();
-                  window.URL.revokeObjectURL(url);
-                  document.body.removeChild(a);
-                } catch (error) {
-                  console.error('Failed to generate trophies:', error);
-                  alert('Failed to generate: ' + (error as Error).message);
-                }
-              }}
-              style={{
-                padding: "0.25rem 0.75rem",
-                backgroundColor: "#ea580c",
-                color: "white",
-                border: "none",
-                borderRadius: "0.25rem",
-                cursor: "pointer",
-                fontSize: "0.875rem",
-                fontWeight: 600,
-              }}
-            >
-              Generate Trophies
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Desktop combined header with menu and title */}
       <div className="desktop-header-hidden" style={{ display: "flex" }}>
         <MenuBar
@@ -4290,6 +4186,7 @@ export default function LadderForm({
             onSetTitle={handleSetTitle}
 
             playerCount={players.length}
+            tournamentMode={isMiniGameTitle(projectName)}
 
 
 
@@ -4302,46 +4199,145 @@ export default function LadderForm({
       <header
         className="mobile-menu-trigger"
         style={{
-          background: "linear-gradient(135deg, #0f172a 0%, #334155 100%)",
+          background: isMiniGameTitle(projectName)
+            ? "linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)"
+            : "linear-gradient(135deg, #0f172a 0%, #334155 100%)",
           color: "white",
           padding: "1rem 2rem",
           marginBottom: "0.5rem",
           display: "flex",
           justifyContent: "space-between",
-          alignItems: "center",
+          alignItems: "flex-start",
+          flexDirection: "column",
+          gap: "0.75rem",
         }}
       >
-        <div>
-          <h1 style={{ margin: 0, fontSize: "1.25rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <span>{projectName}</span>
-            <span style={{ fontSize: "0.875rem", opacity: 0.8 }}>{getVersionString()}</span>
-          </h1>
-        </div>
-        <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
           <div>
-            <span
-              style={{ fontSize: "0.75rem", color: "rgba(255, 255, 255, 0.7)" }}
-            >
-              Total Players
-            </span>
-            <div style={{ fontSize: "1rem", fontWeight: "600" }}>
-              {players.length}
-            </div>
+            <h1 style={{ margin: 0, fontSize: "1.25rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <span>{projectName}</span>
+              <span style={{ fontSize: "0.875rem", opacity: 0.8 }}>{getVersionString()}</span>
+            </h1>
           </div>
-          <button
-            onClick={() => setIsMobileMenuOpen(true)}
-            style={{
-              background: "rgba(255, 255, 255, 0.1)",
-              color: "white",
-              border: "1px solid rgba(255, 255, 255, 0.2)",
-              padding: "0.5rem",
-              borderRadius: "0.25rem",
-              cursor: "pointer",
-            }}
-          >
-            <MenuIcon size={24} />
-          </button>
+          <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
+            <div>
+              <span
+                style={{ fontSize: "0.75rem", color: "rgba(255, 255, 255, 0.7)" }}
+              >
+                Total Players
+              </span>
+              <div style={{ fontSize: "1rem", fontWeight: "600" }}>
+                {players.length}
+              </div>
+            </div>
+            <button
+              onClick={() => setIsMobileMenuOpen(true)}
+              style={{
+                background: "rgba(255, 255, 255, 0.1)",
+                color: "white",
+                border: "1px solid rgba(255, 255, 255, 0.2)",
+                padding: "0.5rem",
+                borderRadius: "0.25rem",
+                cursor: "pointer",
+              }}
+            >
+              <MenuIcon size={24} />
+            </button>
+          </div>
         </div>
+        {isMiniGameTitle(projectName) && (
+          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+            <button
+              onClick={async () => {
+                try {
+                  if (window.confirm('Save current mini-game file?')) {
+                    const userSettings = loadUserSettings();
+                    const serverUrl = userSettings.server?.trim();
+                    if (serverUrl) {
+                      await dataService.saveMiniGameFile(projectName);
+                      alert('Mini-game file saved');
+                    }
+                  }
+                } catch (error) {
+                  console.error('Failed to save mini-game file:', error);
+                  alert('Failed to save: ' + (error as Error).message);
+                }
+              }}
+              style={{
+                padding: "0.375rem 0.75rem",
+                backgroundColor: "#16a34a",
+                color: "white",
+                border: "none",
+                borderRadius: "0.25rem",
+                cursor: "pointer",
+                fontSize: "0.75rem",
+                fontWeight: 600,
+              }}
+            >
+              Save Mini-Game
+            </button>
+            <button
+              onClick={async () => {
+                try {
+                  const blob = await dataService.exportTournamentFiles();
+                  const url = window.URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `tournament_${new Date().toISOString().split('T')[0]}.zip`;
+                  document.body.appendChild(a);
+                  a.click();
+                  window.URL.revokeObjectURL(url);
+                  document.body.removeChild(a);
+                } catch (error) {
+                  console.error('Failed to export:', error);
+                  alert('Failed to export: ' + (error as Error).message);
+                }
+              }}
+              style={{
+                padding: "0.375rem 0.75rem",
+                backgroundColor: "#0284c7",
+                color: "white",
+                border: "none",
+                borderRadius: "0.25rem",
+                cursor: "pointer",
+                fontSize: "0.75rem",
+                fontWeight: 600,
+              }}
+            >
+              Export Files
+            </button>
+            <button
+              onClick={async () => {
+                try {
+                  const blob = await dataService.generateTrophyReport();
+                  const url = window.URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `tournament_trophies_${new Date().toISOString().split('T')[0]}.tab`;
+                  document.body.appendChild(a);
+                  a.click();
+                  window.URL.revokeObjectURL(url);
+                  document.body.removeChild(a);
+                } catch (error) {
+                  console.error('Failed to generate trophies:', error);
+                  alert('Failed to generate: ' + (error as Error).message);
+                }
+              }}
+              style={{
+                padding: "0.375rem 0.75rem",
+                backgroundColor: "#ea580c",
+                color: "white",
+                border: "none",
+                borderRadius: "0.25rem",
+                cursor: "pointer",
+                fontSize: "0.75rem",
+                fontWeight: 600,
+              }}
+            >
+              Generate Trophies
+            </button>
+          </div>
+        )}
       </header>
 
       {/* Hidden file input */}

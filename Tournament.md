@@ -164,12 +164,9 @@ data/
 
 ## Implementation Approach
 
-### Phase 1: Tournament Mode Flag (Settings Button)
+### Phase 1: Tournament Mode Flag (Auto-Activated)
 
-Add two buttons to Settings:
-
-- **"Start Tournament"** - Activates tournament mode, stores flag in server state
-- **"End Tournament"** - Deactivates tournament mode
+Tournament mode is **not** activated by a button. It is activated automatically when the admin selects a mini-game title (BG_Game, Bishop_Game, etc.) from the File menu.
 
 Flag stored server-side (in-memory or in a small JSON file), not in PlayerData.
 
