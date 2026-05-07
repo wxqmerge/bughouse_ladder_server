@@ -112,12 +112,13 @@ function releaseLock(): void {
   }
 }
 
-export async function readLadderFile(): Promise<LadderData> {
+export async function readLadderFile(filePath?: string): Promise<LadderData> {
+  const targetPath = filePath || TAB_FILE_PATH;
   return withTiming('readLadderFile', async () => {
     await acquireLock();
     
     try {
-      const content = await fs.readFile(TAB_FILE_PATH, 'utf-8');
+      const content = await fs.readFile(targetPath, 'utf-8');
       const lines = content.split('\n').filter(line => line.trim());
     
     if (lines.length === 0) {
@@ -225,15 +226,16 @@ export function generateTabContent(ladderData: LadderData): string {
   return [headerLine, ...playerLines].join('\n') + '\n';
 }
 
-export async function writeLadderFile(ladderData: LadderData): Promise<void> {
+export async function writeLadderFile(ladderData: LadderData, filePath?: string): Promise<void> {
+  const targetPath = filePath || TAB_FILE_PATH;
   return withTiming('writeLadderFile', async () => {
     await acquireLock();
     
     try {
-      loggerLog('[SERVER]', `Writing ${ladderData.players.length} players to ${TAB_FILE_PATH}`);
+      loggerLog('[SERVER]', `Writing ${ladderData.players.length} players to ${targetPath}`);
       
       // Create backup before write (skip during tests)
-      if (!process.env.VITEST) {
+      if (!process.env.VITEST && !filePath) {
         try {
           const backupPath = await createBackup();
           if (backupPath) {
@@ -245,7 +247,7 @@ export async function writeLadderFile(ladderData: LadderData): Promise<void> {
       }
       
       const content = generateTabContent(ladderData);
-      await fs.writeFile(TAB_FILE_PATH, content, 'utf-8');
+      await fs.writeFile(targetPath, content, 'utf-8');
       
       writeHealth.lastWriteTime = new Date().toISOString();
       writeHealth.lastWriteSuccess = true;

@@ -71,6 +71,8 @@ vi.mock('../../services/storageService', () => {
     getAdminLockInfo: m().mockResolvedValue({ locked: false }),
     isAdminLocked: m().mockResolvedValue(false),
     notifyServerOfLockAction: m(),
+    isTournamentActive: m().mockReturnValue(false),
+    getTournamentState: m().mockReturnValue(null),
   };
 });
 
@@ -86,6 +88,13 @@ vi.mock('../../services/dataService', () => ({
     savePlayers: vi.fn().mockResolvedValue(undefined),
     getMode: vi.fn().mockReturnValue('LOCAL'),
     getConfigServerUrl: vi.fn().mockReturnValue('http://localhost:3000'),
+    getTournamentStatus: vi.fn().mockResolvedValue({ active: false }),
+    startTournament: vi.fn().mockResolvedValue({ active: true }),
+    endTournament: vi.fn().mockResolvedValue(undefined),
+    saveMiniGameFile: vi.fn().mockResolvedValue(undefined),
+    copyPlayersToMiniGame: vi.fn().mockResolvedValue(undefined),
+    exportTournamentFiles: vi.fn().mockResolvedValue(new Blob()),
+    generateTrophyReport: vi.fn().mockResolvedValue(new Blob()),
   },
   DataServiceMode: {
     LOCAL: 'LOCAL',

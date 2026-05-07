@@ -18,6 +18,8 @@ import {
   isLocalMode,
 } from "./utils/mode";
 import { loadUserSettings, loadConfigFromUrl } from "./services/userSettingsStorage";
+import { dataService } from "./services/dataService";
+import { setTournamentState, clearTournamentState, isTournamentActive, getTournamentState } from "./services/storageService";
 import { checkMigrationNeeded, storeCurrentMode } from "./utils/migrationUtils";
 import {
   savePlayers,
@@ -33,7 +35,6 @@ import {
   clearSettings,
   setPendingNewDay,
 } from "./services/storageService";
-import { dataService } from "./services/dataService";
 import "./css/index.css";
 
 // Global status tracking
@@ -56,6 +57,32 @@ function App() {
   const [lastKnownMode, setLastKnownMode] = useState<'local' | 'server_down' | 'server' | null>(null);
   // Show server-down blocking dialog on first load if server is unreachable
   const [showServerDownBlocking, setShowServerDownBlocking] = useState(false);
+  // Tournament state
+  const [tournamentActive, setTournamentActive] = useState(false);
+
+  // Check tournament status on mount (server mode)
+  useEffect(() => {
+    const checkTournamentStatus = async () => {
+      try {
+        const userSettings = loadUserSettings();
+        const serverUrl = userSettings.server?.trim();
+        
+        if (serverUrl) {
+          // Server mode - check API
+          const state = await dataService.getTournamentStatus();
+          setTournamentActive(state.active || false);
+        } else {
+          // Local mode - check localStorage
+          const state = getTournamentState();
+          setTournamentActive(state?.active || false);
+        }
+      } catch (error) {
+        console.error('Failed to check tournament status:', error);
+      }
+    };
+    
+    checkTournamentStatus();
+  }, []);
   const [versionMismatch, setVersionMismatch] = useState(false);
   const [urlConfigApplied, setUrlConfigApplied] = useState(false);
   const [status, setStatus] = useState<string | null>("Initializing...");
@@ -234,6 +261,22 @@ function App() {
       const players = await getPlayers();
       if (players && players.length > 0) {
         const currentTitle = getProjectName();
+        const isTournament = tournamentActive;
+        
+        if (isTournament) {
+          try {
+            const userSettings = loadUserSettings();
+            const serverUrl = userSettings.server?.trim();
+            
+            if (serverUrl) {
+              await dataService.saveMiniGameFile(currentTitle);
+              console.log(`[App] Saved mini-game file: ${currentTitle}`);
+            }
+          } catch (error) {
+            console.error(`Failed to save mini-game file ${currentTitle}:`, error);
+          }
+        }
+        
         const nextTitle = getNextTitle(currentTitle);
 
         const finalPlayers = processNewDayTransformations(players, reRank);
@@ -266,6 +309,93 @@ function App() {
         ">>> [NEW DAY] Recalculate ref not available, using fallback",
       );
       processNewDay(reRank);
+    }
+  };
+
+  // ==================== TOURNAMENT HANDLERS ====================
+
+  const handleStartTournament = async (mode: 'regular' | 'bughouse') => {
+    try {
+      const userSettings = loadUserSettings();
+      const serverUrl = userSettings.server?.trim();
+      
+      if (serverUrl) {
+        // Server mode - call API
+        const state = await dataService.startTournament(mode);
+        setTournamentState(state);
+        setTournamentActive(true);
+        alert(`Tournament started (${mode})`);
+      } else {
+        // Local mode - set state in localStorage
+        const state = {
+          active: true,
+          startedAt: new Date().toISOString(),
+          mode,
+        };
+        setTournamentState(state);
+        setTournamentActive(true);
+        alert(`Tournament started (${mode})`);
+      }
+    } catch (error) {
+      console.error('Failed to start tournament:', error);
+      alert('Failed to start tournament: ' + (error as Error).message);
+    }
+  };
+
+  const handleEndTournament = async () => {
+    try {
+      const userSettings = loadUserSettings();
+      const serverUrl = userSettings.server?.trim();
+      
+      if (serverUrl) {
+        // Server mode - call API
+        await dataService.endTournament();
+        clearTournamentState();
+        setTournamentActive(false);
+        alert('Tournament ended');
+      } else {
+        // Local mode - clear state
+        clearTournamentState();
+        setTournamentActive(false);
+        alert('Tournament ended');
+      }
+    } catch (error) {
+      console.error('Failed to end tournament:', error);
+      alert('Failed to end tournament: ' + (error as Error).message);
+    }
+  };
+
+  const handleExportTournamentFiles = async () => {
+    try {
+      const blob = await dataService.exportTournamentFiles();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `tournament_${new Date().toISOString().split('T')[0]}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Failed to export tournament files:', error);
+      alert('Failed to export: ' + (error as Error).message);
+    }
+  };
+
+  const handleGenerateTrophies = async () => {
+    try {
+      const blob = await dataService.generateTrophyReport();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `tournament_trophies_${new Date().toISOString().split('T')[0]}.tab`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Failed to generate trophies:', error);
+      alert('Failed to generate trophies: ' + (error as Error).message);
     }
   };
 
@@ -473,6 +603,11 @@ function App() {
           onNewDay={handleNewDay}
           onNewDayWithReRank={handleNewDayWithReRank}
           onWalkThroughReports={handleWalkThroughReports}
+          onExportTournamentFiles={isAdmin ? handleExportTournamentFiles : undefined}
+          onGenerateTrophies={isAdmin ? handleGenerateTrophies : undefined}
+          onStartTournament={isAdmin ? handleStartTournament : undefined}
+          onEndTournament={isAdmin ? handleEndTournament : undefined}
+          isTournamentActive={tournamentActive}
           isAdmin={isAdmin}
         />
       )}
