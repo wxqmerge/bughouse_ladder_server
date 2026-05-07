@@ -11,6 +11,29 @@ export const MINI_GAMES = [
   "Queen_Game",
 ] as const;
 
+export const MINI_GAMES_WITH_BUGHOUSE = [
+  "BG_Game",
+  "Bishop_Game",
+  "Pillar_Game",
+  "Kings_Cross",
+  "Pawn_Game",
+  "Queen_Game",
+  "bughouse",
+] as const;
+
+export function isMiniGameTitle(title: string): boolean {
+  const normalized = String(title || "").toLowerCase().trim();
+  return MINI_GAMES_WITH_BUGHOUSE.some(game => game.toLowerCase() === normalized);
+}
+
+export function titleToFileName(title: string): string {
+  const normalized = String(title || "").toLowerCase().trim();
+  if (normalized === "bughouse") {
+    return "bughouse.tab";
+  }
+  return `${title}.tab`;
+}
+
 export const ERROR_MESSAGES: Record<number, string> = {
   1: "Invalid characters",
   2: "Incomplete 2-player game",

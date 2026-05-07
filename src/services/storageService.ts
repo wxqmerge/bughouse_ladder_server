@@ -115,6 +115,31 @@ export function clearSettings(): void {
   removeJson('ladder_settings');
 }
 
+// ==================== TOURNAMENT STATE STORAGE ====================
+
+export interface TournamentState {
+  active: boolean;
+  startedAt: string;
+  mode: 'regular' | 'bughouse';
+}
+
+export function getTournamentState(): TournamentState | null {
+  return getJson<TournamentState>('ladder_tournament_state');
+}
+
+export function setTournamentState(state: TournamentState): void {
+  setJson('ladder_tournament_state', state);
+}
+
+export function clearTournamentState(): void {
+  removeJson('ladder_tournament_state');
+}
+
+export function isTournamentActive(): boolean {
+  const state = getTournamentState();
+  return state?.active === true;
+}
+
 // ==================== SAVE STATUS TRACKING ====================
 
 const saveStatusMap = new Map<string, boolean>();

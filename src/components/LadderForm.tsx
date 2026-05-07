@@ -11,7 +11,9 @@ import {
   repopulateGameResults,
   updatePlayerGameData,
 } from "../utils/hashUtils";
-import { MINI_GAMES, processNewDayTransformations } from "../utils/constants";
+import { MINI_GAMES, processNewDayTransformations, isMiniGameTitle, titleToFileName } from "../utils/constants";
+import { dataService } from "../services/dataService";
+import { getTournamentState, isTournamentActive } from "../services/storageService";
 import ErrorDialog from "./ErrorDialog";
 import AddPlayerDialog from "./AddPlayerDialog";
 import { BulkPasteDialog } from "./BulkPasteDialog";
@@ -2606,6 +2608,36 @@ export default function LadderForm({
     setZoomLevelStorage(zoomPercent);
   };
 
+  const handleSetTitle = async (newTitle: string) => {
+    if (shouldLog(10)) {
+      console.log(`>>> [MENU ACTION] Set title to ${newTitle}`);
+    }
+    
+    setProjectName(newTitle);
+    setProjectNameStorage(newTitle);
+    
+    const isTournament = isTournamentActive();
+    const isNewMiniGame = isMiniGameTitle(newTitle);
+    
+    if (!isTournament || !isNewMiniGame) {
+      return;
+    }
+    
+    try {
+      const userSettings = loadUserSettings();
+      const serverUrl = userSettings.server?.trim();
+      const fileName = titleToFileName(newTitle);
+      
+      if (serverUrl) {
+        await dataService.copyPlayersToMiniGame(fileName);
+        console.log(`[LadderForm] Copied players to ${fileName}`);
+      }
+    } catch (error) {
+      const fileName = titleToFileName(newTitle);
+      console.error(`Failed to copy players to ${fileName}:`, error);
+    }
+  };
+
   const handleBulkPaste = () => {
     if (shouldLog(10)) {
       console.log(">>> [MENU ACTION] Paste Multiple Results");
@@ -4037,10 +4069,7 @@ export default function LadderForm({
         onAutoLetter={isAdmin ? handleAutoLetter : undefined}
         isAdmin={isAdmin}
         projectName={projectName}
-        onSetTitle={(newTitle) => {
-          setProjectName(newTitle);
-          setProjectNameStorage(newTitle);
-        }}
+        onSetTitle={handleSetTitle}
       />
 
       {/* Version mismatch warning banner */}
@@ -4118,6 +4147,117 @@ export default function LadderForm({
         </div>
       )}
 
+      {/* Tournament status banner */}
+      {isTournamentActive() && (
+        <div style={{
+          backgroundColor: "#f0fdf4",
+          border: "1px solid #86efac",
+          padding: "0.75rem 1rem",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "1rem",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+            <span style={{ fontSize: "1.25rem" }}>🏆</span>
+            <span style={{ fontSize: "0.875rem", color: "#166534", fontWeight: "500" }}>
+              Tournament Active: {projectName}
+            </span>
+          </div>
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            <button
+              onClick={async () => {
+                try {
+                  if (window.confirm('Save current mini-game file?')) {
+                    const userSettings = loadUserSettings();
+                    const serverUrl = userSettings.server?.trim();
+                    if (serverUrl) {
+                      await dataService.saveMiniGameFile(projectName);
+                      alert('Mini-game file saved');
+                    }
+                  }
+                } catch (error) {
+                  console.error('Failed to save mini-game file:', error);
+                  alert('Failed to save: ' + (error as Error).message);
+                }
+              }}
+              style={{
+                padding: "0.25rem 0.75rem",
+                backgroundColor: "#16a34a",
+                color: "white",
+                border: "none",
+                borderRadius: "0.25rem",
+                cursor: "pointer",
+                fontSize: "0.875rem",
+                fontWeight: 600,
+              }}
+            >
+              Save Mini-Game
+            </button>
+            <button
+              onClick={async () => {
+                try {
+                  const blob = await dataService.exportTournamentFiles();
+                  const url = window.URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `tournament_${new Date().toISOString().split('T')[0]}.zip`;
+                  document.body.appendChild(a);
+                  a.click();
+                  window.URL.revokeObjectURL(url);
+                  document.body.removeChild(a);
+                } catch (error) {
+                  console.error('Failed to export:', error);
+                  alert('Failed to export: ' + (error as Error).message);
+                }
+              }}
+              style={{
+                padding: "0.25rem 0.75rem",
+                backgroundColor: "#0284c7",
+                color: "white",
+                border: "none",
+                borderRadius: "0.25rem",
+                cursor: "pointer",
+                fontSize: "0.875rem",
+                fontWeight: 600,
+              }}
+            >
+              Export Files
+            </button>
+            <button
+              onClick={async () => {
+                try {
+                  const blob = await dataService.generateTrophyReport();
+                  const url = window.URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `tournament_trophies_${new Date().toISOString().split('T')[0]}.tab`;
+                  document.body.appendChild(a);
+                  a.click();
+                  window.URL.revokeObjectURL(url);
+                  document.body.removeChild(a);
+                } catch (error) {
+                  console.error('Failed to generate trophies:', error);
+                  alert('Failed to generate: ' + (error as Error).message);
+                }
+              }}
+              style={{
+                padding: "0.25rem 0.75rem",
+                backgroundColor: "#ea580c",
+                color: "white",
+                border: "none",
+                borderRadius: "0.25rem",
+                cursor: "pointer",
+                fontSize: "0.875rem",
+                fontWeight: 600,
+              }}
+            >
+              Generate Trophies
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Desktop combined header with menu and title */}
       <div className="desktop-header-hidden" style={{ display: "flex" }}>
         <MenuBar
@@ -4137,13 +4277,10 @@ export default function LadderForm({
           isAdmin={isAdmin}
           isWide={zoomLevel === "140%"}
           zoomLevel={zoomLevel}
-           projectName={projectName}
-           onSetTitle={(newTitle) => {
-             setProjectName(newTitle);
-             setProjectNameStorage(newTitle);
-           }}
+          projectName={projectName}
+            onSetTitle={handleSetTitle}
 
-           playerCount={players.length}
+            playerCount={players.length}
 
 
 
