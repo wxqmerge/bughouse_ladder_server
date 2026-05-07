@@ -217,6 +217,7 @@ interface LadderFormProps {
   versionMismatch?: boolean;
   setVersionMismatch?: (v: boolean) => void;
   onTitleSwitch?: (newTitle: string) => Promise<boolean>;
+  onExportMiniData?: () => void;
 }
 
 export default function LadderForm({
@@ -231,6 +232,7 @@ export default function LadderForm({
   versionMismatch = false,
   setVersionMismatch,
   onTitleSwitch,
+  onExportMiniData,
 }: LadderFormProps = {}) {
   const [players, setPlayers] = useState<PlayerData[]>([]);
   const [zoomLevel, setZoomLevel] = useState<
@@ -4187,6 +4189,7 @@ export default function LadderForm({
 
             playerCount={players.length}
             tournamentMode={isMiniGameTitle(projectName)}
+            onExportMiniData={onExportMiniData}
 
 
 

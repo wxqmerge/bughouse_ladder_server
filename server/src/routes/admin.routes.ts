@@ -654,6 +654,39 @@ async function createZipBuffer(files: string[]): Promise<Buffer> {
   });
 }
 
+// Export all data TAB files (ladder + mini-games) into a zip
+router.get('/export-mini-data', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const dataDir = path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data'));
+    const files = ['ladder.tab'];
+    
+    for (const miniGameFile of MINI_GAME_FILES) {
+      const filePath = path.join(dataDir, miniGameFile);
+      try {
+        await fs.access(filePath);
+        const content = await fs.readFile(filePath, 'utf-8');
+        if (content.trim().split('\n').length > 1) {
+          files.push(miniGameFile);
+        }
+      } catch {
+        // File doesn't exist or is empty, skip
+      }
+    }
+    
+    const zipBuffer = await createZipFromFiles(files);
+    
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename=mini_data_${new Date().toISOString().split('T')[0]}.zip`);
+    res.send(zipBuffer);
+  } catch (error) {
+    console.error('Export mini data error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to export mini data' },
+    });
+  }
+});
+
 // Helper function to generate trophy TAB content
 function generateTrophyTabContent(trophies: any[], isClubMode: boolean = false): string {
   const header = 'Rank\tPlayer\tGr\tTrophy Type\tMini-Game/Grade\tGames Played';
