@@ -604,6 +604,36 @@ router.get('/tournament/trophies', async (req: Request, res: Response): Promise<
   }
 });
 
+// Clear all mini-game files
+router.post('/tournament/clear-mini-games', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const dataDir = path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data'));
+    let deletedCount = 0;
+    
+    for (const fileName of MINI_GAME_FILES) {
+      const filePath = path.join(dataDir, fileName);
+      try {
+        await fs.unlink(filePath);
+        deletedCount++;
+        log('[ADMIN]', `Deleted mini-game file: ${fileName}`);
+      } catch {
+        // File doesn't exist, skip
+      }
+    }
+    
+    res.json({
+      success: true,
+      data: { message: `Cleared ${deletedCount} mini-game files`, deletedCount },
+    });
+  } catch (error) {
+    console.error('Clear mini-games error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to clear mini-game files' },
+    });
+  }
+});
+
 // Helper function to create ZIP buffer
 async function createZipBuffer(files: string[]): Promise<Buffer> {
   return new Promise((resolve, reject) => {

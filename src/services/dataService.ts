@@ -561,6 +561,20 @@ class DataService {
 
     return response.blob();
   }
+
+  async clearMiniGames(): Promise<any> {
+    const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/clear-mini-games`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to clear mini-game files');
+    }
+
+    const data = await response.json();
+    return data.data;
+  }
 }
 
 // Determine the appropriate mode based on user settings or environment configuration

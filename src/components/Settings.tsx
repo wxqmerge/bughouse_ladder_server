@@ -25,10 +25,9 @@ interface SettingsProps {
   onNewDay: () => void;
   onNewDayWithReRank: () => void;
   onWalkThroughReports?: () => void;
+  onClearMiniGames?: () => void;
   onExportTournamentFiles?: () => void;
   onGenerateTrophies?: () => void;
-  onStartTournament?: (mode: 'regular' | 'bughouse') => void;
-  onEndTournament?: () => void;
   isTournamentActive?: boolean;
   isAdmin: boolean;
 }
@@ -40,10 +39,9 @@ export default function Settings({
   onNewDay,
   onNewDayWithReRank,
   onWalkThroughReports,
+  onClearMiniGames,
   onExportTournamentFiles,
   onGenerateTrophies,
-  onStartTournament,
-  onEndTournament,
   isTournamentActive,
   isAdmin,
 }: SettingsProps) {
@@ -412,70 +410,11 @@ export default function Settings({
                     New Day + Re-rank
                   </button>
 
-                  {onStartTournament && !isTournamentActive && (
-                    <>
-                      <button
-                        onClick={() => {
-                          if (window.confirm("Start a regular mini-game tournament? This will enable tournament mode.")) {
-                            onStartTournament('regular');
-                            onClose();
-                          }
-                        }}
-                        style={{
-                          width: "100%",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: "0.5rem",
-                          padding: "0.75rem",
-                          backgroundColor: "#8b5cf6",
-                          color: "white",
-                          border: "none",
-                          borderRadius: "0.25rem",
-                          cursor: "pointer",
-                          fontSize: "0.875rem",
-                          fontWeight: "500",
-                        }}
-                      >
-                        <CalendarDays size={16} />
-                        Start Tournament (Regular)
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          if (window.confirm("Start a bughouse tournament? This will enable tournament mode.")) {
-                            onStartTournament('bughouse');
-                            onClose();
-                          }
-                        }}
-                        style={{
-                          width: "100%",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: "0.5rem",
-                          padding: "0.75rem",
-                          backgroundColor: "#7c3aed",
-                          color: "white",
-                          border: "none",
-                          borderRadius: "0.25rem",
-                          cursor: "pointer",
-                          fontSize: "0.875rem",
-                          fontWeight: "500",
-                        }}
-                      >
-                        <CalendarDays size={16} />
-                        Start Tournament (Bughouse)
-                      </button>
-                    </>
-                  )}
-
-                  {isTournamentActive && onEndTournament && (
+                  {onClearMiniGames && (
                     <button
                       onClick={() => {
-                        if (window.confirm("End tournament? This will disable tournament mode.")) {
-                          onEndTournament();
-                          onClose();
+                        if (window.confirm("Clear all mini-game files? This will remove all 7 mini-game .tab files and end tournament mode.")) {
+                          onClearMiniGames();
                         }
                       }}
                       style={{
@@ -494,12 +433,12 @@ export default function Settings({
                         fontWeight: "500",
                       }}
                     >
-                      <CalendarDays size={16} />
-                      End Tournament
+                      <Trash2 size={16} />
+                      Clear Mini-Games
                     </button>
                   )}
 
-                  {onExportTournamentFiles && (
+                  {isTournamentActive && onExportTournamentFiles && (
                     <button
                       onClick={() => {
                         onClose();
@@ -526,7 +465,7 @@ export default function Settings({
                     </button>
                   )}
 
-                  {onGenerateTrophies && (
+                  {isTournamentActive && onGenerateTrophies && (
                     <button
                       onClick={() => {
                         onClose();
