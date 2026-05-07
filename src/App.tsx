@@ -412,6 +412,23 @@ function App() {
     }
   };
 
+  const handleExportMiniData = async () => {
+    try {
+      const blob = await dataService.exportMiniData();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `mini_data_${new Date().toISOString().split('T')[0]}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Failed to export mini data:', error);
+      alert('Failed to export: ' + (error as Error).message);
+    }
+  };
+
   const handleTitleSwitch = async (newTitle: string) => {
     const currentTitle = getProjectName();
     const isTournament = tournamentActive;
@@ -625,6 +642,7 @@ function App() {
         versionMismatch={versionMismatch}
         setVersionMismatch={setVersionMismatch}
         onTitleSwitch={handleTitleSwitch}
+        onExportMiniData={handleExportMiniData}
       />
       {showSettings && (
         <Settings
