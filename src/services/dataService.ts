@@ -561,6 +561,18 @@ class DataService {
     return response.blob();
   }
 
+  async exportMiniData(): Promise<Blob> {
+    const response = await fetch(`${this.getApiUrl()}/api/admin/export-mini-data`, {
+      headers: this.getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to export mini data');
+    }
+
+    return response.blob();
+  }
+
   async clearMiniGames(): Promise<any> {
     const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/clear-mini-games`, {
       method: 'POST',
