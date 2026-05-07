@@ -251,9 +251,42 @@ function App() {
   };
 
   const handleClearAll = async () => {
+    try {
+      const userSettings = loadUserSettings();
+      const serverUrl = userSettings.server?.trim();
+      
+      if (serverUrl) {
+        await dataService.clearMiniGames();
+      }
+      
+      clearTournamentState();
+      setTournamentActive(false);
+    } catch (error) {
+      console.error('Failed to clear mini-games:', error);
+    }
+    
     await savePlayers([]);
     clearSettings();
     window.location.reload();
+  };
+
+  const handleClearMiniGames = async () => {
+    try {
+      const userSettings = loadUserSettings();
+      const serverUrl = userSettings.server?.trim();
+      
+      if (serverUrl) {
+        await dataService.clearMiniGames();
+      }
+      
+      clearTournamentState();
+      setTournamentActive(false);
+      alert('Mini-game files cleared');
+      window.location.reload();
+    } catch (error) {
+      console.error('Failed to clear mini-games:', error);
+      alert('Failed to clear: ' + (error as Error).message);
+    }
   };
 
   const processNewDay = async (reRank: boolean) => {
@@ -397,6 +430,25 @@ function App() {
       console.error('Failed to generate trophies:', error);
       alert('Failed to generate trophies: ' + (error as Error).message);
     }
+  };
+
+  const handleTitleSwitch = async (newTitle: string) => {
+    const currentTitle = getProjectName();
+    const isTournament = tournamentActive;
+    const currentIsMiniGame = currentTitle.toLowerCase().trim() === 'bughouse' || 
+      ['bg_game', 'bishop_game', 'pillar_game', 'kings_cross', 'pawn_game', 'queen_game'].includes(currentTitle.toLowerCase().trim());
+    const newIsMiniGame = newTitle.toLowerCase().trim() === 'bughouse' || 
+      ['bg_game', 'bishop_game', 'pillar_game', 'kings_cross', 'pawn_game', 'queen_game'].includes(newTitle.toLowerCase().trim());
+    
+    if (isTournament && currentIsMiniGame && !newIsMiniGame) {
+      if (window.confirm(`End tournament and switch to "${newTitle}"? This will keep all mini-game files.`)) {
+        await handleEndTournament();
+      } else {
+        return false;
+      }
+    }
+    
+    return true;
   };
 
   const handleNewDay = () => {
@@ -594,6 +646,7 @@ function App() {
         onDismissServerDown={() => setShowServerDownBlocking(false)}
         versionMismatch={versionMismatch}
         setVersionMismatch={setVersionMismatch}
+        onTitleSwitch={handleTitleSwitch}
       />
       {showSettings && (
         <Settings
@@ -603,10 +656,9 @@ function App() {
           onNewDay={handleNewDay}
           onNewDayWithReRank={handleNewDayWithReRank}
           onWalkThroughReports={handleWalkThroughReports}
+          onClearMiniGames={isAdmin ? handleClearMiniGames : undefined}
           onExportTournamentFiles={isAdmin ? handleExportTournamentFiles : undefined}
           onGenerateTrophies={isAdmin ? handleGenerateTrophies : undefined}
-          onStartTournament={isAdmin ? handleStartTournament : undefined}
-          onEndTournament={isAdmin ? handleEndTournament : undefined}
           isTournamentActive={tournamentActive}
           isAdmin={isAdmin}
         />

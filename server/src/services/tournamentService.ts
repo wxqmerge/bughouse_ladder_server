@@ -209,6 +209,26 @@ export async function getExistingMiniGameFiles(): Promise<string[]> {
   return existingFiles;
 }
 
+// Clear all mini-game files
+export async function clearMiniGames(): Promise<{ deletedCount: number }> {
+  const dataDir = path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data/ladder.tab'));
+  let deletedCount = 0;
+
+  for (const fileName of MINI_GAME_FILES) {
+    const filePath = path.join(dataDir, fileName);
+    try {
+      await fs.unlink(filePath);
+      deletedCount++;
+      loggerLog('[TOURNAMENT]', `Deleted mini-game file: ${fileName}`);
+    } catch {
+      // File doesn't exist, skip
+    }
+  }
+
+  loggerLog('[TOURNAMENT]', `Cleared ${deletedCount} mini-game files`);
+  return { deletedCount };
+}
+
 // Check if any mini-game files exist (for auto-detection)
 export async function hasMiniGameFiles(): Promise<boolean> {
   const existingFiles = await getExistingMiniGameFiles();

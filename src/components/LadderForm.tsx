@@ -216,6 +216,7 @@ interface LadderFormProps {
   onDismissServerDown?: () => void;
   versionMismatch?: boolean;
   setVersionMismatch?: (v: boolean) => void;
+  onTitleSwitch?: (newTitle: string) => Promise<boolean>;
 }
 
 export default function LadderForm({
@@ -229,6 +230,7 @@ export default function LadderForm({
   onDismissServerDown,
   versionMismatch = false,
   setVersionMismatch,
+  onTitleSwitch,
 }: LadderFormProps = {}) {
   const [players, setPlayers] = useState<PlayerData[]>([]);
   const [zoomLevel, setZoomLevel] = useState<
@@ -2613,13 +2615,20 @@ export default function LadderForm({
       console.log(`>>> [MENU ACTION] Set title to ${newTitle}`);
     }
     
+    const currentTitle = getProjectName();
+    const currentIsMiniGame = isMiniGameTitle(currentTitle);
+    const newIsMiniGame = isMiniGameTitle(newTitle);
+    const isTournament = isTournamentActive();
+    
+    if (onTitleSwitch) {
+      const allowed = await onTitleSwitch(newTitle);
+      if (!allowed) return;
+    }
+    
     setProjectName(newTitle);
     setProjectNameStorage(newTitle);
     
-    const isTournament = isTournamentActive();
-    const isNewMiniGame = isMiniGameTitle(newTitle);
-    
-    if (!isTournament || !isNewMiniGame) {
+    if (!isTournament || !newIsMiniGame) {
       return;
     }
     
