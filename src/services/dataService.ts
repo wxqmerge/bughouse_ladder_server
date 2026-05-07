@@ -457,6 +457,110 @@ class DataService {
     
     return headers;
   }
+
+  // ==================== TOURNAMENT METHODS ====================
+
+  async getTournamentStatus(): Promise<any> {
+    const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/status`, {
+      headers: this.getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to get tournament status');
+    }
+
+    const data = await response.json();
+    return data.data;
+  }
+
+  async startTournament(mode: 'regular' | 'bughouse' = 'regular'): Promise<any> {
+    const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/start`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.getAuthHeaders(),
+      },
+      body: JSON.stringify({ mode }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to start tournament');
+    }
+
+    const data = await response.json();
+    return data.data;
+  }
+
+  async endTournament(): Promise<void> {
+    const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/end`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to end tournament');
+    }
+  }
+
+  async saveMiniGameFile(fileName: string): Promise<any> {
+    const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/save-mini-game`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.getAuthHeaders(),
+      },
+      body: JSON.stringify({ fileName }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to save mini-game file: ${fileName}`);
+    }
+
+    const data = await response.json();
+    return data.data;
+  }
+
+  async copyPlayersToMiniGame(fileName: string): Promise<any> {
+    const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/copy-players`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.getAuthHeaders(),
+      },
+      body: JSON.stringify({ fileName }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to copy players to: ${fileName}`);
+    }
+
+    const data = await response.json();
+    return data.data;
+  }
+
+  async exportTournamentFiles(): Promise<Blob> {
+    const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/export`, {
+      headers: this.getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to export tournament files');
+    }
+
+    return response.blob();
+  }
+
+  async generateTrophyReport(): Promise<Blob> {
+    const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/trophies`, {
+      headers: this.getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to generate trophy report');
+    }
+
+    return response.blob();
+  }
 }
 
 // Determine the appropriate mode based on user settings or environment configuration

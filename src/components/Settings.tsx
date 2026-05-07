@@ -25,6 +25,11 @@ interface SettingsProps {
   onNewDay: () => void;
   onNewDayWithReRank: () => void;
   onWalkThroughReports?: () => void;
+  onExportTournamentFiles?: () => void;
+  onGenerateTrophies?: () => void;
+  onStartTournament?: (mode: 'regular' | 'bughouse') => void;
+  onEndTournament?: () => void;
+  isTournamentActive?: boolean;
   isAdmin: boolean;
 }
 
@@ -35,6 +40,11 @@ export default function Settings({
   onNewDay,
   onNewDayWithReRank,
   onWalkThroughReports,
+  onExportTournamentFiles,
+  onGenerateTrophies,
+  onStartTournament,
+  onEndTournament,
+  isTournamentActive,
   isAdmin,
 }: SettingsProps) {
   const [showRatings, setShowRatings] = useState(true);
@@ -401,6 +411,147 @@ export default function Settings({
                     <CalendarDays size={16} />
                     New Day + Re-rank
                   </button>
+
+                  {onStartTournament && !isTournamentActive && (
+                    <>
+                      <button
+                        onClick={() => {
+                          if (window.confirm("Start a regular mini-game tournament? This will enable tournament mode.")) {
+                            onStartTournament('regular');
+                            onClose();
+                          }
+                        }}
+                        style={{
+                          width: "100%",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "0.5rem",
+                          padding: "0.75rem",
+                          backgroundColor: "#8b5cf6",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "0.25rem",
+                          cursor: "pointer",
+                          fontSize: "0.875rem",
+                          fontWeight: "500",
+                        }}
+                      >
+                        <CalendarDays size={16} />
+                        Start Tournament (Regular)
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          if (window.confirm("Start a bughouse tournament? This will enable tournament mode.")) {
+                            onStartTournament('bughouse');
+                            onClose();
+                          }
+                        }}
+                        style={{
+                          width: "100%",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "0.5rem",
+                          padding: "0.75rem",
+                          backgroundColor: "#7c3aed",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "0.25rem",
+                          cursor: "pointer",
+                          fontSize: "0.875rem",
+                          fontWeight: "500",
+                        }}
+                      >
+                        <CalendarDays size={16} />
+                        Start Tournament (Bughouse)
+                      </button>
+                    </>
+                  )}
+
+                  {isTournamentActive && onEndTournament && (
+                    <button
+                      onClick={() => {
+                        if (window.confirm("End tournament? This will disable tournament mode.")) {
+                          onEndTournament();
+                          onClose();
+                        }
+                      }}
+                      style={{
+                        width: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "0.5rem",
+                        padding: "0.75rem",
+                        backgroundColor: "#dc2626",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "0.25rem",
+                        cursor: "pointer",
+                        fontSize: "0.875rem",
+                        fontWeight: "500",
+                      }}
+                    >
+                      <CalendarDays size={16} />
+                      End Tournament
+                    </button>
+                  )}
+
+                  {onExportTournamentFiles && (
+                    <button
+                      onClick={() => {
+                        onClose();
+                        onExportTournamentFiles();
+                      }}
+                      style={{
+                        width: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "0.5rem",
+                        padding: "0.75rem",
+                        backgroundColor: "#0ea5e9",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "0.25rem",
+                        cursor: "pointer",
+                        fontSize: "0.875rem",
+                        fontWeight: "500",
+                      }}
+                    >
+                      <CalendarDays size={16} />
+                      Export Tournament Files
+                    </button>
+                  )}
+
+                  {onGenerateTrophies && (
+                    <button
+                      onClick={() => {
+                        onClose();
+                        onGenerateTrophies();
+                      }}
+                      style={{
+                        width: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "0.5rem",
+                        padding: "0.75rem",
+                        backgroundColor: "#f97316",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "0.25rem",
+                        cursor: "pointer",
+                        fontSize: "0.875rem",
+                        fontWeight: "500",
+                      }}
+                    >
+                      <CalendarDays size={16} />
+                      Generate Trophies
+                    </button>
+                  )}
 
                   {onWalkThroughReports && (
                     <button

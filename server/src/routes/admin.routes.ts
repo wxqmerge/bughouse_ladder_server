@@ -2,10 +2,29 @@ import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
+import archiver from 'archiver';
 import { requireAdminKey } from '../middleware/auth.middleware.js';
 import { readLadderFile, writeLadderFile, ensureDataDirectory, PlayerData, generateTabContent, createBackup, rotateBackups, withTiming, getBackupList, restoreBackup, deleteBackup } from '../services/dataService.js';
 import { log } from '../utils/logger.js';
 import { getSlowOperations, clearSlowOperations, generatePerformanceReport } from '../utils/performance.js';
+import {
+  loadTournamentState,
+  startTournament,
+  endTournament,
+  getTournamentState,
+  isTournamentActive,
+  getMiniGameFilePath,
+  readMiniGameFile,
+  writeMiniGameFile,
+  copyPlayersToTarget,
+  mergeGameResults,
+  getExistingMiniGameFiles,
+  hasMiniGameFiles,
+  exportTournamentFiles,
+  generateTrophyReport,
+  MINI_GAME_FILES,
+  MINI_GAME_DIFFICULTY_ORDER,
+} from '../services/tournamentService.js';
 
 const router = Router();
 
@@ -350,5 +369,272 @@ router.delete('/backups/:filename', async (req: Request, res: Response): Promise
     });
   }
 });
+
+// ── Tournament Endpoints ─────────────────────────────────────────
+
+// Get tournament state
+router.get('/tournament/status', async (req: Request, res: Response): Promise<void> => {
+  try {
+    await loadTournamentState();
+    const state = getTournamentState();
+    
+    res.json({
+      success: true,
+      data: state,
+    });
+  } catch (error) {
+    console.error('Tournament status error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to get tournament status' },
+    });
+  }
+});
+
+// Start tournament
+router.post('/tournament/start', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const mode = (req.body.mode as 'regular' | 'bughouse') || 'regular';
+    const state = await startTournament(mode);
+    
+    res.json({
+      success: true,
+      data: state,
+    });
+  } catch (error) {
+    console.error('Start tournament error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to start tournament' },
+    });
+  }
+});
+
+// End tournament
+router.post('/tournament/end', async (req: Request, res: Response): Promise<void> => {
+  try {
+    await endTournament();
+    
+    res.json({
+      success: true,
+      data: { message: 'Tournament ended' },
+    });
+  } catch (error) {
+    console.error('End tournament error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to end tournament' },
+    });
+  }
+});
+
+// Save mini-game file (called on New-Day during tournament mode)
+router.post('/tournament/save-mini-game', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { fileName } = req.body;
+    
+    if (!fileName || !MINI_GAME_FILES.includes(fileName)) {
+      res.status(400).json({
+        success: false,
+        error: { message: 'Invalid mini-game file name' },
+      });
+      return;
+    }
+
+    // Read current ladder data
+    const ladderData = await readLadderFile();
+    
+    // Check if file already exists
+    const existingFile = await readMiniGameFile(fileName);
+    
+    if (existingFile) {
+      // Merge game results
+      const mergedPlayers = ladderData.players.map(player => {
+        const existingPlayer = existingFile.players.find(
+          p => p.lastName.toLowerCase() === player.lastName.toLowerCase() &&
+               p.firstName.toLowerCase() === player.firstName.toLowerCase()
+        );
+        
+        if (existingPlayer) {
+          // Merge game results
+          const mergedResults = mergeGameResults(
+            existingPlayer.gameResults,
+            player.gameResults
+          );
+          
+          return {
+            ...player,
+            gameResults: mergedResults,
+          };
+        }
+        
+        return player;
+      });
+      
+      ladderData.players = mergedPlayers;
+    }
+    
+    // Write mini-game file
+    await writeMiniGameFile(fileName, ladderData);
+    
+    res.json({
+      success: true,
+      data: { message: `Saved ${fileName}` },
+    });
+  } catch (error) {
+    console.error('Save mini-game error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to save mini-game file' },
+    });
+  }
+});
+
+// Copy players to new mini-game file
+router.post('/tournament/copy-players', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { fileName } = req.body;
+    
+    if (!fileName || !MINI_GAME_FILES.includes(fileName)) {
+      res.status(400).json({
+        success: false,
+        error: { message: 'Invalid mini-game file name' },
+      });
+      return;
+    }
+
+    // Read current ladder data
+    const ladderData = await readLadderFile();
+    
+    // Check if file already exists
+    const existingFile = await readMiniGameFile(fileName);
+    
+    let targetPlayers: PlayerData[];
+    
+    if (existingFile) {
+      // Copy players from current ladder to existing file
+      targetPlayers = copyPlayersToTarget(ladderData.players, existingFile.players);
+    } else {
+      // Create new file with current ladder players
+      targetPlayers = ladderData.players.map(player => ({
+        ...player,
+        gameResults: Array(31).fill(null),
+        num_games: 0,
+      }));
+    }
+    
+    // Write mini-game file
+    await writeMiniGameFile(fileName, {
+      header: [],
+      players: targetPlayers,
+      rawLines: [],
+    });
+    
+    res.json({
+      success: true,
+      data: { message: `Copied players to ${fileName}` },
+    });
+  } catch (error) {
+    console.error('Copy players error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to copy players' },
+    });
+  }
+});
+
+// Export tournament files
+router.get('/tournament/export', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const result = await exportTournamentFiles();
+    
+    if (!result.success) {
+      res.status(404).json({
+        success: false,
+        error: { message: result.message },
+      });
+      return;
+    }
+
+    // Create ZIP file
+    const zipBuffer = await createZipBuffer(result.files!);
+    
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="tournament_${new Date().toISOString().split('T')[0]}.zip"`);
+    res.send(zipBuffer);
+  } catch (error) {
+    console.error('Export tournament error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to export tournament files' },
+    });
+  }
+});
+
+// Generate trophy report
+router.get('/tournament/trophies', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const result = await generateTrophyReport();
+    
+    if (!result.success) {
+      res.status(404).json({
+        success: false,
+        error: { message: result.message },
+      });
+      return;
+    }
+
+    // Save trophy file to server
+    const dataDir = path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data'));
+    const trophyFileName = `tournament_trophies_${new Date().toISOString().split('T')[0]}.tab`;
+    const trophyFilePath = path.join(dataDir, trophyFileName);
+    const tabContent = generateTrophyTabContent(result.trophies!, result.isClubMode);
+    await fs.writeFile(trophyFilePath, tabContent, 'utf-8');
+    log('[ADMIN]', `Trophy report saved: ${trophyFileName}`);
+    
+    res.setHeader('Content-Type', 'text/tab-separated-values');
+    res.setHeader('Content-Disposition', `attachment; filename="tournament_trophies_${new Date().toISOString().split('T')[0]}.tab"`);
+    res.send(tabContent);
+  } catch (error) {
+    console.error('Generate trophies error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to generate trophy report' },
+    });
+  }
+});
+
+// Helper function to create ZIP buffer
+async function createZipBuffer(files: string[]): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const archive = archiver('zip', { zlib: { level: 9 } });
+    const chunks: Buffer[] = [];
+    
+    archive.on('data', (chunk) => chunks.push(chunk));
+    archive.on('end', () => resolve(Buffer.concat(chunks)));
+    archive.on('error', (err) => reject(err));
+    
+    const dataDir = path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data'));
+    
+    for (const file of files) {
+      const filePath = path.join(dataDir, file);
+      archive.file(filePath, { name: file });
+    }
+    
+    archive.finalize();
+  });
+}
+
+// Helper function to generate trophy TAB content
+function generateTrophyTabContent(trophies: any[], isClubMode: boolean = false): string {
+  const header = 'Rank\tPlayer\tGr\tTrophy Type\tMini-Game/Grade\tGames Played';
+  const lines = [header];
+  
+  for (const trophy of trophies) {
+    lines.push(`${trophy.rank}\t${trophy.player}\t${trophy.gr}\t${trophy.trophyType}\t${trophy.miniGameOrGrade}\t${trophy.gamesPlayed}`);
+  }
+  
+  return lines.join('\n') + '\n';
+}
 
 export { router };

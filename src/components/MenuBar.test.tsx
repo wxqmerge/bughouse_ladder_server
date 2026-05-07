@@ -445,6 +445,7 @@ describe("MenuBar component", () => {
       expect(screen.getByText("File")).toBeInTheDocument();
       expect(screen.getByText("Sort")).toBeInTheDocument();
     });
+    });
   });
 
   describe("keyboard navigation", () => {
