@@ -740,7 +740,13 @@ function generateTrophyTabContent(trophies: any[], isClubMode: boolean = false):
   const header = 'Rank\tPlayer\tGr\tTrophy Type\tMini-Game/Grade\tGames Played';
   const lines = [header];
   
+  let blankRowInserted = false;
+  
   for (const trophy of trophies) {
+    if (!blankRowInserted && trophy.trophyType === '1st Place' && trophy.miniGameOrGrade && trophy.miniGameOrGrade.startsWith('Gr ') && !isClubMode) {
+      lines.push('');
+      blankRowInserted = true;
+    }
     lines.push(`${trophy.rank}\t${trophy.player}\t${trophy.gr}\t${trophy.trophyType}\t${trophy.miniGameOrGrade}\t${trophy.gamesPlayed}`);
   }
   

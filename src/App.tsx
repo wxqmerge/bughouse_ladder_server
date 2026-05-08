@@ -402,6 +402,27 @@ function App() {
   };
 
   const handleTitleSwitch = async (newTitle: string) => {
+    const currentTitle = getProjectName();
+    const currentIsMiniGame = isMiniGameTitle(currentTitle);
+    const newIsMiniGame = isMiniGameTitle(newTitle);
+    
+    if (currentIsMiniGame && !newIsMiniGame) {
+      if (!window.confirm('End tournament and switch to Ladder? This will remove all 7 mini-game files.')) {
+        return false;
+      }
+      try {
+        const userSettings = loadUserSettings();
+        const serverUrl = userSettings.server?.trim();
+        if (serverUrl) {
+          await dataService.clearMiniGames();
+        }
+        clearTournamentState();
+        setTournamentActive(false);
+      } catch (error) {
+        console.error('Failed to clear mini-games on title switch:', error);
+      }
+    }
+    
     return true;
   };
 

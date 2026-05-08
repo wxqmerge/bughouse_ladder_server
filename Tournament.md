@@ -68,6 +68,9 @@ All 7 mini-game files are treated identically - same code paths, same logic, no 
 │  1. Confirmation dialog: "End tournament and switch to Ladder?" │
 │  2. If yes: clear all 7 mini-game files + end tournament        │
 │  3. If no: stay on current mini-game                            │
+│                                                                  │
+│  Note: Files persist until "Clear Mini-Games" button is clicked │
+│  in Settings (safer design to prevent accidental loss)          │
 └─────────────────────────────────────────────────────────────────┘
                                │
                                ▼
@@ -356,10 +359,25 @@ After trophies are awarded and report is generated:
 ### New Endpoints
 
 ```
-POST /api/admin/export-tournament
+GET /api/admin/tournament/export
   - ZIPs all mini-game .tab files
   - Returns as downloadable response
   - Filename: tournament_YYYY-MM-DD.zip
+
+POST /api/admin/tournament/clear-mini-games
+  - Deletes all 7 mini-game .tab files
+  - Returns deleted count
+
+GET /api/admin/tournament/check-mini-games
+  - Returns list of mini-game files with data
+  - Used to block Load File when mini-games have data
+
+POST /api/admin/tournament/add-player-to-mini-games
+  - Adds new player to all existing mini-game files
+
+GET /api/admin/export-mini-data
+  - ZIPs ladder.tab + any mini-game files with data
+  - Filename: mini_data_YYYY-MM-DD.zip
 ```
 
 ### Server State
@@ -367,11 +385,12 @@ POST /api/admin/export-tournament
 Tournament mode state stored server-side (not in PlayerData or .tab files):
 
 - In-memory during runtime
-- Optional: persist to `data/tournament_state.json` for recovery after restart
+- Persisted to `data/tournament_state.json` for recovery after restart
+- Interface: `{ active: boolean; startedAt: string }` — no `mode` field (all mini-games treated identically)
 
 ## Key Design Decisions
 
-1. **Mini-games are a special case** - Not the default flow, activated by admin button in Settings
+1. **Mini-games are a special case** - Not the default flow, activated by selecting mini-game title from File menu
 2. **Each mini-game is a real .tab file** - All 7 files exist simultaneously during tournament
 3. **No New-Day needed** - Switching between mini-games uses player copy logic instead
 4. **Self-contained results** - Each mini-game ladder only depends on its own results
@@ -387,6 +406,7 @@ Tournament mode state stored server-side (not in PlayerData or .tab files):
 14. **Mini-game files accumulate** - If same mini-game played multiple times, results are merged (not overwritten)
 15. **Dual-purpose trophy system** - Works for mini-game tournaments AND end-of-year club ladder awards
 16. **Grade 1st place uses club ladder rating** - Not mini-game rating, for end-of-year mode only
+17. **Files persist on switch-away** - Switching from mini-game to Ladder shows confirmation but files remain until "Clear Mini-Games" in Settings (prevents accidental loss)
 
 ## Open Questions
 
