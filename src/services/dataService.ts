@@ -490,17 +490,6 @@ class DataService {
     return data.data;
   }
 
-  async endTournament(): Promise<void> {
-    const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/end`, {
-      method: 'POST',
-      headers: this.getAuthHeaders(),
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to end tournament');
-    }
-  }
-
   async saveMiniGameFile(fileName: string): Promise<any> {
     const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/save-mini-game`, {
       method: 'POST',
@@ -585,6 +574,37 @@ class DataService {
 
     const data = await response.json();
     return data.data;
+  }
+
+  async addPlayerToMiniGames(player: any): Promise<any> {
+    const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/add-player-to-mini-games`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.getAuthHeaders(),
+      },
+      body: JSON.stringify({ player }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to add player to mini-game files');
+    }
+
+    const data = await response.json();
+    return data.data;
+  }
+
+  async checkMiniGameFiles(): Promise<string[]> {
+    const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/check-mini-games`, {
+      headers: this.getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to check mini-game files');
+    }
+
+    const data = await response.json();
+    return data.data.files;
   }
 }
 

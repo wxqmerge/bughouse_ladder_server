@@ -18,7 +18,7 @@ export const MINI_GAMES_WITH_BUGHOUSE = [
   "Kings_Cross",
   "Pawn_Game",
   "Queen_Game",
-  "bughouse",
+  "Bughouse",
 ] as const;
 
 export function isMiniGameTitle(title: string): boolean {
@@ -56,11 +56,11 @@ export function getNextTitle(currentTitle: string): string {
   const normalizedTitle = String(currentTitle || "")
     .toLowerCase()
     .trim();
-  const index = MINI_GAMES.findIndex(
+  const index = MINI_GAMES_WITH_BUGHOUSE.findIndex(
     (game) => game.toLowerCase() === normalizedTitle,
   );
   if (index !== -1) {
-    return MINI_GAMES[(index + 1) % MINI_GAMES.length];
+    return MINI_GAMES_WITH_BUGHOUSE[(index + 1) % MINI_GAMES_WITH_BUGHOUSE.length];
   }
   return currentTitle;
 }

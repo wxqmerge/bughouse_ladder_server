@@ -231,6 +231,29 @@ export async function hasMiniGameFiles(): Promise<boolean> {
   return existingFiles.length > 0;
 }
 
+// Check which mini-game files have data (more than just header)
+export async function checkMiniGameFilesWith(): Promise<string[]> {
+  const dataDir = path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data/ladder.tab'));
+  const filesWithData: string[] = [];
+  
+  for (const fileName of MINI_GAME_FILES) {
+    const filePath = path.join(dataDir, fileName);
+    try {
+      await fs.access(filePath);
+      const content = await fs.readFile(filePath, 'utf-8');
+      const lines = content.trim().split('\n');
+      // More than 1 line means it has data (header + at least one player)
+      if (lines.length > 1) {
+        filesWithData.push(fileName);
+      }
+    } catch {
+      // File doesn't exist, skip
+    }
+  }
+  
+  return filesWithData;
+}
+
 // Export all mini-game files as ZIP
 export async function exportTournamentFiles(): Promise<{ success: boolean; message: string; files?: string[] }> {
   try {
@@ -259,6 +282,32 @@ export async function exportTournamentFiles(): Promise<{ success: boolean; messa
   } catch (error) {
     loggerLog('[TOURNAMENT]', `Export failed: ${(error as Error).message}`);
     return { success: false, message: `Export failed: ${(error as Error).message}` };
+  }
+}
+
+// Add a player to all existing mini-game files
+export async function addPlayerToAllMiniGames(newPlayer: PlayerData): Promise<void> {
+  const existingFiles = await getExistingMiniGameFiles();
+  
+  for (const fileName of existingFiles) {
+    const miniGameData = await readMiniGameFile(fileName);
+    if (!miniGameData) continue;
+    
+    // Check if player already exists in this file
+    const exists = miniGameData.players.some(
+      p => p.lastName.toLowerCase() === newPlayer.lastName.toLowerCase() &&
+           p.firstName.toLowerCase() === newPlayer.firstName.toLowerCase()
+    );
+    
+    if (!exists) {
+      // Add player with empty gameResults
+      miniGameData.players.push({
+        ...newPlayer,
+        gameResults: new Array(31).fill(null),
+      });
+      await writeMiniGameFile(fileName, miniGameData);
+      loggerLog('[TOURNAMENT]', `Added player ${newPlayer.firstName} ${newPlayer.lastName} to ${fileName}`);
+    }
   }
 }
 
@@ -367,8 +416,8 @@ async function generateClubLadderTrophies(players: PlayerData[], maxTrophies: nu
   return trophies;
 }
 
-// Count total games played by a player across all mini-game files
-async function countGamesAcrossMiniGames(playerName: string, existingFiles: string[]): Promise<number> {
+// Count total games played by a player across all mini-game files (by rank)
+async function countGamesAcrossMiniGames(playerRank: number, existingFiles: string[]): Promise<number> {
   let totalGames = 0;
   
   for (const fileName of existingFiles) {
@@ -376,8 +425,7 @@ async function countGamesAcrossMiniGames(playerName: string, existingFiles: stri
     if (!miniGameData) continue;
     
     const player = miniGameData.players.find(
-      p => p.lastName.toLowerCase() === playerName.toLowerCase() &&
-           p.firstName.toLowerCase() === playerName.toLowerCase()
+      p => p.rank === playerRank
     );
     
     if (player && player.gameResults) {
@@ -443,23 +491,29 @@ async function generateMiniGameTrophies(players: PlayerData[], maxTrophies: numb
   const playerGameCounts = await Promise.all(
     players.map(async (p) => ({
       player: p,
-      totalGames: await countGamesAcrossMiniGames(p.lastName + ' ' + p.firstName, existingFiles),
+      totalGames: await countGamesAcrossMiniGames(p.rank, existingFiles),
     }))
   );
 
-  const topGamePlayer = playerGameCounts
+  const playersWithGames = playerGameCounts
     .filter(x => x.totalGames > 0)
-    .sort((a, b) => b.totalGames - a.totalGames)[0];
+    .sort((a, b) => b.totalGames - a.totalGames);
 
-  if (topGamePlayer && trophies.length < maxTrophies) {
-    trophies.push({
-      rank: trophies.length + 1,
-      player: `${topGamePlayer.player.firstName} ${topGamePlayer.player.lastName}`,
-      gr: topGamePlayer.player.grade,
-      trophyType: 'Most Games',
-      miniGameOrGrade: 'All Mini-Games',
-      gamesPlayed: topGamePlayer.totalGames,
-    });
+  if (playersWithGames.length > 0 && trophies.length < maxTrophies) {
+    const maxGames = playersWithGames[0].totalGames;
+    const tiedPlayers = playersWithGames.filter(p => p.totalGames === maxGames);
+    
+    for (const tiedPlayer of tiedPlayers) {
+      if (trophies.length >= maxTrophies) break;
+      trophies.push({
+        rank: trophies.length + 1,
+        player: `${tiedPlayer.player.firstName} ${tiedPlayer.player.lastName}`,
+        gr: tiedPlayer.player.grade,
+        trophyType: 'Most Games',
+        miniGameOrGrade: 'All Mini-Games',
+        gamesPlayed: tiedPlayer.totalGames,
+      });
+    }
   }
 
   // Award Gr 1st places (after blank row)
