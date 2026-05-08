@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { log as loggerLog } from '../utils/logger.js';
 import { readLadderFile, writeLadderFile, generateTabContent, PlayerData, LadderData, withTiming } from './dataService.js';
+import type { MiniGameStore } from '../../shared/types';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -311,49 +312,6 @@ export async function addPlayerToAllMiniGames(newPlayer: PlayerData): Promise<vo
   }
 }
 
-// Generate trophy report data
-export async function generateTrophyReport(): Promise<{
-  success: boolean;
-  message: string;
-  trophies?: any[];
-  isClubMode?: boolean;
-}> {
-  try {
-    const hasMiniGames = await hasMiniGameFiles();
-    const isClubMode = !hasMiniGames;
-
-    // Get all players from club ladder
-    const ladderData = await readLadderFile();
-    const players = ladderData.players;
-
-    if (players.length === 0) {
-      return { success: false, message: 'No players found' };
-    }
-
-    const maxTrophies = Math.floor(players.length / 3);
-    const trophies: any[] = [];
-    let slotCount = 0;
-
-    if (isClubMode) {
-      // Club ladder mode - use club ladder rating
-      trophies.push(...await generateClubLadderTrophies(players, maxTrophies));
-    } else {
-      // Mini-game tournament mode
-      trophies.push(...await generateMiniGameTrophies(players, maxTrophies));
-    }
-
-    return {
-      success: true,
-      message: `Generated ${trophies.length} trophies`,
-      trophies,
-      isClubMode,
-    };
-  } catch (error) {
-    loggerLog('[TOURNAMENT]', `Trophy generation failed: ${(error as Error).message}`);
-    return { success: false, message: `Trophy generation failed: ${(error as Error).message}` };
-  }
-}
-
 // Generate trophies for club ladder mode
 async function generateClubLadderTrophies(players: PlayerData[], maxTrophies: number): Promise<any[]> {
   const trophies: any[] = [];
@@ -438,11 +396,8 @@ async function countGamesAcrossMiniGames(playerRank: number, existingFiles: stri
 }
 
 // Generate trophies for mini-game tournament mode
-async function generateMiniGameTrophies(players: PlayerData[], maxTrophies: number): Promise<any[]> {
+async function generateMiniGameTrophies(players: PlayerData[], maxTrophies: number, existingFiles: string[]): Promise<any[]> {
   const trophies: any[] = [];
-
-  // Get existing mini-game files
-  const existingFiles = await getExistingMiniGameFiles();
 
   // Award 1st places (hardest first)
   for (const fileName of MINI_GAME_DIFFICULTY_ORDER) {
@@ -535,3 +490,93 @@ async function generateMiniGameTrophies(players: PlayerData[], maxTrophies: numb
 
   return trophies;
 }
+
+// Generate trophy report data
+export async function generateTrophyReport(): Promise<{
+  success: boolean;
+  message: string;
+  trophies?: any[];
+  isClubMode?: boolean;
+}> {
+  try {
+    const hasMiniGames = await hasMiniGameFiles();
+    const isClubMode = !hasMiniGames;
+
+    // Get all players from club ladder
+    const ladderData = await readLadderFile();
+    const players = ladderData.players;
+
+    if (players.length === 0) {
+      return { success: false, message: 'No players found' };
+    }
+
+    const maxTrophies = Math.floor(players.length / 3);
+    const trophies: any[] = [];
+
+    if (isClubMode) {
+      // Club ladder mode - use club ladder rating
+      trophies.push(...await generateClubLadderTrophies(players, maxTrophies));
+    } else {
+      // Mini-game tournament mode
+      const existingFiles = await getExistingMiniGameFiles();
+      trophies.push(...await generateMiniGameTrophies(players, maxTrophies, existingFiles));
+    }
+
+    return {
+      success: true,
+      message: `Generated ${trophies.length} trophies`,
+      trophies,
+      isClubMode,
+    };
+  } catch (error) {
+    loggerLog('[TOURNAMENT]', `Trophy generation failed: ${(error as Error).message}`);
+    return { success: false, message: `Trophy generation failed: ${(error as Error).message}` };
+  }
+}
+
+// Server-side MiniGameStore implementation
+export const tournamentStore: MiniGameStore = {
+  getMiniGameFiles() {
+    return MINI_GAME_FILES;
+  },
+
+  async readMiniGameFile(fileName: string) {
+    return readMiniGameFile(fileName);
+  },
+
+  async writeMiniGameFile(fileName: string, ladderData: LadderData) {
+    await writeMiniGameFile(fileName, ladderData);
+  },
+
+  copyPlayersToTarget(sourcePlayers: PlayerData[], targetPlayers: PlayerData[]) {
+    return copyPlayersToTarget(sourcePlayers, targetPlayers);
+  },
+
+  mergeGameResults(oldResults: (string | null)[], currentResults: (string | null)[]) {
+    return mergeGameResults(oldResults, currentResults);
+  },
+
+  async getExistingMiniGameFiles() {
+    return getExistingMiniGameFiles();
+  },
+
+  async clearMiniGames() {
+    return clearMiniGames();
+  },
+
+  async hasMiniGameFiles() {
+    return hasMiniGameFiles();
+  },
+
+  async checkMiniGameFilesWith() {
+    return checkMiniGameFilesWith();
+  },
+
+  async addPlayerToAllMiniGames(newPlayer: PlayerData) {
+    await addPlayerToAllMiniGames(newPlayer);
+  },
+
+  async generateTrophyReport(players: PlayerData[]) {
+    return generateTrophyReport();
+  },
+};
