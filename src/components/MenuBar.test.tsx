@@ -14,7 +14,7 @@ const baseProps = {
   isAdmin: false,
   isWide: true,
   zoomLevel: "100%",
-  projectName: "Bughouse Ladder",
+  projectName: "Bughouse",
   playerCount: 24,
 };
 
@@ -260,7 +260,7 @@ describe("MenuBar component", () => {
         
         // Title options should be visible
         expect(screen.getByText("Ladder")).toBeInTheDocument();
-        expect(screen.getByText("Bughouse Ladder")).toBeInTheDocument();
+        expect(screen.getByText("Bughouse")).toBeInTheDocument();
         expect(screen.getByText("BG_Game")).toBeInTheDocument();
         expect(screen.getByText("Bishop_Game")).toBeInTheDocument();
         expect(screen.getByText("Pillar_Game")).toBeInTheDocument();

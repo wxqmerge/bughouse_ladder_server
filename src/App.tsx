@@ -350,34 +350,6 @@ function App() {
 
   // ==================== TOURNAMENT HANDLERS ====================
 
-  const handleEndTournament = async () => {
-    try {
-      const userSettings = loadUserSettings();
-      const serverUrl = userSettings.server?.trim();
-      
-      if (serverUrl) {
-        // Server mode - call API
-        await dataService.endTournament();
-        clearTournamentState();
-        setTournamentActive(false);
-        alert('Tournament ended');
-      } else {
-        // Local mode - clear state
-        clearTournamentState();
-        setTournamentActive(false);
-        alert('Tournament ended');
-      }
-    } catch (error) {
-      console.error('Failed to end tournament:', error);
-      alert('Failed to end tournament: ' + (error as Error).message);
-    }
-  };
-
-  const handleEndTournamentOnly = () => {
-    clearTournamentState();
-    setTournamentActive(false);
-  };
-
   const handleExportTournamentFiles = async () => {
     try {
       const blob = await dataService.exportTournamentFiles();
@@ -430,19 +402,6 @@ function App() {
   };
 
   const handleTitleSwitch = async (newTitle: string) => {
-    const currentTitle = getProjectName();
-    const isTournament = tournamentActive;
-    const currentIsMiniGame = isMiniGameTitle(currentTitle);
-    const newIsMiniGame = isMiniGameTitle(newTitle);
-    
-    if (isTournament && currentIsMiniGame && !newIsMiniGame) {
-      if (window.confirm(`End tournament and switch to "${newTitle}"? Mini-game files will be preserved.`)) {
-        handleEndTournamentOnly();
-      } else {
-        return false;
-      }
-    }
-    
     return true;
   };
 

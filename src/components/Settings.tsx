@@ -364,7 +364,7 @@ export default function Settings({
                 gap: "0.75rem",
               }}
             >
-              {isAdmin && (
+              {isAdmin && !isTournamentActive && (
                 <>
                   <button
                     onClick={handleNewDay}
@@ -409,7 +409,11 @@ export default function Settings({
                     <CalendarDays size={16} />
                     New Day + Re-rank
                   </button>
+                </>
+              )}
 
+              {isAdmin && (
+                <>
                   {onClearMiniGames && (
                     <button
                       onClick={() => {

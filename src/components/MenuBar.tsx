@@ -139,7 +139,7 @@ export default function MenuBar({
 
   const allTitles = [
     "Ladder",
-    "Bughouse Ladder",
+    "Bughouse",
     "BG_Game",
     "Bishop_Game",
     "Pillar_Game",
