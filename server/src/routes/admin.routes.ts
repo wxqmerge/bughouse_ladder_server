@@ -721,7 +721,7 @@ router.get('/export-mini-data', async (req: Request, res: Response): Promise<voi
       }
     }
     
-    const zipBuffer = await createZipFromFiles(files);
+    const zipBuffer = await createZipBuffer(files);
     
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', `attachment; filename=mini_data_${new Date().toISOString().split('T')[0]}.zip`);
