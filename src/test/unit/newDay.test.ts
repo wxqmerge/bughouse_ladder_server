@@ -7,7 +7,7 @@ import { describe, it, expect } from 'vitest';
 import {
   getNextTitle,
   processNewDayTransformations,
-  MINI_GAMES,
+  MINI_GAMES_WITH_BUGHOUSE,
 } from '../../../src/utils/constants';
 import type { PlayerData } from '../../../shared/types';
 import { simplePlayers } from '../fixtures/players';
@@ -22,6 +22,7 @@ describe('Title Progression', () => {
         'Kings_Cross',
         'Pawn_Game',
         'Queen_Game',
+        'Bughouse',
       ];
 
       for (let i = 0; i < titleOrder.length; i++) {
@@ -33,8 +34,8 @@ describe('Title Progression', () => {
       }
     });
 
-    it('should cycle back to BG_Game after Queen_Game', () => {
-      const nextTitle = getNextTitle('Queen_Game');
+    it('should cycle back to BG_Game after Bughouse', () => {
+      const nextTitle = getNextTitle('Bughouse');
       expect(nextTitle).toBe('BG_Game');
     });
 
@@ -42,6 +43,8 @@ describe('Title Progression', () => {
       expect(getNextTitle('kings_cross')).toBe('Pawn_Game');
       expect(getNextTitle('KINGS_CROSS')).toBe('Pawn_Game');
       expect(getNextTitle('Kings_Cross')).toBe('Pawn_Game');
+      expect(getNextTitle('bughouse')).toBe('BG_Game');
+      expect(getNextTitle('BUGHOUSE')).toBe('BG_Game');
     });
 
     it('should handle unknown titles gracefully', () => {

@@ -22,6 +22,8 @@ import {
   hasMiniGameFiles,
   exportTournamentFiles,
   generateTrophyReport,
+  addPlayerToAllMiniGames,
+  checkMiniGameFilesWith,
   MINI_GAME_FILES,
   MINI_GAME_DIFFICULTY_ORDER,
 } from '../services/tournamentService.js';
@@ -629,6 +631,52 @@ router.post('/tournament/clear-mini-games', async (req: Request, res: Response):
     res.status(500).json({
       success: false,
       error: { message: 'Failed to clear mini-game files' },
+    });
+  }
+});
+
+// Add player to all mini-game files
+router.post('/tournament/add-player-to-mini-games', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { player } = req.body;
+    
+    if (!player) {
+      res.status(400).json({
+        success: false,
+        error: { message: 'Player data required' },
+      });
+      return;
+    }
+    
+    await addPlayerToAllMiniGames(player);
+    
+    res.json({
+      success: true,
+      data: { message: 'Player added to all mini-game files' },
+    });
+  } catch (error) {
+    console.error('Add player to mini-games error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to add player to mini-game files' },
+    });
+  }
+});
+
+// Check which mini-game files have data
+router.get('/tournament/check-mini-games', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const filesWith = await checkMiniGameFilesWith();
+    
+    res.json({
+      success: true,
+      data: { files: filesWith },
+    });
+  } catch (error) {
+    console.error('Check mini-games error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to check mini-game files' },
     });
   }
 });

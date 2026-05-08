@@ -11,7 +11,7 @@ import {
   repopulateGameResults,
   updatePlayerGameData,
 } from "../utils/hashUtils";
-import { MINI_GAMES, processNewDayTransformations, isMiniGameTitle, titleToFileName } from "../utils/constants";
+import { MINI_GAMES, MINI_GAMES_WITH_BUGHOUSE, processNewDayTransformations, isMiniGameTitle, titleToFileName } from "../utils/constants";
 import { dataService } from "../services/dataService";
 import { getTournamentState, isTournamentActive } from "../services/storageService";
 import ErrorDialog from "./ErrorDialog";
@@ -1413,14 +1413,14 @@ export default function LadderForm({
             `>>> [NEW DAY] Current title from storage: "${currentTitle}" (normalized: "${normalizedTitle}")`,
           );
           const nextTitle = (() => {
-            const index = MINI_GAMES.findIndex(
+            const index = MINI_GAMES_WITH_BUGHOUSE.findIndex(
               (game) => game.toLowerCase() === normalizedTitle,
             );
             console.log(
               `>>> [NEW DAY] findIndex result: ${index} for "${currentTitle}" (normalized: "${normalizedTitle}")`,
             );
             if (index !== -1) {
-              return MINI_GAMES[(index + 1) % MINI_GAMES.length];
+              return MINI_GAMES_WITH_BUGHOUSE[(index + 1) % MINI_GAMES_WITH_BUGHOUSE.length];
             }
             return currentTitle;
           })();
@@ -1511,21 +1511,21 @@ export default function LadderForm({
          console.log(
            `>>> [NEW DAY] Current title from storage: "${currentTitle}" (normalized: "${normalizedTitle}")`,
          );
-         const nextTitle = (() => {
-           const index = MINI_GAMES.findIndex(
-             (game) => game.toLowerCase() === normalizedTitle,
-           );
-           console.log(
-             `>>> [NEW DAY] findIndex result: ${index} for "${currentTitle}" (normalized: "${normalizedTitle}")`,
-           );
-           if (index !== -1) {
-             return MINI_GAMES[(index + 1) % MINI_GAMES.length];
-           }
-           return currentTitle;
-         })();
-         console.log(`>>> [NEW DAY] Next title will be: "${nextTitle}"`);
+const nextTitle = (() => {
+            const index = MINI_GAMES_WITH_BUGHOUSE.findIndex(
+              (game) => game.toLowerCase() === normalizedTitle,
+            );
+            console.log(
+              `>>> [NEW DAY] findIndex result: ${index} for "${currentTitle}" (normalized: "${normalizedTitle}")`,
+            );
+            if (index !== -1) {
+              return MINI_GAMES_WITH_BUGHOUSE[(index + 1) % MINI_GAMES_WITH_BUGHOUSE.length];
+            }
+            return currentTitle;
+          })();
+          console.log(`>>> [NEW DAY] Next title will be: "${nextTitle}"`);
 
-        // Fix rank issues before New Day transformations
+         // Fix rank issues before New Day transformations
            let playersToTransform = normalizePlayersAttendance(normalizePlayersTrophy(players));
            if (reRank) {
              playersToTransform = fixPlayerRanks(playersToTransform);
@@ -2123,11 +2123,11 @@ export default function LadderForm({
           .toLowerCase()
           .trim();
         const nextTitle = (() => {
-          const index = MINI_GAMES.findIndex(
+          const index = MINI_GAMES_WITH_BUGHOUSE.findIndex(
             (game) => game.toLowerCase() === normalizedTitle,
           );
           if (index !== -1) {
-            return MINI_GAMES[(index + 1) % MINI_GAMES.length];
+            return MINI_GAMES_WITH_BUGHOUSE[(index + 1) % MINI_GAMES_WITH_BUGHOUSE.length];
           }
           return currentTitle;
         })();
@@ -2595,7 +2595,22 @@ export default function LadderForm({
     }
     switch (action) {
       case "load":
-        fileInputRef.current?.click();
+        if (splashServerUrl && isMiniGameTitle(getProjectName())) {
+          dataService.checkMiniGameFiles().then((files) => {
+            if (files.length > 0) {
+              if (!window.confirm(
+                "Loading a file would corrupt mini-game data. If you need to load for a new tournament, clear mini-games in settings first"
+              )) {
+                return;
+              }
+            }
+            fileInputRef.current?.click();
+          }).catch(() => {
+            fileInputRef.current?.click();
+          });
+        } else {
+          fileInputRef.current?.click();
+        }
         break;
       case "export":
         exportPlayers();
@@ -3026,6 +3041,14 @@ export default function LadderForm({
       savePlayers(updatedPlayers).catch((err) => {
         console.error("Failed to save added player:", err);
       });
+      
+      // If tournament active, add player to all mini-game files
+      if (isMiniGameTitle(getProjectName()) && splashServerUrl) {
+        dataService.addPlayerToMiniGames(newPlayer).catch((err) => {
+          console.error("Failed to add player to mini-games:", err);
+        });
+      }
+      
       return updatedPlayers;
     });
 
