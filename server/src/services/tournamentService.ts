@@ -354,20 +354,45 @@ async function generateClubLadderTrophies(players: PlayerData[], maxTrophies: nu
     });
   }
 
-  // Award Gr 1st places (after blank row)
+  // Award Gr 1st/2nd/3rd places (after blank row)
+  // Position-by-position: all grades get 1st first, then all grades get 2nd, then all grades get 3rd
   const gradeGroups = [...new Set(players.map(p => p.grade).filter(Boolean))].sort((a, b) => parseInt(b) - parseInt(a));
-  for (const grade of gradeGroups) {
-    if (trophies.length >= maxTrophies) break;
-    const gradePlayers = players.filter(p => p.grade === grade).sort((a, b) => b.rating - a.rating);
-    if (gradePlayers.length > 0) {
-      trophies.push({
-        rank: trophies.length + 1,
-        player: `${gradePlayers[0].firstName} ${gradePlayers[0].lastName}`,
-        gr: grade,
-        trophyType: '1st Place',
-        miniGameOrGrade: `Gr ${grade}`,
-        gamesPlayed: gradePlayers[0].num_games,
-      });
+  
+  for (let position = 1; position <= 3; position++) {
+    const ordinal = position === 1 ? '1st' : position === 2 ? '2nd' : '3rd';
+    
+    for (const grade of gradeGroups) {
+      if (trophies.length >= maxTrophies) break;
+      const gradePlayers = players.filter(p => p.grade === grade).sort((a, b) => b.rating - a.rating);
+      
+      if (gradePlayers.length < position) continue;
+      
+      // Find the player at this position, accounting for ties
+      const targetPlayer = gradePlayers[position - 1];
+      
+      // Check if previous player(s) had same rating (tie)
+      let tieCount = 0;
+      for (let i = position - 2; i >= 0; i--) {
+        if (gradePlayers[i].rating === targetPlayer.rating) {
+          tieCount++;
+        } else {
+          break;
+        }
+      }
+      
+      // Award to all tied players at this position
+      for (let i = position - 1; i >= 0 && i >= position - 1 - tieCount; i--) {
+        if (trophies.length >= maxTrophies) break;
+        const player = gradePlayers[i];
+        trophies.push({
+          rank: trophies.length + 1,
+          player: `${player.firstName} ${player.lastName}`,
+          gr: grade,
+          trophyType: `${ordinal} Place`,
+          miniGameOrGrade: `Gr ${grade}`,
+          gamesPlayed: player.num_games,
+        });
+      }
     }
   }
 
@@ -471,20 +496,45 @@ async function generateMiniGameTrophies(players: PlayerData[], maxTrophies: numb
     }
   }
 
-  // Award Gr 1st places (after blank row)
+  // Award Gr 1st/2nd/3rd places (after blank row)
+  // Position-by-position: all grades get 1st first, then all grades get 2nd, then all grades get 3rd
   const gradeGroups = [...new Set(players.map(p => p.grade).filter(Boolean))].sort((a, b) => parseInt(b) - parseInt(a));
-  for (const grade of gradeGroups) {
-    if (trophies.length >= maxTrophies) break;
-    const gradePlayers = players.filter(p => p.grade === grade).sort((a, b) => b.rating - a.rating);
-    if (gradePlayers.length > 0) {
-      trophies.push({
-        rank: trophies.length + 1,
-        player: `${gradePlayers[0].firstName} ${gradePlayers[0].lastName}`,
-        gr: grade,
-        trophyType: '1st Place',
-        miniGameOrGrade: `Gr ${grade}`,
-        gamesPlayed: gradePlayers[0].num_games,
-      });
+  
+  for (let position = 1; position <= 3; position++) {
+    const ordinal = position === 1 ? '1st' : position === 2 ? '2nd' : '3rd';
+    
+    for (const grade of gradeGroups) {
+      if (trophies.length >= maxTrophies) break;
+      const gradePlayers = players.filter(p => p.grade === grade).sort((a, b) => b.rating - a.rating);
+      
+      if (gradePlayers.length < position) continue;
+      
+      // Find the player at this position, accounting for ties
+      const targetPlayer = gradePlayers[position - 1];
+      
+      // Check if previous player(s) had same rating (tie)
+      let tieCount = 0;
+      for (let i = position - 2; i >= 0; i--) {
+        if (gradePlayers[i].rating === targetPlayer.rating) {
+          tieCount++;
+        } else {
+          break;
+        }
+      }
+      
+      // Award to all tied players at this position (up to 3 positions per grade)
+      for (let i = position - 1; i >= 0 && i >= position - 1 - tieCount; i--) {
+        if (trophies.length >= maxTrophies) break;
+        const player = gradePlayers[i];
+        trophies.push({
+          rank: trophies.length + 1,
+          player: `${player.firstName} ${player.lastName}`,
+          gr: grade,
+          trophyType: `${ordinal} Place`,
+          miniGameOrGrade: `Gr ${grade}`,
+          gamesPlayed: player.num_games,
+        });
+      }
     }
   }
 
