@@ -3,10 +3,28 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { log as loggerLog } from '../utils/logger.js';
 import { readLadderFile, writeLadderFile, generateTabContent, PlayerData, LadderData, withTiming } from './dataService.js';
-import type { MiniGameStore } from '../../shared/types';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+export interface MiniGameStore {
+  getMiniGameFiles(): string[];
+  readMiniGameFile(fileName: string): Promise<LadderData | null>;
+  writeMiniGameFile(fileName: string, ladderData: LadderData): Promise<void>;
+  copyPlayersToTarget(sourcePlayers: PlayerData[], targetPlayers: PlayerData[]): PlayerData[];
+  mergeGameResults(oldResults: (string | null)[], currentResults: (string | null)[]): (string | null)[];
+  getExistingMiniGameFiles(): Promise<string[]>;
+  clearMiniGames(): Promise<{ deletedCount: number }>;
+  hasMiniGameFiles(): Promise<boolean>;
+  checkMiniGameFilesWith(): Promise<string[]>;
+  addPlayerToAllMiniGames(newPlayer: PlayerData): Promise<void>;
+  generateTrophyReport(players: PlayerData[]): Promise<{
+    success: boolean;
+    message: string;
+    trophies?: any[];
+    isClubMode?: boolean;
+  }>;
+}
 
 // Mini-game file names (7 files, same as MINI_GAMES + bughouse)
 export const MINI_GAME_FILES = [
@@ -313,7 +331,7 @@ export async function addPlayerToAllMiniGames(newPlayer: PlayerData): Promise<vo
 }
 
 // Generate trophies for club ladder mode
-async function generateClubLadderTrophies(players: PlayerData[], maxTrophies: number): Promise<any[]> {
+export async function generateClubLadderTrophies(players: PlayerData[], maxTrophies: number): Promise<any[]> {
   const trophies: any[] = [];
   const sortedPlayers = [...players].sort((a, b) => b.rating - a.rating);
 
@@ -421,7 +439,7 @@ async function countGamesAcrossMiniGames(playerRank: number, existingFiles: stri
 }
 
 // Generate trophies for mini-game tournament mode
-async function generateMiniGameTrophies(players: PlayerData[], maxTrophies: number, existingFiles: string[]): Promise<any[]> {
+export async function generateMiniGameTrophies(players: PlayerData[], maxTrophies: number, existingFiles: string[]): Promise<any[]> {
   const trophies: any[] = [];
 
   // Award 1st places (hardest first)
