@@ -8,7 +8,16 @@ Mini-game tournaments are a **special case** - not the default flow. When runnin
 
 **All 7 mini-games are treated identically in code.** The 7 tournaments are semantically different but code-wise they are identical. No special-case handling for bughouse or any other mini-game. The same player copy logic, file saving, trophy calculation, and export apply to all 7 files.
 
-## File Structure (Server-Side)
+## Storage (Dual-Mode)
+
+Mini-game files are stored differently depending on mode:
+
+- **Server mode**: Files stored on disk in `data/` directory (same as club ladder)
+- **Local mode**: Files stored in `localStorage` (one entry per mini-game file, prefixed `mini_game_`)
+
+Both modes use the same `MiniGameStore` interface — the code path is identical, only the backend differs.
+
+### Server-Side File Structure
 
 ```
 data/
@@ -20,6 +29,19 @@ data/
 ├── Pawn_Game.tab                # Pawn_Game mini-game ladder
 ├── Queen_Game.tab               # Queen_Game mini-game ladder
 └── bughouse.tab                 # Bughouse mini-game ladder (7th file, same as others)
+```
+
+### Local Mode Storage
+
+```
+localStorage:
+  mini_game_BG_Game.tab        # BG_Game mini-game ladder
+  mini_game_Bishop_Game.tab    # Bishop_Game mini-game ladder
+  mini_game_Pillar_Game.tab    # Pillar_Game mini-game ladder
+  mini_game_Kings_Cross.tab    # Kings_Cross mini-game ladder
+  mini_game_Pawn_Game.tab      # Pawn_Game mini-game ladder
+  mini_game_Queen_Game.tab     # Queen_Game mini-game ladder
+  mini_game_bughouse.tab       # Bughouse mini-game ladder (7th file, same as others)
 ```
 
 All 7 mini-game files are treated identically - same code paths, same logic, no special cases.
@@ -141,20 +163,20 @@ When you switch to a mini-game file that already exists:
 
 No changes to PlayerData needed. The saved .tab files on server ARE the history.
 
-### Server-Side: Mini-Game File Storage
+### Mini-Game File Storage (Dual-Mode)
 
-Each mini-game .tab file is stored on the server alongside the club ladder file:
+Each mini-game .tab file is stored on the server alongside the club ladder file, or in localStorage for local mode:
 
 ```
-data/
-├── club_ladder.tab
-├── BG_Game.tab
-├── Bishop_Game.tab
-├── Pillar_Game.tab
-├── Kings_Cross.tab
-├── Pawn_Game.tab
-├── Queen_Game.tab
-└── bughouse.tab  # Single file for bughouse (not per-mini-game)
+data/ (server) or localStorage (local):
+├── club_ladder.tab / ladder_players
+├── BG_Game.tab / mini_game_BG_Game.tab
+├── Bishop_Game.tab / mini_game_Bishop_Game.tab
+├── Pillar_Game.tab / mini_game_Pillar_Game.tab
+├── Kings_Cross.tab / mini_game_Kings_Cross.tab
+├── Pawn_Game.tab / mini_game_Pawn_Game.tab
+├── Queen_Game.tab / mini_game_Queen_Game.tab
+└── bughouse.tab / mini_game_bughouse.tab  # Single file for bughouse (not per-mini-game)
 ```
 
 ### What Each Saved Mini-Game File Contains
@@ -171,7 +193,7 @@ data/
 
 Tournament mode is **not** activated by a button. It is activated automatically when the admin selects a mini-game title (BG_Game, Bishop_Game, etc.) from the File menu.
 
-Flag stored server-side (in-memory or in a small JSON file), not in PlayerData.
+Flag stored server-side (in-memory or in a small JSON file) for server mode, or in `localStorage` for local mode.
 
 ```typescript
 // Server-side tournament state
@@ -179,13 +201,15 @@ interface TournamentState {
   active: boolean;
   startedAt: string;  // ISO timestamp
 }
+
+// Local mode: stored in localStorage key 'ladder_tournament_state'
 ```
 
 ### Phase 2: Player Copy Logic on Mini-Game Switch
 
 When admin switches to a new mini-game title during tournament mode:
 
-1. **Check if target file exists** on server
+1. **Check if target file exists** (on server or in localStorage)
 2. **If doesn't exist**: Copy players + ratings from current active file
    - Match players by lastName + firstName
    - Copy rating, nRating, group, grade, etc.
@@ -195,10 +219,14 @@ When admin switches to a new mini-game title during tournament mode:
 4. **Save target file** with copied/loaded data
 
 This requires:
-- Server-side file reading/writing for mini-game files
+- `MiniGameStore` interface (abstracts storage backend)
 - Player matching logic (lastName + firstName)
 - Player merge logic (add missing players)
 - Title-to-filename mapping (handle spaces: `Kings_Cross` → `Kings_Cross.tab`)
+
+Two implementations of `MiniGameStore`:
+- **Server**: `tournamentStore` in `tournamentService.ts` — reads/writes `.tab` files to `data/` directory
+- **Client (local)**: `miniGameStore` in `miniGameLocalStorage.ts` — reads/writes to `localStorage`
 
 ### Phase 3: Export Mini-Game Files Endpoint
 
@@ -213,6 +241,8 @@ Server:
 2. Zips them together
 3. Returns as downloadable response
 4. Filename: `tournament_YYYY-MM-DD.zip`
+
+Local mode: returns combined text blob with `=== filename.tab ===` headers between each file's content.
 
 ## Trophy Awarding
 
@@ -236,7 +266,7 @@ No toggle needed - the presence of mini-game files determines the mode.
 
 **Maximum 21+ trophies available (end-of-year / club ladder):**
 - Same as above but based on club ladder performance
-- Plus: 1st place per Gr (school grade, e.g., 5, 6, 7) after a blank row separator
+- Plus: 1st, 2nd, 3rd place per Gr (school grade, e.g., 5, 6, 7) after a blank row separator
 
 **Capped at 1/3 of total player count** (round down).
 
@@ -260,10 +290,15 @@ No toggle needed - the presence of mini-game files determines the mode.
    - Count total games played across ALL completed mini-games
    - Award to top players by game count until slots are filled
 4. [BLANK ROW - separator]
-5. Award 1st place per Gr (school grade, 0=Kindergarten, 13=College) column value (highest Gr first: 13 → 12 → 11 → ...)
-   - Based on club ladder rating (not mini-game rating)
-   - Award to highest-rated player in each Gr group
-   - Multiple trophies can be awarded for same Gr if slots remain
+5. Award 1st place per Gr (highest Gr first: 13 → 12 → 11 → ...)
+    - Based on club ladder rating (not mini-game rating)
+    - Standard competition ranking: ties get same position, next position skips
+    - Ties are OK — if two players tie for 1st in Gr 10, both get 1st Place
+    - If Gr 10 has ratings 1000, 1000, 900, 900, 800: 2× 1st Place, 2× 3rd Place
+6. Award 2nd place per Gr (highest Gr first: 13 → 12 → 11 → ...)
+7. Award 3rd place per Gr (highest Gr first: 13 → 12 → 11 → ...)
+    - Design rule: better to give too many trophies than too few
+    - If any grade gets 1st place, then all grades get 1st place before any grade gets 2nd place
 ```
 
 ### Examples
@@ -278,31 +313,31 @@ No toggle needed - the presence of mini-game files determines the mode.
 - 7 × 1st places = 7 slots used
 - 6 × 2nd places = 13 slots used
 - 0 slots left for "most games"
-- 0 slots left for grade 1st places
+- 0 slots left for grade trophies
 
 **24 players = 8 trophy slots, only 4 mini-games played:**
 - 4 × 1st places = 4 slots used
 - 4 × 2nd places = 8 slots used
 - 0 slots left for "most games"
-- 0 slots left for grade 1st places
+- 0 slots left for grade trophies
 
 **45 players = 15 trophy slots, all 7 mini-games played:**
 - 7 × 1st places = 7 slots used
 - 7 × 2nd places = 14 slots used
 - 1 slot left for "most games" → top 1 player by total games
-- 0 slots left for grade 1st places
+- 0 slots left for grade trophies
 
 **60 players = 20 trophy slots, all 7 mini-games played:**
 - 7 × 1st places = 7 slots used
 - 7 × 2nd places = 14 slots used
 - 1 slot left for "most games" → top 1 player by total games
-- 5 slots left for Gr 1st places → top 5 Gr groups (Gr 12, Gr 11, Gr 10, Gr 9, Gr 8)
+- 5 slots left for Gr trophies → Gr 12 (1st), Gr 11 (1st), Gr 10 (1st), Gr 9 (1st), Gr 8 (1st)
 
 **80 players = 26 trophy slots, all 7 mini-games played:**
 - 7 × 1st places = 7 slots used
 - 7 × 2nd places = 14 slots used
 - 1 slot left for "most games" → top 1 player by total games
-- 11 slots left for Gr 1st places → top 11 Gr groups (Gr 12 through Gr 2)
+- 11 slots left for Gr trophies → Gr 12 (1st), Gr 11 (1st), Gr 10 (1st), Gr 9 (1st), Gr 8 (1st), Gr 7 (1st), Gr 6 (1st), Gr 5 (1st), Gr 4 (1st), Gr 3 (1st), Gr 2 (1st)
 
 ### Trophy Report Format
 
@@ -319,8 +354,17 @@ Rank | Player | Gr | Trophy Type | Mini-Game/Grade | Games Played
 ...
 ---  |        |   |             |                 |
      | Brown  | 12 | 1st Place   | Gr 12           | 45
-     | Green  | 11 | 1st Place   | Gr 11           | 38
+     | Davis  | 11 | 1st Place   | Gr 11           | 38
+     | Clark  | 10 | 1st Place   | Gr 10           | 30
+     | White  | 12 | 2nd Place   | Gr 12           | 42
+     | Green  | 11 | 2nd Place   | Gr 11           | 35
+     | Adams  | 10 | 2nd Place   | Gr 10           | 28
+     | Lee    | 12 | 3rd Place   | Gr 12           | 40
+     | Clark  | 11 | 3rd Place   | Gr 11           | 33
+     | White  | 10 | 3rd Place   | Gr 10           | 26
 ```
+
+**Note**: Gr trophies are awarded position-by-position across all grades: first all grades get 1st Place (highest Gr first), then all grades get 2nd Place, then all grades get 3rd Place. Ties are OK — if two players tie for 1st in Gr 12, both get 1st Place. Design rule: better to give too many trophies than too few.
 
 **Note**: "Games Played" for mini-game trophies counts games from ALL sessions of that mini-game (accumulated file).
 
@@ -328,7 +372,8 @@ Rank | Player | Gr | Trophy Type | Mini-Game/Grade | Games Played
 - `Gr` = school grade (0=Kindergarten, 1=1st, ..., 12=12th, 13=College)
 - `Games Played` = total games in the mini-game (for mini-game trophies) or total career games (for Gr trophies)
 - Blank row separator before Gr trophies
-- Gr column used for determining Gr 1st place winners (highest Gr first: 13 → 12 → 11 → ...)
+- Gr column used for determining Gr trophy winners (highest Gr first: 13 → 12 → 11 → ...)
+- Order: all grades get 1st Place first, then all grades get 2nd Place, then all grades get 3rd Place
 - Group column (A, A1, B, C, D) is separate and not used for trophy awards
 
 ### Clearing Mini-Game Results
@@ -340,7 +385,9 @@ After trophies are awarded and report is generated:
 - `num_games` reset to 0
 - Ratings preserved (or reset, depending on admin preference)
 
-## API Additions
+## API Additions (Server-Only)
+
+All mini-game operations also work in local mode via `MiniGameStore` in `localStorage` — no API calls needed.
 
 ### New Endpoints
 
@@ -366,12 +413,27 @@ GET /api/admin/export-mini-data
   - Filename: mini_data_YYYY-MM-DD.zip
 ```
 
-### Server State
+### Client-Side Mini-Game Operations (Local Mode)
+
+In local mode, all mini-game operations go through `MiniGameStore` interface — no HTTP calls:
+
+```typescript
+// DataService routes to MiniGameStore when mode === LOCAL
+dataService.clearMiniGames()           → miniGameStore.clearMiniGames()
+dataService.copyPlayersToMiniGame()    → miniGameStore.read/writeMiniGameFile()
+dataService.checkMiniGameFiles()       → miniGameStore.checkMiniGameFilesWith()
+dataService.addPlayerToMiniGames()     → miniGameStore.addPlayerToAllMiniGames()
+dataService.generateTrophyReport()     → miniGameStore.generateTrophyReport()
+dataService.exportTournamentFiles()    → combined text blob with `=== filename.tab ===` headers
+dataService.exportMiniData()           → combined text blob with `=== filename.tab ===` headers
+```
+
+### Tournament State
 
 Tournament mode state stored server-side (not in PlayerData or .tab files):
 
-- In-memory during runtime
-- Persisted to `data/tournament_state.json` for recovery after restart
+- **Server mode**: In-memory during runtime, persisted to `data/tournament_state.json` for recovery after restart
+- **Local mode**: Stored in `localStorage` key `ladder_tournament_state`
 - Interface: `{ active: boolean; startedAt: string }` — no `mode` field (all mini-games treated identically)
 
 ## Key Design Decisions
@@ -381,11 +443,11 @@ Tournament mode state stored server-side (not in PlayerData or .tab files):
 3. **No New-Day needed** - Switching between mini-games uses player copy logic instead
 4. **Self-contained results** - Each mini-game ladder only depends on its own results
 5. **Export, don't integrate** - Cross-ladder merge is too hard; admin exports files for archival
-6. **Server-side storage** - Mini-game files stored on server, not in client localStorage
+6. **Dual-mode storage** - Mini-game files stored on server (`data/` directory) in server mode, or in `localStorage` in local mode. Both modes share the same `MiniGameStore` interface and code path — no special-case handling
 7. **Existing features cover the rest** - View mode (HTML export), add player, auto-letter all work
 8. **Minimal data model** - No PlayerData changes needed; saved files ARE the history
 9. **All 7 mini-games use identical code** - No special-case handling for bughouse or any other mini-game. Same player copy logic, file saving, trophy calculation, and export apply to all 7 files
-10. **Tournament state is server-side** - Flag stored in memory, not in PlayerData
+10. **Tournament state is dual-mode** - Stored in memory + `tournament_state.json` for server mode, or in `localStorage` for local mode
 11. **Trophies in report tab file** - Generated at end of tournament, not in `trophyEligible` column
 12. **Partial tournaments supported** - If only 4 of 7 mini-games are played, only award those
 13. **Most games can tie** - Multiple players can receive "most games" trophy if tied
@@ -393,15 +455,18 @@ Tournament mode state stored server-side (not in PlayerData or .tab files):
 15. **Dual-purpose trophy system** - Works for mini-game tournaments AND end-of-year club ladder awards
 16. **Grade 1st place uses club ladder rating** - Not mini-game rating, for end-of-year mode only
 17. **Files persist on switch-away** - Switching from mini-game to Ladder shows confirmation but files remain until "Clear Mini-Games" in Settings (prevents accidental loss)
+18. **Gr trophy order** - Position-by-position across all grades: all grades get 1st Place first (highest Gr first), then all grades get 2nd Place, then all grades get 3rd Place
+19. **Gr trophy ties** - Standard competition ranking: tied players get same position, ties are OK (better to give too many trophies than too few)
+20. **Gr trophy completeness** - If any grade gets 1st place, then all grades get 1st place before any grade gets 2nd place
+21. **Local mode export** - Returns combined text blob with `=== filename.tab ===` headers between each file (acceptable, no ZIP support in localStorage)
+22. **Manual title switch during tournament** - Should be prevented (admin must use "Clear Mini-Games" in Settings to end tournament)
+23. **Bughouse file naming** - Bughouse is treated as just another mini-game, no special naming like `Bughouse_BG_Game.tab`
+24. **ZIP metadata** - Keep it simple, no extra metadata in exported ZIP
+25. **Mini-game files not archived with timestamps** - Files are overwritten/merged, zip/blob is the backup
+26. **Export includes club ladder** - Export (ZIP for server, blob for local) includes club_ladder.tab + all mini-game files
+27. **No auto-clear after trophies** - Mini-game results persist; admin uses "Clear Mini-Games" when ready
+28. **Export files are time/date stamped** - ZIP filename: `tournament_YYYY-MM-DD.zip`, trophy: `tournament_trophies_YYYY-MM-DD.tab`, mini data: `mini_data_YYYY-MM-DD.zip`
 
 ## Open Questions
 
-1. **Should exported ZIP include metadata?** - Date, admin name, list of files included
-2. **What happens if admin switches title manually during tournament?** - Does it break the flow?
-3. **Should completed mini-game files be archived with timestamps?** - e.g., `BG_Game_2024-01-15.tab` to avoid overwriting
-4. **For bughouse tournaments, any special file naming?** - e.g., `Bughouse_BG_Game.tab`
-5. **Should export include the club ladder file too?** - Or just the mini-game files?
-6. **After trophies awarded, should mini-game results auto-clear?** - Or leave it to admin?
-7. **Gr order for 1st place** - Highest Gr first (13 → 12 → 11 → ...)? Or different order?
-8. **Gr 1st place tiebreaker** - If two players in same Gr have same rating, who gets the trophy?
-9. **Multiple trophies for same Gr** - If Gr 10 has 3 slots left, do top 3 players all get 1st place trophies?
+(none remaining)
