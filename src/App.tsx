@@ -18,7 +18,8 @@ import {
   isLocalMode,
 } from "./utils/mode";
 import { loadUserSettings, loadConfigFromUrl } from "./services/userSettingsStorage";
-import { dataService } from "./services/dataService";
+import { dataService, DataServiceMode } from "./services/dataService";
+import { miniGameStore } from "./services/miniGameLocalStorage";
 import { clearTournamentState, getTournamentState } from "./services/storageService";
 import { checkMigrationNeeded, storeCurrentMode } from "./utils/migrationUtils";
 import {
@@ -121,6 +122,12 @@ function App() {
 
       // Step 2: Initialize connection state from localStorage (now has fresh config)
       initializeConnectionState();
+
+      // Step 2.5: Wire up miniGameStore for local mode
+      if (dataService.getMode() === DataServiceMode.LOCAL) {
+        dataService.updateConfig({ miniGameStore });
+        console.log('[APP] Wired up miniGameStore for local mode');
+      }
 
       // Step 3: Test server connectivity
       setStatus("Checking server connection...");
@@ -407,20 +414,11 @@ function App() {
     const newIsMiniGame = isMiniGameTitle(newTitle);
     
     if (currentIsMiniGame && !newIsMiniGame) {
-      if (!window.confirm('End tournament and switch to Ladder? This will remove all 7 mini-game files.')) {
+      if (!window.confirm('End tournament and switch to Ladder? Mini-game files will remain — use Clear Mini-Games in Settings to delete them.')) {
         return false;
       }
-      try {
-        const userSettings = loadUserSettings();
-        const serverUrl = userSettings.server?.trim();
-        if (serverUrl) {
-          await dataService.clearMiniGames();
-        }
-        clearTournamentState();
-        setTournamentActive(false);
-      } catch (error) {
-        console.error('Failed to clear mini-games on title switch:', error);
-      }
+      clearTournamentState();
+      setTournamentActive(false);
     }
     
     return true;

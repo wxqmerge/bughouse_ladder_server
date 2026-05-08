@@ -85,3 +85,28 @@ export interface ValidationResultResult {
   error?: number;
   message?: string;
 }
+
+export interface LadderData {
+  header: string[];
+  players: PlayerData[];
+  rawLines: string[];
+}
+
+export interface MiniGameStore {
+  getMiniGameFiles(): string[];
+  readMiniGameFile(fileName: string): Promise<LadderData | null>;
+  writeMiniGameFile(fileName: string, ladderData: LadderData): Promise<void>;
+  copyPlayersToTarget(sourcePlayers: PlayerData[], targetPlayers: PlayerData[]): PlayerData[];
+  mergeGameResults(oldResults: (string | null)[], currentResults: (string | null)[]): (string | null)[];
+  getExistingMiniGameFiles(): Promise<string[]>;
+  clearMiniGames(): Promise<{ deletedCount: number }>;
+  hasMiniGameFiles(): Promise<boolean>;
+  checkMiniGameFilesWith(): Promise<string[]>;
+  addPlayerToAllMiniGames(newPlayer: PlayerData): Promise<void>;
+  generateTrophyReport(players: PlayerData[]): Promise<{
+    success: boolean;
+    message: string;
+    trophies?: any[];
+    isClubMode?: boolean;
+  }>;
+}

@@ -66,7 +66,7 @@ All 7 mini-game files are treated identically - same code paths, same logic, no 
 │                                                                  │
 │  When switching AWAY from mini-game to "Ladder":                │
 │  1. Confirmation dialog: "End tournament and switch to Ladder?" │
-│  2. If yes: clear all 7 mini-game files + end tournament        │
+│  2. If yes: end tournament, files remain on disk                │
 │  3. If no: stay on current mini-game                            │
 │                                                                  │
 │  Note: Files persist until "Clear Mini-Games" button is clicked │
@@ -178,7 +178,6 @@ Flag stored server-side (in-memory or in a small JSON file), not in PlayerData.
 interface TournamentState {
   active: boolean;
   startedAt: string;  // ISO timestamp
-  mode: 'regular' | 'bughouse';  // Tournament type
 }
 ```
 
@@ -206,7 +205,7 @@ This requires:
 Add server endpoint to package all mini-game files:
 
 ```
-GET /api/admin/export-tournament
+GET /api/admin/tournament/export
 ```
 
 Server:
@@ -227,19 +226,6 @@ The trophy system auto-detects the mode based on file presence:
 - **Mini-game tournament mode**: If ANY mini-game file exists → Mini-game tournament awards (uses mini-game performance)
 
 No toggle needed - the presence of mini-game files determines the mode.
-
-### Trophy Pool
-
-**Maximum 15 trophies available (mini-game tournament):**
-- 7 × 1st places (one per mini-game)
-- 7 × 2nd places (one per mini-game)
-- 1 × Most games played (across all completed mini-games)
-
-**Maximum 21+ trophies available (end-of-year / club ladder):**
-- Same as above but based on club ladder performance
-- Plus: 1st place per Gr (school grade, e.g., 5, 6, 7) after a blank row separator
-
-**Capped at 1/3 of total player count** (round down).
 
 ### Trophy Pool
 
