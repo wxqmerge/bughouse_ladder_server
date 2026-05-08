@@ -7,7 +7,7 @@
  * - SERVER: Client-server flow targeting production server
  */
 
-import { PlayerData, DeltaOperation } from '../../shared/types';
+import { PlayerData, DeltaOperation, MiniGameStore } from '../../shared/types';
 import {
   getKeyPrefix,
   getPlayers as storageGetPlayers,
@@ -24,6 +24,7 @@ export enum DataServiceMode {
 export interface DataServiceConfig {
   mode: DataServiceMode;
   serverUrl?: string;
+  miniGameStore?: MiniGameStore;
 }
 
 class DataService {
@@ -458,9 +459,307 @@ class DataService {
     return headers;
   }
 
-  // ==================== TOURNAMENT METHODS ====================
+  // ==================== MINI-GAME STORE OPERATIONS ====================
+
+  private getStore(): MiniGameStore {
+    if (this.config.miniGameStore) {
+      return this.config.miniGameStore;
+    }
+    throw new Error('MiniGameStore not configured for this DataService instance');
+  }
+
+  async getMiniGameFiles(): Promise<string[]> {
+    const store = this.getStore();
+    return store.getMiniGameFiles();
+  }
+
+  async readMiniGameFile(fileName: string): Promise<any> {
+    const store = this.getStore();
+    return store.readMiniGameFile(fileName);
+  }
+
+  async writeMiniGameFile(fileName: string, ladderData: any): Promise<void> {
+    const store = this.getStore();
+    return store.writeMiniGameFile(fileName, ladderData);
+  }
+
+  async copyPlayersToMiniGame(fileName: string): Promise<any> {
+    if (this.config.mode === DataServiceMode.LOCAL) {
+      const store = this.getStore();
+      const players = await this.getLocalPlayers();
+      const existingFile = await store.readMiniGameFile(fileName);
+      
+      let targetPlayers: any[];
+      if (existingFile) {
+        targetPlayers = store.copyPlayersToTarget(players, existingFile.players);
+      } else {
+        targetPlayers = players.map(player => ({
+          ...player,
+          gameResults: Array(31).fill(null),
+          num_games: 0,
+        }));
+      }
+      
+      await store.writeMiniGameFile(fileName, {
+        header: [],
+        players: targetPlayers,
+        rawLines: [],
+      });
+      return { message: `Copied players to ${fileName}` };
+    } else {
+      const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/copy-players`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...this.getAuthHeaders(),
+        },
+        body: JSON.stringify({ fileName }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to copy players to: ${fileName}`);
+      }
+
+      const data = await response.json();
+      return data.data;
+    }
+  }
+
+  async saveMiniGameFile(fileName: string): Promise<any> {
+    if (this.config.mode === DataServiceMode.LOCAL) {
+      const store = this.getStore();
+      const players = await this.getLocalPlayers();
+      const existingFile = await store.readMiniGameFile(fileName);
+      
+      if (existingFile) {
+        const mergedPlayers = players.map(player => {
+          const existingPlayer = existingFile.players.find(
+            p => p.lastName.toLowerCase() === player.lastName.toLowerCase() &&
+                 p.firstName.toLowerCase() === player.firstName.toLowerCase()
+          );
+          
+          if (existingPlayer) {
+            const mergedResults = store.mergeGameResults(
+              existingPlayer.gameResults,
+              player.gameResults
+            );
+            
+            return {
+              ...player,
+              gameResults: mergedResults,
+            };
+          }
+          
+          return player;
+        });
+        
+        await store.writeMiniGameFile(fileName, {
+          header: [],
+          players: mergedPlayers,
+          rawLines: [],
+        });
+      } else {
+        await store.writeMiniGameFile(fileName, {
+          header: [],
+          players: players,
+          rawLines: [],
+        });
+      }
+      
+      return { message: `Saved ${fileName}` };
+    } else {
+      const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/save-mini-game`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...this.getAuthHeaders(),
+        },
+        body: JSON.stringify({ fileName }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to save mini-game file: ${fileName}`);
+      }
+
+      const data = await response.json();
+      return data.data;
+    }
+  }
+
+  async exportTournamentFiles(): Promise<Blob> {
+    if (this.config.mode === DataServiceMode.LOCAL) {
+      // In local mode, we can't create a real ZIP, so we'll return a Blob with all files combined
+      const store = this.getStore();
+      const existingFiles = await store.getExistingMiniGameFiles();
+      
+      if (existingFiles.length === 0) {
+        throw new Error('No mini-game files found');
+      }
+
+      let content = '';
+      for (const fileName of existingFiles) {
+        const fileData = await store.readMiniGameFile(fileName);
+        if (fileData) {
+          content += `=== ${fileName} ===\n`;
+          content += fileData.rawLines.join('\n') + '\n\n';
+        }
+      }
+
+      return new Blob([content], { type: 'text/plain' });
+    } else {
+      const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/export`, {
+        headers: this.getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to export tournament files');
+      }
+
+      return response.blob();
+    }
+  }
+
+  async generateTrophyReport(): Promise<Blob> {
+    if (this.config.mode === DataServiceMode.LOCAL) {
+      const store = this.getStore();
+      const players = await this.getLocalPlayers();
+      const result = await store.generateTrophyReport(players);
+      
+      if (!result.success) {
+        throw new Error(result.message);
+      }
+
+      const header = 'Rank\tPlayer\tGr\tTrophy Type\tMini-Game/Grade\tGames Played';
+      const lines = [header];
+      
+      let blankRowInserted = false;
+      for (const trophy of result.trophies!) {
+        if (!blankRowInserted && trophy.trophyType === '1st Place' && trophy.miniGameOrGrade && trophy.miniGameOrGrade.startsWith('Gr ') && !result.isClubMode) {
+          lines.push('');
+          blankRowInserted = true;
+        }
+        lines.push(`${trophy.rank}\t${trophy.player}\t${trophy.gr}\t${trophy.trophyType}\t${trophy.miniGameOrGrade}\t${trophy.gamesPlayed}`);
+      }
+      
+      const content = lines.join('\n') + '\n';
+      return new Blob([content], { type: 'text/tab-separated-values' });
+    } else {
+      const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/trophies`, {
+        headers: this.getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate trophy report');
+      }
+
+      return response.blob();
+    }
+  }
+
+  async exportMiniData(): Promise<Blob> {
+    if (this.config.mode === DataServiceMode.LOCAL) {
+      // In local mode, export ladder.tab + mini-game files as combined text
+      const store = this.getStore();
+      const players = await this.getLocalPlayers();
+      
+      let content = '=== ladder.tab ===\n';
+      content += players.map(p => {
+        return `${p.group}\t${p.lastName}\t${p.firstName}\t${p.rating}\t${p.rank}\t${p.nRating}\t${p.grade}\t${p.num_games}\t${p.attendance}\t${p.phone}\t${p.info}\t${p.school}\t${p.room}` + 
+               (p.gameResults || []).map(r => r || '').join('\t');
+      }).join('\n') + '\n\n';
+      
+      const existingFiles = await store.getExistingMiniGameFiles();
+      for (const fileName of existingFiles) {
+        const fileData = await store.readMiniGameFile(fileName);
+        if (fileData) {
+          content += `=== ${fileName} ===\n`;
+          content += fileData.rawLines.join('\n') + '\n\n';
+        }
+      }
+
+      return new Blob([content], { type: 'text/plain' });
+    } else {
+      const response = await fetch(`${this.getApiUrl()}/api/admin/export-mini-data`, {
+        headers: this.getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to export mini data');
+      }
+
+      return response.blob();
+    }
+  }
+
+  async clearMiniGames(): Promise<any> {
+    if (this.config.mode === DataServiceMode.LOCAL) {
+      const store = this.getStore();
+      return store.clearMiniGames();
+    } else {
+      const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/clear-mini-games`, {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to clear mini-game files');
+      }
+
+      const data = await response.json();
+      return data.data;
+    }
+  }
+
+  async addPlayerToMiniGames(player: any): Promise<any> {
+    if (this.config.mode === DataServiceMode.LOCAL) {
+      const store = this.getStore();
+      await store.addPlayerToAllMiniGames(player);
+      return { message: 'Player added to all mini-game files' };
+    } else {
+      const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/add-player-to-mini-games`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...this.getAuthHeaders(),
+        },
+        body: JSON.stringify({ player }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to add player to mini-game files');
+      }
+
+      const data = await response.json();
+      return data.data;
+    }
+  }
+
+  async checkMiniGameFiles(): Promise<string[]> {
+    if (this.config.mode === DataServiceMode.LOCAL) {
+      const store = this.getStore();
+      return store.checkMiniGameFilesWith();
+    } else {
+      const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/check-mini-games`, {
+        headers: this.getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to check mini-game files');
+      }
+
+      const data = await response.json();
+      return data.data.files;
+    }
+  }
+
+  // ==================== TOURNAMENT METHODS (server-only) ====================
 
   async getTournamentStatus(): Promise<any> {
+    if (this.config.mode === DataServiceMode.LOCAL) {
+      // In local mode, return default state
+      return { active: false, startedAt: '' };
+    }
+    
     const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/status`, {
       headers: this.getAuthHeaders(),
     });
@@ -474,6 +773,11 @@ class DataService {
   }
 
   async startTournament(): Promise<any> {
+    if (this.config.mode === DataServiceMode.LOCAL) {
+      // In local mode, just return default state
+      return { active: true, startedAt: new Date().toISOString() };
+    }
+    
     const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/start`, {
       method: 'POST',
       headers: {
@@ -488,123 +792,6 @@ class DataService {
 
     const data = await response.json();
     return data.data;
-  }
-
-  async saveMiniGameFile(fileName: string): Promise<any> {
-    const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/save-mini-game`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...this.getAuthHeaders(),
-      },
-      body: JSON.stringify({ fileName }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to save mini-game file: ${fileName}`);
-    }
-
-    const data = await response.json();
-    return data.data;
-  }
-
-  async copyPlayersToMiniGame(fileName: string): Promise<any> {
-    const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/copy-players`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...this.getAuthHeaders(),
-      },
-      body: JSON.stringify({ fileName }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to copy players to: ${fileName}`);
-    }
-
-    const data = await response.json();
-    return data.data;
-  }
-
-  async exportTournamentFiles(): Promise<Blob> {
-    const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/export`, {
-      headers: this.getAuthHeaders(),
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to export tournament files');
-    }
-
-    return response.blob();
-  }
-
-  async generateTrophyReport(): Promise<Blob> {
-    const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/trophies`, {
-      headers: this.getAuthHeaders(),
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to generate trophy report');
-    }
-
-    return response.blob();
-  }
-
-  async exportMiniData(): Promise<Blob> {
-    const response = await fetch(`${this.getApiUrl()}/api/admin/export-mini-data`, {
-      headers: this.getAuthHeaders(),
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to export mini data');
-    }
-
-    return response.blob();
-  }
-
-  async clearMiniGames(): Promise<any> {
-    const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/clear-mini-games`, {
-      method: 'POST',
-      headers: this.getAuthHeaders(),
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to clear mini-game files');
-    }
-
-    const data = await response.json();
-    return data.data;
-  }
-
-  async addPlayerToMiniGames(player: any): Promise<any> {
-    const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/add-player-to-mini-games`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...this.getAuthHeaders(),
-      },
-      body: JSON.stringify({ player }),
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to add player to mini-game files');
-    }
-
-    const data = await response.json();
-    return data.data;
-  }
-
-  async checkMiniGameFiles(): Promise<string[]> {
-    const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/check-mini-games`, {
-      headers: this.getAuthHeaders(),
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to check mini-game files');
-    }
-
-    const data = await response.json();
-    return data.data.files;
   }
 }
 
