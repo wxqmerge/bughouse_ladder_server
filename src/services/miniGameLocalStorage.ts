@@ -90,16 +90,19 @@ function generateTabContent(ladderData: LadderData): string {
 }
 
 export function copyPlayersToTarget(sourcePlayers: PlayerData[], targetPlayers: PlayerData[]): PlayerData[] {
+  // Match players by lastName + firstName
   const sourceMap = new Map<string, PlayerData>();
   for (const player of sourcePlayers) {
     const key = `${player.lastName.toLowerCase()}|${player.firstName.toLowerCase()}`;
     sourceMap.set(key, player);
   }
 
+  // Update existing players in target — preserve game results (each mini-game keeps its own independent results)
   const updatedTarget = targetPlayers.map(targetPlayer => {
     const key = `${targetPlayer.lastName.toLowerCase()}|${targetPlayer.firstName.toLowerCase()}`;
     const sourcePlayer = sourceMap.get(key);
     if (sourcePlayer) {
+      // Update metadata from source, keep existing game results
       return {
         ...targetPlayer,
         rating: sourcePlayer.rating,
@@ -107,11 +110,18 @@ export function copyPlayersToTarget(sourcePlayers: PlayerData[], targetPlayers: 
         trophyEligible: sourcePlayer.trophyEligible,
         grade: sourcePlayer.grade,
         group: sourcePlayer.group,
+        num_games: targetPlayer.num_games,
+        gameResults: targetPlayer.gameResults,
       };
     }
-    return targetPlayer;
+    return {
+      ...targetPlayer,
+      num_games: targetPlayer.num_games,
+      gameResults: targetPlayer.gameResults,
+    };
   });
 
+  // Add missing players from source
   const existingKeys = new Set(updatedTarget.map(p => `${p.lastName.toLowerCase()}|${p.firstName.toLowerCase()}`));
   for (const player of sourcePlayers) {
     const key = `${player.lastName.toLowerCase()}|${player.firstName.toLowerCase()}`;

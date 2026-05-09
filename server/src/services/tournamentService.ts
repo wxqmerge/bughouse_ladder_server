@@ -157,12 +157,12 @@ export function copyPlayersToTarget(sourcePlayers: PlayerData[], targetPlayers: 
     sourceMap.set(key, player);
   }
 
-  // Update existing players in target
+  // Update existing players in target — preserve game results (each mini-game keeps its own independent results)
   const updatedTarget = targetPlayers.map(targetPlayer => {
     const key = `${targetPlayer.lastName.toLowerCase()}|${targetPlayer.firstName.toLowerCase()}`;
     const sourcePlayer = sourceMap.get(key);
     if (sourcePlayer) {
-      // Update rating and nRating from source
+      // Update metadata from source, keep existing game results
       return {
         ...targetPlayer,
         rating: sourcePlayer.rating,
@@ -170,9 +170,15 @@ export function copyPlayersToTarget(sourcePlayers: PlayerData[], targetPlayers: 
         trophyEligible: sourcePlayer.trophyEligible,
         grade: sourcePlayer.grade,
         group: sourcePlayer.group,
+        num_games: targetPlayer.num_games,
+        gameResults: targetPlayer.gameResults,
       };
     }
-    return targetPlayer;
+    return {
+      ...targetPlayer,
+      num_games: targetPlayer.num_games,
+      gameResults: targetPlayer.gameResults,
+    };
   });
 
   // Add missing players from source
@@ -182,7 +188,7 @@ export function copyPlayersToTarget(sourcePlayers: PlayerData[], targetPlayers: 
     if (!existingKeys.has(key)) {
       updatedTarget.push({
         ...player,
-        gameResults: Array(31).fill(null), // Fresh game results
+        gameResults: Array(31).fill(null),
         num_games: 0,
       });
     }

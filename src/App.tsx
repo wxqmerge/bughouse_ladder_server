@@ -260,18 +260,13 @@ function App() {
 
   const handleClearAll = async () => {
     try {
-      const userSettings = loadUserSettings();
-      const serverUrl = userSettings.server?.trim();
-      
-      if (serverUrl) {
-        await dataService.clearMiniGames();
-      }
-      
-      clearTournamentState();
-      setTournamentActive(false);
+      await dataService.clearMiniGames();
     } catch (error) {
       console.error('Failed to clear mini-games:', error);
     }
+    
+    clearTournamentState();
+    setTournamentActive(false);
     
     await savePlayers([]);
     clearSettings();
@@ -280,23 +275,19 @@ function App() {
 
   const handleClearMiniGames = async () => {
     try {
-      const userSettings = loadUserSettings();
-      const serverUrl = userSettings.server?.trim();
-      
-      if (serverUrl) {
-        await dataService.clearMiniGames();
-      }
-      
-      clearTournamentState();
-      setTournamentActive(false);
-      setProjectName('Ladder');
-      setProjectNameStorage('Ladder');
-      alert('Mini-game files cleared');
-      window.location.reload();
+      await dataService.clearMiniGames();
     } catch (error) {
       console.error('Failed to clear mini-games:', error);
       alert('Failed to clear: ' + (error as Error).message);
+      return;
     }
+    
+    clearTournamentState();
+    setTournamentActive(false);
+    setProjectName('Ladder');
+    setProjectNameStorage('Ladder');
+    alert('Mini-game files cleared');
+    window.location.reload();
   };
 
   const processNewDay = async (reRank: boolean) => {

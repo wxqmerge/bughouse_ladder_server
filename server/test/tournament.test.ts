@@ -66,7 +66,7 @@ describe('copyPlayersToTarget', () => {
     expect(result.length).toBe(3);
   });
 
-  it('should preserve existing player data not in source', () => {
+  it('should preserve existing player and game results', () => {
     const source = createSamplePlayers();
     const target = [
       {
@@ -79,11 +79,13 @@ describe('copyPlayersToTarget', () => {
 
     const result = copyPlayersToTarget(source, target);
 
-    // Alice should be preserved with her data
+    // Alice should be preserved with her existing results
     const alice = result.find(p => p.lastName === 'Wilson' && p.firstName === 'Alice');
     expect(alice).toBeDefined();
     expect(alice?.rating).toBe(1200);
     expect(alice?.num_games).toBe(5);
+    expect(alice?.gameResults[0]).toBe('1L1');
+    expect(alice?.gameResults[1]).toBe('1L1');
   });
 
   it('should handle empty source', () => {
