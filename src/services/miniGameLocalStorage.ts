@@ -27,6 +27,10 @@ const MINI_GAME_DIFFICULTY_ORDER = [
 
 const MINI_GAME_PREFIX = 'mini_game_';
 
+function debugLine(col1: string, col2 = '', col3 = '', col4 = '', col5 = '', col6 = '', col7 = '', col8 = '') {
+  return [col1, col2, col3, col4, col5, col6, col7, col8].join('\t');
+}
+
 function getStorageKey(fileName: string): string {
   return MINI_GAME_PREFIX + fileName;
 }
@@ -149,82 +153,135 @@ export function mergeGameResults(oldResults: (string | null)[], currentResults: 
 
 async function generateClubLadderTrophies(players: PlayerData[], maxTrophies: number): Promise<any[]> {
   const trophies: any[] = [];
-  const sortedPlayers = [...players].sort((a: PlayerData, b: PlayerData) => b.rating - a.rating);
+  const seenPlayers = new Set<string>();
+  const sortedPlayers = [...players].sort((a, b) => b.nRating - a.nRating);
 
-  // Award 1st place (highest rated player)
-  if (sortedPlayers.length > 0 && trophies.length < maxTrophies) {
-    trophies.push({
+  function addTrophy(trophy: any) {
+    const key = `${trophy.player}`;
+    if (seenPlayers.has(key)) return false;
+    seenPlayers.add(key);
+    trophies.push(trophy);
+    return true;
+  }
+
+  // Step 1: Award 1st place overall (highest rated player)
+  if (sortedPlayers.length > 0) {
+    addTrophy({
       rank: trophies.length + 1,
       player: `${sortedPlayers[0].firstName} ${sortedPlayers[0].lastName}`,
       gr: sortedPlayers[0].grade,
+      rating: sortedPlayers[0].nRating,
       trophyType: '1st Place',
       miniGameOrGrade: 'Club Ladder',
       gamesPlayed: sortedPlayers[0].num_games,
+      totalGames: sortedPlayers[0].num_games,
     });
   }
 
-  // Award 2nd place (2nd highest rated player)
-  if (sortedPlayers.length > 1 && trophies.length < maxTrophies) {
-    trophies.push({
+  // Step 2: Award 2nd place overall (2nd highest rated player)
+  if (sortedPlayers.length > 1) {
+    addTrophy({
       rank: trophies.length + 1,
       player: `${sortedPlayers[1].firstName} ${sortedPlayers[1].lastName}`,
       gr: sortedPlayers[1].grade,
+      rating: sortedPlayers[1].nRating,
       trophyType: '2nd Place',
       miniGameOrGrade: 'Club Ladder',
       gamesPlayed: sortedPlayers[1].num_games,
+      totalGames: sortedPlayers[1].num_games,
     });
   }
 
-  // Award most games
-  const mostGamesPlayer = sortedPlayers.reduce((max: PlayerData, p: PlayerData) => p.num_games > max.num_games ? p : max, sortedPlayers[0]);
-  if (trophies.length < maxTrophies && mostGamesPlayer) {
-    trophies.push({
+  // Step 3: Award 3rd place overall (3rd highest rated player)
+  if (sortedPlayers.length > 2) {
+    addTrophy({
+      rank: trophies.length + 1,
+      player: `${sortedPlayers[2].firstName} ${sortedPlayers[2].lastName}`,
+      gr: sortedPlayers[2].grade,
+      rating: sortedPlayers[2].nRating,
+      trophyType: '3rd Place',
+      miniGameOrGrade: 'Club Ladder',
+      gamesPlayed: sortedPlayers[2].num_games,
+      totalGames: sortedPlayers[2].num_games,
+    });
+  }
+
+  // Step 4: Award most games
+  const mostGamesPlayer = sortedPlayers.reduce((max, p) => p.num_games > max.num_games ? p : max, sortedPlayers[0]);
+  if (mostGamesPlayer) {
+    addTrophy({
       rank: trophies.length + 1,
       player: `${mostGamesPlayer.firstName} ${mostGamesPlayer.lastName}`,
       gr: mostGamesPlayer.grade,
+      rating: mostGamesPlayer.nRating,
       trophyType: 'Most Games',
       miniGameOrGrade: 'Club Ladder',
       gamesPlayed: mostGamesPlayer.num_games,
+      totalGames: mostGamesPlayer.num_games,
     });
   }
 
-  // Award Gr 1st/2nd/3rd places (after blank row)
-  // Position-by-position: all grades get 1st first, then all grades get 2nd, then all grades get 3rd
-  const gradeGroups = [...new Set(players.map(p => p.grade).filter(Boolean))].sort((a: string, b: string) => parseInt(b) - parseInt(a));
-  
-  for (let position = 1; position <= 3; position++) {
-    const ordinal = position === 1 ? '1st' : position === 2 ? '2nd' : '3rd';
+  // Step 5: Award grade 1st place if t > 4
+  if (maxTrophies > 4) {
+    const gradeGroups = [...new Set(players.map(p => p.grade).filter(Boolean))].sort((a, b) => parseInt(b) - parseInt(a));
     
     for (const grade of gradeGroups) {
-      if (trophies.length >= maxTrophies) break;
-      const gradePlayers = players.filter(p => p.grade === grade).sort((a: PlayerData, b: PlayerData) => b.rating - a.rating);
+      const gradePlayers = players.filter(p => p.grade === grade).sort((a, b) => b.nRating - a.nRating);
       
-      if (gradePlayers.length < position) continue;
-      
-      // Find the player at this position, accounting for ties
-      const targetPlayer = gradePlayers[position - 1];
-      
-      // Check if previous player(s) had same rating (tie)
-      let tieCount = 0;
-      for (let i = position - 2; i >= 0; i--) {
-        if (gradePlayers[i].rating === targetPlayer.rating) {
-          tieCount++;
-        } else {
-          break;
-        }
-      }
-      
-      // Award to all tied players at this position
-      for (let i = position - 1; i >= 0 && i >= position - 1 - tieCount; i--) {
-        if (trophies.length >= maxTrophies) break;
-        const player = gradePlayers[i];
-        trophies.push({
+      if (gradePlayers.length >= 1) {
+        addTrophy({
           rank: trophies.length + 1,
-          player: `${player.firstName} ${player.lastName}`,
+          player: `${gradePlayers[0].firstName} ${gradePlayers[0].lastName}`,
           gr: grade,
-          trophyType: `${ordinal} Place`,
+          rating: gradePlayers[0].nRating,
+          trophyType: '1st Place',
           miniGameOrGrade: `Gr ${grade}`,
-          gamesPlayed: player.num_games,
+          gamesPlayed: gradePlayers[0].num_games,
+          totalGames: gradePlayers[0].num_games,
+        });
+      }
+    }
+  }
+
+  // Step 6: Award grade 2nd place if any trophies remain
+  if (trophies.length < maxTrophies) {
+    const gradeGroups = [...new Set(players.map(p => p.grade).filter(Boolean))].sort((a, b) => parseInt(b) - parseInt(a));
+    
+    for (const grade of gradeGroups) {
+      const gradePlayers = players.filter(p => p.grade === grade).sort((a, b) => b.nRating - a.nRating);
+      
+      if (gradePlayers.length >= 2) {
+        addTrophy({
+          rank: trophies.length + 1,
+          player: `${gradePlayers[1].firstName} ${gradePlayers[1].lastName}`,
+          gr: grade,
+          rating: gradePlayers[1].nRating,
+          trophyType: '2nd Place',
+          miniGameOrGrade: `Gr ${grade}`,
+          gamesPlayed: gradePlayers[1].num_games,
+          totalGames: gradePlayers[1].num_games,
+        });
+      }
+    }
+  }
+
+  // Step 7: Award grade 3rd place if any trophies remain
+  if (trophies.length < maxTrophies) {
+    const gradeGroups = [...new Set(players.map(p => p.grade).filter(Boolean))].sort((a, b) => parseInt(b) - parseInt(a));
+    
+    for (const grade of gradeGroups) {
+      const gradePlayers = players.filter(p => p.grade === grade).sort((a, b) => b.nRating - a.nRating);
+      
+      if (gradePlayers.length >= 3) {
+        addTrophy({
+          rank: trophies.length + 1,
+          player: `${gradePlayers[2].firstName} ${gradePlayers[2].lastName}`,
+          gr: grade,
+          rating: gradePlayers[2].nRating,
+          trophyType: '3rd Place',
+          miniGameOrGrade: `Gr ${grade}`,
+          gamesPlayed: gradePlayers[2].num_games,
+          totalGames: gradePlayers[2].num_games,
         });
       }
     }
@@ -255,112 +312,117 @@ async function countGamesAcrossMiniGames(playerRank: number, existingFiles: stri
 
 async function generateMiniGameTrophies(players: PlayerData[], maxTrophies: number, existingFiles: string[]): Promise<any[]> {
   const trophies: any[] = [];
+  const seenPlayers = new Set<string>();
+  const m = existingFiles.length;
+  const t = maxTrophies;
 
+  async function getPlayerTotalGames(player: PlayerData): Promise<number> {
+    let total = 0;
+    for (const fileName of existingFiles) {
+      const miniGameData = await readMiniGameFile(fileName);
+      if (!miniGameData) continue;
+      const p = miniGameData.players.find(p => p.rank === player.rank);
+      if (!p?.gameResults) continue;
+      total += p.gameResults.filter(r => r && r !== '' && r !== '_').length;
+    }
+    return total;
+  }
+
+  function addTrophy(trophy: any) {
+    const key = `${trophy.player}`;
+    if (seenPlayers.has(key)) return false;
+    seenPlayers.add(key);
+    trophies.push(trophy);
+    return true;
+  }
+
+  // Pre-calculate total games for all players
+  const playerTotalGames = new Map<string, number>();
+  for (const p of players) {
+    playerTotalGames.set(`${p.firstName} ${p.lastName}`, await getPlayerTotalGames(p));
+  }
+
+  // Step 1: Award 1st place for each mini-game - always
   for (const fileName of MINI_GAME_DIFFICULTY_ORDER) {
-    if (trophies.length >= maxTrophies) break;
     if (!existingFiles.includes(fileName)) continue;
 
     const miniGameData = await readMiniGameFile(fileName);
     if (!miniGameData || miniGameData.players.length === 0) continue;
 
-    const sortedPlayers = [...miniGameData.players].sort((a: PlayerData, b: PlayerData) => b.rating - a.rating);
+    const playersWithGames = miniGameData.players.filter(p => {
+      if (!p.gameResults) return false;
+      return p.gameResults.some(r => r && r !== '' && r !== '_');
+    });
+
+    const sortedPlayers = playersWithGames.sort((a, b) => b.nRating - a.nRating);
     if (sortedPlayers.length > 0) {
-      trophies.push({
+      const p = sortedPlayers[0];
+      const miniGameGames = p.gameResults?.filter(r => r && r !== '' && r !== '_')?.length || 0;
+      addTrophy({
         rank: trophies.length + 1,
-        player: `${sortedPlayers[0].firstName} ${sortedPlayers[0].lastName}`,
-        gr: sortedPlayers[0].grade,
+        player: `${p.firstName} ${p.lastName}`,
+        gr: p.grade,
+        rating: p.nRating,
         trophyType: '1st Place',
         miniGameOrGrade: fileName.replace('.tab', ''),
-        gamesPlayed: sortedPlayers[0].num_games,
+        gamesPlayed: miniGameGames,
+        totalGames: playerTotalGames.get(`${p.firstName} ${p.lastName}`) || 0,
       });
     }
   }
 
-  for (const fileName of MINI_GAME_DIFFICULTY_ORDER) {
-    if (trophies.length >= maxTrophies) break;
-    if (!existingFiles.includes(fileName)) continue;
+  // Step 2: Award 2nd place for each mini-game - only if t > m
+  if (t > m) {
+    for (const fileName of MINI_GAME_DIFFICULTY_ORDER) {
+      if (!existingFiles.includes(fileName)) continue;
 
-    const miniGameData = await readMiniGameFile(fileName);
-    if (!miniGameData || miniGameData.players.length === 0) continue;
+      const miniGameData = await readMiniGameFile(fileName);
+      if (!miniGameData || miniGameData.players.length === 0) continue;
 
-    const sortedPlayers = [...miniGameData.players].sort((a: PlayerData, b: PlayerData) => b.rating - a.rating);
-    if (sortedPlayers.length > 1) {
-      trophies.push({
-        rank: trophies.length + 1,
-        player: `${sortedPlayers[1].firstName} ${sortedPlayers[1].lastName}`,
-        gr: sortedPlayers[1].grade,
-        trophyType: '2nd Place',
-        miniGameOrGrade: fileName.replace('.tab', ''),
-        gamesPlayed: sortedPlayers[1].num_games,
+      const playersWithGames = miniGameData.players.filter(p => {
+        if (!p.gameResults) return false;
+        return p.gameResults.some(r => r && r !== '' && r !== '_');
       });
+
+      const sortedPlayers = playersWithGames.sort((a, b) => b.nRating - a.nRating);
+      if (sortedPlayers.length > 1) {
+        const p = sortedPlayers[1];
+        const miniGameGames = p.gameResults?.filter(r => r && r !== '' && r !== '_')?.length || 0;
+        addTrophy({
+          rank: trophies.length + 1,
+          player: `${p.firstName} ${p.lastName}`,
+          gr: p.grade,
+          rating: p.nRating,
+          trophyType: '2nd Place',
+          miniGameOrGrade: fileName.replace('.tab', ''),
+          gamesPlayed: miniGameGames,
+          totalGames: playerTotalGames.get(`${p.firstName} ${p.lastName}`) || 0,
+        });
+      }
     }
   }
 
-  const playerGameCounts = await Promise.all(
-    players.map(async (p: PlayerData) => ({
-      player: p,
-      totalGames: await countGamesAcrossMiniGames(p.rank, existingFiles),
-    }))
-  );
-
-  const playersWithGames = playerGameCounts
-    .filter((x: { totalGames: number }) => x.totalGames > 0)
-    .sort((a: { totalGames: number }, b: { totalGames: number }) => b.totalGames - a.totalGames);
-
-  if (playersWithGames.length > 0 && trophies.length < maxTrophies) {
-    const maxGames = playersWithGames[0].totalGames;
-    const tiedPlayers = playersWithGames.filter((p: { totalGames: number }) => p.totalGames === maxGames);
-    
-    for (const tiedPlayer of tiedPlayers) {
-      if (trophies.length >= maxTrophies) break;
-      trophies.push({
-        rank: trophies.length + 1,
-        player: `${tiedPlayer.player.firstName} ${tiedPlayer.player.lastName}`,
-        gr: tiedPlayer.player.grade,
-        trophyType: 'Most Games',
-        miniGameOrGrade: 'All Mini-Games',
-        gamesPlayed: tiedPlayer.totalGames,
-      });
-    }
-  }
-
-  // Award Gr 1st/2nd/3rd places (after blank row)
-  // Position-by-position: all grades get 1st first, then all grades get 2nd, then all grades get 3rd
-  const gradeGroups = [...new Set(players.map(p => p.grade).filter(Boolean))].sort((a: string, b: string) => parseInt(b) - parseInt(a));
-  
-  for (let position = 1; position <= 3; position++) {
-    const ordinal = position === 1 ? '1st' : position === 2 ? '2nd' : '3rd';
+  // Step 3: Award grade 1st place - only if t > 2*m
+  // Remaining players (no trophy yet), sorted by totalGames, first in each grade wins
+  if (t > 2 * m) {
+    const remainingPlayers = players.filter(p => !seenPlayers.has(`${p.firstName} ${p.lastName}`));
+    const gradeGroups = [...new Set(remainingPlayers.map(p => p.grade).filter(Boolean))].sort((a, b) => parseInt(b) - parseInt(a));
     
     for (const grade of gradeGroups) {
-      if (trophies.length >= maxTrophies) break;
-      const gradePlayers = players.filter(p => p.grade === grade).sort((a: PlayerData, b: PlayerData) => b.rating - a.rating);
+      const gradePlayers = remainingPlayers.filter(p => p.grade === grade)
+        .sort((a, b) => (playerTotalGames.get(`${b.firstName} ${b.lastName}`) || 0) - (playerTotalGames.get(`${a.firstName} ${a.lastName}`) || 0));
       
-      if (gradePlayers.length < position) continue;
-      
-      // Find the player at this position, accounting for ties
-      const targetPlayer = gradePlayers[position - 1];
-      
-      // Check if previous player(s) had same rating (tie)
-      let tieCount = 0;
-      for (let i = position - 2; i >= 0; i--) {
-        if (gradePlayers[i].rating === targetPlayer.rating) {
-          tieCount++;
-        } else {
-          break;
-        }
-      }
-      
-      // Award to all tied players at this position
-      for (let i = position - 1; i >= 0 && i >= position - 1 - tieCount; i--) {
-        if (trophies.length >= maxTrophies) break;
-        const player = gradePlayers[i];
-        trophies.push({
+      if (gradePlayers.length > 0) {
+        const p = gradePlayers[0];
+        addTrophy({
           rank: trophies.length + 1,
-          player: `${player.firstName} ${player.lastName}`,
+          player: `${p.firstName} ${p.lastName}`,
           gr: grade,
-          trophyType: `${ordinal} Place`,
+          rating: p.nRating,
+          trophyType: '1st Place',
           miniGameOrGrade: `Gr ${grade}`,
-          gamesPlayed: player.num_games,
+          gamesPlayed: p.gameResults?.filter(r => r && r !== '' && r !== '_')?.length || 0,
+          totalGames: playerTotalGames.get(`${p.firstName} ${p.lastName}`) || 0,
         });
       }
     }
@@ -472,6 +534,7 @@ export const miniGameStore: MiniGameStore = {
     message: string;
     trophies?: any[];
     isClubMode?: boolean;
+    debugInfo?: string;
   }> {
     try {
       const hasMiniGames = await this.hasMiniGameFiles();
@@ -481,21 +544,65 @@ export const miniGameStore: MiniGameStore = {
         return { success: false, message: 'No players found' };
       }
 
-      const maxTrophies = Math.floor(players.length / 3);
+      const maxTrophies = Math.ceil(players.length / 3);
       let trophies: any[] = [];
+      const debugLines: string[] = [];
+
+      debugLines.push(debugLine('DEBUG', 'TROPHY REPORT', '', '', '', '', '', ''));
+      debugLines.push(debugLine('Players', String(players.length), '', '', '', '', '', ''));
+      debugLines.push(debugLine('Max Trophies', `${maxTrophies} (ceil(${players.length} / 3))`, '', '', '', '', '', ''));
+      debugLines.push('');
 
       if (isClubMode) {
+        debugLines.push(debugLine('Mode', 'Club Ladder (no mini-game files)', '', '', '', '', '', ''));
         trophies = await generateClubLadderTrophies(players, maxTrophies);
       } else {
         const existingFiles = await this.getExistingMiniGameFiles();
+        const m = existingFiles.length;
+        debugLines.push(debugLine('Mode', 'Mini-Game Tournament', '', '', '', '', '', ''));
+        debugLines.push(debugLine('Mini-games played', String(m), '', '', '', '', '', ''));
+        debugLines.push(debugLine('Award 2nd place', `t=${maxTrophies} > m=${m} ? ${maxTrophies > m}`, '', '', '', '', '', ''));
+        debugLines.push(debugLine('Award grade 1st', `t=${maxTrophies} > 2*m=${2 * m} ? ${maxTrophies > 2 * m}`, '', '', '', '', '', ''));
+        debugLines.push('');
+        
+        debugLines.push(debugLine('MINI-GAME PLAYERS', '(after 5 recalcs)', '', '', '', '', '', ''));
+        
+        for (const fileName of existingFiles) {
+          const data = await this.readMiniGameFile(fileName);
+          if (!data || data.players.length === 0) continue;
+          
+          const playersWithGames = data.players.filter(p => {
+            if (!p.gameResults) return false;
+            return p.gameResults.some(r => r && r !== '' && r !== '_');
+          });
+          
+          if (playersWithGames.length === 0) continue;
+          
+          const sorted = playersWithGames.sort((a, b) => b.nRating - a.nRating);
+          debugLines.push('');
+          debugLines.push(debugLine(fileName, '', '', '', '', '', '', ''));
+          for (const p of sorted) {
+            const games = p.gameResults?.filter(r => r && r !== '' && r !== '_')?.length || 0;
+            debugLines.push(debugLine(String(p.rank), `${p.firstName} ${p.lastName}`, p.grade, String(p.nRating), String(games), '', '', ''));
+          }
+        }
+        
         trophies = await generateMiniGameTrophies(players, maxTrophies, existingFiles);
       }
+
+      debugLines.push('');
+      debugLines.push(debugLine('AWARDED TROPHIES', '', '', '', '', '', '', ''));
+      for (const t of trophies) {
+        debugLines.push(debugLine(String(t.rank), t.player, t.trophyType, t.miniGameOrGrade, String(t.rating), String(t.totalGames || 0), '', ''));
+      }
+      debugLines.push('');
 
       return {
         success: true,
         message: `Generated ${trophies.length} trophies`,
         trophies,
         isClubMode,
+        debugInfo: debugLines.join('\n'),
       };
     } catch (error) {
       return { success: false, message: `Trophy generation failed: ${(error as Error).message}` };
