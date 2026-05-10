@@ -589,19 +589,12 @@ export const miniGameStore: MiniGameStore = {
           debugLines.push(debugLine(fileName, '', '', '', '', '', '', ''));
           for (const p of sorted) {
             const games = p.gameResults?.filter(r => r && r !== '' && r !== '_')?.length || 0;
-            debugLines.push(debugLine(String(p.rank), `${p.firstName} ${p.lastName}`, p.grade, String(p.nRating), String(games), '', '', ''));
+            debugLines.push(debugLine(String(p.rank), `${p.firstName} ${p.lastName}`, p.grade, String(p.nRating), '', '', String(games), ''));
           }
         }
         
         trophies = await generateMiniGameTrophies(players, maxTrophies, existingFiles);
       }
-
-      debugLines.push('');
-      debugLines.push(debugLine('AWARDED TROPHIES', '', '', '', '', '', '', ''));
-      for (const t of trophies) {
-        debugLines.push(debugLine(String(t.rank), t.player, t.trophyType, t.miniGameOrGrade, String(t.rating), String(t.totalGames || 0), '', ''));
-      }
-      debugLines.push('');
 
       return {
         success: true,
