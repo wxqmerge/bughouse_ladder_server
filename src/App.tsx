@@ -7,6 +7,7 @@ import { StatusBanner } from "./components/StatusBanner";
 import { loadSampleData } from "./components/LadderForm";
 import type { PlayerData } from "./utils/hashUtils";
 import { getNextTitle, processNewDayTransformations, isMiniGameTitle } from "./utils/constants";
+import { downloadBlob } from "./utils/downloadBlob";
 import { formatPrefixToTitle } from "./utils/titleUtils";
 import {
   updateConnectionState,
@@ -20,7 +21,7 @@ import {
 import { loadUserSettings, loadConfigFromUrl } from "./services/userSettingsStorage";
 import { dataService, DataServiceMode } from "./services/dataService";
 import { miniGameStore } from "./services/miniGameLocalStorage";
-import { clearTournamentState, getTournamentState } from "./services/storageService";
+import { clearTournamentState } from "./services/storageService";
 import { checkMigrationNeeded, storeCurrentMode } from "./utils/migrationUtils";
 import {
   savePlayers,
@@ -59,32 +60,6 @@ function App() {
   const [lastKnownMode, setLastKnownMode] = useState<'local' | 'server_down' | 'server' | null>(null);
   // Show server-down blocking dialog on first load if server is unreachable
   const [showServerDownBlocking, setShowServerDownBlocking] = useState(false);
-  // Tournament state
-  const [tournamentActive, setTournamentActive] = useState(false);
-
-  // Check tournament status on mount (server mode)
-  useEffect(() => {
-    const checkTournamentStatus = async () => {
-      try {
-        const userSettings = loadUserSettings();
-        const serverUrl = userSettings.server?.trim();
-        
-        if (serverUrl) {
-          // Server mode - check API
-          const state = await dataService.getTournamentStatus();
-          setTournamentActive(state.active || false);
-        } else {
-          // Local mode - check localStorage
-          const state = getTournamentState();
-          setTournamentActive(state?.active || false);
-        }
-      } catch (error) {
-        console.error('Failed to check tournament status:', error);
-      }
-    };
-    
-    checkTournamentStatus();
-  }, []);
   const [versionMismatch, setVersionMismatch] = useState(false);
   const [urlConfigApplied, setUrlConfigApplied] = useState(false);
   const [status, setStatus] = useState<string | null>("Initializing...");
@@ -266,7 +241,6 @@ function App() {
     }
     
     clearTournamentState();
-    setTournamentActive(false);
     
     await savePlayers([]);
     clearSettings();
@@ -283,7 +257,6 @@ function App() {
     }
     
     clearTournamentState();
-    setTournamentActive(false);
     setProjectName('Ladder');
     setProjectNameStorage('Ladder');
     window.location.reload();
@@ -294,7 +267,7 @@ function App() {
       const players = await getPlayers();
       if (players && players.length > 0) {
         const currentTitle = getProjectName();
-        const isTournament = tournamentActive;
+        const isTournament = isMiniGameTitle(currentTitle);
         
         if (isTournament) {
           try {
@@ -350,14 +323,7 @@ function App() {
   const handleExportTournamentFiles = async () => {
     try {
       const blob = await dataService.exportTournamentFiles();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `tournament_${new Date().toISOString().split('T')[0]}.zip`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      downloadBlob(blob, `tournament_${new Date().toISOString().split('T')[0]}.zip`);
     } catch (error) {
       console.error('Failed to export tournament files:', error);
       alert('Failed to export: ' + (error as Error).message);
@@ -367,14 +333,7 @@ function App() {
   const handleGenerateTrophies = async () => {
     try {
       const blob = await dataService.generateTrophyReport();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `tournament_trophies_${new Date().toISOString().split('T')[0]}.tab`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      downloadBlob(blob, `tournament_trophies_${new Date().toISOString().split('T')[0]}.tab`);
     } catch (error) {
       console.error('Failed to generate trophies:', error);
       alert('Failed to generate trophies: ' + (error as Error).message);
@@ -384,14 +343,7 @@ function App() {
   const handleExportMiniData = async () => {
     try {
       const blob = await dataService.exportMiniData();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `mini_data_${new Date().toISOString().split('T')[0]}.zip`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      downloadBlob(blob, `mini_data_${new Date().toISOString().split('T')[0]}.zip`);
     } catch (error) {
       console.error('Failed to export mini data:', error);
       alert('Failed to export: ' + (error as Error).message);
@@ -408,7 +360,6 @@ function App() {
         return false;
       }
       clearTournamentState();
-      setTournamentActive(false);
     }
     
     return true;
@@ -623,7 +574,7 @@ function App() {
           onClearMiniGames={isAdmin ? handleClearMiniGames : undefined}
           onExportTournamentFiles={isAdmin ? handleExportTournamentFiles : undefined}
           onGenerateTrophies={isAdmin ? handleGenerateTrophies : undefined}
-          isTournamentActive={tournamentActive}
+          isTournamentActive={isMiniGameTitle(getProjectName())}
           isAdmin={isAdmin}
         />
       )}

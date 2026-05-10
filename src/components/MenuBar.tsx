@@ -1,5 +1,8 @@
 import { useState, useEffect } from "react";
 import { getVersionString, isServerDownMode, getProgramMode } from "../utils/mode";
+import { getVisibleTitles, createTitleMenuItem, ALL_TITLES } from "../utils/titleMenu";
+import { getFontSize } from "../utils/getFontSize";
+import { useIntervalCheck } from "../utils/useIntervalCheck";
 import { titleToFileName } from "../utils/constants";
 import {
   Folder,
@@ -94,14 +97,11 @@ export default function MenuBar({
   const [isServerDown, setIsServerDown] = useState(false);
 
   // Track server down mode
+  const isServerDownValue = useIntervalCheck(() => getProgramMode() === 'server_down', 10000);
+
   useEffect(() => {
-    const checkMode = () => {
-      setIsServerDown(getProgramMode() === 'server_down');
-    };
-    checkMode();
-    const interval = setInterval(checkMode, 10000);
-    return () => clearInterval(interval);
-  }, []);
+    setIsServerDown(isServerDownValue);
+  }, [isServerDownValue]);
 
   const closeAllMenus = () => {
     setOpenMenu(null);
@@ -142,24 +142,7 @@ export default function MenuBar({
     },
   ];
 
-  const allTitles = [
-    "Ladder",
-    "Bughouse",
-    "BG_Game",
-    "Bishop_Game",
-    "Pillar_Game",
-    "Kings_Cross",
-    "Pawn_Game",
-    "Queen_Game",
-  ];
-
-  const visibleTitles = isAdmin
-    ? allTitles
-    : allTitles.filter((title) => {
-        if (title === "Ladder") return true;
-        const fileName = titleToFileName(title);
-        return availableMiniGames.includes(fileName);
-      });
+  const visibleTitles = getVisibleTitles(isAdmin, availableMiniGames);
 
   const titleMenuItems: MenuItem[] = visibleTitles.map((title) => {
     const isMiniGame = title !== "Ladder";
@@ -506,23 +489,6 @@ export default function MenuBar({
     </div>
   );
 
-  const getFontSize = () => {
-    switch (zoomLevel) {
-      case "50%":
-        return "0.5rem";
-      case "70%":
-        return "0.625rem";
-      case "100%":
-        return "0.875rem";
-      case "140%":
-        return "1.25rem";
-      case "200%":
-        return "1.75rem";
-      default:
-        return "0.875rem";
-    }
-  };
-
   return (
     <>
       <div
@@ -532,7 +498,7 @@ export default function MenuBar({
           alignItems: "center",
           backgroundColor: tournamentMode ? "#1e40af" : "#1e293b",
           borderBottom: "1px solid #334155",
-          fontSize: getFontSize(),
+          fontSize: getFontSize(zoomLevel),
         }}
       >
         <div
