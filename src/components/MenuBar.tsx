@@ -30,7 +30,6 @@ import {
 
 interface MenuBarProps {
   onFileAction?: (action: "load" | "export") => void;
-  onExportMiniData?: () => void;
   onSort?: (sortType: "rank" | "byLastName" | "byFirstName" | "nRating" | "rating") => void;
   onRecalculateRatings?: () => void;
   onCheckErrors?: () => void;
@@ -66,7 +65,6 @@ interface MenuItem {
 
 export default function MenuBar({
   onFileAction,
-  onExportMiniData,
   onSort,
   onRecalculateRatings,
   onCheckErrors,
@@ -131,16 +129,7 @@ export default function MenuBar({
       },
       dataMenuItem: "Export",
     },
-    {
-      icon: <Archive size={16} />,
-      label: "Export Mini Data",
-      onClick: () => {
-        onExportMiniData?.();
-        closeAllMenus();
-      },
-      dataMenuItem: "ExportMiniData",
-    },
-  ];
+    ];
 
   const visibleTitles = getVisibleTitles(isAdmin, availableMiniGames);
 
