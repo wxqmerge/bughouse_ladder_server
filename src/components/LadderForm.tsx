@@ -252,6 +252,7 @@ export default function LadderForm({
   const [serverVersion, setServerVersion] = useState<string>('');
   const [writeErrors, setWriteErrors] = useState<{ count: number; message: string } | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [availableMiniGames, setAvailableMiniGames] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<
     "rank" | "nRating" | "rating" | "byLastName" | "byFirstName" | null
   >(null);
@@ -518,8 +519,6 @@ export default function LadderForm({
           const userSettings = loadUserSettings();
           let serverUrl = userSettings.server?.trim() || '';
 
-        console.log('[INIT]', 'Server URL:', serverUrl || '(none)');
-
         // Load project settings from localStorage
         const projectName = getProjectName();
         if (projectName) {
@@ -542,10 +541,14 @@ export default function LadderForm({
 
         // PRIORITY 1: If server is configured, ALWAYS fetch from server first
         if (serverUrl) {
-          console.log('[INIT]', 'Fetching from server:', serverUrl);
           (window as any).__ladder_setStatus?.(`Connecting to ${serverUrl}...`);
           try {
-            const response = await fetch(`${serverUrl}/api/ladder`, {
+            const isMiniGame = isMiniGameTitle(projectName);
+            const apiUrl = isMiniGame 
+              ? `${serverUrl}/api/admin/tournament/read-mini-game?fileName=${titleToFileName(projectName)}`
+              : `${serverUrl}/api/ladder`;
+            
+            const response = await fetch(apiUrl, {
               headers: {},
             });
             
@@ -555,25 +558,6 @@ export default function LadderForm({
               
               const data = await response.json();
               const serverPlayers = data.data?.players || [];
-              
-              console.log('[INIT]', 'Server returned', serverPlayers.length, 'players');
-              
-              // Debug: Log game results for players 5 and 6
-              const player5 = serverPlayers.find((p: PlayerData) => p.rank === 5);
-              const player6 = serverPlayers.find((p: PlayerData) => p.rank === 6);
-              if (player5) {
-                const filledCells = player5.gameResults?.map((r: string | null, i: number) => r ? `R${i+1}:${r}` : null).filter(Boolean) || [];
-                console.log('[INIT CLIENT]', `Player 5 game results:`, filledCells.slice(0, 5), filledCells.length > 5 ? '...' : '');
-                // Check for underscores
-                const hasUnderscore = filledCells.some((c: string) => c.includes('_'));
-                console.log('[INIT CLIENT]', `Player 5 has underscore:`, hasUnderscore);
-              }
-              if (player6) {
-                const filledCells = player6.gameResults?.map((r: string | null, i: number) => r ? `R${i+1}:${r}` : null).filter(Boolean) || [];
-                console.log('[INIT CLIENT]', `Player 6 game results:`, filledCells.slice(0, 5), filledCells.length > 5 ? '...' : '');
-                const hasUnderscore = filledCells.some((c: string) => c.includes('_'));
-                console.log('[INIT CLIENT]', `Player 6 has underscore:`, hasUnderscore);
-              }
               
               if (serverPlayers && serverPlayers.length > 0) {
                 (window as any).__ladder_setStatus?.(`Loaded ${serverPlayers.length} players from server`);
@@ -593,6 +577,12 @@ export default function LadderForm({
                 
                 setPlayers(playersWithResults);
                 setSortBy(null);
+                
+                // Set mini-game file if we're in tournament mode
+                if (isMiniGame) {
+                  dataService.setMiniGameFile(titleToFileName(projectName));
+                }
+                
                 console.log('[LadderForm]', `Loaded ${playersWithResults.length} players from server`);
                 (window as any).__ladder_setStatus?.(null);
                 return;
@@ -607,14 +597,27 @@ export default function LadderForm({
         }
 
         // PRIORITY 2: Fall back to localStorage if no server or server failed
-        const localPlayers = getLocalPlayers();
+        let localPlayers: PlayerData[] = [];
         
-        console.log('[INIT]', 'localStorage has data:', localPlayers.length > 0);
+        if (isMiniGameTitle(projectName)) {
+          // In mini-game mode, read from mini-game store
+          try {
+            const miniGameData = await dataService.readMiniGameFile(titleToFileName(projectName));
+            if (miniGameData && miniGameData.players && miniGameData.players.length > 0) {
+              localPlayers = miniGameData.players;
+              dataService.setMiniGameFile(titleToFileName(projectName));
+            }
+          } catch (err) {
+            console.warn('[INIT]', 'Failed to read mini-game file from localStorage:', err);
+          }
+        }
+        
+        if (localPlayers.length === 0) {
+          localPlayers = getLocalPlayers();
+        }
 
         if (localPlayers.length > 0) {
           try {
-            console.log('[INIT]', 'Parsed', localPlayers.length, 'players from localStorage');
-            
             const playersWithResults = localPlayers.map((player) => ({
               ...player,
               gameResults: player.gameResults || new Array(31).fill(null),
@@ -642,7 +645,6 @@ export default function LadderForm({
       }
 
       // No data anywhere - start with empty ladder
-      console.log('[INIT]', 'Starting with empty ladder');
       (window as any).__ladder_setStatus?.('Starting with empty ladder...');
       setPlayers([]);
       setSortBy(null);
@@ -1783,6 +1785,39 @@ const nextTitle = (() => {
       log('[REFRESH]', '✗ Failed to refresh:', error);
     }
   };
+
+  // Fetch available mini-games on mount
+  useEffect(() => {
+    const fetchAvailableMiniGames = async () => {
+      try {
+        const userSettings = loadUserSettings();
+        const serverUrl = userSettings.server?.trim();
+        
+        if (!serverUrl) {
+          log('[MINI-GAMES]', 'Local mode - skipping mini-game availability check');
+          return;
+        }
+
+        const response = await fetch(`${serverUrl}/api/admin/tournament/check-mini-games`, {
+          headers: {
+            'Content-Type': 'application/json',
+            ...(userSettings.apiKey ? { 'X-API-Key': userSettings.apiKey } : {}),
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const files = data.data?.files || [];
+          setAvailableMiniGames(files);
+          log('[MINI-GAMES]', `Found ${files.length} mini-game files: ${files.join(', ')}`);
+        }
+      } catch (error) {
+        log('[MINI-GAMES]', 'Failed to fetch mini-game availability:', error);
+      }
+    };
+
+    fetchAvailableMiniGames();
+  }, []);
 
   // Expose refreshPlayers function to App.tsx
   useEffect(() => {
@@ -4084,6 +4119,7 @@ const nextTitle = (() => {
         isAdmin={isAdmin}
         projectName={projectName}
         onSetTitle={handleSetTitle}
+        availableMiniGames={availableMiniGames}
       />
 
       {/* Version mismatch warning banner */}
@@ -4186,8 +4222,7 @@ const nextTitle = (() => {
             playerCount={players.length}
             tournamentMode={isMiniGameTitle(projectName)}
             onExportMiniData={onExportMiniData}
-
-
+            availableMiniGames={availableMiniGames}
 
           serverUrl={splashServerUrl}
           hasAdminApiKey={!!splashApiKey && splashApiKey.trim().length > 0}
