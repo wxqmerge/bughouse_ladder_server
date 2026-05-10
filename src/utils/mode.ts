@@ -208,34 +208,5 @@ export function isServerDownMode(): boolean {
   return getProgramMode() === 'server_down';
 }
 
-/**
- * Check server version against client version
- * @param clientVersion The client version to compare against
- * @returns true if versions match, false if mismatch or server unreachable
- */
-export async function checkServerVersion(clientVersion: string): Promise<boolean> {
-  if (!connectionState.serverUrl) {
-    return true; // No server configured, no version to check
-  }
-  
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000);
-    
-    const response = await fetch(`${connectionState.serverUrl}/health`, {
-      signal: controller.signal,
-    });
-    
-    clearTimeout(timeoutId);
-    
-    if (!response.ok) {
-      return false; // Server reachable but /health failed
-    }
-    
-    const data = await response.json();
-    return data.version === clientVersion;
-  } catch {
-    return false; // Server unreachable
-  }
-}
+
 

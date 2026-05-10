@@ -6,11 +6,9 @@ import archiver from 'archiver';
 import { requireAdminKey } from '../middleware/auth.middleware.js';
 import { readLadderFile, writeLadderFile, ensureDataDirectory, PlayerData, generateTabContent, createBackup, rotateBackups, withTiming, getBackupList, restoreBackup, deleteBackup } from '../services/dataService.js';
 import { log } from '../utils/logger.js';
-import { getSlowOperations, clearSlowOperations, generatePerformanceReport } from '../utils/performance.js';
+
 import {
   loadTournamentState,
-  startTournament,
-  endTournament,
   getTournamentState,
   isTournamentActive,
   getMiniGameFilePath,
@@ -122,161 +120,6 @@ router.get('/export', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-// Process game results and calculate ratings
-router.post('/process', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const ladderData = await readLadderFile();
-    
-    // Import processing functions from shared
-    // This will be properly configured when we set up the shared module
-    console.log('Processing game results...');
-    
-    // Placeholder response
-    res.json({
-      success: true,
-      data: {
-        message: 'Processing completed',
-        playerCount: ladderData.players.length,
-      },
-    });
-  } catch (error) {
-    console.error('Process error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Failed to process game results' },
-    });
-  }
-});
-
-// Regenerate ladder.tab file from current data
-router.post('/regenerate', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const ladderData = await withTiming('readLadderFile(regenerate)', readLadderFile);
-    const content = generateTabContent(ladderData);
-    
-    // Create backup before overwriting (skip during tests)
-    if (!process.env.VITEST) {
-      const backupPath = await createBackup();
-      if (backupPath) {
-        await rotateBackups();
-      }
-    }
-
-    const ladderPath = process.env.TAB_FILE_PATH || path.join(__dirname, '../../data/ladder.tab');
-    await withTiming(`writeFile(regenerate)`, () => fs.writeFile(ladderPath, content, 'utf-8'));
-
-    res.json({
-      success: true,
-      data: {
-        message: 'Ladder file regenerated successfully',
-        players: ladderData.players.length,
-        path: ladderPath,
-      },
-    });
-  } catch (error) {
-    console.error('Regenerate error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Failed to regenerate ladder file' },
-    });
-  }
-});
-
-// Get server statistics
-router.get('/stats', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const ladderData = await readLadderFile();
-    
-    const stats = {
-      totalPlayers: ladderData.players.length,
-      totalGames: ladderData.players.reduce((sum: number, p: PlayerData) => 
-        sum + (p.gameResults || []).filter((r: string | null) => r && r !== '_').length, 0
-      ),
-      lastModified: new Date().toISOString(),
-    };
-
-    res.json({
-      success: true,
-      data: stats,
-    });
-  } catch (error) {
-    console.error('Stats error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Failed to get statistics' },
-    });
-  }
-});
-
-// Get performance report (slow operations)
-router.get('/performance', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const report = generatePerformanceReport();
-    
-    res.json({
-      success: true,
-      data: {
-        report,
-        operations: getSlowOperations(),
-      },
-    });
-  } catch (error) {
-    console.error('Performance report error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Failed to get performance report' },
-    });
-  }
-});
-
-// Clear performance data
-router.post('/performance/clear', async (req: Request, res: Response): Promise<void> => {
-  try {
-    clearSlowOperations();
-    
-    res.json({
-      success: true,
-      data: { message: 'Performance data cleared' },
-    });
-  } catch (error) {
-    console.error('Clear performance error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Failed to clear performance data' },
-    });
-  }
-});
-
-// Preview a specific backup file content
-router.get('/backups/preview/:filename', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const filename = req.params.filename;
-    
-    if (!filename || !filename.endsWith('.tab')) {
-      res.status(400).json({
-        success: false,
-        error: { message: 'Invalid backup filename' },
-      });
-      return;
-    }
-
-    const dataDir = path.join(__dirname, '../../data');
-    const filePath = path.join(dataDir, 'backups', filename);
-    
-    const content = await fs.readFile(filePath, 'utf-8');
-    res.json({
-      success: true,
-      data: { content },
-    });
-  } catch (error) {
-    console.error('Preview backup error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Failed to read backup file' },
-    });
-  }
-});
-
 // List available backups
 router.get('/backups', async (req: Request, res: Response): Promise<void> => {
   try {
@@ -373,61 +216,6 @@ router.delete('/backups/:filename', async (req: Request, res: Response): Promise
 });
 
 // ── Tournament Endpoints ─────────────────────────────────────────
-
-// Get tournament state
-router.get('/tournament/status', async (req: Request, res: Response): Promise<void> => {
-  try {
-    await loadTournamentState();
-    const state = getTournamentState();
-    
-    res.json({
-      success: true,
-      data: state,
-    });
-  } catch (error) {
-    console.error('Tournament status error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Failed to get tournament status' },
-    });
-  }
-});
-
-// Start tournament
-router.post('/tournament/start', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const state = await startTournament();
-    
-    res.json({
-      success: true,
-      data: state,
-    });
-  } catch (error) {
-    console.error('Start tournament error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Failed to start tournament' },
-    });
-  }
-});
-
-// End tournament
-router.post('/tournament/end', async (req: Request, res: Response): Promise<void> => {
-  try {
-    await endTournament();
-    
-    res.json({
-      success: true,
-      data: { message: 'Tournament ended' },
-    });
-  } catch (error) {
-    console.error('End tournament error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Failed to end tournament' },
-    });
-  }
-});
 
 // Save mini-game file (called on New-Day during tournament mode)
 router.post('/tournament/save-mini-game', async (req: Request, res: Response): Promise<void> => {
