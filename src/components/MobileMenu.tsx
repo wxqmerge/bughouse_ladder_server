@@ -7,6 +7,7 @@ import {
   Type,
   Check,
 } from "lucide-react";
+import { titleToFileName } from "../utils/constants";
 
 interface MobileMenuProps {
   isOpen: boolean;
@@ -26,6 +27,7 @@ interface MobileMenuProps {
   onDeleteHiddenPlayers?: () => void;
   onAutoLetter?: () => void;
   isAdmin: boolean;
+  tournamentMode?: boolean;
   projectName?: string;
   onSetTitle?: (title: string) => void;
   availableMiniGames?: string[];
@@ -55,6 +57,7 @@ export default function MobileMenu({
   onDeleteHiddenPlayers,
   onAutoLetter,
   isAdmin,
+  tournamentMode = false,
   projectName,
   onSetTitle,
   availableMiniGames = [],
@@ -71,6 +74,7 @@ export default function MobileMenu({
       label: "Load",
       onClick: () => handleItemClick(() => onFileAction("load")),
       dataMenuItem: "Load",
+      disabled: !isAdmin || tournamentMode,
     },
     {
       label: "Export",
@@ -92,7 +96,7 @@ export default function MobileMenu({
 
   const titleItems: MenuItem[] = allTitles.map((title) => {
     const isMiniGame = title !== "Ladder";
-    const fileName = isMiniGame ? `${title}.tab` : null;
+    const fileName = isMiniGame ? titleToFileName(title) : null;
     const isAvailable = fileName ? availableMiniGames.includes(fileName) : true;
     const isDisabled = !isAdmin && isMiniGame && !isAvailable;
     

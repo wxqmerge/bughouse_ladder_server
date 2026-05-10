@@ -4117,6 +4117,7 @@ const nextTitle = (() => {
         onDeleteHiddenPlayers={isAdmin ? handleDeleteHiddenPlayers : undefined}
         onAutoLetter={isAdmin ? handleAutoLetter : undefined}
         isAdmin={isAdmin}
+        tournamentMode={isMiniGameTitle(projectName || "")}
         projectName={projectName}
         onSetTitle={handleSetTitle}
         availableMiniGames={availableMiniGames}
