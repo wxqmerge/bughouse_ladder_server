@@ -1,10 +1,10 @@
 import { PlayerData } from '../../shared/types';
 import { getKeyPrefix, getLocalPlayers, setJson } from '../services/storageService';
 import { loadUserSettings } from '../services/userSettingsStorage';
+import type { ProgramMode } from './mode';
 
 const SESSION_LAST_MODE_KEY = 'ladder_last_mode';
 
-export type ProgramMode = 'local' | 'server';
 export type MigrationNonResultStrategy = 'use-server' | 'use-local';
 export type MigrationResultsStrategy = 'merge' | 'dont-merge';
 
