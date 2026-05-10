@@ -2653,17 +2653,22 @@ const nextTitle = (() => {
     setProjectNameStorage(newTitle);
     
     if (!currentIsMiniGame && newIsMiniGame) {
-      // First switch from Ladder to mini-game: create file with fresh results and switch data source
+      // First switch from Ladder to mini-game: create file with fresh results,
+      // add player to all other mini-game files, and switch data source
       try {
-        const userSettings = loadUserSettings();
-        const serverUrl = userSettings.server?.trim();
         const fileName = titleToFileName(newTitle);
         
-        if (serverUrl) {
-          await dataService.copyPlayersToMiniGame(fileName);
-          dataService.setMiniGameFile(fileName);
-          console.log(`[LadderForm] Copied players to ${fileName}, switched data source`);
+        await dataService.copyPlayersToMiniGame(fileName);
+        const allPlayers = await dataService.getPlayers();
+        for (const player of allPlayers) {
+          try {
+            await dataService.addPlayerToMiniGames(player);
+          } catch (e) {
+            // silently skip if a particular mini-game file doesn't exist yet
+          }
         }
+        dataService.setMiniGameFile(fileName);
+        console.log(`[LadderForm] Copied players to ${fileName}, added to all mini-games, switched data source`);
       } catch (error) {
         const fileName = titleToFileName(newTitle);
         console.error(`Failed to copy players to ${fileName}:`, error);

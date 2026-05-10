@@ -153,7 +153,15 @@ export default function MenuBar({
     "Queen_Game",
   ];
 
-  const titleMenuItems: MenuItem[] = allTitles.map((title) => {
+  const visibleTitles = isAdmin
+    ? allTitles
+    : allTitles.filter((title) => {
+        if (title === "Ladder") return true;
+        const fileName = titleToFileName(title);
+        return availableMiniGames.includes(fileName);
+      });
+
+  const titleMenuItems: MenuItem[] = visibleTitles.map((title) => {
     const isMiniGame = title !== "Ladder";
     const fileName = isMiniGame ? titleToFileName(title) : null;
     const isAvailable = fileName ? availableMiniGames.includes(fileName) : true;
