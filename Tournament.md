@@ -325,8 +325,10 @@ Let t = ceil(n / 3) = available trophy slots
 
 1. Award 1st place for each COMPLETED mini-game (always, hardest first: Queen → Pawn → Kings_Cross → Pillar → Bishop → BG_Game → bughouse)
    - Player must have at least one game result in that mini-game
+   - If top player already has a trophy, fall through to next ranked player
 2. Award 2nd place for each COMPLETED mini-game (only if t > m)
    - Player must have at least one game result in that mini-game
+   - If top player already has a trophy, fall through to next ranked player
 3. Award grade 1st place (only if t > 2*m)
    - Remaining players (no trophy yet), sorted by num_games
    - First player by num_games in each grade wins
@@ -339,21 +341,21 @@ Let t = ceil(n / 3) = available trophy slots
 Let n = number of players
 Let t = ceil(n / 3) = available trophy slots
 
-1. Award 1st place overall (always) — highest rated player
-2. Award 2nd place overall (always) — 2nd highest rated player
-3. Award 3rd place overall (always) — 3rd highest rated player
-4. Award Most Games (always) — player with most games played
+1. Award 1st place overall (always) — first eligible player by rating
+2. Award 2nd place overall (always) — next eligible player by rating
+3. Award 3rd place overall (always) — next eligible player by rating
+4. Award Most Games (always) — first eligible player by num_games
 5. Award grade 1st place (only if t > 4)
-   - Highest rated player in each grade wins
-   - One trophy per grade
+   - First eligible player by rating in each grade
 6. Award grade 2nd place (only if trophies remain)
-   - 2nd highest rated player in each grade wins
+   - Next eligible player by rating in each grade
 7. Award grade 3rd place (only if trophies remain)
-   - 3rd highest rated player in each grade wins
+   - Next eligible player by rating in each grade
 ```
 
 **Rules for both modes:**
 - One trophy per player — first-come-first-served by award order
+- If the top-ranked player already has a trophy, fall through to the next ranked player
 - If any grade gets trophies, ALL grades must receive trophies
 - Ties are OK — better to give too many trophies than too few
 
@@ -404,20 +406,22 @@ Let t = ceil(n / 3) = available trophy slots
 ### Club Ladder Examples
 
 **10 players = 4 trophy slots (t=4):**
-- 1st, 2nd, 3rd overall = 3 trophies
-- Most Games = 4 trophies
+- 1st overall = 1 trophy (highest rated)
+- 2nd overall = 1 trophy (2nd highest rated)
+- 3rd overall = 1 trophy (3rd highest rated)
+- Most Games = 1 trophy (if highest-rated player also has most games, falls through to next)
 - Grade 1st skipped (t ≤ 4)
 - Total: 4 trophies
 
 **16 players = 6 trophy slots (t=6):**
 - 1st, 2nd, 3rd overall = 3 trophies
-- Most Games = 4 trophies
+- Most Games = 1 trophy (falls through if already won)
 - Grade 1st awarded (t > 4 ✓, one per grade)
 - Total: 5+ trophies
 
 **30 players = 10 trophy slots (t=10):**
 - 1st, 2nd, 3rd overall = 3 trophies
-- Most Games = 4 trophies
+- Most Games = 1 trophy (falls through if already won)
 - Grade 1st awarded (t > 4 ✓, one per grade)
 - Grade 2nd awarded (trophies remain ✓, one per grade)
 - Total: 6+ trophies
@@ -551,10 +555,11 @@ Tournament mode state stored server-side (not in PlayerData or .tab files):
 21. **Mini-game trophies** - 1st place always awarded, 2nd place only if t > m, grade 1st only if t > 2*m
 22. **Club ladder trophies** - 1st/2nd/3rd overall + Most Games always awarded, grade 1st if t > 4, grade 2nd/3rd if trophies remain
 23. **One trophy per player** - Each player can only receive one trophy (first-come-first-served by award order)
-24. **Must have games to win** - Player must have at least one game result in a mini-game to win that mini-game's 1st/2nd place trophy
-25. **1/3 ratio is a floor, not a cap** - Trophy count = ceil(players / 3), but mini-game 1st/2nd places and grade trophies are always awarded regardless of count
-26. **5 recalcs before trophies** - Each mini-game file is recalculated 5 times (calculateRatings × 5) before trophy determination to stabilize ratings
-27. **Grade completeness** - If any grade gets trophies, ALL grades must receive trophies
+24. **Fall through to next eligible** - If the top-ranked player already has a trophy, the trophy goes to the next ranked eligible player (applies to ALL trophy types)
+25. **Must have games to win** - Player must have at least one game result in a mini-game to win that mini-game's 1st/2nd place trophy
+26. **1/3 ratio is a floor, not a cap** - Trophy count = ceil(players / 3), but mini-game 1st/2nd places and grade trophies are always awarded regardless of count
+27. **5 recalcs before trophies** - Each mini-game file is recalculated 5 times (calculateRatings × 5) before trophy determination to stabilize ratings
+28. **Grade completeness** - If any grade gets trophies, ALL grades must receive trophies
 28. **Local mode export** - Returns combined text blob with `=== filename.tab ===` headers between each file (acceptable, no ZIP support in localStorage)
 29. **Manual title switch during tournament** - Should be prevented (admin must use "Clear Mini-Games" in Settings to end tournament)
 30. **Bughouse file naming** - Bughouse is treated as just another mini-game, no special naming like `Bughouse_BG_Game.tab`
@@ -562,9 +567,9 @@ Tournament mode state stored server-side (not in PlayerData or .tab files):
 32. **Mini-game files not archived with timestamps** - Files are overwritten/merged, zip/blob is the backup
 33. **Export includes club ladder** - Export (ZIP for server, blob for local) includes club_ladder.tab + all mini-game files
 34. **No auto-clear after trophies** - Mini-game results persist; admin uses "Clear Mini-Games" when ready
-35. **Export files are time/date stamped** - ZIP filename: `tournament_YYYY-MM-DD.zip`, trophy: `tournament_trophies_YYYY-MM-DD.tab`, mini data: `mini_data_YYYY-MM-DD.zip`
-35. **Data source switching** - `DataService` tracks `currentMiniGameFile`; all operations (`getPlayers`, `savePlayers`, `submitGameResult`, `updatePlayer`, `clearPlayerCell`) route to the mini-game file when set, or to `ladder.tab` when null
-36. **Multi-client support** - Multiple clients can view and enter results in different mini-games simultaneously; each client's `DataService` has its own `currentMiniGameFile` — no cross-contamination
+36. **Export files are time/date stamped** - ZIP filename: `tournament_YYYY-MM-DD.zip`, trophy: `tournament_trophies_YYYY-MM-DD.tab`, mini data: `mini_data_YYYY-MM-DD.zip`
+37. **Data source switching** - `DataService` tracks `currentMiniGameFile`; all operations (`getPlayers`, `savePlayers`, `submitGameResult`, `updatePlayer`, `clearPlayerCell`) route to the mini-game file when set, or to `ladder.tab` when null
+38. **Multi-client support** - Multiple clients can view and enter results in different mini-games simultaneously; each client's `DataService` has its own `currentMiniGameFile` — no cross-contamination
 
 ## Open Questions
 
