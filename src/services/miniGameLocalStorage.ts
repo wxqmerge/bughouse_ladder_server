@@ -4,6 +4,7 @@
  */
 
 import { PlayerData, LadderData, MiniGameStore } from '../../shared/types';
+import { calculateRatings, processGameResults } from '../../shared/utils/hashUtils';
 
 const MINI_GAME_FILES = [
   'BG_Game.tab',
@@ -348,6 +349,32 @@ async function countGamesAcrossMiniGames(playerRank: number, existingFiles: stri
   return totalGames;
 }
 
+async function recalcMiniGames(existingFiles: string[]): Promise<void> {
+  const NUM_RECALCS = 5;
+  
+  for (const fileName of existingFiles) {
+    const miniGameData = await readMiniGameFile(fileName);
+    if (!miniGameData || miniGameData.players.length === 0) continue;
+    
+    let currentPlayers = [...miniGameData.players];
+    
+    for (let recalc = 0; recalc < NUM_RECALCS; recalc++) {
+      const { matches } = processGameResults(currentPlayers);
+      const result = calculateRatings(currentPlayers, matches, {
+        kFactorOverride: 20,
+        blendingFactorOverride: 0.99,
+        perfMultiplierScaleOverride: 0.5,
+      });
+      currentPlayers = result.players;
+    }
+    
+    await writeMiniGameFile(fileName, {
+      ...miniGameData,
+      players: currentPlayers,
+    });
+  }
+}
+
 async function generateMiniGameTrophies(players: PlayerData[], maxTrophies: number, existingFiles: string[]): Promise<any[]> {
   const trophies: any[] = [];
   const seenPlayers = new Set<string>();
@@ -605,6 +632,8 @@ export const miniGameStore: MiniGameStore = {
         debugLines.push(debugLine('Award grade 1st', `t=${maxTrophies} > 2*m=${2 * m} ? ${maxTrophies > 2 * m}`, '', '', '', '', '', ''));
         debugLines.push('');
         
+        await recalcMiniGames(existingFiles);
+
         debugLines.push(debugLine('MINI-GAME PLAYERS', '(after 5 recalcs)', '', '', '', '', '', ''));
         
         for (const fileName of existingFiles) {

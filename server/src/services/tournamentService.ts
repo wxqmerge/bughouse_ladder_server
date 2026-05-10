@@ -25,6 +25,7 @@ export interface MiniGameStore {
     trophies?: any[];
     isClubMode?: boolean;
   }>;
+  importMiniGameFiles(content: string): Promise<{ imported: string[]; errors: string[] }>;
 }
 
 // Mini-game file names (7 files, same as MINI_GAMES + bughouse)
@@ -510,24 +511,14 @@ export async function generateMiniGameTrophies(players: PlayerData[], maxTrophie
   const m = existingFiles.length;
   const t = maxTrophies;
 
-  function countMiniGameGames(playerRank: number, fileName: string): number {
-    const miniGameData = existingFiles.find(f => f === fileName) ? { fileName } : null;
-    // We need to read the file to count games
-    return 0; // placeholder - will be calculated below
-  }
-
-  async function getPlayerMiniGameGames(playerRank: number, fileName: string): Promise<number> {
-    const miniGameData = await readMiniGameFile(fileName);
-    if (!miniGameData) return 0;
-    const player = miniGameData.players.find(p => p.rank === playerRank);
-    if (!player?.gameResults) return 0;
-    return player.gameResults.filter(r => r && r !== '' && r !== '_').length;
-  }
-
   async function getPlayerTotalGames(player: PlayerData): Promise<number> {
     let total = 0;
     for (const fileName of existingFiles) {
-      total += await getPlayerMiniGameGames(player.rank, fileName);
+      const miniGameData = await readMiniGameFile(fileName);
+      if (!miniGameData) continue;
+      const p = miniGameData.players.find(p => p.rank === player.rank);
+      if (!p?.gameResults) continue;
+      total += p.gameResults.filter(r => r && r !== '' && r !== '_').length;
     }
     return total;
   }
