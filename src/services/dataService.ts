@@ -775,7 +775,8 @@ class DataService {
 
   async exportTournamentFiles(): Promise<Blob> {
     if (this.config.mode === DataServiceMode.LOCAL) {
-      // In local mode, we can't create a real ZIP, so we'll return a Blob with all files combined
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
       const store = this.getStore();
       const existingFiles = await store.getExistingMiniGameFiles();
       
@@ -783,16 +784,15 @@ class DataService {
         throw new Error('No mini-game files found');
       }
 
-      let content = '';
       for (const fileName of existingFiles) {
         const fileData = await store.readMiniGameFile(fileName);
         if (fileData) {
-          content += `=== ${fileName} ===\n`;
-          content += fileData.rawLines.join('\n') + '\n\n';
+          zip.file(fileName, fileData.rawLines.join('\n') + '\n');
         }
       }
 
-      return new Blob([content], { type: 'text/plain' });
+      const blob = await zip.generateAsync({ type: 'blob' });
+      return blob;
     } else {
       const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/export`, {
         headers: this.getAuthHeaders(),

@@ -39,3 +39,7 @@ scripts/test-downloads/
 stderr.txt
 stdout.txt
 ladder.tab
+data
+coverage
+/*.xls
+/*.tab

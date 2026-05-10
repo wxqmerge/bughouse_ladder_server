@@ -339,7 +339,27 @@ function App() {
         const file = (e.target as HTMLInputElement).files?.[0];
         if (!file) return;
         try {
-          const content = await file.text();
+          const arrayBuffer = await file.arrayBuffer();
+          const uint8Array = new Uint8Array(arrayBuffer);
+          const isZip = uint8Array.length >= 4 &&
+            uint8Array[0] === 0x50 && uint8Array[1] === 0x4b &&
+            uint8Array[2] === 0x03 && uint8Array[3] === 0x04;
+          let content: string;
+          if (isZip) {
+            const JSZip = (await import('jszip')).default;
+            const zip = await JSZip.loadAsync(arrayBuffer);
+            content = '';
+            const sortedFiles = Object.keys(zip.files).sort();
+            for (const fileName of sortedFiles) {
+              if (fileName.endsWith('/')) continue;
+              const fileContent = await zip.file(fileName)?.async('string');
+              if (fileContent) {
+                content += `=== ${fileName} ===\n${fileContent}`;
+              }
+            }
+          } else {
+            content = new TextDecoder().decode(uint8Array);
+          }
           const result = await dataService.importMiniGameFiles(content);
           if (result.imported.length > 0) {
             alert(`Imported: ${result.imported.join(', ')}`);
