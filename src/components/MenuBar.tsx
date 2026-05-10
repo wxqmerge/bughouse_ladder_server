@@ -48,6 +48,7 @@ interface MenuBarProps {
   serverUrl?: string | null;
   hasAdminApiKey?: boolean;
   tournamentMode?: boolean;
+  availableMiniGames?: string[];
 }
 
 interface MenuItem {
@@ -56,6 +57,7 @@ interface MenuItem {
   onClick: () => void;
   dataMenuItem: string;
   hasCheckmark?: boolean;
+  disabled?: boolean;
 }
 
 export default function MenuBar({
@@ -81,6 +83,7 @@ export default function MenuBar({
   serverUrl,
   hasAdminApiKey,
   tournamentMode = false,
+  availableMiniGames = [],
 }: MenuBarProps) {
   // Admin mode disabled: connected to server WITH API key but not actually admin
   // Enabled: no server URL (local mode) OR server unreachable (repair mode) OR has API key
@@ -148,16 +151,28 @@ export default function MenuBar({
     "Queen_Game",
   ];
 
-  const titleMenuItems: MenuItem[] = allTitles.map((title) => ({
-    icon: <Type size={16} />,
-    label: title,
-    onClick: () => {
-      onSetTitle?.(title);
-      closeAllMenus();
-    },
-    dataMenuItem: `Title-${title}`,
-    hasCheckmark: projectName?.toLowerCase() === title.toLowerCase(),
-  }));
+  const titleMenuItems: MenuItem[] = allTitles.map((title) => {
+    const isMiniGame = title !== "Ladder";
+    const fileName = isMiniGame ? `${title}.tab` : null;
+    const isAvailable = fileName ? availableMiniGames.includes(fileName) : true;
+    const isDisabled = !isAdmin && isMiniGame && !isAvailable;
+    
+    return {
+      icon: <Type size={16} />,
+      label: title,
+      onClick: () => {
+        if (isDisabled) {
+          alert(`"${title}" is not available yet. Only admin can create mini-games.`);
+          return;
+        }
+        onSetTitle?.(title);
+        closeAllMenus();
+      },
+      dataMenuItem: `Title-${title}`,
+      hasCheckmark: projectName?.toLowerCase() === title.toLowerCase(),
+      disabled: isDisabled,
+    };
+  });
 
   const sortMenuItems: MenuItem[] = [
     {
@@ -377,27 +392,33 @@ export default function MenuBar({
           key={item.dataMenuItem}
           data-menu-item={item.dataMenuItem}
           role="menuitem"
-          tabIndex={0}
+          tabIndex={item.disabled ? -1 : 0}
           onClick={item.onClick}
           onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
+            if (!item.disabled && (e.key === "Enter" || e.key === " ")) {
               item.onClick();
             }
           }}
           style={{
             padding: "0.75rem 1rem",
-            cursor: "pointer",
+            cursor: item.disabled ? "not-allowed" : "pointer",
             display: "flex",
             alignItems: "center",
             gap: "0.75rem",
-            color: "#374151",
+            color: item.disabled ? "#9ca3af" : "#374151",
             backgroundColor: "white",
+            opacity: item.disabled ? 0.5 : 1,
+            fontStyle: item.disabled ? "italic" : "normal",
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = "#f1f5f9";
+            if (!item.disabled) {
+              e.currentTarget.style.backgroundColor = "#f1f5f9";
+            }
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = "white";
+            if (!item.disabled) {
+              e.currentTarget.style.backgroundColor = "white";
+            }
           }}
         >
           {item.icon}
@@ -405,6 +426,11 @@ export default function MenuBar({
             <Check size={14} style={{ marginLeft: "auto", color: "#3b82f6" }} />
           )}
           <span>{item.label}</span>
+          {item.disabled && (
+            <span style={{ marginLeft: "auto", fontSize: "0.75rem", color: "#9ca3af" }}>
+              (not available)
+            </span>
+          )}
         </div>
       ))}
     </div>
