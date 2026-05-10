@@ -1763,56 +1763,21 @@ const nextTitle = (() => {
     }
     
     try {
-      log('[REFRESH]', 'Refreshing players from server');
+      log('[REFRESH]', 'Refreshing players using dataService');
       
-      // Force fresh fetch from server (bypass cache)
-      const userSettings = loadUserSettings();
-      const serverUrl = userSettings.server?.trim();
-      
-      if (!serverUrl) {
-        log('[REFRESH]', 'No server configured, using local data');
-        const localPlayers = await getPlayers();
-        if (localPlayers && localPlayers.length > 0) {
-          setPlayers(localPlayers.map((player: PlayerData) => ({
-            ...player,
-            gameResults: player.gameResults || new Array(31).fill(null),
-          })));
-        }
-        return;
-      }
-      
-      const response = await fetch(`${serverUrl}/api/ladder`);
-      if (!response.ok) {
-        log('[REFRESH]', 'Server fetch failed, using local data');
-        const localPlayers = await getPlayers();
-        if (localPlayers && localPlayers.length > 0) {
-          setPlayers(localPlayers.map((player: PlayerData) => ({
-            ...player,
-            gameResults: player.gameResults || new Array(31).fill(null),
-          })));
-        }
-        return;
-      }
-      
-      const data = await response.json();
-      const freshPlayers = data.data?.players || [];
+      const freshPlayers = await dataService.getPlayers();
       
       if (freshPlayers && freshPlayers.length > 0) {
-        // Preserve local nRating values - server returns 0 for all (ladder.tab doesn't store them)
-        const playersWithResults = freshPlayers.map((player: PlayerData) => {
-          // Find corresponding local player to preserve nRating
-          const localPlayer = players.find((lp: PlayerData) => lp.rank === player.rank);
-          return {
-            ...player,
-            nRating: localPlayer?.nRating !== undefined ? localPlayer.nRating : player.nRating,
-            gameResults: player.gameResults || new Array(31).fill(null),
-          };
-        });
+        const playersWithResults = freshPlayers.map((player: PlayerData) => ({
+          ...player,
+          gameResults: player.gameResults || new Array(31).fill(null),
+        }));
         
-        // Update state (preserve sort order)
         setPlayers(playersWithResults);
         
-        log('[REFRESH]', '✓ Refreshed ' + playersWithResults.length + ' players from server');
+        log('[REFRESH]', '✓ Refreshed ' + playersWithResults.length + ' players');
+      } else {
+        log('[REFRESH]', 'No players found');
       }
     } catch (error) {
       log('[REFRESH]', '✗ Failed to refresh:', error);
@@ -2672,6 +2637,9 @@ const nextTitle = (() => {
       // Switching away from mini-game: reset data source to ladder.tab
       dataService.setMiniGameFile(null);
     }
+    
+    // Reload players from the new data source
+    await refreshPlayers();
     
     return;
   };

@@ -616,6 +616,10 @@ class DataService {
     return this.currentMiniGameFile;
   }
 
+  async reloadPlayers(): Promise<PlayerData[]> {
+    return this.getPlayers();
+  }
+
   getMode(): DataServiceMode {
     return this.config.mode;
   }
