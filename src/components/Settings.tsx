@@ -27,6 +27,7 @@ interface SettingsProps {
   onWalkThroughReports?: () => void;
   onClearMiniGames?: () => void;
   onExportTournamentFiles?: () => void;
+  onImportTournamentFiles?: () => void;
   onGenerateTrophies?: () => void;
   isTournamentActive?: boolean;
   isAdmin: boolean;
@@ -41,6 +42,7 @@ export default function Settings({
   onWalkThroughReports,
   onClearMiniGames,
   onExportTournamentFiles,
+  onImportTournamentFiles,
   onGenerateTrophies,
   isTournamentActive,
   isAdmin,
@@ -466,6 +468,33 @@ export default function Settings({
                     >
                       <CalendarDays size={16} />
                       Export Tournament Files
+                    </button>
+                  )}
+
+                  {!isTournamentActive && onImportTournamentFiles && (
+                    <button
+                      onClick={() => {
+                        onClose();
+                        onImportTournamentFiles();
+                      }}
+                      style={{
+                        width: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "0.5rem",
+                        padding: "0.75rem",
+                        backgroundColor: "#7c3aed",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "0.25rem",
+                        cursor: "pointer",
+                        fontSize: "0.875rem",
+                        fontWeight: "500",
+                      }}
+                    >
+                      <CalendarDays size={16} />
+                      Import Tournament Files
                     </button>
                   )}
 

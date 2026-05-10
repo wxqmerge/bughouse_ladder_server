@@ -330,6 +330,35 @@ function App() {
     }
   };
 
+  const handleImportTournamentFiles = async () => {
+    try {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.txt,.zip';
+      input.onchange = async (e) => {
+        const file = (e.target as HTMLInputElement).files?.[0];
+        if (!file) return;
+        try {
+          const content = await file.text();
+          const result = await dataService.importMiniGameFiles(content);
+          if (result.imported.length > 0) {
+            alert(`Imported: ${result.imported.join(', ')}`);
+          }
+          if (result.errors.length > 0) {
+            alert(`Errors: ${result.errors.join(', ')}`);
+          }
+        } catch (error) {
+          console.error('Failed to import:', error);
+          alert('Failed to import: ' + (error as Error).message);
+        }
+      };
+      input.click();
+    } catch (error) {
+      console.error('Failed to import tournament files:', error);
+      alert('Failed to import: ' + (error as Error).message);
+    }
+  };
+
   const handleGenerateTrophies = async () => {
     try {
       const blob = await dataService.generateTrophyReport();
@@ -573,6 +602,7 @@ function App() {
           onWalkThroughReports={handleWalkThroughReports}
           onClearMiniGames={isAdmin ? handleClearMiniGames : undefined}
           onExportTournamentFiles={isAdmin ? handleExportTournamentFiles : undefined}
+          onImportTournamentFiles={isAdmin ? handleImportTournamentFiles : undefined}
           onGenerateTrophies={isAdmin ? handleGenerateTrophies : undefined}
           isTournamentActive={isMiniGameTitle(getProjectName())}
           isAdmin={isAdmin}

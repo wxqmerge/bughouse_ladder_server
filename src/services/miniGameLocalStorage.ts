@@ -151,6 +151,40 @@ export function mergeGameResults(oldResults: (string | null)[], currentResults: 
   return merged;
 }
 
+export async function importMiniGameFiles(content: string): Promise<{ imported: string[]; errors: string[] }> {
+  const imported: string[] = [];
+  const errors: string[] = [];
+  
+  const sections = content.split('=== ').filter(s => s.trim());
+  
+  for (const section of sections) {
+    const firstLine = section.split('\n')[0];
+    const fileName = firstLine.replace(' ===', '').trim();
+    
+    if (!MINI_GAME_FILES.includes(fileName)) {
+      errors.push(`Unknown file: ${fileName}`);
+      continue;
+    }
+    
+    const fileContent = section.substring(firstLine.length + 1).trim();
+    
+    if (!fileContent) {
+      errors.push(`Empty file: ${fileName}`);
+      continue;
+    }
+    
+    try {
+      const ladderData = parseTabContent(fileContent);
+      localStorage.setItem(getStorageKey(fileName), generateTabContent(ladderData));
+      imported.push(fileName);
+    } catch (err) {
+      errors.push(`Failed to parse ${fileName}: ${(err as Error).message}`);
+    }
+  }
+  
+  return { imported, errors };
+}
+
 async function generateClubLadderTrophies(players: PlayerData[], maxTrophies: number): Promise<any[]> {
   const trophies: any[] = [];
   const seenPlayers = new Set<string>();
@@ -606,5 +640,9 @@ export const miniGameStore: MiniGameStore = {
     } catch (error) {
       return { success: false, message: `Trophy generation failed: ${(error as Error).message}` };
     }
+  },
+
+  async importMiniGameFiles(content: string): Promise<{ imported: string[]; errors: string[] }> {
+    return importMiniGameFiles(content);
   },
 };
