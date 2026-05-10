@@ -2652,23 +2652,28 @@ const nextTitle = (() => {
     setProjectName(newTitle);
     setProjectNameStorage(newTitle);
     
-    if (!isTournament || !newIsMiniGame) {
-      return;
+    if (!currentIsMiniGame && newIsMiniGame) {
+      // First switch from Ladder to mini-game: create file with fresh results and switch data source
+      try {
+        const userSettings = loadUserSettings();
+        const serverUrl = userSettings.server?.trim();
+        const fileName = titleToFileName(newTitle);
+        
+        if (serverUrl) {
+          await dataService.copyPlayersToMiniGame(fileName);
+          dataService.setMiniGameFile(fileName);
+          console.log(`[LadderForm] Copied players to ${fileName}, switched data source`);
+        }
+      } catch (error) {
+        const fileName = titleToFileName(newTitle);
+        console.error(`Failed to copy players to ${fileName}:`, error);
+      }
+    } else if (currentIsMiniGame && !newIsMiniGame) {
+      // Switching away from mini-game: reset data source to ladder.tab
+      dataService.setMiniGameFile(null);
     }
     
-    try {
-      const userSettings = loadUserSettings();
-      const serverUrl = userSettings.server?.trim();
-      const fileName = titleToFileName(newTitle);
-      
-      if (serverUrl) {
-        await dataService.copyPlayersToMiniGame(fileName);
-        console.log(`[LadderForm] Copied players to ${fileName}`);
-      }
-    } catch (error) {
-      const fileName = titleToFileName(newTitle);
-      console.error(`Failed to copy players to ${fileName}:`, error);
-    }
+    return;
   };
 
   const handleBulkPaste = () => {

@@ -16,7 +16,6 @@ import {
   getMiniGameFilePath,
   readMiniGameFile,
   writeMiniGameFile,
-  copyPlayersToTarget,
   mergeGameResults,
   getExistingMiniGameFiles,
   hasMiniGameFiles,
@@ -491,6 +490,89 @@ router.post('/tournament/save-mini-game', async (req: Request, res: Response): P
   }
 });
 
+// Read mini-game file (for tournament mode - ladder form reads from mini-game file)
+router.get('/tournament/read-mini-game', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { fileName } = req.query;
+    
+    if (!fileName || !MINI_GAME_FILES.includes(fileName as string)) {
+      res.status(400).json({
+        success: false,
+        error: { message: 'Invalid mini-game file name' },
+      });
+      return;
+    }
+
+    const miniGameData = await readMiniGameFile(fileName as string);
+    if (!miniGameData) {
+      res.json({
+        success: true,
+        data: {
+          header: [],
+          players: [],
+          playerCount: 0,
+        },
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        header: miniGameData.header,
+        players: miniGameData.players,
+        playerCount: miniGameData.players.length,
+      },
+    });
+  } catch (error) {
+    console.error('Read mini-game error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to read mini-game file' },
+    });
+  }
+});
+
+// Write mini-game file (for tournament mode - ladder form writes to mini-game file)
+router.post('/tournament/write-mini-game', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { fileName, players } = req.body;
+    
+    if (!fileName || !MINI_GAME_FILES.includes(fileName)) {
+      res.status(400).json({
+        success: false,
+        error: { message: 'Invalid mini-game file name' },
+      });
+      return;
+    }
+
+    if (!players || !Array.isArray(players)) {
+      res.status(400).json({
+        success: false,
+        error: { message: 'Invalid players data' },
+      });
+      return;
+    }
+
+    await writeMiniGameFile(fileName, {
+      header: [],
+      players,
+      rawLines: [],
+    });
+
+    res.json({
+      success: true,
+      data: { message: `Saved ${fileName}` },
+    });
+  } catch (error) {
+    console.error('Write mini-game error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to write mini-game file' },
+    });
+  }
+});
+
 // Copy players to new mini-game file
 router.post('/tournament/copy-players', async (req: Request, res: Response): Promise<void> => {
   try {
@@ -507,22 +589,12 @@ router.post('/tournament/copy-players', async (req: Request, res: Response): Pro
     // Read current ladder data
     const ladderData = await readLadderFile();
     
-    // Check if file already exists
-    const existingFile = await readMiniGameFile(fileName);
-    
-    let targetPlayers: PlayerData[];
-    
-    if (existingFile) {
-      // Copy players from current ladder to existing file
-      targetPlayers = copyPlayersToTarget(ladderData.players, existingFile.players);
-    } else {
-      // Create new file with current ladder players
-      targetPlayers = ladderData.players.map(player => ({
-        ...player,
-        gameResults: Array(31).fill(null),
-        num_games: 0,
-      }));
-    }
+    // Always copy players with fresh results (mini-games are separate ladders)
+    const targetPlayers = ladderData.players.map(player => ({
+      ...player,
+      gameResults: Array(31).fill(null),
+      num_games: 0,
+    }));
     
     // Write mini-game file
     await writeMiniGameFile(fileName, {

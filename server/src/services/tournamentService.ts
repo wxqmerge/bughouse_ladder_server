@@ -2,7 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { log as loggerLog } from '../utils/logger.js';
-import { readLadderFile, writeLadderFile, generateTabContent, PlayerData, LadderData, withTiming } from './dataService.js';
+import { readLadderFile, writeLadderFile, generateTabContent, PlayerData, LadderData, withTiming, ensureDataDirectory } from './dataService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -145,6 +145,7 @@ export async function readMiniGameFile(fileName: string): Promise<LadderData | n
 // Write a mini-game file
 export async function writeMiniGameFile(fileName: string, ladderData: LadderData): Promise<void> {
   const filePath = getMiniGameFilePath(fileName);
+  await ensureDataDirectory();
   await writeLadderFile(ladderData, filePath);
 }
 
