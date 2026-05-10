@@ -1790,27 +1790,9 @@ const nextTitle = (() => {
   useEffect(() => {
     const fetchAvailableMiniGames = async () => {
       try {
-        const userSettings = loadUserSettings();
-        const serverUrl = userSettings.server?.trim();
-        
-        if (!serverUrl) {
-          log('[MINI-GAMES]', 'Local mode - skipping mini-game availability check');
-          return;
-        }
-
-        const response = await fetch(`${serverUrl}/api/admin/tournament/check-mini-games`, {
-          headers: {
-            'Content-Type': 'application/json',
-            ...(userSettings.apiKey ? { 'X-API-Key': userSettings.apiKey } : {}),
-          },
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          const files = data.data?.files || [];
-          setAvailableMiniGames(files);
-          log('[MINI-GAMES]', `Found ${files.length} mini-game files: ${files.join(', ')}`);
-        }
+        const files = await dataService.checkMiniGameFiles();
+        setAvailableMiniGames(files);
+        log('[MINI-GAMES]', `Found ${files.length} mini-game files: ${files.join(', ')}`);
       } catch (error) {
         log('[MINI-GAMES]', 'Failed to fetch mini-game availability:', error);
       }
