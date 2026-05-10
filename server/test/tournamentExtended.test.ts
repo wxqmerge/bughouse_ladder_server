@@ -315,7 +315,8 @@ describe('Gr trophy generation - mini-game tournament mode', () => {
       await writeLadderFile(miniGameData, path.join(testDir, file));
     }
 
-    const trophies = await generateMiniGameTrophies(players, 20, existingFiles);
+    const miniGameDataList = existingFiles.map(f => ({ fileName: f, players: [] }));
+    const trophies = await generateMiniGameTrophies(players, 20, miniGameDataList);
 
     // Mini-game files are empty so no 1st places from mini-games, but Gr trophies should be awarded
     const grTrophies = trophies.filter(t => t.miniGameOrGrade && t.miniGameOrGrade.startsWith('Gr '));
