@@ -511,22 +511,59 @@ class DataService {
   }
 
   async submitDeltaBatch(deltas: DeltaOperation[]): Promise<void> {
-    const response = await fetch(`${this.getApiUrl()}/api/ladder/batch`, {
-      method: 'POST',
-      headers: {
-        ...this.getAuthHeaders(),
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ deltas }),
-    });
+    if (this.currentMiniGameFile) {
+      const players = await this.fetchMiniGamePlayers();
+      
+      for (const delta of deltas) {
+        if (delta.type === 'GAME_RESULT') {
+          const player = players.find(p => p.rank === delta.playerRank);
+          if (player) {
+            if (!player.gameResults) {
+              player.gameResults = new Array(31).fill(null);
+            }
+            player.gameResults[delta.round] = delta.result;
+            player.num_games = (player.num_games || 0) + 1;
+          }
+        }
+      }
+      
+      const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/write-mini-game`, {
+        method: 'POST',
+        headers: {
+          ...this.getAuthHeaders(),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fileName: this.currentMiniGameFile,
+          players,
+        }),
+      });
 
-    if (!response.ok) {
-      const error = new Error(`Failed to submit delta batch: ${response.status}`);
-      (error as any).status = response.status;
-      throw error;
+      if (!response.ok) {
+        const error = new Error(`Failed to submit delta batch: ${response.status}`);
+        (error as any).status = response.status;
+        throw error;
+      }
+
+      this.notifySubscribers();
+    } else {
+      const response = await fetch(`${this.getApiUrl()}/api/ladder/batch`, {
+        method: 'POST',
+        headers: {
+          ...this.getAuthHeaders(),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ deltas }),
+      });
+
+      if (!response.ok) {
+        const error = new Error(`Failed to submit delta batch: ${response.status}`);
+        (error as any).status = response.status;
+        throw error;
+      }
+
+      this.notifySubscribers();
     }
-
-    this.notifySubscribers();
   }
 
   private async clearCellApi(playerRank: number, roundIndex: number): Promise<void> {

@@ -28,6 +28,7 @@ interface MobileMenuProps {
   isAdmin: boolean;
   projectName?: string;
   onSetTitle?: (title: string) => void;
+  availableMiniGames?: string[];
 }
 
 interface MenuItem {
@@ -35,6 +36,7 @@ interface MenuItem {
   onClick: () => void;
   dataMenuItem: string;
   hasCheckmark?: boolean;
+  disabled?: boolean;
 }
 
 export default function MobileMenu({
@@ -55,6 +57,7 @@ export default function MobileMenu({
   isAdmin,
   projectName,
   onSetTitle,
+  availableMiniGames = [],
 }: MobileMenuProps) {
   if (!isOpen) return null;
 
@@ -87,12 +90,26 @@ export default function MobileMenu({
     "Queen_Game",
   ];
 
-  const titleItems: MenuItem[] = allTitles.map((title) => ({
-    label: title,
-    onClick: () => handleItemClick(() => onSetTitle?.(title)),
-    dataMenuItem: `Title-${title}`,
-    hasCheckmark: projectName?.toLowerCase() === title.toLowerCase(),
-  }));
+  const titleItems: MenuItem[] = allTitles.map((title) => {
+    const isMiniGame = title !== "Ladder";
+    const fileName = isMiniGame ? `${title}.tab` : null;
+    const isAvailable = fileName ? availableMiniGames.includes(fileName) : true;
+    const isDisabled = !isAdmin && isMiniGame && !isAvailable;
+    
+    return {
+      label: title,
+      onClick: () => {
+        if (isDisabled) {
+          alert(`"${title}" is not available yet. Only admin can create mini-games.`);
+          return;
+        }
+        handleItemClick(() => onSetTitle?.(title));
+      },
+      dataMenuItem: `Title-${title}`,
+      hasCheckmark: projectName?.toLowerCase() === title.toLowerCase(),
+      disabled: isDisabled,
+    };
+  });
 
   const sortItems: MenuItem[] = [
     {
@@ -238,6 +255,7 @@ export default function MobileMenu({
             key={item.dataMenuItem}
             data-menu-item={item.dataMenuItem}
             onClick={item.onClick}
+            disabled={item.disabled}
             style={{
               width: "100%",
               padding: "1rem",
@@ -245,24 +263,35 @@ export default function MobileMenu({
               backgroundColor: "transparent",
               border: "none",
               fontSize: "1rem",
-              color: "#374151",
-              cursor: "pointer",
+              color: item.disabled ? "#9ca3af" : "#374151",
+              cursor: item.disabled ? "not-allowed" : "pointer",
               borderRadius: "0.25rem",
               marginBottom: "0.25rem",
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
+              opacity: item.disabled ? 0.5 : 1,
+              fontStyle: item.disabled ? "italic" : "normal",
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = "#e2e8f0";
+              if (!item.disabled) {
+                e.currentTarget.style.backgroundColor = "#e2e8f0";
+              }
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "transparent";
+              if (!item.disabled) {
+                e.currentTarget.style.backgroundColor = "transparent";
+              }
             }}
           >
             <span>{item.label}</span>
             {showCheckmarks && item.hasCheckmark && (
               <Check size={18} color="#3b82f6" />
+            )}
+            {item.disabled && (
+              <span style={{ fontSize: "0.75rem", color: "#9ca3af" }}>
+                (not available)
+              </span>
             )}
           </button>
         ))}
