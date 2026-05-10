@@ -791,7 +791,11 @@ class DataService {
         }
       }
 
-      const blob = await zip.generateAsync({ type: 'blob' });
+      const blob = await zip.generateAsync({
+        type: 'blob',
+        compression: 'DEFLATE',
+        compressionOptions: { level: 9 },
+      });
       return blob;
     } else {
       const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/export`, {
