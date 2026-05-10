@@ -2652,40 +2652,31 @@ const nextTitle = (() => {
     setProjectName(newTitle);
     setProjectNameStorage(newTitle);
     
-   if (!currentIsMiniGame && newIsMiniGame) {
-       // First switch from Ladder to mini-game: create file if needed,
-       // add player to all existing mini-game files, and switch data source
-       try {
-         const fileName = titleToFileName(newTitle);
-         const existingFiles = await dataService.checkMiniGameFiles();
-         
-         // Create the file if it doesn't exist (admin only)
-         if (!existingFiles.includes(fileName)) {
-           if (!isAdmin) {
-             dataService.setMiniGameFile(null);
-             return;
-           }
-           await dataService.copyPlayersToMiniGame(fileName);
-         }
-         
-         const allPlayers = await dataService.getPlayers();
-         for (const player of allPlayers) {
-           try {
-             await dataService.addPlayerToMiniGames(player);
-           } catch (e) {
-             // silently skip
-           }
-         }
-         dataService.setMiniGameFile(fileName);
-         console.log(`[LadderForm] Copied players to ${fileName}, added to all mini-games, switched data source`);
-       } catch (error) {
-         const fileName = titleToFileName(newTitle);
-         console.error(`Failed to copy players to ${fileName}:`, error);
-       }
-     } else if (currentIsMiniGame && !newIsMiniGame) {
-      // Switching away from mini-game: reset data source to ladder.tab
-      dataService.setMiniGameFile(null);
-    }
+  if (newIsMiniGame) {
+        // Switching to a mini-game (from ladder or from another mini-game):
+        // create file if it doesn't exist, then switch data source
+        try {
+          const fileName = titleToFileName(newTitle);
+          const existingFiles = await dataService.checkMiniGameFiles();
+          
+          if (!existingFiles.includes(fileName)) {
+            if (!isAdmin) {
+              dataService.setMiniGameFile(null);
+              return;
+            }
+            await dataService.copyPlayersToMiniGame(fileName);
+          }
+          
+          dataService.setMiniGameFile(fileName);
+          console.log(`[LadderForm] Switched to mini-game ${fileName}`);
+        } catch (error) {
+          const fileName = titleToFileName(newTitle);
+          console.error(`Failed to switch to ${fileName}:`, error);
+        }
+      } else if (currentIsMiniGame && !newIsMiniGame) {
+       // Switching away from mini-game: reset data source to ladder.tab
+       dataService.setMiniGameFile(null);
+     }
     
     // Reload players from the new data source
     await refreshPlayers();
