@@ -571,6 +571,27 @@ Tournament mode state stored server-side (not in PlayerData or .tab files):
 37. **Data source switching** - `DataService` tracks `currentMiniGameFile`; all operations (`getPlayers`, `savePlayers`, `submitGameResult`, `updatePlayer`, `clearPlayerCell`) route to the mini-game file when set, or to `ladder.tab` when null
 38. **Multi-client support** - Multiple clients can view and enter results in different mini-games simultaneously; each client's `DataService` has its own `currentMiniGameFile` — no cross-contamination
 
+## Local Mode Parity
+
+Local mode (no server) must behave identically to server mode for all mini-game operations. Both modes share the same `MiniGameStore` interface and code paths in `dataService.ts`, with only the backend differing (localStorage vs filesystem).
+
+### Verified Parity
+
+- **Trophy generation**: Both modes run 5 rating recalcs (`calculateRatings` × 5) per mini-game file before determining trophies. This stabilizes ratings and ensures identical trophy results.
+- **Import**: Both modes parse `=== filename.tab ===` headers and write to their respective storage (localStorage key `mini_game_${fileName}` vs `data/` directory).
+- **Export**: Server returns ZIP blob; local returns combined text blob with `=== filename.tab ===` headers (no native ZIP support in browser).
+- **Player matching**: Both modes match by `lastName.toLowerCase() + firstName.toLowerCase()` key.
+- **Game result merging**: Both modes use `mergeGameResults()` — fills in old results where current is null/empty.
+- **All MiniGameStore methods**: `readMiniGameFile`, `writeMiniGameFile`, `copyPlayersToTarget`, `mergeGameResults`, `getExistingMiniGameFiles`, `clearMiniGames`, `hasMiniGameFiles`, `checkMiniGameFilesWith`, `addPlayerToAllMiniGames`, `generateTrophyReport`, `importMiniGameFiles` — implemented in both `tournamentStore` (server) and `miniGameStore` (local).
+
+### Key Implementation Detail
+
+The `MiniGameStore` interface is defined in `server/src/services/tournamentService.ts` and implemented in:
+- **Server**: `tournamentStore` — reads/writes `.tab` files to `data/` directory
+- **Local**: `miniGameStore` in `src/services/miniGameLocalStorage.ts` — reads/writes to `localStorage`
+
+`dataService.ts` routes all mini-game operations through whichever store is configured, keeping the calling code identical across modes.
+
 ## Open Questions
 
 (none remaining)
