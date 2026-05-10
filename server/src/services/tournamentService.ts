@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { log as loggerLog } from '../utils/logger.js';
 import { readLadderFile, writeLadderFile, generateTabContent, PlayerData, LadderData, withTiming, ensureDataDirectory } from './dataService.js';
+import { calculateRatings, processGameResults } from '../../../shared/utils/hashUtils.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -341,7 +342,7 @@ export async function addPlayerToAllMiniGames(newPlayer: PlayerData): Promise<vo
 export async function generateClubLadderTrophies(players: PlayerData[], maxTrophies: number): Promise<any[]> {
   const trophies: any[] = [];
   const seenPlayers = new Set<string>();
-  const sortedPlayers = [...players].sort((a, b) => b.rating - a.rating);
+  const sortedPlayers = [...players].sort((a, b) => b.nRating - a.nRating);
 
   function addTrophy(trophy: any) {
     const key = `${trophy.player}`;
@@ -361,6 +362,7 @@ export async function generateClubLadderTrophies(players: PlayerData[], maxTroph
       trophyType: '1st Place',
       miniGameOrGrade: 'Club Ladder',
       gamesPlayed: sortedPlayers[0].num_games,
+      totalGames: sortedPlayers[0].num_games,
     });
   }
 
@@ -374,6 +376,7 @@ export async function generateClubLadderTrophies(players: PlayerData[], maxTroph
       trophyType: '2nd Place',
       miniGameOrGrade: 'Club Ladder',
       gamesPlayed: sortedPlayers[1].num_games,
+      totalGames: sortedPlayers[1].num_games,
     });
   }
 
@@ -387,6 +390,7 @@ export async function generateClubLadderTrophies(players: PlayerData[], maxTroph
       trophyType: '3rd Place',
       miniGameOrGrade: 'Club Ladder',
       gamesPlayed: sortedPlayers[2].num_games,
+      totalGames: sortedPlayers[2].num_games,
     });
   }
 
@@ -401,6 +405,7 @@ export async function generateClubLadderTrophies(players: PlayerData[], maxTroph
       trophyType: 'Most Games',
       miniGameOrGrade: 'Club Ladder',
       gamesPlayed: mostGamesPlayer.num_games,
+      totalGames: mostGamesPlayer.num_games,
     });
   }
 
@@ -409,7 +414,7 @@ export async function generateClubLadderTrophies(players: PlayerData[], maxTroph
     const gradeGroups = [...new Set(players.map(p => p.grade).filter(Boolean))].sort((a, b) => parseInt(b) - parseInt(a));
     
     for (const grade of gradeGroups) {
-      const gradePlayers = players.filter(p => p.grade === grade).sort((a, b) => b.rating - a.rating);
+      const gradePlayers = players.filter(p => p.grade === grade).sort((a, b) => b.nRating - a.nRating);
       
       if (gradePlayers.length >= 1) {
         addTrophy({
@@ -420,6 +425,7 @@ export async function generateClubLadderTrophies(players: PlayerData[], maxTroph
           trophyType: '1st Place',
           miniGameOrGrade: `Gr ${grade}`,
           gamesPlayed: gradePlayers[0].num_games,
+          totalGames: gradePlayers[0].num_games,
         });
       }
     }
@@ -430,7 +436,7 @@ export async function generateClubLadderTrophies(players: PlayerData[], maxTroph
     const gradeGroups = [...new Set(players.map(p => p.grade).filter(Boolean))].sort((a, b) => parseInt(b) - parseInt(a));
     
     for (const grade of gradeGroups) {
-      const gradePlayers = players.filter(p => p.grade === grade).sort((a, b) => b.rating - a.rating);
+      const gradePlayers = players.filter(p => p.grade === grade).sort((a, b) => b.nRating - a.nRating);
       
       if (gradePlayers.length >= 2) {
         addTrophy({
@@ -441,6 +447,7 @@ export async function generateClubLadderTrophies(players: PlayerData[], maxTroph
           trophyType: '2nd Place',
           miniGameOrGrade: `Gr ${grade}`,
           gamesPlayed: gradePlayers[1].num_games,
+          totalGames: gradePlayers[1].num_games,
         });
       }
     }
@@ -451,7 +458,7 @@ export async function generateClubLadderTrophies(players: PlayerData[], maxTroph
     const gradeGroups = [...new Set(players.map(p => p.grade).filter(Boolean))].sort((a, b) => parseInt(b) - parseInt(a));
     
     for (const grade of gradeGroups) {
-      const gradePlayers = players.filter(p => p.grade === grade).sort((a, b) => b.rating - a.rating);
+      const gradePlayers = players.filter(p => p.grade === grade).sort((a, b) => b.nRating - a.nRating);
       
       if (gradePlayers.length >= 3) {
         addTrophy({
@@ -462,6 +469,7 @@ export async function generateClubLadderTrophies(players: PlayerData[], maxTroph
           trophyType: '3rd Place',
           miniGameOrGrade: `Gr ${grade}`,
           gamesPlayed: gradePlayers[2].num_games,
+          totalGames: gradePlayers[2].num_games,
         });
       }
     }
@@ -498,12 +506,40 @@ export async function generateMiniGameTrophies(players: PlayerData[], maxTrophie
   const m = existingFiles.length;
   const t = maxTrophies;
 
+  function countMiniGameGames(playerRank: number, fileName: string): number {
+    const miniGameData = existingFiles.find(f => f === fileName) ? { fileName } : null;
+    // We need to read the file to count games
+    return 0; // placeholder - will be calculated below
+  }
+
+  async function getPlayerMiniGameGames(playerRank: number, fileName: string): Promise<number> {
+    const miniGameData = await readMiniGameFile(fileName);
+    if (!miniGameData) return 0;
+    const player = miniGameData.players.find(p => p.rank === playerRank);
+    if (!player?.gameResults) return 0;
+    return player.gameResults.filter(r => r && r !== '' && r !== '_').length;
+  }
+
+  async function getPlayerTotalGames(player: PlayerData): Promise<number> {
+    let total = 0;
+    for (const fileName of existingFiles) {
+      total += await getPlayerMiniGameGames(player.rank, fileName);
+    }
+    return total;
+  }
+
   function addTrophy(trophy: any) {
     const key = `${trophy.player}`;
     if (seenPlayers.has(key)) return false;
     seenPlayers.add(key);
     trophies.push(trophy);
     return true;
+  }
+
+  // Pre-calculate total games for all players
+  const playerTotalGames = new Map<string, number>();
+  for (const p of players) {
+    playerTotalGames.set(`${p.firstName} ${p.lastName}`, await getPlayerTotalGames(p));
   }
 
   // Step 1: Award 1st place for each mini-game - always
@@ -518,16 +554,19 @@ export async function generateMiniGameTrophies(players: PlayerData[], maxTrophie
       return p.gameResults.some(r => r && r !== '' && r !== '_');
     });
 
-    const sortedPlayers = playersWithGames.sort((a, b) => b.rating - a.rating);
+    const sortedPlayers = playersWithGames.sort((a, b) => b.nRating - a.nRating);
     if (sortedPlayers.length > 0) {
+      const p = sortedPlayers[0];
+      const miniGameGames = p.gameResults?.filter(r => r && r !== '' && r !== '_')?.length || 0;
       addTrophy({
         rank: trophies.length + 1,
-        player: `${sortedPlayers[0].firstName} ${sortedPlayers[0].lastName}`,
-        gr: sortedPlayers[0].grade,
-        rating: sortedPlayers[0].nRating,
+        player: `${p.firstName} ${p.lastName}`,
+        gr: p.grade,
+        rating: p.nRating,
         trophyType: '1st Place',
         miniGameOrGrade: fileName.replace('.tab', ''),
-        gamesPlayed: sortedPlayers[0].num_games,
+        gamesPlayed: miniGameGames,
+        totalGames: playerTotalGames.get(`${p.firstName} ${p.lastName}`) || 0,
       });
     }
   }
@@ -545,39 +584,45 @@ export async function generateMiniGameTrophies(players: PlayerData[], maxTrophie
         return p.gameResults.some(r => r && r !== '' && r !== '_');
       });
 
-      const sortedPlayers = playersWithGames.sort((a, b) => b.rating - a.rating);
+      const sortedPlayers = playersWithGames.sort((a, b) => b.nRating - a.nRating);
       if (sortedPlayers.length > 1) {
-     addTrophy({
-        rank: trophies.length + 1,
-        player: `${sortedPlayers[1].firstName} ${sortedPlayers[1].lastName}`,
-        gr: sortedPlayers[1].grade,
-        rating: sortedPlayers[1].nRating,
-        trophyType: '2nd Place',
-        miniGameOrGrade: fileName.replace('.tab', ''),
-        gamesPlayed: sortedPlayers[1].num_games,
-      });
+        const p = sortedPlayers[1];
+        const miniGameGames = p.gameResults?.filter(r => r && r !== '' && r !== '_')?.length || 0;
+        addTrophy({
+          rank: trophies.length + 1,
+          player: `${p.firstName} ${p.lastName}`,
+          gr: p.grade,
+          rating: p.nRating,
+          trophyType: '2nd Place',
+          miniGameOrGrade: fileName.replace('.tab', ''),
+          gamesPlayed: miniGameGames,
+          totalGames: playerTotalGames.get(`${p.firstName} ${p.lastName}`) || 0,
+        });
       }
     }
   }
 
   // Step 3: Award grade 1st place - only if t > 2*m
-  // Remaining players (no trophy yet), sorted by num_games, first in each grade wins
+  // Remaining players (no trophy yet), sorted by totalGames, first in each grade wins
   if (t > 2 * m) {
     const remainingPlayers = players.filter(p => !seenPlayers.has(`${p.firstName} ${p.lastName}`));
     const gradeGroups = [...new Set(remainingPlayers.map(p => p.grade).filter(Boolean))].sort((a, b) => parseInt(b) - parseInt(a));
     
     for (const grade of gradeGroups) {
       const gradePlayers = remainingPlayers.filter(p => p.grade === grade)
-        .sort((a, b) => b.num_games - a.num_games);
+        .sort((a, b) => (playerTotalGames.get(`${b.firstName} ${b.lastName}`) || 0) - (playerTotalGames.get(`${a.firstName} ${a.lastName}`) || 0));
       
       if (gradePlayers.length > 0) {
+        const p = gradePlayers[0];
         addTrophy({
           rank: trophies.length + 1,
-          player: `${gradePlayers[0].firstName} ${gradePlayers[0].lastName}`,
+          player: `${p.firstName} ${p.lastName}`,
           gr: grade,
+          rating: p.nRating,
           trophyType: '1st Place',
           miniGameOrGrade: `Gr ${grade}`,
-          gamesPlayed: gradePlayers[0].num_games,
+          gamesPlayed: p.gameResults?.filter(r => r && r !== '' && r !== '_')?.length || 0,
+          totalGames: playerTotalGames.get(`${p.firstName} ${p.lastName}`) || 0,
         });
       }
     }
@@ -586,12 +631,46 @@ export async function generateMiniGameTrophies(players: PlayerData[], maxTrophie
   return trophies;
 }
 
+// Recalculate ratings for each mini-game file (5 passes)
+async function recalcMiniGames(existingFiles: string[]): Promise<void> {
+  const NUM_RECALCS = 5;
+  
+  for (const fileName of existingFiles) {
+    const miniGameData = await readMiniGameFile(fileName);
+    if (!miniGameData || miniGameData.players.length === 0) continue;
+    
+    let currentPlayers = [...miniGameData.players];
+    
+    for (let recalc = 0; recalc < NUM_RECALCS; recalc++) {
+      const { matches } = processGameResults(currentPlayers);
+      const result = calculateRatings(currentPlayers, matches, {
+        kFactorOverride: 20,
+        blendingFactorOverride: 0.99,
+        perfMultiplierScaleOverride: 0.5,
+      });
+      currentPlayers = result.players;
+    }
+    
+    await writeMiniGameFile(fileName, {
+      ...miniGameData,
+      players: currentPlayers,
+    });
+    
+    loggerLog('[TOURNAMENT]', `Recalculated ${fileName} (${NUM_RECALCS} passes)`);
+  }
+}
+
 // Generate trophy report data
+function debugLine(col1: string, col2 = '', col3 = '', col4 = '', col5 = '', col6 = '', col7 = '', col8 = '') {
+  return [col1, col2, col3, col4, col5, col6, col7, col8].join('\t');
+}
+
 export async function generateTrophyReport(): Promise<{
   success: boolean;
   message: string;
   trophies?: any[];
   isClubMode?: boolean;
+  debugInfo?: string;
 }> {
   try {
     const hasMiniGames = await hasMiniGameFiles();
@@ -607,21 +686,65 @@ export async function generateTrophyReport(): Promise<{
 
     const maxTrophies = Math.ceil(players.length / 3);
     const trophies: any[] = [];
+    const debugLines: string[] = [];
+
+    debugLines.push(debugLine('DEBUG', 'TROPHY REPORT', '', '', '', '', '', ''));
+    debugLines.push(debugLine('Players', String(players.length), '', '', '', '', '', ''));
+    debugLines.push(debugLine('Max Trophies', `${maxTrophies} (ceil(${players.length} / 3))`, '', '', '', '', '', ''));
+    debugLines.push('');
 
     if (isClubMode) {
-      // Club ladder mode - use club ladder rating
+      debugLines.push(debugLine('Mode', 'Club Ladder (no mini-game files)', '', '', '', '', '', ''));
       trophies.push(...await generateClubLadderTrophies(players, maxTrophies));
     } else {
-      // Mini-game tournament mode
       const existingFiles = await getExistingMiniGameFiles();
+      const m = existingFiles.length;
+      debugLines.push(debugLine('Mode', 'Mini-Game Tournament', '', '', '', '', '', ''));
+      debugLines.push(debugLine('Mini-games played', String(m), '', '', '', '', '', ''));
+      debugLines.push(debugLine('Award 2nd place', `t=${maxTrophies} > m=${m} ? ${maxTrophies > m}`, '', '', '', '', '', ''));
+      debugLines.push(debugLine('Award grade 1st', `t=${maxTrophies} > 2*m=${2 * m} ? ${maxTrophies > 2 * m}`, '', '', '', '', '', ''));
+      debugLines.push('');
+
+      await recalcMiniGames(existingFiles);
+
+      debugLines.push(debugLine('MINI-GAME PLAYERS', '(after 5 recalcs)', '', '', '', '', '', ''));
+      
+      for (const fileName of existingFiles) {
+        const miniGameData = await readMiniGameFile(fileName);
+        if (!miniGameData || miniGameData.players.length === 0) continue;
+        
+        const playersWithGames = miniGameData.players.filter(p => {
+          if (!p.gameResults) return false;
+          return p.gameResults.some(r => r && r !== '' && r !== '_');
+        });
+        
+        if (playersWithGames.length === 0) continue;
+        
+        const sorted = playersWithGames.sort((a, b) => b.nRating - a.nRating);
+        debugLines.push('');
+        debugLines.push(debugLine(fileName, '', '', '', '', '', '', ''));
+        for (const p of sorted) {
+          const games = p.gameResults?.filter(r => r && r !== '' && r !== '_')?.length || 0;
+          debugLines.push(debugLine(String(p.rank), `${p.firstName} ${p.lastName}`, p.grade, String(p.nRating), String(games), '', '', ''));
+        }
+      }
+      
       trophies.push(...await generateMiniGameTrophies(players, maxTrophies, existingFiles));
     }
+
+    debugLines.push('');
+    debugLines.push(debugLine('AWARDED TROPHIES', '', '', '', '', '', '', ''));
+    for (const t of trophies) {
+      debugLines.push(debugLine(String(t.rank), t.player, t.trophyType, t.miniGameOrGrade, String(t.rating), String(t.totalGames || 0), '', ''));
+    }
+    debugLines.push('');
 
     return {
       success: true,
       message: `Generated ${trophies.length} trophies`,
       trophies,
       isClubMode,
+      debugInfo: debugLines.join('\n'),
     };
   } catch (error) {
     loggerLog('[TOURNAMENT]', `Trophy generation failed: ${(error as Error).message}`);

@@ -108,5 +108,6 @@ export interface MiniGameStore {
     message: string;
     trophies?: any[];
     isClubMode?: boolean;
+    debugInfo?: string;
   }>;
 }
