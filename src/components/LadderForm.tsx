@@ -11,9 +11,8 @@ import {
   repopulateGameResults,
   updatePlayerGameData,
 } from "../utils/hashUtils";
-import { MINI_GAMES, MINI_GAMES_WITH_BUGHOUSE, processNewDayTransformations, isMiniGameTitle, titleToFileName } from "../utils/constants";
+import { MINI_GAMES, MINI_GAMES_WITH_BUGHOUSE, processNewDayTransformations, isMiniGameTitle, titleToFileName, getNextTitle } from "../utils/constants";
 import { dataService } from "../services/dataService";
-import { getTournamentState, isTournamentActive } from "../services/storageService";
 import ErrorDialog from "./ErrorDialog";
 import AddPlayerDialog from "./AddPlayerDialog";
 import { BulkPasteDialog } from "./BulkPasteDialog";
@@ -23,6 +22,9 @@ import { Menu as MenuIcon, Server } from "lucide-react";
 import { shouldLog } from "../utils/debug";
 import { getVersionString, isLocalMode, isServerDownMode, getProgramMode, testServerConnection } from "../utils/mode";
 import { log } from "../utils/log";
+import { downloadBlob } from "../utils/downloadBlob";
+import { getFontSize } from "../utils/getFontSize";
+import { useIntervalCheck } from "../utils/useIntervalCheck";
 import { mergeServerWithLocal as _mergeServerWithLocal } from "../utils/mergeUtils";
 import { loadUserSettings, saveUserSettings, saveLastWorkingConfig, normalizeServerUrl } from "../services/userSettingsStorage";
 import { 
@@ -459,21 +461,14 @@ export default function LadderForm({
   }, []); // Run once on init
 
   // Track mode changes for UI updates
+  const mode = useIntervalCheck(() => {
+    const m = getProgramMode();
+    return m === 'local' || m === 'server_down' ? m : 'server';
+  }, 10000);
+
   useEffect(() => {
-    const updateMode = () => {
-      const mode = getProgramMode();
-      if (mode === 'local' || mode === 'server_down') {
-        setCurrentMode(mode);
-      } else {
-        setCurrentMode('server');
-      }
-    };
-    
-    updateMode();
-    const interval = setInterval(updateMode, 10000); // Check every 10 seconds
-    
-    return () => clearInterval(interval);
-  }, []);
+    setCurrentMode(mode);
+  }, [mode]);
 
   // Admin lock: Release lock on unmount when exiting admin mode
   useEffect(() => {
@@ -1408,42 +1403,27 @@ export default function LadderForm({
 
           // Get current title and determine next title for mini-games
           const currentTitle = getProjectName();
-          const normalizedTitle = String(currentTitle || "")
-            .toLowerCase()
-            .trim();
           console.log(
-            `>>> [NEW DAY] Current title from storage: "${currentTitle}" (normalized: "${normalizedTitle}")`,
+            `>>> [NEW DAY] Current title from storage: "${currentTitle}"`,
           );
-          const nextTitle = (() => {
-            const index = MINI_GAMES_WITH_BUGHOUSE.findIndex(
-              (game) => game.toLowerCase() === normalizedTitle,
-            );
-            console.log(
-              `>>> [NEW DAY] findIndex result: ${index} for "${currentTitle}" (normalized: "${normalizedTitle}")`,
-            );
-            if (index !== -1) {
-              return MINI_GAMES_WITH_BUGHOUSE[(index + 1) % MINI_GAMES_WITH_BUGHOUSE.length];
-            }
-            return currentTitle;
-          })();
-          console.log(`>>> [NEW DAY] Next title will be: "${nextTitle}"`);
+          console.log(`>>> [NEW DAY] Next title will be: "${getNextTitle(currentTitle)}"`);
 
-       // Apply New Day transformations
-        const finalPlayers = processNewDayTransformations(
-          calculatedPlayers,
-          reRank,
-        );
+      // Apply New Day transformations
+         const finalPlayers = processNewDayTransformations(
+           calculatedPlayers,
+           reRank,
+         );
 
-           await savePlayers(finalPlayers);
-          setProjectNameStorage(nextTitle);
-          clearPendingNewDay();
-          clearSettings();
+            await savePlayers(finalPlayers);
+           setProjectNameStorage(getNextTitle(currentTitle));
+           clearPendingNewDay();
+           clearSettings();
 
-          if (shouldLog(10)) {
-            console.log(
-              `New Day complete - Title: ${nextTitle}, ReRank: ${reRank}\n`,
-            );
-          }
+           if (shouldLog(10)) {
+             console.log(
+               `New Day complete - Title: ${getNextTitle(currentTitle)}, ReRank: ${reRank}\n`,
+             );
+           }
 
           setPlayers(finalPlayers);
 
@@ -1502,52 +1482,36 @@ export default function LadderForm({
       );
       try {
         const pendingNewDay = pendingNewDayData;
-         const reRank = pendingNewDay.reRank === true;
-         console.log(`>>> [NEW DAY] Processing with reRank=${reRank}`);
+        const reRank = pendingNewDay.reRank === true;
+          console.log(`>>> [NEW DAY] Processing with reRank=${reRank}`);
 
-         // Get current title and determine next title for mini-games
-         const currentTitle = getProjectName();
-         const normalizedTitle = String(currentTitle || "")
-           .toLowerCase()
-           .trim();
-         console.log(
-           `>>> [NEW DAY] Current title from storage: "${currentTitle}" (normalized: "${normalizedTitle}")`,
-         );
-const nextTitle = (() => {
-            const index = MINI_GAMES_WITH_BUGHOUSE.findIndex(
-              (game) => game.toLowerCase() === normalizedTitle,
-            );
-            console.log(
-              `>>> [NEW DAY] findIndex result: ${index} for "${currentTitle}" (normalized: "${normalizedTitle}")`,
-            );
-            if (index !== -1) {
-              return MINI_GAMES_WITH_BUGHOUSE[(index + 1) % MINI_GAMES_WITH_BUGHOUSE.length];
-            }
-            return currentTitle;
-          })();
-          console.log(`>>> [NEW DAY] Next title will be: "${nextTitle}"`);
+          // Get current title and determine next title for mini-games
+          const currentTitle = getProjectName();
+          console.log(`>>> [NEW DAY] Current title from storage: "${currentTitle}"`);
+          console.log(`>>> [NEW DAY] Next title will be: "${getNextTitle(currentTitle)}"`);
+
 
          // Fix rank issues before New Day transformations
            let playersToTransform = normalizePlayersAttendance(normalizePlayersTrophy(players));
            if (reRank) {
              playersToTransform = fixPlayerRanks(playersToTransform);
            }
-           // Apply New Day transformations
-            const finalPlayers = processNewDayTransformations(
-              playersToTransform,
-              reRank,
+         // Apply New Day transformations
+             const finalPlayers = processNewDayTransformations(
+               playersToTransform,
+               reRank,
+             );
+
+           await savePlayers(finalPlayers);
+          setProjectNameStorage(getNextTitle(currentTitle));
+          clearPendingNewDay();
+          clearSettings();
+
+          if (shouldLog(10)) {
+            console.log(
+              `New Day complete - Title: ${getNextTitle(currentTitle)}, ReRank: ${reRank}\n`,
             );
-
-          await savePlayers(finalPlayers);
-         setProjectNameStorage(nextTitle);
-         clearPendingNewDay();
-         clearSettings();
-
-         if (shouldLog(10)) {
-           console.log(
-             `New Day complete - Title: ${nextTitle}, ReRank: ${reRank}\n`,
-           );
-         }
+          }
 
          setPlayers(finalPlayers);
 
@@ -2101,18 +2065,7 @@ const nextTitle = (() => {
 
         // Get current title and determine next title for mini-games
         const currentTitle = getProjectName();
-        const normalizedTitle = String(currentTitle || "")
-          .toLowerCase()
-          .trim();
-        const nextTitle = (() => {
-          const index = MINI_GAMES_WITH_BUGHOUSE.findIndex(
-            (game) => game.toLowerCase() === normalizedTitle,
-          );
-          if (index !== -1) {
-            return MINI_GAMES_WITH_BUGHOUSE[(index + 1) % MINI_GAMES_WITH_BUGHOUSE.length];
-          }
-          return currentTitle;
-        })();
+        const nextTitle = getNextTitle(currentTitle);
 
         // Fix rank issues before New Day transformations
         let playersToTransform = normalizePlayersTrophy(calculatedPlayers);
@@ -2578,18 +2531,14 @@ const nextTitle = (() => {
     switch (action) {
       case "load":
         if (splashServerUrl && isMiniGameTitle(getProjectName())) {
-          dataService.checkMiniGameFiles().then((files) => {
-            if (files.length > 0) {
-              if (!window.confirm(
-                "Loading a file would corrupt mini-game data. If you need to load for a new tournament, clear mini-games in settings first"
-              )) {
-                return;
-              }
+          if (availableMiniGames.length > 0) {
+            if (!window.confirm(
+              "Loading a file would corrupt mini-game data. If you need to load for a new tournament, clear mini-games in settings first"
+            )) {
+              return;
             }
-            fileInputRef.current?.click();
-          }).catch(() => {
-            fileInputRef.current?.click();
-          });
+          }
+          fileInputRef.current?.click();
         } else {
           fileInputRef.current?.click();
         }
@@ -2617,7 +2566,7 @@ const nextTitle = (() => {
     const currentTitle = getProjectName();
     const currentIsMiniGame = isMiniGameTitle(currentTitle);
     const newIsMiniGame = isMiniGameTitle(newTitle);
-    const isTournament = isTournamentActive();
+    const isTournament = isMiniGameTitle(currentTitle);
     
     if (onTitleSwitch) {
       const allowed = await onTitleSwitch(newTitle);
@@ -3049,23 +2998,6 @@ const nextTitle = (() => {
 
     if (shouldLog(10)) {
       console.log(`New player added successfully`);
-    }
-  };
-
-  const getFontSize = () => {
-    switch (zoomLevel) {
-      case "50%":
-        return "0.5rem";
-      case "70%":
-        return "0.625rem";
-      case "100%":
-        return "0.875rem";
-      case "140%":
-        return "1.25rem";
-      case "200%":
-        return "1.75rem";
-      default:
-        return "0.875rem";
     }
   };
 
@@ -4081,7 +4013,7 @@ const nextTitle = (() => {
           display: 'flex',
           alignItems: 'center',
           gap: '0.5rem',
-          fontSize: getFontSize(),
+          fontSize: getFontSize(zoomLevel),
         }}>
           <span style={{ color: '#92400e', fontWeight: '600' }}>⚠️ Server Down Mode</span>
           <span style={{ color: '#78350f' }}>Only game entry is available. Use Recalculate_Save when server is back online.</span>
@@ -4302,14 +4234,7 @@ const nextTitle = (() => {
               onClick={async () => {
                 try {
                   const blob = await dataService.exportTournamentFiles();
-                  const url = window.URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `tournament_${new Date().toISOString().split('T')[0]}.zip`;
-                  document.body.appendChild(a);
-                  a.click();
-                  window.URL.revokeObjectURL(url);
-                  document.body.removeChild(a);
+                  downloadBlob(blob, `tournament_${new Date().toISOString().split('T')[0]}.zip`);
                 } catch (error) {
                   console.error('Failed to export:', error);
                   alert('Failed to export: ' + (error as Error).message);
@@ -4332,14 +4257,7 @@ const nextTitle = (() => {
               onClick={async () => {
                 try {
                   const blob = await dataService.generateTrophyReport();
-                  const url = window.URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `tournament_trophies_${new Date().toISOString().split('T')[0]}.tab`;
-                  document.body.appendChild(a);
-                  a.click();
-                  window.URL.revokeObjectURL(url);
-                  document.body.removeChild(a);
+                  downloadBlob(blob, `tournament_trophies_${new Date().toISOString().split('T')[0]}.tab`);
                 } catch (error) {
                   console.error('Failed to generate trophies:', error);
                   alert('Failed to generate: ' + (error as Error).message);
@@ -4418,7 +4336,7 @@ const nextTitle = (() => {
           style={{
             width: "100%",
             borderCollapse: "collapse",
-            fontSize: getFontSize(),
+            fontSize: getFontSize(zoomLevel),
           }}
         >
           <thead>
@@ -4941,7 +4859,7 @@ const nextTitle = (() => {
                                : rowIndex % 2 >= 1
                                  ? "#f8fafc"
                                  : "transparent",
-                           fontSize: getFontSize(),
+                           fontSize: getFontSize(zoomLevel),
                            cursor: isAdmin ? "default" : "pointer",
                            borderColor:
                              entryCell &&
@@ -5465,7 +5383,7 @@ const nextTitle = (() => {
                       padding: "0.5rem 0.75rem",
                       borderBottom: "2px solid #3b82f6",
                       textAlign: "center",
-                      fontSize: getFontSize(),
+                      fontSize: getFontSize(zoomLevel),
                       cursor: "text",
                     }}
                   >

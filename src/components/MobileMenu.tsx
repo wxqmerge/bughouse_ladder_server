@@ -7,6 +7,7 @@ import {
   Type,
   Check,
 } from "lucide-react";
+import { getVisibleTitles, createTitleMenuItem } from "../utils/titleMenu";
 import { titleToFileName } from "../utils/constants";
 
 interface MobileMenuProps {
@@ -83,24 +84,7 @@ export default function MobileMenu({
     },
   ];
 
-  const allTitles = [
-    "Ladder",
-    "Bughouse",
-    "BG_Game",
-    "Bishop_Game",
-    "Pillar_Game",
-    "Kings_Cross",
-    "Pawn_Game",
-    "Queen_Game",
-  ];
-
-  const visibleTitles = isAdmin
-    ? allTitles
-    : allTitles.filter((title) => {
-        if (title === "Ladder") return true;
-        const fileName = titleToFileName(title);
-        return availableMiniGames.includes(fileName);
-      });
+  const visibleTitles = getVisibleTitles(isAdmin, availableMiniGames);
 
   const titleItems: MenuItem[] = visibleTitles.map((title) => {
     const isMiniGame = title !== "Ladder";
