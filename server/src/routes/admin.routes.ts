@@ -816,7 +816,9 @@ function generateTrophyTabContent(trophies: any[], isClubMode: boolean = false, 
     lines.push('');
   }
   
-  const header = 'Rank\tPlayer\tGr\tRating\tTrophy Type\tMini-Game/Grade\tGames Played\tTotal Games';
+  lines.push('');
+  lines.push('AWARDED TROPHIES');
+  const header = 'Rank\tPlayer\tTrophy Type\tMini-Game/Grade\tGr\tRating\tTotal Games\tGames Played';
   lines.push(header);
   
   let blankRowInserted = false;
@@ -826,7 +828,7 @@ function generateTrophyTabContent(trophies: any[], isClubMode: boolean = false, 
       lines.push('');
       blankRowInserted = true;
     }
-    lines.push(`${trophy.rank}\t${trophy.player}\t${trophy.gr}\t${trophy.rating}\t${trophy.trophyType}\t${trophy.miniGameOrGrade}\t${trophy.gamesPlayed}\t${trophy.totalGames || 0}`);
+    lines.push(`${trophy.rank}\t${trophy.player}\t${trophy.trophyType}\t${trophy.miniGameOrGrade}\t${trophy.gr}\t${trophy.rating}\t${trophy.totalGames || 0}\t${trophy.gamesPlayed}`);
   }
   
   return lines.join('\n') + '\n';
