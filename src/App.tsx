@@ -286,7 +286,6 @@ function App() {
     setTournamentActive(false);
     setProjectName('Ladder');
     setProjectNameStorage('Ladder');
-    alert('Mini-game files cleared');
     window.location.reload();
   };
 
