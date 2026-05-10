@@ -94,7 +94,15 @@ export default function MobileMenu({
     "Queen_Game",
   ];
 
-  const titleItems: MenuItem[] = allTitles.map((title) => {
+  const visibleTitles = isAdmin
+    ? allTitles
+    : allTitles.filter((title) => {
+        if (title === "Ladder") return true;
+        const fileName = titleToFileName(title);
+        return availableMiniGames.includes(fileName);
+      });
+
+  const titleItems: MenuItem[] = visibleTitles.map((title) => {
     const isMiniGame = title !== "Ladder";
     const fileName = isMiniGame ? titleToFileName(title) : null;
     const isAvailable = fileName ? availableMiniGames.includes(fileName) : true;
