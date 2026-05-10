@@ -8,6 +8,8 @@ Mini-game tournaments are a **special case** - not the default flow. When runnin
 
 **All 7 mini-games are treated identically in code.** The 7 tournaments are semantically different but code-wise they are identical. No special-case handling for bughouse or any other mini-game. The same player copy logic, file saving, trophy calculation, and export apply to all 7 files.
 
+**Multi-client support:** Multiple clients can view and enter results in different mini-games simultaneously. Each client's DataService tracks its own `currentMiniGameFile`, routing all operations (read, write, submit game result, update player, clear cell) to the correct mini-game file.
+
 ## Storage (Dual-Mode)
 
 Mini-game files are stored differently depending on mode:
@@ -125,34 +127,51 @@ All 7 mini-game files are treated identically - same code paths, same logic, no 
 
 ## Switching Mini-Games (The Key Mechanism)
 
+When the admin switches to a mini-game title from the File menu, the ladder form **switches its data source** from `ladder.tab` to the mini-game file. All subsequent operations (read, write, submit game results, update players) route to that mini-game file.
+
 ### First Time Switching to a Mini-Game
 
 When you switch to a mini-game file that doesn't exist yet:
 
-1. **Source file**: The currently active mini-game file (e.g., BG_Game.tab)
-2. **Target file**: The new mini-game file (e.g., Bishop_Game.tab)
-3. **Copy players + ratings** from source to target
-4. **If player count differs**: Add any new players from source that aren't in target
-5. **Start with empty gameResults** (ready for new games)
+1. **Copy players + ratings** from club ladder (or active mini-game) to the new file
+2. **Start with empty gameResults** (ready for new games)
+3. **Switch data source** — all ladder operations now read/write to this mini-game file
 
 ### Switching to an Existing Mini-Game
 
 When you switch to a mini-game file that already exists:
 
 1. **Load existing file** (with accumulated results from previous sessions)
-2. **Resume playing** - results are already there
-3. **New results are appended** to existing ones
-4. **File accumulates** - if you play BG_Game twice, both sessions' results are in the file
+2. **Switch data source** — all ladder operations now read/write to this mini-game file
+3. **Resume playing** - results are already there
+4. **New results are appended** to existing ones
+5. **File accumulates** - if you play BG_Game twice, both sessions' results are in the file
+
+### Switching Away from a Mini-Game
+
+When you switch from a mini-game back to "Ladder":
+
+1. **Reset data source** — all ladder operations now read/write to `ladder.tab` again
+2. Confirmation dialog shown to prevent accidental loss
+
+### Multi-Client Support
+
+Multiple clients can view and enter results in different mini-games simultaneously:
+
+- **Client A** switches to bughouse → all operations route to `bughouse.tab`
+- **Client B** switches to BG_Game → all operations route to `BG_Game.tab`
+- Each client's `DataService` has its own `currentMiniGameFile` — no cross-contamination
+- Individual cell operations (`submitGameResult`, `updatePlayer`, `clearPlayerCell`) all check `currentMiniGameFile` and route correctly
 
 ### Example Flow
 
 ```
 1. Start tournament in BG_Game (20 players, 10 games played)
-2. Switch to Bishop_Game → copy 20 players, start fresh
+2. Switch to Bishop_Game → copy 20 players, start fresh, switch data source
 3. Play 8 games in Bishop_Game
-4. Switch back to BG_Game → load existing BG_Game.tab (10 games)
+4. Switch back to BG_Game → load existing BG_Game.tab (10 games), switch data source
 5. Play 5 more games in BG_Game → now 15 total
-6. Switch to Pillar_Game → copy 20 players (from Bishop_Game), start fresh
+6. Switch to Pillar_Game → copy 20 players (from Bishop_Game), start fresh, switch data source
 7. Play 12 games in Pillar_Game
 8. End tournament
 ```
@@ -228,7 +247,20 @@ Two implementations of `MiniGameStore`:
 - **Server**: `tournamentStore` in `tournamentService.ts` — reads/writes `.tab` files to `data/` directory
 - **Client (local)**: `miniGameStore` in `miniGameLocalStorage.ts` — reads/writes to `localStorage`
 
-### Phase 3: Export Mini-Game Files Endpoint
+### Phase 3: Data Source Switching (Mini-Game File Routing)
+
+When switching to a mini-game title, the `DataService` sets `currentMiniGameFile` to the mini-game file name. All subsequent operations route through the mini-game file instead of `ladder.tab`:
+
+- **`getPlayers()`** — reads from mini-game file (server: `GET /api/admin/tournament/read-mini-game`, local: `miniGameStore.readMiniGameFile()`)
+- **`savePlayers()`** — writes to mini-game file (server: `POST /api/admin/tournament/write-mini-game`, local: `miniGameStore.writeMiniGameFile()`)
+- **`submitGameResult()`** — reads mini-game file, updates cell, writes back
+- **`updatePlayer()`** — reads mini-game file, updates player, writes back
+- **`clearPlayerCell()`** — reads mini-game file, clears cell, writes back
+- **`refreshData()` / polling** — polls mini-game file when `currentMiniGameFile` is set
+
+When switching back to "Ladder", `currentMiniGameFile` is reset to `null`, routing all operations back to `ladder.tab`.
+
+### Phase 4: Export Mini-Game Files Endpoint
 
 Add server endpoint to package all mini-game files:
 
@@ -408,6 +440,14 @@ GET /api/admin/tournament/check-mini-games
 POST /api/admin/tournament/add-player-to-mini-games
   - Adds new player to all existing mini-game files
 
+GET /api/admin/tournament/read-mini-game?fileName=...
+  - Reads a single mini-game file
+  - Returns players array (used for data source switching)
+
+POST /api/admin/tournament/write-mini-game
+  - Writes players array to a mini-game file
+  - Used for all game result submissions, player updates, cell clears
+
 GET /api/admin/export-mini-data
   - ZIPs ladder.tab + any mini-game files with data
   - Filename: mini_data_YYYY-MM-DD.zip
@@ -457,18 +497,20 @@ Tournament mode state stored server-side (not in PlayerData or .tab files):
 17. **Clear Mini-Games / Clear All deletes files in local mode** - `handleClearAll` and `handleClearMiniGames` always call `dataService.clearMiniGames()` regardless of mode, ensuring localStorage mini-game keys are deleted
 18. **Dual-purpose trophy system** - Works for mini-game tournaments AND end-of-year club ladder awards
 19. **Grade 1st place uses club ladder rating** - Not mini-game rating, for end-of-year mode only
-19. **Files persist on switch-away** - Switching from mini-game to Ladder shows confirmation but files remain until "Clear Mini-Games" in Settings (prevents accidental loss)
-20. **Gr trophy order** - Position-by-position across all grades: all grades get 1st Place first (highest Gr first), then all grades get 2nd Place, then all grades get 3rd Place
-21. **Gr trophy ties** - Standard competition ranking: tied players get same position, ties are OK (better to give too many trophies than too few)
-22. **Gr trophy completeness** - If any grade gets 1st place, then all grades get 1st place before any grade gets 2nd place
-23. **Local mode export** - Returns combined text blob with `=== filename.tab ===` headers between each file (acceptable, no ZIP support in localStorage)
-24. **Manual title switch during tournament** - Should be prevented (admin must use "Clear Mini-Games" in Settings to end tournament)
-25. **Bughouse file naming** - Bughouse is treated as just another mini-game, no special naming like `Bughouse_BG_Game.tab`
-26. **ZIP metadata** - Keep it simple, no extra metadata in exported ZIP
-27. **Mini-game files not archived with timestamps** - Files are overwritten/merged, zip/blob is the backup
-28. **Export includes club ladder** - Export (ZIP for server, blob for local) includes club_ladder.tab + all mini-game files
-29. **No auto-clear after trophies** - Mini-game results persist; admin uses "Clear Mini-Games" when ready
-30. **Export files are time/date stamped** - ZIP filename: `tournament_YYYY-MM-DD.zip`, trophy: `tournament_trophies_YYYY-MM-DD.tab`, mini data: `mini_data_YYYY-MM-DD.zip`
+20. **Files persist on switch-away** - Switching from mini-game to Ladder shows confirmation but files remain until "Clear Mini-Games" in Settings (prevents accidental loss)
+21. **Gr trophy order** - Position-by-position across all grades: all grades get 1st Place first (highest Gr first), then all grades get 2nd Place, then all grades get 3rd Place
+22. **Gr trophy ties** - Standard competition ranking: tied players get same position, ties are OK (better to give too many trophies than too few)
+23. **Gr trophy completeness** - If any grade gets 1st place, then all grades get 1st place before any grade gets 2nd place
+24. **Local mode export** - Returns combined text blob with `=== filename.tab ===` headers between each file (acceptable, no ZIP support in localStorage)
+25. **Manual title switch during tournament** - Should be prevented (admin must use "Clear Mini-Games" in Settings to end tournament)
+26. **Bughouse file naming** - Bughouse is treated as just another mini-game, no special naming like `Bughouse_BG_Game.tab`
+27. **ZIP metadata** - Keep it simple, no extra metadata in exported ZIP
+28. **Mini-game files not archived with timestamps** - Files are overwritten/merged, zip/blob is the backup
+29. **Export includes club ladder** - Export (ZIP for server, blob for local) includes club_ladder.tab + all mini-game files
+30. **No auto-clear after trophies** - Mini-game results persist; admin uses "Clear Mini-Games" when ready
+31. **Export files are time/date stamped** - ZIP filename: `tournament_YYYY-MM-DD.zip`, trophy: `tournament_trophies_YYYY-MM-DD.tab`, mini data: `mini_data_YYYY-MM-DD.zip`
+32. **Data source switching** - `DataService` tracks `currentMiniGameFile`; all operations (`getPlayers`, `savePlayers`, `submitGameResult`, `updatePlayer`, `clearPlayerCell`) route to the mini-game file when set, or to `ladder.tab` when null
+33. **Multi-client support** - Multiple clients can view and enter results in different mini-games simultaneously; each client's `DataService` has its own `currentMiniGameFile` — no cross-contamination
 
 ## Open Questions
 
