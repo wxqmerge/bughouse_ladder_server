@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { getVersionString, isServerDownMode, getProgramMode } from "../utils/mode";
+import { titleToFileName } from "../utils/constants";
 import {
   Folder,
   Upload,
@@ -119,6 +120,7 @@ export default function MenuBar({
         closeAllMenus();
       },
       dataMenuItem: "Load",
+      disabled: !isAdmin || tournamentMode,
     },
     {
       icon: <Download size={16} />,
@@ -153,7 +155,7 @@ export default function MenuBar({
 
   const titleMenuItems: MenuItem[] = allTitles.map((title) => {
     const isMiniGame = title !== "Ladder";
-    const fileName = isMiniGame ? `${title}.tab` : null;
+    const fileName = isMiniGame ? titleToFileName(title) : null;
     const isAvailable = fileName ? availableMiniGames.includes(fileName) : true;
     const isDisabled = !isAdmin && isMiniGame && !isAvailable;
     
@@ -532,7 +534,7 @@ export default function MenuBar({
             flex: 1,
           }}
         >
-          {isAdmin && renderMenuTrigger(
+          {renderMenuTrigger(
             "File",
             <Folder size={16} />,
             fileMenuItems,

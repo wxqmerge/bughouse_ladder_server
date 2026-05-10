@@ -20,12 +20,12 @@ const baseProps = {
 
 describe("MenuBar component", () => {
   describe("non-admin mode (default)", () => {
-    it("should render menu bar with Operations and View menus only", () => {
-      render(<MenuBar {...baseProps} />);
+    it("should render menu bar with File, Operations and View menus (non-admin)", () => {
+      render(<MenuBar {...baseProps} isAdmin={false} />);
       
+      expect(screen.getByText("File")).toBeInTheDocument();
       expect(screen.getByText("Operations")).toBeInTheDocument();
       expect(screen.getByText("View")).toBeInTheDocument();
-      expect(screen.queryByText("File")).not.toBeInTheDocument();
       expect(screen.queryByText("Sort")).not.toBeInTheDocument();
     });
 
@@ -423,9 +423,9 @@ describe("MenuBar component", () => {
 
 
 
-    it("should hide File menu when server configured without API key", () => {
+    it("should show File menu but hide Sort when server configured without API key", () => {
       render(<MenuBar {...baseProps} serverUrl="http://example.com" hasAdminApiKey={false} />);
-      expect(screen.queryByText("File")).not.toBeInTheDocument();
+      expect(screen.getByText("File")).toBeInTheDocument();
       expect(screen.queryByText("Sort")).not.toBeInTheDocument();
     });
 
