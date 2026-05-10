@@ -297,10 +297,10 @@ No toggle needed - the presence of mini-game files determines the mode.
 - 1 × Most games played (across all completed mini-games)
 
 **Maximum 21+ trophies available (end-of-year / club ladder):**
-- Same as above but based on club ladder performance
-- Plus: 1st, 2nd, 3rd place per Gr (school grade, e.g., 5, 6, 7) after a blank row separator
+- 1st, 2nd, 3rd place overall + Most Games
+- Plus: 1st, 2nd, 3rd place per Gr (school grade, e.g., 5, 6, 7)
 
-**Capped at 1/3 of total player count** (round down).
+**Trophy count = ceil(players / 3)** — this is a floor, not a cap. Mini-game 1st/2nd places and grade trophies are always awarded regardless of count.
 
 ### Mini-Game Difficulty Order (Hardest → Easiest)
 
@@ -312,64 +312,111 @@ No toggle needed - the presence of mini-game files determines the mode.
 6. BG_Game
 7. bughouse (easiest)
 
-### Awarding Sequence
+### Mini-Game Tournament Awarding Sequence
 
 ```
-1. Award 1st place for each COMPLETED mini-game (hardest first: Queen → Pawn → Kings_Cross → Pillar → Bishop → BG_Game → bughouse)
-2. Award 2nd place for each COMPLETED mini-game (hardest first)
-3. Fill remaining slots with "most games" players
-   - Multiple players can tie for "most games" (OK to give more than one)
-   - Count total games played across ALL completed mini-games
-   - Award to top players by game count until slots are filled
-4. [BLANK ROW - separator]
-5. Award 1st place per Gr (highest Gr first: 13 → 12 → 11 → ...)
-    - Based on club ladder rating (not mini-game rating)
-    - Standard competition ranking: ties get same position, next position skips
-    - Ties are OK — if two players tie for 1st in Gr 10, both get 1st Place
-    - If Gr 10 has ratings 1000, 1000, 900, 900, 800: 2× 1st Place, 2× 3rd Place
-6. Award 2nd place per Gr (highest Gr first: 13 → 12 → 11 → ...)
-7. Award 3rd place per Gr (highest Gr first: 13 → 12 → 11 → ...)
-    - Design rule: better to give too many trophies than too few
-    - If any grade gets 1st place, then all grades get 1st place before any grade gets 2nd place
+Let m = number of completed mini-games
+Let n = number of players
+Let t = ceil(n / 3) = available trophy slots
+
+1. Award 1st place for each COMPLETED mini-game (always, hardest first: Queen → Pawn → Kings_Cross → Pillar → Bishop → BG_Game → bughouse)
+   - Player must have at least one game result in that mini-game
+2. Award 2nd place for each COMPLETED mini-game (only if t > m)
+   - Player must have at least one game result in that mini-game
+3. Award grade 1st place (only if t > 2*m)
+   - Remaining players (no trophy yet), sorted by num_games
+   - First player by num_games in each grade wins
+   - One trophy per grade
 ```
 
-### Examples
+### Club Ladder Awarding Sequence
 
-**30 players = 10 trophy slots, all 7 mini-games played:**
-- 7 × 1st places (all 7 mini-games) = 7 slots used
-- 3 × 2nd places (hardest 3: Queen, Pawn, Kings_Cross) = 3 slots used
-- 0 slots left for "most games"
-- 0 slots left for grade 1st places
+```
+Let n = number of players
+Let t = ceil(n / 3) = available trophy slots
 
-**40 players = 13 trophy slots, all 7 mini-games played:**
-- 7 × 1st places = 7 slots used
-- 6 × 2nd places = 13 slots used
-- 0 slots left for "most games"
-- 0 slots left for grade trophies
+1. Award 1st place overall (always) — highest rated player
+2. Award 2nd place overall (always) — 2nd highest rated player
+3. Award 3rd place overall (always) — 3rd highest rated player
+4. Award Most Games (always) — player with most games played
+5. Award grade 1st place (only if t > 4)
+   - Highest rated player in each grade wins
+   - One trophy per grade
+6. Award grade 2nd place (only if trophies remain)
+   - 2nd highest rated player in each grade wins
+7. Award grade 3rd place (only if trophies remain)
+   - 3rd highest rated player in each grade wins
+```
 
-**24 players = 8 trophy slots, only 4 mini-games played:**
-- 4 × 1st places = 4 slots used
-- 4 × 2nd places = 8 slots used
-- 0 slots left for "most games"
-- 0 slots left for grade trophies
+**Rules for both modes:**
+- One trophy per player — first-come-first-served by award order
+- If any grade gets trophies, ALL grades must receive trophies
+- Ties are OK — better to give too many trophies than too few
 
-**45 players = 15 trophy slots, all 7 mini-games played:**
-- 7 × 1st places = 7 slots used
-- 7 × 2nd places = 14 slots used
-- 1 slot left for "most games" → top 1 player by total games
-- 0 slots left for grade trophies
+### Mini-Game Tournament Examples
 
-**60 players = 20 trophy slots, all 7 mini-games played:**
-- 7 × 1st places = 7 slots used
-- 7 × 2nd places = 14 slots used
-- 1 slot left for "most games" → top 1 player by total games
-- 5 slots left for Gr trophies → Gr 12 (1st), Gr 11 (1st), Gr 10 (1st), Gr 9 (1st), Gr 8 (1st)
+**7 players, all 7 mini-games played (t=7, m=7):**
+- 7 × 1st places = 7 trophies (1 per player, all won 1st)
+- 2nd place skipped (t = m, not t > m)
+- Grade 1st skipped (t = m, not t > 2*m)
+- Total: 7 trophies
 
-**80 players = 26 trophy slots, all 7 mini-games played:**
-- 7 × 1st places = 7 slots used
-- 7 × 2nd places = 14 slots used
-- 1 slot left for "most games" → top 1 player by total games
-- 11 slots left for Gr trophies → Gr 12 (1st), Gr 11 (1st), Gr 10 (1st), Gr 9 (1st), Gr 8 (1st), Gr 7 (1st), Gr 6 (1st), Gr 5 (1st), Gr 4 (1st), Gr 3 (1st), Gr 2 (1st)
+**7 players, all 7 mini-games played, 21 trophy slots (t=21, m=7):**
+- 7 × 1st places = 7 trophies
+- 7 × 2nd places = 14 trophies (t > m ✓)
+- 7 × grade 1st places = 21 trophies (t > 2*m ✓, one per grade)
+- Total: 21 trophies
+
+**30 players = 10 trophy slots, all 7 mini-games played (t=10, m=7):**
+- 7 × 1st places = 7 trophies
+- 7 × 2nd places = 14 trophies (t > m ✓)
+- Grade 1st skipped (t=10 ≤ 2*m=14)
+- Total: 14 trophies
+
+**24 players = 8 trophy slots, only 4 mini-games played (t=8, m=4):**
+- 4 × 1st places = 4 trophies
+- 4 × 2nd places = 8 trophies (t > m ✓)
+- Grade 1st skipped (t=8 ≤ 2*m=8)
+- Total: 8 trophies
+
+**45 players = 15 trophy slots, all 7 mini-games played (t=15, m=7):**
+- 7 × 1st places = 7 trophies
+- 7 × 2nd places = 14 trophies (t > m ✓)
+- Grade 1st awarded (t=15 > 14 ✓, one per grade)
+- Total: 15+ trophies
+
+**60 players = 20 trophy slots, all 7 mini-games played (t=20, m=7):**
+- 7 × 1st places = 7 trophies
+- 7 × 2nd places = 14 trophies (t > m ✓)
+- Grade 1st awarded (t=20 > 14 ✓, one per grade)
+- Total: 15+ trophies
+
+**80 players = 27 trophy slots, all 7 mini-games played (t=27, m=7):**
+- 7 × 1st places = 7 trophies
+- 7 × 2nd places = 14 trophies (t > m ✓)
+- Grade 1st awarded (t=27 > 14 ✓, one per grade)
+- Total: 15+ trophies
+
+### Club Ladder Examples
+
+**10 players = 4 trophy slots (t=4):**
+- 1st, 2nd, 3rd overall = 3 trophies
+- Most Games = 4 trophies
+- Grade 1st skipped (t ≤ 4)
+- Total: 4 trophies
+
+**16 players = 6 trophy slots (t=6):**
+- 1st, 2nd, 3rd overall = 3 trophies
+- Most Games = 4 trophies
+- Grade 1st awarded (t > 4 ✓, one per grade)
+- Total: 5+ trophies
+
+**30 players = 10 trophy slots (t=10):**
+- 1st, 2nd, 3rd overall = 3 trophies
+- Most Games = 4 trophies
+- Grade 1st awarded (t > 4 ✓, one per grade)
+- Grade 2nd awarded (trophies remain ✓, one per grade)
+- Total: 6+ trophies
 
 ### Trophy Report Format
 
@@ -396,16 +443,15 @@ Rank | Player | Gr | Trophy Type | Mini-Game/Grade | Games Played
      | White  | 10 | 3rd Place   | Gr 10           | 26
 ```
 
-**Note**: Gr trophies are awarded position-by-position across all grades: first all grades get 1st Place (highest Gr first), then all grades get 2nd Place, then all grades get 3rd Place. Ties are OK — if two players tie for 1st in Gr 12, both get 1st Place. Design rule: better to give too many trophies than too few.
+**Note**: In mini-game tournaments, grade trophies are awarded to one player per grade (highest num_games). In club ladder mode, grade 1st place goes to highest rated player per grade.
 
 **Note**: "Games Played" for mini-game trophies counts games from ALL sessions of that mini-game (accumulated file).
 
 **Notes:**
 - `Gr` = school grade (0=Kindergarten, 1=1st, ..., 12=12th, 13=College)
 - `Games Played` = total games in the mini-game (for mini-game trophies) or total career games (for Gr trophies)
-- Blank row separator before Gr trophies
+- Blank row separator before Gr trophies (mini-game mode only)
 - Gr column used for determining Gr trophy winners (highest Gr first: 13 → 12 → 11 → ...)
-- Order: all grades get 1st Place first, then all grades get 2nd Place, then all grades get 3rd Place
 - Group column (A, A1, B, C, D) is separate and not used for trophy awards
 
 ### Clearing Mini-Game Results
@@ -498,19 +544,22 @@ Tournament mode state stored server-side (not in PlayerData or .tab files):
 18. **Dual-purpose trophy system** - Works for mini-game tournaments AND end-of-year club ladder awards
 19. **Grade 1st place uses club ladder rating** - Not mini-game rating, for end-of-year mode only
 20. **Files persist on switch-away** - Switching from mini-game to Ladder shows confirmation but files remain until "Clear Mini-Games" in Settings (prevents accidental loss)
-21. **Gr trophy order** - Position-by-position across all grades: all grades get 1st Place first (highest Gr first), then all grades get 2nd Place, then all grades get 3rd Place
-22. **Gr trophy ties** - Standard competition ranking: tied players get same position, ties are OK (better to give too many trophies than too few)
-23. **Gr trophy completeness** - If any grade gets 1st place, then all grades get 1st place before any grade gets 2nd place
-24. **Local mode export** - Returns combined text blob with `=== filename.tab ===` headers between each file (acceptable, no ZIP support in localStorage)
-25. **Manual title switch during tournament** - Should be prevented (admin must use "Clear Mini-Games" in Settings to end tournament)
-26. **Bughouse file naming** - Bughouse is treated as just another mini-game, no special naming like `Bughouse_BG_Game.tab`
-27. **ZIP metadata** - Keep it simple, no extra metadata in exported ZIP
-28. **Mini-game files not archived with timestamps** - Files are overwritten/merged, zip/blob is the backup
-29. **Export includes club ladder** - Export (ZIP for server, blob for local) includes club_ladder.tab + all mini-game files
-30. **No auto-clear after trophies** - Mini-game results persist; admin uses "Clear Mini-Games" when ready
-31. **Export files are time/date stamped** - ZIP filename: `tournament_YYYY-MM-DD.zip`, trophy: `tournament_trophies_YYYY-MM-DD.tab`, mini data: `mini_data_YYYY-MM-DD.zip`
-32. **Data source switching** - `DataService` tracks `currentMiniGameFile`; all operations (`getPlayers`, `savePlayers`, `submitGameResult`, `updatePlayer`, `clearPlayerCell`) route to the mini-game file when set, or to `ladder.tab` when null
-33. **Multi-client support** - Multiple clients can view and enter results in different mini-games simultaneously; each client's `DataService` has its own `currentMiniGameFile` — no cross-contamination
+21. **Mini-game trophies** - 1st place always awarded, 2nd place only if t > m, grade 1st only if t > 2*m
+22. **Club ladder trophies** - 1st/2nd/3rd overall + Most Games always awarded, grade 1st if t > 4, grade 2nd/3rd if trophies remain
+23. **One trophy per player** - Each player can only receive one trophy (first-come-first-served by award order)
+24. **Must have games to win** - Player must have at least one game result in a mini-game to win that mini-game's 1st/2nd place trophy
+25. **1/3 ratio is a floor, not a cap** - Trophy count = ceil(players / 3), but mini-game 1st/2nd places and grade trophies are always awarded regardless of count
+26. **Grade completeness** - If any grade gets trophies, ALL grades must receive trophies
+27. **Local mode export** - Returns combined text blob with `=== filename.tab ===` headers between each file (acceptable, no ZIP support in localStorage)
+28. **Manual title switch during tournament** - Should be prevented (admin must use "Clear Mini-Games" in Settings to end tournament)
+29. **Bughouse file naming** - Bughouse is treated as just another mini-game, no special naming like `Bughouse_BG_Game.tab`
+30. **ZIP metadata** - Keep it simple, no extra metadata in exported ZIP
+31. **Mini-game files not archived with timestamps** - Files are overwritten/merged, zip/blob is the backup
+32. **Export includes club ladder** - Export (ZIP for server, blob for local) includes club_ladder.tab + all mini-game files
+33. **No auto-clear after trophies** - Mini-game results persist; admin uses "Clear Mini-Games" when ready
+34. **Export files are time/date stamped** - ZIP filename: `tournament_YYYY-MM-DD.zip`, trophy: `tournament_trophies_YYYY-MM-DD.tab`, mini data: `mini_data_YYYY-MM-DD.zip`
+35. **Data source switching** - `DataService` tracks `currentMiniGameFile`; all operations (`getPlayers`, `savePlayers`, `submitGameResult`, `updatePlayer`, `clearPlayerCell`) route to the mini-game file when set, or to `ladder.tab` when null
+36. **Multi-client support** - Multiple clients can view and enter results in different mini-games simultaneously; each client's `DataService` has its own `currentMiniGameFile` — no cross-contamination
 
 ## Open Questions
 
