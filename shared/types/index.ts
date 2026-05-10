@@ -110,4 +110,5 @@ export interface MiniGameStore {
     isClubMode?: boolean;
     debugInfo?: string;
   }>;
+  importMiniGameFiles(content: string): Promise<{ imported: string[]; errors: string[] }>;
 }

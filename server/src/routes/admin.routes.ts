@@ -23,6 +23,7 @@ import {
   generateTrophyReport,
   addPlayerToAllMiniGames,
   checkMiniGameFilesWith,
+  tournamentStore,
   MINI_GAME_FILES,
   MINI_GAME_DIFFICULTY_ORDER,
 } from '../services/tournamentService.js';
@@ -673,6 +674,34 @@ router.get('/tournament/trophies', async (req: Request, res: Response): Promise<
     res.status(500).json({
       success: false,
       error: { message: 'Failed to generate trophy report' },
+    });
+  }
+});
+
+// Import mini-game files
+router.post('/tournament/import', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { content } = req.body;
+    
+    if (!content || typeof content !== 'string') {
+      res.status(400).json({
+        success: false,
+        error: { message: 'Missing content' },
+      });
+      return;
+    }
+    
+    const result = await tournamentStore.importMiniGameFiles(content);
+    
+    res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    console.error('Import mini-games error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to import mini-game files' },
     });
   }
 });

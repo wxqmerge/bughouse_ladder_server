@@ -796,4 +796,40 @@ export const tournamentStore: MiniGameStore = {
   async generateTrophyReport(players: PlayerData[]) {
     return generateTrophyReport();
   },
+
+  async importMiniGameFiles(content: string): Promise<{ imported: string[]; errors: string[] }> {
+    const imported: string[] = [];
+    const errors: string[] = [];
+    
+    const sections = content.split('=== ').filter(s => s.trim());
+    
+    for (const section of sections) {
+      const firstLine = section.split('\n')[0];
+      const fileName = firstLine.replace(' ===', '').trim();
+      
+      if (!MINI_GAME_FILES.includes(fileName)) {
+        errors.push(`Unknown file: ${fileName}`);
+        continue;
+      }
+      
+      const fileContent = section.substring(firstLine.length + 1).trim();
+      
+      if (!fileContent) {
+        errors.push(`Empty file: ${fileName}`);
+        continue;
+      }
+      
+      try {
+        const dataDir = path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data/ladder.tab'));
+        const filePath = path.join(dataDir, fileName);
+        await fs.writeFile(filePath, fileContent + '\n', 'utf-8');
+        imported.push(fileName);
+        loggerLog('[TOURNAMENT]', `Imported ${fileName}`);
+      } catch (err) {
+        errors.push(`Failed to write ${fileName}: ${(err as Error).message}`);
+      }
+    }
+    
+    return { imported, errors };
+  },
 };

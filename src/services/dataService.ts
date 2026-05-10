@@ -989,6 +989,29 @@ class DataService {
     const data = await response.json();
     return data.data;
   }
+
+  async importMiniGameFiles(content: string): Promise<{ imported: string[]; errors: string[] }> {
+    if (this.config.mode === DataServiceMode.LOCAL) {
+      const store = this.getStore();
+      return store.importMiniGameFiles(content);
+    } else {
+      const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/import`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...this.getAuthHeaders(),
+        },
+        body: JSON.stringify({ content }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to import mini-game files');
+      }
+
+      const data = await response.json();
+      return data.data;
+    }
+  }
 }
 
 // Determine the appropriate mode based on user settings or environment configuration
