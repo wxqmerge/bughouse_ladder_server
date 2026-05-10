@@ -856,41 +856,6 @@ class DataService {
     }
   }
 
-  async exportMiniData(): Promise<Blob> {
-    if (this.config.mode === DataServiceMode.LOCAL) {
-      // In local mode, export ladder.tab + mini-game files as combined text
-      const store = this.getStore();
-      const players = await this.getLocalPlayers();
-      
-      let content = '=== ladder.tab ===\n';
-      content += players.map(p => {
-        return `${p.group}\t${p.lastName}\t${p.firstName}\t${p.rating}\t${p.rank}\t${p.nRating}\t${p.grade}\t${p.num_games}\t${p.attendance}\t${p.phone}\t${p.info}\t${p.school}\t${p.room}` + 
-               (p.gameResults || []).map(r => r || '').join('\t');
-      }).join('\n') + '\n\n';
-      
-      const existingFiles = await store.getExistingMiniGameFiles();
-      for (const fileName of existingFiles) {
-        const fileData = await store.readMiniGameFile(fileName);
-        if (fileData) {
-          content += `=== ${fileName} ===\n`;
-          content += fileData.rawLines.join('\n') + '\n\n';
-        }
-      }
-
-      return new Blob([content], { type: 'text/plain' });
-    } else {
-      const response = await fetch(`${this.getApiUrl()}/api/admin/export-mini-data`, {
-        headers: this.getAuthHeaders(),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to export mini data');
-      }
-
-      return response.blob();
-    }
-  }
-
   async clearMiniGames(): Promise<any> {
     if (this.config.mode === DataServiceMode.LOCAL) {
       const store = this.getStore();
