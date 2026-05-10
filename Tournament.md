@@ -315,6 +315,10 @@ No toggle needed - the presence of mini-game files determines the mode.
 ### Mini-Game Tournament Awarding Sequence
 
 ```
+Before awarding trophies:
+- For each completed mini-game: run 5 rating recalcs (calculateRatings × 5)
+- Ratings are stabilized before trophy determination
+
 Let m = number of completed mini-games
 Let n = number of players
 Let t = ceil(n / 3) = available trophy slots
@@ -549,15 +553,16 @@ Tournament mode state stored server-side (not in PlayerData or .tab files):
 23. **One trophy per player** - Each player can only receive one trophy (first-come-first-served by award order)
 24. **Must have games to win** - Player must have at least one game result in a mini-game to win that mini-game's 1st/2nd place trophy
 25. **1/3 ratio is a floor, not a cap** - Trophy count = ceil(players / 3), but mini-game 1st/2nd places and grade trophies are always awarded regardless of count
-26. **Grade completeness** - If any grade gets trophies, ALL grades must receive trophies
-27. **Local mode export** - Returns combined text blob with `=== filename.tab ===` headers between each file (acceptable, no ZIP support in localStorage)
-28. **Manual title switch during tournament** - Should be prevented (admin must use "Clear Mini-Games" in Settings to end tournament)
-29. **Bughouse file naming** - Bughouse is treated as just another mini-game, no special naming like `Bughouse_BG_Game.tab`
-30. **ZIP metadata** - Keep it simple, no extra metadata in exported ZIP
-31. **Mini-game files not archived with timestamps** - Files are overwritten/merged, zip/blob is the backup
-32. **Export includes club ladder** - Export (ZIP for server, blob for local) includes club_ladder.tab + all mini-game files
-33. **No auto-clear after trophies** - Mini-game results persist; admin uses "Clear Mini-Games" when ready
-34. **Export files are time/date stamped** - ZIP filename: `tournament_YYYY-MM-DD.zip`, trophy: `tournament_trophies_YYYY-MM-DD.tab`, mini data: `mini_data_YYYY-MM-DD.zip`
+26. **5 recalcs before trophies** - Each mini-game file is recalculated 5 times (calculateRatings × 5) before trophy determination to stabilize ratings
+27. **Grade completeness** - If any grade gets trophies, ALL grades must receive trophies
+28. **Local mode export** - Returns combined text blob with `=== filename.tab ===` headers between each file (acceptable, no ZIP support in localStorage)
+29. **Manual title switch during tournament** - Should be prevented (admin must use "Clear Mini-Games" in Settings to end tournament)
+30. **Bughouse file naming** - Bughouse is treated as just another mini-game, no special naming like `Bughouse_BG_Game.tab`
+31. **ZIP metadata** - Keep it simple, no extra metadata in exported ZIP
+32. **Mini-game files not archived with timestamps** - Files are overwritten/merged, zip/blob is the backup
+33. **Export includes club ladder** - Export (ZIP for server, blob for local) includes club_ladder.tab + all mini-game files
+34. **No auto-clear after trophies** - Mini-game results persist; admin uses "Clear Mini-Games" when ready
+35. **Export files are time/date stamped** - ZIP filename: `tournament_YYYY-MM-DD.zip`, trophy: `tournament_trophies_YYYY-MM-DD.tab`, mini data: `mini_data_YYYY-MM-DD.zip`
 35. **Data source switching** - `DataService` tracks `currentMiniGameFile`; all operations (`getPlayers`, `savePlayers`, `submitGameResult`, `updatePlayer`, `clearPlayerCell`) route to the mini-game file when set, or to `ladder.tab` when null
 36. **Multi-client support** - Multiple clients can view and enter results in different mini-games simultaneously; each client's `DataService` has its own `currentMiniGameFile` — no cross-contamination
 

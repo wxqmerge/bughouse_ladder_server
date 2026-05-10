@@ -816,8 +816,15 @@ class DataService {
         throw new Error(result.message);
       }
 
-      const header = 'Rank\tPlayer\tGr\tRating\tTrophy Type\tMini-Game/Grade\tGames Played';
-      const lines = [header];
+      const lines: string[] = [];
+      
+      if (result.debugInfo) {
+        lines.push(result.debugInfo);
+        lines.push('');
+      }
+      
+      const header = 'Rank\tPlayer\tGr\tRating\tTrophy Type\tMini-Game/Grade\tGames Played\tTotal Games';
+      lines.push(header);
       
       let blankRowInserted = false;
       for (const trophy of result.trophies!) {
@@ -825,7 +832,7 @@ class DataService {
           lines.push('');
           blankRowInserted = true;
         }
-        lines.push(`${trophy.rank}\t${trophy.player}\t${trophy.gr}\t${trophy.rating}\t${trophy.trophyType}\t${trophy.miniGameOrGrade}\t${trophy.gamesPlayed}`);
+        lines.push(`${trophy.rank}\t${trophy.player}\t${trophy.gr}\t${trophy.rating}\t${trophy.trophyType}\t${trophy.miniGameOrGrade}\t${trophy.gamesPlayed}\t${trophy.totalGames || 0}`);
       }
       
       const content = lines.join('\n') + '\n';

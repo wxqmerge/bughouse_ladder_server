@@ -661,7 +661,7 @@ router.get('/tournament/trophies', async (req: Request, res: Response): Promise<
     const dataDir = path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data'));
     const trophyFileName = `tournament_trophies_${new Date().toISOString().split('T')[0]}.tab`;
     const trophyFilePath = path.join(dataDir, trophyFileName);
-    const tabContent = generateTrophyTabContent(result.trophies!, result.isClubMode);
+    const tabContent = generateTrophyTabContent(result.trophies!, result.isClubMode, result.debugInfo);
     await fs.writeFile(trophyFilePath, tabContent, 'utf-8');
     log('[ADMIN]', `Trophy report saved: ${trophyFileName}`);
     
@@ -808,9 +808,16 @@ router.get('/export-mini-data', async (req: Request, res: Response): Promise<voi
 });
 
 // Helper function to generate trophy TAB content
-function generateTrophyTabContent(trophies: any[], isClubMode: boolean = false): string {
-  const header = 'Rank\tPlayer\tGr\tRating\tTrophy Type\tMini-Game/Grade\tGames Played';
-  const lines = [header];
+function generateTrophyTabContent(trophies: any[], isClubMode: boolean = false, debugInfo?: string): string {
+  const lines: string[] = [];
+  
+  if (debugInfo) {
+    lines.push(debugInfo);
+    lines.push('');
+  }
+  
+  const header = 'Rank\tPlayer\tGr\tRating\tTrophy Type\tMini-Game/Grade\tGames Played\tTotal Games';
+  lines.push(header);
   
   let blankRowInserted = false;
   
@@ -819,7 +826,7 @@ function generateTrophyTabContent(trophies: any[], isClubMode: boolean = false):
       lines.push('');
       blankRowInserted = true;
     }
-    lines.push(`${trophy.rank}\t${trophy.player}\t${trophy.gr}\t${trophy.rating}\t${trophy.trophyType}\t${trophy.miniGameOrGrade}\t${trophy.gamesPlayed}`);
+    lines.push(`${trophy.rank}\t${trophy.player}\t${trophy.gr}\t${trophy.rating}\t${trophy.trophyType}\t${trophy.miniGameOrGrade}\t${trophy.gamesPlayed}\t${trophy.totalGames || 0}`);
   }
   
   return lines.join('\n') + '\n';
