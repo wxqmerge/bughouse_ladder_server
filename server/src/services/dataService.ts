@@ -118,8 +118,8 @@ export async function readLadderFile(filePath?: string): Promise<LadderData> {
     await acquireLock();
     
     try {
-      const content = await fs.readFile(targetPath, 'utf-8');
-      const lines = content.split('\n').filter(line => line.trim());
+      let content = await fs.readFile(targetPath, 'utf-8');
+      let lines = content.split('\n').filter(line => line.trim());
     
     if (lines.length === 0) {
       return { header: [], players: [], rawLines: [] };
@@ -132,8 +132,33 @@ export async function readLadderFile(filePath?: string): Promise<LadderData> {
       loggerLog('[SERVER]', `Warning: Header Round 1 column contains "${headerCols[13]}" instead of "1". File may be corrupted.`);
     }
 
-    // All remaining lines are player data
-    const dataLines = lines.slice(1);
+    // Detect and repair duplicate header: if line[1] is also a header (has "Round 1" in col 13), skip it
+    let dataLines = lines.slice(1);
+    let repaired = false;
+    if (dataLines.length > 0) {
+      const secondLine = dataLines[0];
+      const secondLineCols = secondLine.split('\t');
+      const isHeader = secondLineCols[13] && secondLineCols[13].trim() === '1';
+      
+      if (!isHeader && secondLine.includes('Last Name') && secondLine.includes('First Name')) {
+        const normCols = secondLine.replace(/\r/g, '').split('\t');
+        isHeader = normCols[13] && normCols[13].trim() === '1';
+      }
+      
+      if (isHeader) {
+        loggerLog('[SERVER]', `Repairing duplicate header in ${targetPath}`);
+        dataLines = dataLines.slice(1);
+        lines = [lines[0], ...dataLines];
+        repaired = true;
+      }
+    }
+    
+    // Write repaired content back to disk
+    if (repaired) {
+      const repairedContent = lines.join('\n') + '\n';
+      await fs.writeFile(targetPath, repairedContent, 'utf-8');
+      loggerLog('[SERVER]', `Wrote repaired file: ${targetPath}`);
+    }
     
     const players: PlayerData[] = [];
     
