@@ -31,9 +31,28 @@ function getStorageKey(fileName: string): string {
 }
 
 function parseTabContent(content: string): LadderData {
-  const lines = content.split('\n').filter(line => line.trim());
+  let lines = content.split('\n').filter(line => line.trim());
   if (lines.length === 0) {
     return { header: [], players: [], rawLines: [] };
+  }
+
+  // Detect and repair duplicate header
+  if (lines.length > 1) {
+    const secondLine = lines[1];
+    const secondLineNorm = secondLine.replace(/\r/g, '');
+    const secondLineCols = secondLineNorm.split('\t');
+    const isHeader = secondLineCols[13] && secondLineCols[13].trim() === '1';
+    
+    if (!isHeader && secondLineNorm.includes('Last Name') && secondLineNorm.includes('First Name')) {
+      const normCols = secondLineNorm.split('\t');
+      if (normCols[13] && normCols[13].trim() === '1') {
+        lines = [lines[0], ...lines.slice(2)];
+      }
+    }
+    
+    if (isHeader) {
+      lines = [lines[0], ...lines.slice(2)];
+    }
   }
 
   const header = lines[0].split('\t');
@@ -84,8 +103,7 @@ function parseTabContent(content: string): LadderData {
 }
 
 function generateTabContent(ladderData: LadderData): string {
-  const lines = [...ladderData.header, ...ladderData.rawLines];
-  return lines.join('\n') + '\n';
+  return ladderData.rawLines.join('\n') + '\n';
 }
 
 export async function importMiniGameFiles(content: string): Promise<{ imported: string[]; errors: string[] }> {
