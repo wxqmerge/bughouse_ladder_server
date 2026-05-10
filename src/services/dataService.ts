@@ -816,7 +816,7 @@ class DataService {
         throw new Error(result.message);
       }
 
-      const header = 'Rank\tPlayer\tGr\tTrophy Type\tMini-Game/Grade\tGames Played';
+      const header = 'Rank\tPlayer\tGr\tRating\tTrophy Type\tMini-Game/Grade\tGames Played';
       const lines = [header];
       
       let blankRowInserted = false;
@@ -825,7 +825,7 @@ class DataService {
           lines.push('');
           blankRowInserted = true;
         }
-        lines.push(`${trophy.rank}\t${trophy.player}\t${trophy.gr}\t${trophy.trophyType}\t${trophy.miniGameOrGrade}\t${trophy.gamesPlayed}`);
+        lines.push(`${trophy.rank}\t${trophy.player}\t${trophy.gr}\t${trophy.rating}\t${trophy.trophyType}\t${trophy.miniGameOrGrade}\t${trophy.gamesPlayed}`);
       }
       
       const content = lines.join('\n') + '\n';

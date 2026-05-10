@@ -809,7 +809,7 @@ router.get('/export-mini-data', async (req: Request, res: Response): Promise<voi
 
 // Helper function to generate trophy TAB content
 function generateTrophyTabContent(trophies: any[], isClubMode: boolean = false): string {
-  const header = 'Rank\tPlayer\tGr\tTrophy Type\tMini-Game/Grade\tGames Played';
+  const header = 'Rank\tPlayer\tGr\tRating\tTrophy Type\tMini-Game/Grade\tGames Played';
   const lines = [header];
   
   let blankRowInserted = false;
@@ -819,7 +819,7 @@ function generateTrophyTabContent(trophies: any[], isClubMode: boolean = false):
       lines.push('');
       blankRowInserted = true;
     }
-    lines.push(`${trophy.rank}\t${trophy.player}\t${trophy.gr}\t${trophy.trophyType}\t${trophy.miniGameOrGrade}\t${trophy.gamesPlayed}`);
+    lines.push(`${trophy.rank}\t${trophy.player}\t${trophy.gr}\t${trophy.rating}\t${trophy.trophyType}\t${trophy.miniGameOrGrade}\t${trophy.gamesPlayed}`);
   }
   
   return lines.join('\n') + '\n';
