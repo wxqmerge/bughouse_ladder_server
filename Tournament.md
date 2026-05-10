@@ -578,8 +578,8 @@ Local mode (no server) must behave identically to server mode for all mini-game 
 ### Verified Parity
 
 - **Trophy generation**: Both modes run 5 rating recalcs (`calculateRatings` × 5) per mini-game file before determining trophies. This stabilizes ratings and ensures identical trophy results.
-- **Import**: Both modes parse `=== filename.tab ===` headers and write to their respective storage (localStorage key `mini_game_${fileName}` vs `data/` directory).
-- **Export**: Server returns ZIP blob; local returns combined text blob with `=== filename.tab ===` headers (no native ZIP support in browser).
+- **Import**: Both modes parse `=== filename.tab ===` headers and write to their respective storage (localStorage key `mini_game_${fileName}` vs `data/` directory). Both modes accept `.txt` and `.zip` files — ZIPs are extracted using `jszip`.
+- **Export**: Both modes return real ZIP blobs. Server uses `archiver`; local uses `jszip` in the browser.
 - **Player matching**: Both modes match by `lastName.toLowerCase() + firstName.toLowerCase()` key.
 - **Game result merging**: Both modes use `mergeGameResults()` — fills in old results where current is null/empty.
 - **All MiniGameStore methods**: `readMiniGameFile`, `writeMiniGameFile`, `copyPlayersToTarget`, `mergeGameResults`, `getExistingMiniGameFiles`, `clearMiniGames`, `hasMiniGameFiles`, `checkMiniGameFilesWith`, `addPlayerToAllMiniGames`, `generateTrophyReport`, `importMiniGameFiles` — implemented in both `tournamentStore` (server) and `miniGameStore` (local).
@@ -591,6 +591,8 @@ The `MiniGameStore` interface is defined in `server/src/services/tournamentServi
 - **Local**: `miniGameStore` in `src/services/miniGameLocalStorage.ts` — reads/writes to `localStorage`
 
 `dataService.ts` routes all mini-game operations through whichever store is configured, keeping the calling code identical across modes.
+
+Export and import use `jszip` in the browser for ZIP creation/extraction, matching server-side `archiver` behavior.
 
 ## Open Questions
 
