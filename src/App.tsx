@@ -362,8 +362,22 @@ function App() {
           }
           const result = await dataService.importMiniGameFiles(content);
           if (result.imported.length > 0) {
-            alert(`Imported: ${result.imported.join(', ')}`);
+            const firstFile = result.imported[0];
+            const title = firstFile.replace('.tab', '');
+            const titleMap: Record<string, string> = {
+              'BG_Game': 'BG_Game',
+              'Bishop_Game': 'Bishop_Game',
+              'Pillar_Game': 'Pillar_Game',
+              'Kings_Cross': 'Kings_Cross',
+              'Pawn_Game': 'Pawn_Game',
+              'Queen_Game': 'Queen_Game',
+              'bughouse': 'Bughouse',
+            };
+            const importedTitle = titleMap[firstFile] || title;
+            setProjectName(importedTitle);
+            setProjectNameStorage(importedTitle);
           }
+          alert(`Imported: ${result.imported.join(', ')}`);
           if (result.errors.length > 0) {
             alert(`Errors: ${result.errors.join(', ')}`);
           }
@@ -386,16 +400,6 @@ function App() {
     } catch (error) {
       console.error('Failed to generate trophies:', error);
       alert('Failed to generate trophies: ' + (error as Error).message);
-    }
-  };
-
-  const handleExportMiniData = async () => {
-    try {
-      const blob = await dataService.exportMiniData();
-      downloadBlob(blob, `mini_data_${new Date().toISOString().split('T')[0]}.zip`);
-    } catch (error) {
-      console.error('Failed to export mini data:', error);
-      alert('Failed to export: ' + (error as Error).message);
     }
   };
 
@@ -610,7 +614,7 @@ function App() {
         versionMismatch={versionMismatch}
         setVersionMismatch={setVersionMismatch}
         onTitleSwitch={handleTitleSwitch}
-        onExportMiniData={handleExportMiniData}
+        
       />
       {showSettings && (
         <Settings

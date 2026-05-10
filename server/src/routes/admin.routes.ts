@@ -836,7 +836,6 @@ router.get('/export-mini-data', async (req: Request, res: Response): Promise<voi
   }
 });
 
-// Helper function to generate trophy TAB content
 function generateTrophyTabContent(trophies: any[], isClubMode: boolean = false, debugInfo?: string): string {
   const lines: string[] = [];
   

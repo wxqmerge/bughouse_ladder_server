@@ -219,7 +219,6 @@ interface LadderFormProps {
   versionMismatch?: boolean;
   setVersionMismatch?: (v: boolean) => void;
   onTitleSwitch?: (newTitle: string) => Promise<boolean>;
-  onExportMiniData?: () => void;
 }
 
 export default function LadderForm({
@@ -234,7 +233,6 @@ export default function LadderForm({
   versionMismatch = false,
   setVersionMismatch,
   onTitleSwitch,
-  onExportMiniData,
 }: LadderFormProps = {}) {
   const [players, setPlayers] = useState<PlayerData[]>([]);
   const [zoomLevel, setZoomLevel] = useState<
@@ -2530,18 +2528,14 @@ export default function LadderForm({
     }
     switch (action) {
       case "load":
-        if (splashServerUrl && isMiniGameTitle(getProjectName())) {
-          if (availableMiniGames.length > 0) {
-            if (!window.confirm(
-              "Loading a file would corrupt mini-game data. If you need to load for a new tournament, clear mini-games in settings first"
-            )) {
-              return;
-            }
+        if (isMiniGameTitle(getProjectName())) {
+          if (!window.confirm(
+            "Loading a file would corrupt mini-game data. If you need to load for a new tournament, clear mini-games in settings first"
+          )) {
+            return;
           }
-          fileInputRef.current?.click();
-        } else {
-          fileInputRef.current?.click();
         }
+        fileInputRef.current?.click();
         break;
       case "export":
         exportPlayers();
@@ -4141,7 +4135,7 @@ export default function LadderForm({
 
             playerCount={players.length}
             tournamentMode={isMiniGameTitle(projectName)}
-            onExportMiniData={onExportMiniData}
+            
             availableMiniGames={availableMiniGames}
 
           serverUrl={splashServerUrl}

@@ -502,9 +502,6 @@ POST /api/admin/tournament/write-mini-game
   - Writes players array to a mini-game file
   - Used for all game result submissions, player updates, cell clears
 
-GET /api/admin/export-mini-data
-  - ZIPs ladder.tab + any mini-game files with data
-  - Filename: mini_data_YYYY-MM-DD.zip
 ```
 
 ### Client-Side Mini-Game Operations (Local Mode)
