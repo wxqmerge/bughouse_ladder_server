@@ -357,6 +357,7 @@ export async function generateClubLadderTrophies(players: PlayerData[], maxTroph
       rank: trophies.length + 1,
       player: `${sortedPlayers[0].firstName} ${sortedPlayers[0].lastName}`,
       gr: sortedPlayers[0].grade,
+      rating: sortedPlayers[0].nRating,
       trophyType: '1st Place',
       miniGameOrGrade: 'Club Ladder',
       gamesPlayed: sortedPlayers[0].num_games,
@@ -369,6 +370,7 @@ export async function generateClubLadderTrophies(players: PlayerData[], maxTroph
       rank: trophies.length + 1,
       player: `${sortedPlayers[1].firstName} ${sortedPlayers[1].lastName}`,
       gr: sortedPlayers[1].grade,
+      rating: sortedPlayers[1].nRating,
       trophyType: '2nd Place',
       miniGameOrGrade: 'Club Ladder',
       gamesPlayed: sortedPlayers[1].num_games,
@@ -381,6 +383,7 @@ export async function generateClubLadderTrophies(players: PlayerData[], maxTroph
       rank: trophies.length + 1,
       player: `${sortedPlayers[2].firstName} ${sortedPlayers[2].lastName}`,
       gr: sortedPlayers[2].grade,
+      rating: sortedPlayers[2].nRating,
       trophyType: '3rd Place',
       miniGameOrGrade: 'Club Ladder',
       gamesPlayed: sortedPlayers[2].num_games,
@@ -394,6 +397,7 @@ export async function generateClubLadderTrophies(players: PlayerData[], maxTroph
       rank: trophies.length + 1,
       player: `${mostGamesPlayer.firstName} ${mostGamesPlayer.lastName}`,
       gr: mostGamesPlayer.grade,
+      rating: mostGamesPlayer.nRating,
       trophyType: 'Most Games',
       miniGameOrGrade: 'Club Ladder',
       gamesPlayed: mostGamesPlayer.num_games,
@@ -412,6 +416,7 @@ export async function generateClubLadderTrophies(players: PlayerData[], maxTroph
           rank: trophies.length + 1,
           player: `${gradePlayers[0].firstName} ${gradePlayers[0].lastName}`,
           gr: grade,
+          rating: gradePlayers[0].nRating,
           trophyType: '1st Place',
           miniGameOrGrade: `Gr ${grade}`,
           gamesPlayed: gradePlayers[0].num_games,
@@ -432,6 +437,7 @@ export async function generateClubLadderTrophies(players: PlayerData[], maxTroph
           rank: trophies.length + 1,
           player: `${gradePlayers[1].firstName} ${gradePlayers[1].lastName}`,
           gr: grade,
+          rating: gradePlayers[1].nRating,
           trophyType: '2nd Place',
           miniGameOrGrade: `Gr ${grade}`,
           gamesPlayed: gradePlayers[1].num_games,
@@ -452,6 +458,7 @@ export async function generateClubLadderTrophies(players: PlayerData[], maxTroph
           rank: trophies.length + 1,
           player: `${gradePlayers[2].firstName} ${gradePlayers[2].lastName}`,
           gr: grade,
+          rating: gradePlayers[2].nRating,
           trophyType: '3rd Place',
           miniGameOrGrade: `Gr ${grade}`,
           gamesPlayed: gradePlayers[2].num_games,
@@ -517,6 +524,7 @@ export async function generateMiniGameTrophies(players: PlayerData[], maxTrophie
         rank: trophies.length + 1,
         player: `${sortedPlayers[0].firstName} ${sortedPlayers[0].lastName}`,
         gr: sortedPlayers[0].grade,
+        rating: sortedPlayers[0].nRating,
         trophyType: '1st Place',
         miniGameOrGrade: fileName.replace('.tab', ''),
         gamesPlayed: sortedPlayers[0].num_games,
@@ -539,14 +547,15 @@ export async function generateMiniGameTrophies(players: PlayerData[], maxTrophie
 
       const sortedPlayers = playersWithGames.sort((a, b) => b.rating - a.rating);
       if (sortedPlayers.length > 1) {
-        addTrophy({
-          rank: trophies.length + 1,
-          player: `${sortedPlayers[1].firstName} ${sortedPlayers[1].lastName}`,
-          gr: sortedPlayers[1].grade,
-          trophyType: '2nd Place',
-          miniGameOrGrade: fileName.replace('.tab', ''),
-          gamesPlayed: sortedPlayers[1].num_games,
-        });
+     addTrophy({
+        rank: trophies.length + 1,
+        player: `${sortedPlayers[1].firstName} ${sortedPlayers[1].lastName}`,
+        gr: sortedPlayers[1].grade,
+        rating: sortedPlayers[1].nRating,
+        trophyType: '2nd Place',
+        miniGameOrGrade: fileName.replace('.tab', ''),
+        gamesPlayed: sortedPlayers[1].num_games,
+      });
       }
     }
   }
