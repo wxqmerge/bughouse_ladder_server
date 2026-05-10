@@ -7,7 +7,7 @@ import {
   Type,
   Check,
 } from "lucide-react";
-import { getVisibleTitles, createTitleMenuItem } from "../utils/titleMenu";
+import { getVisibleTitles } from "../utils/titleMenu";
 import { titleToFileName } from "../utils/constants";
 
 interface MobileMenuProps {

@@ -4128,7 +4128,6 @@ export default function LadderForm({
           onDeleteHiddenPlayers={isAdmin ? handleDeleteHiddenPlayers : undefined}
           onAutoLetter={isAdmin ? handleAutoLetter : undefined}
           isAdmin={isAdmin}
-          isWide={zoomLevel === "140%"}
           zoomLevel={zoomLevel}
           projectName={projectName}
             onSetTitle={handleSetTitle}
@@ -4139,7 +4138,6 @@ export default function LadderForm({
             availableMiniGames={availableMiniGames}
 
           serverUrl={splashServerUrl}
-          hasAdminApiKey={!!splashApiKey && splashApiKey.trim().length > 0}
         />
       </div>
 

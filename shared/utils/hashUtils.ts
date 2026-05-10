@@ -116,19 +116,7 @@ export function formula(myRating: number, opponentsRating: number): number {
   );
 }
 
-/**
- * VB6 Line: 133-137 - Get ladder name from current directory
- * Note: This uses window.location, which is not available in Node.js.
- * For the server, this should be handled differently or passed in.
- */
-export function getLadderName(): string {
-  if (typeof window !== "undefined") {
-    const currentPath = window.location.pathname;
-    const lastSlashIndex = currentPath.lastIndexOf("/");
-    return currentPath.substring(lastSlashIndex + 1);
-  }
-  return "";
-}
+
 
 /**
  * VB6 Line: 138-154 - Player array to string conversion
@@ -408,67 +396,6 @@ function string2long(
   scoreList: number[],
 ): number {
   return parseEntry(game, playersList, scoreList);
-}
-
-/**
- * VB6 Line: 384-409 - Long to string conversion
- * Converts hash value back to game string like "23:29LW"
- */
-function long2string(game: number): string {
-  const resultParts: string[] = [];
-  let tempGame = game;
-
-  // VB6 Line: 411-421 - Extract structured data
-  resultParts.push((tempGame % 128).toString());
-  tempGame = Math.floor(tempGame / 128);
-  resultParts.push(":");
-  resultParts.push((tempGame % 128).toString());
-  tempGame = Math.floor(tempGame / 128);
-  resultParts.push(RESULT_STRING.charAt(tempGame % 4));
-  tempGame = Math.floor(tempGame / 4);
-  const nextChar = RESULT_STRING.charAt(tempGame % 4);
-  if (nextChar !== "O") {
-    resultParts.push(nextChar);
-  }
-  tempGame = Math.floor(tempGame / 4);
-  resultParts.push((tempGame % 128).toString());
-  tempGame = Math.floor(tempGame / 128);
-  resultParts.push((tempGame % 128).toString());
-  resultParts.push(":");
-  resultParts.push((tempGame % 128).toString());
-
-  // VB6 Line: 432-434 - Clean up empty parts
-  const finalResult = resultParts.join("").replace(/ /g, "").replace(":0", "");
-  return finalResult;
-}
-
-/**
- * VB6 Line: 414-416 - Reset placement tracking
- */
-function resetPlacement(): void {
-  // This was global in VB6, now we'll manage it via state/context in the app
-}
-
-/**
- * VB6 Line: 419-422 - Hash function initialization
- * Sets up pseudorandom array for hash generation
- */
-function hashInitialize(): void {
-  const rand8: number[] = Array.from({ length: 256 }, (_, i) => i);
-  let k = 7;
-
-  // VB6 Line: 452-461 - RC4-style key mixing
-  for (let j = 0; j < 3; j++) {
-    for (let i = 0; i < 256; i++) {
-      const s = rand8[i];
-      k = (k + s) % 256;
-      const temp = rand8[i];
-      rand8[i] = rand8[k];
-      rand8[k] = temp;
-    }
-  }
-
-  // These were global in VB6, we'll handle them within the function scope or via a class/closure
 }
 
 let hashArray: string[] = [];

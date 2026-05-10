@@ -919,46 +919,6 @@ class DataService {
 
   // ==================== TOURNAMENT METHODS (server-only) ====================
 
-  async getTournamentStatus(): Promise<any> {
-    if (this.config.mode === DataServiceMode.LOCAL) {
-      // In local mode, return default state
-      return { active: false, startedAt: '' };
-    }
-    
-    const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/status`, {
-      headers: this.getAuthHeaders(),
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to get tournament status');
-    }
-
-    const data = await response.json();
-    return data.data;
-  }
-
-  async startTournament(): Promise<any> {
-    if (this.config.mode === DataServiceMode.LOCAL) {
-      // In local mode, just return default state
-      return { active: true, startedAt: new Date().toISOString() };
-    }
-    
-    const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/start`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...this.getAuthHeaders(),
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to start tournament');
-    }
-
-    const data = await response.json();
-    return data.data;
-  }
-
   async importMiniGameFiles(content: string): Promise<{ imported: string[]; errors: string[] }> {
     if (this.config.mode === DataServiceMode.LOCAL) {
       const store = this.getStore();

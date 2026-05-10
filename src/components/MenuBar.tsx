@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { getVersionString, isServerDownMode, getProgramMode } from "../utils/mode";
-import { getVisibleTitles, createTitleMenuItem, ALL_TITLES } from "../utils/titleMenu";
+import { getVisibleTitles } from "../utils/titleMenu";
 import { getFontSize } from "../utils/getFontSize";
 import { useIntervalCheck } from "../utils/useIntervalCheck";
 import { titleToFileName } from "../utils/constants";
@@ -43,13 +43,11 @@ interface MenuBarProps {
   onDeleteHiddenPlayers?: () => void;
   onAutoLetter?: () => void;
   isAdmin: boolean;
-  isWide?: boolean;
   zoomLevel: "50%" | "70%" | "100%" | "140%" | "200%";
   projectName?: string;
   onSetTitle?: (title: string) => void;
   playerCount?: number;
   serverUrl?: string | null;
-  hasAdminApiKey?: boolean;
   tournamentMode?: boolean;
   availableMiniGames?: string[];
 }
