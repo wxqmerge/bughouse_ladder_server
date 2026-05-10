@@ -426,21 +426,21 @@ Generated as a `.tab` file when admin clicks "Generate Trophies":
 tournament_trophies_YYYY-MM-DD.tab
 
 Columns:
-Rank | Player | Gr | Trophy Type | Mini-Game/Grade | Games Played
-1    | Smith  | 10 | 1st Place   | Queen_Game      | 12
-2    | Jones  | 11 | 1st Place   | Pawn_Game       | 10
-3    | Lee    | 10 | 2nd Place   | Kings_Cross     | 11
+Rank | Player | Gr | Rating | Trophy Type | Mini-Game/Grade | Games Played
+1    | Smith  | 10 | 1520   | 1st Place     | Queen_Game      | 12
+2    | Jones  | 11 | 1480   | 1st Place     | Pawn_Game       | 10
+3    | Lee    | 10 | 1450   | 2nd Place     | Kings_Cross     | 11
 ...
----  |        |   |             |                 |
-     | Brown  | 12 | 1st Place   | Gr 12           | 45
-     | Davis  | 11 | 1st Place   | Gr 11           | 38
-     | Clark  | 10 | 1st Place   | Gr 10           | 30
-     | White  | 12 | 2nd Place   | Gr 12           | 42
-     | Green  | 11 | 2nd Place   | Gr 11           | 35
-     | Adams  | 10 | 2nd Place   | Gr 10           | 28
-     | Lee    | 12 | 3rd Place   | Gr 12           | 40
-     | Clark  | 11 | 3rd Place   | Gr 11           | 33
-     | White  | 10 | 3rd Place   | Gr 10           | 26
+---  |        |   |        |             |                 |
+      | Brown  | 12 | 1600   | 1st Place   | Gr 12           | 45
+      | Davis  | 11 | 1550   | 1st Place   | Gr 11           | 38
+      | Clark  | 10 | 1500   | 1st Place   | Gr 10           | 30
+      | White  | 12 | 1580   | 2nd Place   | Gr 12           | 42
+      | Green  | 11 | 1520   | 2nd Place   | Gr 11           | 35
+      | Adams  | 10 | 1470   | 2nd Place   | Gr 10           | 28
+      | Lee    | 12 | 1490   | 3rd Place   | Gr 12           | 40
+      | Clark  | 11 | 1460   | 3rd Place   | Gr 11           | 33
+      | White  | 10 | 1430   | 3rd Place   | Gr 10           | 26
 ```
 
 **Note**: In mini-game tournaments, grade trophies are awarded to one player per grade (highest num_games). In club ladder mode, grade 1st place goes to highest rated player per grade.
