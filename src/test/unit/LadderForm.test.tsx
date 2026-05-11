@@ -69,8 +69,7 @@ vi.mock('../../services/storageService', () => {
     releaseAdminLock: m().mockResolvedValue(undefined),
     refreshAdminLock: m().mockResolvedValue(undefined),
     getAdminLockInfo: m().mockResolvedValue({ locked: false }),
-    isAdminLocked: m().mockResolvedValue(false),
-    notifyServerOfLockAction: m(),
+   isAdminLocked: m().mockResolvedValue(false),
     isTournamentActive: m().mockReturnValue(false),
     getTournamentState: m().mockReturnValue(null),
   };

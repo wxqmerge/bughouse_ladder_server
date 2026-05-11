@@ -48,6 +48,7 @@ interface MenuBarProps {
   onSetTitle?: (title: string) => void;
   playerCount?: number;
   serverUrl?: string | null;
+  hasAdminApiKey?: boolean;
   tournamentMode?: boolean;
   availableMiniGames?: string[];
 }
@@ -81,6 +82,7 @@ export default function MenuBar({
   onSetTitle,
   playerCount,
   serverUrl,
+  hasAdminApiKey = false,
   tournamentMode = false,
   availableMiniGames = [],
 }: MenuBarProps) {
@@ -274,15 +276,17 @@ export default function MenuBar({
            },
          ]
        : []),
-    {
-       icon: <Shield size={16} />,
-       label: isAdmin ? "Exit Admin Mode" : "Admin Mode",
-       onClick: () => {
-         onToggleAdmin?.();
-         closeAllMenus();
-       },
-       dataMenuItem: isAdmin ? "Exit Admin Mode" : "Admin Mode",
-     },
+    ...(serverUrl && !hasAdminApiKey
+      ? []
+      : [{
+          icon: <Shield size={16} />,
+          label: isAdmin ? "Exit Admin Mode" : "Admin Mode",
+          onClick: () => {
+            onToggleAdmin?.();
+            closeAllMenus();
+          },
+          dataMenuItem: isAdmin ? "Exit Admin Mode" : "Admin Mode",
+        }]),
     // Restore Backup - admin only, before Settings
     ...(isAdmin && onRestoreBackup
       ? [
