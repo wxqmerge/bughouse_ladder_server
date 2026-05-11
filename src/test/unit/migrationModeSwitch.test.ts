@@ -77,6 +77,18 @@ vi.mock('../../../src/services/userSettingsStorage', () => ({
   },
 }));
 
+// Mock dataService - default to empty players, tests can override via vi.mocked
+const _mocks = vi.hoisted(() => ({ mockGetPlayers: vi.fn().mockResolvedValue([]) }));
+vi.mock('../../../src/services/dataService', () => ({
+  dataService: {
+    getPlayers: () => _mocks.mockGetPlayers(),
+  },
+  DataServiceMode: { LOCAL: 'local', SERVER: 'server' },
+}));
+
+// Export for use in tests
+const mockGetPlayers = _mocks.mockGetPlayers;
+
 import {
   checkMigrationNeeded,
   storeCurrentMode,
@@ -102,6 +114,7 @@ describe('Migration - Mode Switching (Local <-> Server)', () => {
   beforeEach(() => {
     clearStorage();
     vi.clearAllMocks();
+    mockGetPlayers.mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -110,7 +123,7 @@ describe('Migration - Mode Switching (Local <-> Server)', () => {
   });
 
   describe('checkMigrationNeeded - local to server', () => {
-    it('should require migration when switching from local to server with local players', () => {
+    it('should require migration when switching from local to server with local players', async () => {
       storeCurrentMode('local');
 
       const players = [
@@ -121,7 +134,7 @@ describe('Migration - Mode Switching (Local <-> Server)', () => {
       setLocalPlayers(players);
       setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugMode: false });
 
-      const result = checkMigrationNeeded('server');
+      const result = await checkMigrationNeeded('server');
 
       expect(result.needed).toBe(true);
       expect(result.fromMode).toBe('local');
@@ -130,51 +143,75 @@ describe('Migration - Mode Switching (Local <-> Server)', () => {
       expect(result.serverPlayerCount).toBe(0);
     });
 
-    it('should NOT require migration when switching from local to server with no local players', () => {
+    it('should show actual server player count when available', async () => {
+      storeCurrentMode('local');
+
+      const localPlayers = [
+        createPlayer({ rank: 1, lastName: 'Local1' }),
+        createPlayer({ rank: 2, lastName: 'Local2' }),
+      ];
+      setLocalPlayers(localPlayers);
+      setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugMode: false });
+
+      const serverPlayers = [
+        createPlayer({ rank: 1, lastName: 'Server1' }),
+        createPlayer({ rank: 2, lastName: 'Server2' }),
+        createPlayer({ rank: 3, lastName: 'Server3' }),
+      ];
+      mockGetPlayers.mockResolvedValue(serverPlayers);
+
+      const result = await checkMigrationNeeded('server');
+
+      expect(result.needed).toBe(true);
+      expect(result.localPlayerCount).toBe(2);
+      expect(result.serverPlayerCount).toBe(3);
+    });
+
+    it('should NOT require migration when switching from local to server with no local players', async () => {
       storeCurrentMode('local');
       setLocalPlayers([]);
       setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugMode: false });
 
-      const result = checkMigrationNeeded('server');
+      const result = await checkMigrationNeeded('server');
 
       expect(result.needed).toBe(false);
       expect(result.fromMode).toBe('local');
       expect(result.toMode).toBe('server');
     });
 
-    it('should NOT require migration when mode has not changed', () => {
+    it('should NOT require migration when mode has not changed', async () => {
       storeCurrentMode('server');
       setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugMode: false });
 
-      const result = checkMigrationNeeded('server');
+      const result = await checkMigrationNeeded('server');
 
       expect(result.needed).toBe(false);
     });
 
-    it('should NOT require migration when no last mode is stored', () => {
+    it('should NOT require migration when no last mode is stored', async () => {
       setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugMode: false });
 
-      const result = checkMigrationNeeded('server');
+      const result = await checkMigrationNeeded('server');
 
       expect(result.needed).toBe(false);
     });
 
-    it('should use actualMode parameter instead of detecting from settings', () => {
+    it('should use actualMode parameter instead of detecting from settings', async () => {
       storeCurrentMode('local');
       setLocalPlayers([createPlayer({ rank: 1, lastName: 'Player1' })]);
       setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugMode: false });
 
       // With actualMode='local', no migration needed (matches last mode)
-      const resultWithActual = checkMigrationNeeded('local');
+      const resultWithActual = await checkMigrationNeeded('local');
       expect(resultWithActual.needed).toBe(false);
 
       // Without actualMode, detectCurrentMode reads settings and returns 'server'
-      const resultWithoutActual = checkMigrationNeeded();
+      const resultWithoutActual = await checkMigrationNeeded();
       expect(resultWithoutActual.needed).toBe(true);
       expect(resultWithoutActual.localPlayerCount).toBe(1);
     });
 
-    it('should show correct player count matching MigrationDialog display', () => {
+    it('should show correct player count matching MigrationDialog display', async () => {
       storeCurrentMode('local');
       const players = [
         createPlayer({ rank: 1, lastName: 'A' }),
@@ -186,7 +223,7 @@ describe('Migration - Mode Switching (Local <-> Server)', () => {
       setLocalPlayers(players);
       setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugMode: false });
 
-      const result = checkMigrationNeeded('server');
+      const result = await checkMigrationNeeded('server');
 
       expect(result.localPlayerCount).toBe(5);
       expect(result.serverPlayerCount).toBe(0);
@@ -194,66 +231,66 @@ describe('Migration - Mode Switching (Local <-> Server)', () => {
   });
 
   describe('checkMigrationNeeded - server to local', () => {
-    it('should NOT require migration when switching from server to local', () => {
+    it('should NOT require migration when switching from server to local', async () => {
       storeCurrentMode('server');
       setUserSettings({ server: '', apiKey: '', debugMode: false });
 
-      const result = checkMigrationNeeded('local');
+      const result = await checkMigrationNeeded('local');
       expect(result.needed).toBe(false);
     });
 
-    it('should NOT require migration when switching from server_down to local', () => {
+    it('should NOT require migration when switching from server_down to local', async () => {
       storeCurrentMode('server_down');
       setUserSettings({ server: '', apiKey: '', debugMode: false });
 
-      const result = checkMigrationNeeded('local');
+      const result = await checkMigrationNeeded('local');
       expect(result.needed).toBe(false);
     });
 
-    it('should NOT require migration when switching from local to server_down', () => {
+    it('should NOT require migration when switching from local to server_down', async () => {
       storeCurrentMode('local');
       setUserSettings({ server: '', apiKey: '', debugMode: false });
 
-      const result = checkMigrationNeeded('server_down');
+      const result = await checkMigrationNeeded('server_down');
       expect(result.needed).toBe(false);
     });
   });
 
   describe('checkMigrationNeeded - mode transitions', () => {
-    it('should handle multiple mode switches correctly', () => {
+    it('should handle multiple mode switches correctly', async () => {
       storeCurrentMode('local');
       setLocalPlayers([createPlayer({ rank: 1, lastName: 'P1' })]);
       setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugMode: false });
 
-      let result = checkMigrationNeeded('server');
+      let result = await checkMigrationNeeded('server');
       expect(result.needed).toBe(true);
       expect(result.localPlayerCount).toBe(1);
 
       storeCurrentMode('server');
 
       setUserSettings({ server: '', apiKey: '', debugMode: false });
-      result = checkMigrationNeeded('local');
+      result = await checkMigrationNeeded('local');
       expect(result.needed).toBe(false);
 
       setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugMode: false });
-      result = checkMigrationNeeded('server');
+      result = await checkMigrationNeeded('server');
       expect(result.needed).toBe(false);
     });
 
-    it('should handle server_down mode transitions', () => {
+    it('should handle server_down mode transitions', async () => {
       storeCurrentMode('server');
       setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugMode: false });
 
-      const result = checkMigrationNeeded('server_down');
+      const result = await checkMigrationNeeded('server_down');
       expect(result.needed).toBe(false);
 
-      const result2 = checkMigrationNeeded('server');
+      const result2 = await checkMigrationNeeded('server');
       expect(result2.needed).toBe(false);
     });
   });
 
   describe('MigrationDialog display values', () => {
-    it('should show correct counts for the Mode Change Detected dialog', () => {
+    it('should show correct counts for the Mode Change Detected dialog', async () => {
       storeCurrentMode('local');
       const players = [
         createPlayer({ rank: 1, lastName: 'Anderson', firstName: 'Alice', rating: 1500 }),
@@ -274,7 +311,7 @@ describe('Migration - Mode Switching (Local <-> Server)', () => {
       setLocalPlayers(players);
       setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugMode: false });
 
-      const result = checkMigrationNeeded('server');
+      const result = await checkMigrationNeeded('server');
 
       expect(result.needed).toBe(true);
       expect(result.localPlayerCount).toBe(14);
@@ -283,24 +320,24 @@ describe('Migration - Mode Switching (Local <-> Server)', () => {
       expect(result.toMode).toBe('server');
     });
 
-    it('should show 0 players when local storage is empty', () => {
+    it('should show 0 players when local storage is empty', async () => {
       storeCurrentMode('local');
       setLocalPlayers([]);
       setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugMode: false });
 
-      const result = checkMigrationNeeded('server');
+      const result = await checkMigrationNeeded('server');
 
       expect(result.needed).toBe(false);
       expect(result.localPlayerCount).toBe(0);
       expect(result.serverPlayerCount).toBe(0);
     });
 
-    it('should handle single player scenario', () => {
+    it('should handle single player scenario', async () => {
       storeCurrentMode('local');
       setLocalPlayers([createPlayer({ rank: 1, lastName: 'Solo' })]);
       setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugMode: false });
 
-      const result = checkMigrationNeeded('server');
+      const result = await checkMigrationNeeded('server');
 
       expect(result.needed).toBe(true);
       expect(result.localPlayerCount).toBe(1);
