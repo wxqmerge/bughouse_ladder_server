@@ -15,6 +15,9 @@ import {
   generateMiniGameTrophies,
   generateClubLadderTrophies,
 } from '../src/services/tournamentService';
+import { debugLine } from '../../shared/utils/trophyGeneration';
+import { calculateRatings, repopulateGameResults, processGameResults } from '../../shared/utils/hashUtils';
+import type { MatchData } from '../../shared/types';
 
 // ── Test Fixtures ──────────────────────────────────────────────────
 
@@ -410,6 +413,567 @@ describe('countGamesAcrossMiniGames', () => {
       try { await fs.rm(testDir2, { recursive: true, force: true }); } catch { /* */ }
       delete process.env.TAB_FILE_PATH;
     }
+  });
+});
+
+describe('Mini-game trophy stress test', () => {
+  const outputDir = path.join(__dirname, '..', 'output', 'stress-test');
+  const JSZip = require('jszip');
+
+  // Mulberry32 PRNG for deterministic randomness
+  function mulberry32(a: number): () => number {
+    return () => {
+      a |= 0;
+      a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function determineResult(expected: number, rng: () => number): { score1: number; score2: number } {
+    const takeFromSide0 = Math.min(0.05, expected);
+    const takeFromSide1 = Math.min(0.05, 1 - expected);
+    const draw = takeFromSide0 + takeFromSide1;
+    const win0 = expected - takeFromSide0;
+    const win1 = (1 - expected) - takeFromSide1;
+
+    const r = rng();
+    if (r < win0) return { score1: 3, score2: 1 };
+    if (r < win0 + draw) return { score1: 2, score2: 2 };
+    return { score1: 1, score2: 3 };
+  }
+
+  function generateBatchGames(players: PlayerData[], gameType: '2p' | '4p', rng: () => number, roundIndex: number): MatchData[] {
+    const games: MatchData[] = [];
+    const groupSize = gameType === '2p' ? 2 : 4;
+    const sorted = [...players].sort((a, b) => a.rating - b.rating);
+    const n = sorted.length;
+
+    const shuffled = [...sorted];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+
+    const groups: PlayerData[][] = [];
+    for (let i = 0; i < n; i += groupSize) {
+      const group = shuffled.slice(i, i + groupSize);
+      if (group.length === groupSize) {
+        groups.push(group);
+      }
+    }
+
+    for (const group of groups) {
+      let side0 = group.slice(0, groupSize / 2);
+      let side1 = group.slice(groupSize / 2);
+
+      if (rng() > 0.5) {
+        [side0, side1] = [side1, side0];
+      }
+
+      const side0Start = side0.reduce((s, p) => s + p.rating, 0) / side0.length;
+      const side1Start = side1.reduce((s, p) => s + p.rating, 0) / side1.length;
+      const rawDiff = side0Start - side1Start;
+
+      if (Math.abs(rawDiff) > 600) continue;
+
+      const expected = 1 / (1 + Math.pow(10, -rawDiff / 400));
+      const isDual = rng() < 0.3;
+
+      if (groupSize === 2) {
+        if (isDual) {
+          const game1 = determineResult(expected, rng);
+          const game2 = determineResult(expected, rng);
+          games.push({
+            player1: side0[0].rank,
+            player2: side1[0].rank,
+            player3: 0,
+            player4: 0,
+            score1: game1.score1,
+            score2: game2.score1,
+            side0Won: (game1.score1 > game1.score2 ? 1 : 0) + (game2.score1 > game2.score2 ? 1 : 0) >= 2,
+          });
+        } else {
+          const result = determineResult(expected, rng);
+          games.push({
+            player1: side0[0].rank,
+            player2: side1[0].rank,
+            player3: 0,
+            player4: 0,
+            score1: result.score1,
+            score2: 0,
+            side0Won: result.score1 > result.score2,
+          });
+        }
+      } else {
+        if (isDual) {
+          const game1 = determineResult(expected, rng);
+          const game2 = determineResult(expected, rng);
+          games.push({
+            player1: side0[0].rank,
+            player2: side0[1].rank,
+            player3: side1[0].rank,
+            player4: side1[1].rank,
+            score1: game1.score1,
+            score2: game2.score1,
+            side0Won: (game1.score1 > game1.score2 ? 1 : 0) + (game2.score1 > game2.score2 ? 1 : 0) >= 2,
+          });
+        } else {
+          const result = determineResult(expected, rng);
+          games.push({
+            player1: side0[0].rank,
+            player2: side0[1].rank,
+            player3: side1[0].rank,
+            player4: side1[1].rank,
+            score1: result.score1,
+            score2: 0,
+            side0Won: result.score1 > result.score2,
+          });
+        }
+      }
+    }
+
+    return games;
+  }
+
+  function generatePlayersForMiniGame(rng: () => number, numPlayers: number): PlayerData[] {
+    const players: PlayerData[] = [];
+    for (let i = 1; i <= numPlayers; i++) {
+      const rating = 1200 + Math.floor(rng() * 600);
+      const grade = (5 + Math.floor(rng() * 9)).toString();
+      players.push({
+        rank: i,
+        group: 'A',
+        lastName: `Player${i}`,
+        firstName: '',
+        rating,
+        nRating: 0,
+        trophyEligible: true,
+        grade,
+        num_games: 0,
+        attendance: 0,
+        info: '',
+        phone: '',
+        school: '',
+        room: '',
+        gameResults: Array(31).fill(null),
+      });
+    }
+    return players;
+  }
+
+  function generateMiniGameFile(numPlayers: number, numRounds: number, seed: number): PlayerData[] {
+    const rng = mulberry32(seed);
+    const players = generatePlayersForMiniGame(rng, numPlayers);
+
+    const allMatches: MatchData[] = [];
+    for (let round = 0; round < numRounds; round++) {
+      const batchGames = generateBatchGames(players, '4p', rng, round);
+      if (batchGames.length === 0) continue;
+      allMatches.push(...batchGames);
+    }
+
+    if (allMatches.length === 0) {
+      // Generate at least one round of 2p games
+      const rng2 = mulberry32(seed + 999);
+      const players2 = generatePlayersForMiniGame(rng2, numPlayers);
+      const games2 = generateBatchGames(players2, '2p', rng2, 0);
+      if (games2.length > 0) {
+        allMatches.push(...games2);
+      }
+    }
+
+    const withResults = repopulateGameResults(players, allMatches, 31);
+    const ratedPlayers = calculateRatings(withResults, allMatches).players;
+
+    // Count games played
+    const gamesPlayed = new Map<number, number>();
+    for (const m of allMatches) {
+      gamesPlayed.set(m.player1, (gamesPlayed.get(m.player1) ?? 0) + 1);
+      gamesPlayed.set(m.player2, (gamesPlayed.get(m.player2) ?? 0) + 1);
+      if (m.player3 > 0) gamesPlayed.set(m.player3, (gamesPlayed.get(m.player3) ?? 0) + 1);
+      if (m.player4 > 0) gamesPlayed.set(m.player4, (gamesPlayed.get(m.player4) ?? 0) + 1);
+    }
+    for (const p of ratedPlayers) {
+      p.num_games = gamesPlayed.get(p.rank) ?? 0;
+    }
+
+    return ratedPlayers;
+  }
+
+  it('should generate correct trophies for 50 players across 6 mini-games', async () => {
+    await fs.mkdir(outputDir, { recursive: true });
+
+    const testDir = path.join(outputDir, 'data');
+    await fs.mkdir(testDir, { recursive: true });
+    process.env.TAB_FILE_PATH = path.join(testDir, 'ladder.tab');
+
+    try {
+      // Generate 6 mini-game files with valid game entries using rating stress test approach
+      const miniGameFiles = [
+        'Queen_Game.tab',
+        'Pawn_Game.tab',
+        'Pillar_Game.tab',
+        'Bishop_Game.tab',
+        'BG_Game.tab',
+        'bughouse.tab',
+      ];
+
+      const miniGamePlayers: Record<string, PlayerData[]> = {};
+      let seed = 42;
+      for (const fileName of miniGameFiles) {
+        const players = generateMiniGameFile(50, 15, seed);
+        miniGamePlayers[fileName] = players;
+        const ladderData: LadderData = { header: [], players, rawLines: [] };
+        await writeLadderFile(ladderData, path.join(testDir, fileName));
+        seed += 100;
+      }
+
+      // Create club ladder file using first mini-game's players
+      const clubLadderData: LadderData = { header: [], players: miniGamePlayers[miniGameFiles[0]], rawLines: [] };
+      await writeLadderFile(clubLadderData, path.join(testDir, 'ladder.tab'));
+
+      // Create ZIP file
+      const zip = new JSZip();
+      for (const fileName of miniGameFiles) {
+        const fileContent = await fs.readFile(path.join(testDir, fileName), 'utf-8');
+        zip.file(fileName, fileContent);
+      }
+      const zipBlob = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE', compressionOptions: { level: 9 } });
+      await fs.writeFile(path.join(outputDir, 'tournament.zip'), zipBlob);
+
+      // Verify ZIP file exists and has correct structure
+      const zipExists = await fs.access(path.join(outputDir, 'tournament.zip')).then(() => true).catch(() => false);
+      expect(zipExists).toBe(true);
+
+      // Verify club ladder file exists
+      const ladderExists = await fs.access(path.join(testDir, 'ladder.tab')).then(() => true).catch(() => false);
+      expect(ladderExists).toBe(true);
+
+      // Copy club ladder to output dir
+      await fs.copyFile(path.join(testDir, 'ladder.tab'), path.join(outputDir, 'ladder.tab'));
+
+      // Build MiniGameData array for shared trophy generation
+      const miniGameDataList: { fileName: string; players: PlayerData[] }[] = [];
+      for (const fileName of miniGameFiles) {
+        const players = miniGamePlayers[fileName];
+        const playersWithGames = players.filter(p =>
+          p.gameResults && p.gameResults.some(r => r && r !== '' && r !== '_')
+        );
+        if (playersWithGames.length > 0) {
+          miniGameDataList.push({ fileName, players });
+        }
+      }
+
+      // Run mini-game trophy generation (shared function — generates 1st, 2nd, and grade trophies)
+      const clubPlayers = miniGamePlayers[miniGameFiles[0]];
+      const maxTrophies = Math.ceil(clubPlayers.length / 3);
+      const miniGameTrophies = generateMiniGameTrophies(clubPlayers, maxTrophies, miniGameDataList);
+
+      // Verify Kings_Cross is not in any trophy
+      const kingsCrossTrophies = miniGameTrophies.filter(t => t.miniGameOrGrade === 'Kings_Cross');
+      expect(kingsCrossTrophies.length).toBe(0);
+
+      // Verify we have exactly 6 first-place trophies (one per mini-game, not counting grade trophies)
+      const miniGameFirstPlaceTrophies = miniGameTrophies.filter(t => t.trophyType === '1st Place' && !t.miniGameOrGrade?.startsWith('Gr '));
+      expect(miniGameFirstPlaceTrophies.length).toBe(6);
+
+      // Verify all trophy player names are valid
+      for (const trophy of miniGameTrophies) {
+        expect(trophy.player).toMatch(/Player\d+$/);
+      }
+
+      // Verify trophy ranks are sequential
+      for (let i = 0; i < miniGameTrophies.length; i++) {
+        expect(miniGameTrophies[i].rank).toBe(i + 1);
+      }
+
+      // Verify the ZIP file can be extracted and contains correct files
+      const extractedZip = await JSZip.loadAsync(zipBlob);
+      const zipFileNames = Object.keys(extractedZip.files).sort();
+      for (const fileName of miniGameFiles) {
+        expect(zipFileNames).toContain(fileName);
+      }
+      expect(zipFileNames).not.toContain('Kings_Cross.tab');
+
+      // Verify each mini-game file in ZIP has 50 players
+      for (const fileName of miniGameFiles) {
+        const fileContent = await extractedZip.file(fileName)?.async('string');
+        expect(fileContent).toBeDefined();
+        const lines = fileContent!.trim().split('\n');
+        expect(lines.length).toBe(51); // 1 header + 50 players
+      }
+
+      // Generate trophy report file (matches GUI format exactly with debug info)
+      // Mini-game mode: only mini-game trophies, no club ladder section
+      const trophyReportLines: string[] = [];
+      
+      // Debug section (matches server generateTrophyReport debug output)
+      const numClubPlayers = miniGamePlayers[miniGameFiles[0]].length;
+      trophyReportLines.push(debugLine('DEBUG', 'TROPHY REPORT', '', '', '', '', '', ''));
+      trophyReportLines.push(debugLine('Players', String(numClubPlayers), '', '', '', '', '', ''));
+      trophyReportLines.push(debugLine('Max Trophies', `${maxTrophies} (ceil(${numClubPlayers} / 3))`, '', '', '', '', '', ''));
+      trophyReportLines.push('');
+      
+      const numMiniGames = miniGameFiles.length;
+      const award2nd = maxTrophies > numMiniGames;
+      const awardGrade1st = maxTrophies > 2 * numMiniGames;
+      trophyReportLines.push(debugLine('Mode', 'Mini-Game Tournament', '', '', '', '', '', ''));
+      trophyReportLines.push(debugLine('Mini-games played', String(numMiniGames), '', '', '', '', '', ''));
+      trophyReportLines.push(debugLine('Award 2nd place', `t=${maxTrophies} > m=${numMiniGames} ? ${award2nd}`, '', '', '', '', '', ''));
+      trophyReportLines.push(debugLine('Award grade 1st', `t=${maxTrophies} > 2*m=${2 * numMiniGames} ? ${awardGrade1st}`, '', '', '', '', '', ''));
+      trophyReportLines.push('');
+      
+      // Mini-game player debug section
+      trophyReportLines.push(debugLine('MINI-GAME PLAYERS', '(after 5 recalcs)', '', '', '', '', '', ''));
+      for (const fileName of miniGameFiles) {
+        const players = miniGamePlayers[fileName];
+        const playersWithGames = players.filter(p =>
+          p.gameResults && p.gameResults.some(r => r && r !== '' && r !== '_')
+        );
+        if (playersWithGames.length === 0) continue;
+        
+        const sorted = playersWithGames.sort((a, b) => b.nRating - a.nRating).slice(0, 10);
+        trophyReportLines.push('');
+        trophyReportLines.push(debugLine(fileName.replace('.tab', ''), '', '', '', '', '', '', ''));
+        for (const p of sorted) {
+          const games = p.gameResults?.filter(r => r && r !== '' && r !== '_')?.length || 0;
+          trophyReportLines.push(debugLine(String(p.rank), `${p.lastName} ${p.firstName}`, p.grade, String(p.nRating), '', '', String(games), ''));
+        }
+      }
+      
+      trophyReportLines.push('');
+      trophyReportLines.push('AWARDED TROPHIES');
+      trophyReportLines.push('Rank\tPlayer\tTrophy Type\tMini-Game/Grade\tGr\tRating\tTotal Games\tGames Played');
+      
+      let blankRowInserted = false;
+      for (const trophy of miniGameTrophies) {
+        if (!blankRowInserted && trophy.trophyType === '1st Place' && trophy.miniGameOrGrade && trophy.miniGameOrGrade.startsWith('Gr ')) {
+          trophyReportLines.push('');
+          blankRowInserted = true;
+        }
+        trophyReportLines.push(`${trophy.rank}\t${trophy.player}\t${trophy.trophyType}\t${trophy.miniGameOrGrade}\t${trophy.gr}\t${trophy.rating}\t${trophy.totalGames || 0}\t${trophy.gamesPlayed}`);
+      }
+      
+      await fs.writeFile(path.join(outputDir, 'tournament_trophies.tab'), trophyReportLines.join('\n') + '\n');
+
+      console.log(`[STRESS TEST] Output files saved to: ${outputDir}`);
+      console.log(`[STRESS TEST] Files: tournament.zip, ladder.tab, tournament_trophies.tab`);
+
+    } finally {
+      delete process.env.TAB_FILE_PATH;
+    }
+  });
+});
+
+describe('Mini-game trophy stress test — club ladder mode', () => {
+  const outputDir = path.join(__dirname, '..', 'output', 'stress-test');
+  const JSZip = require('jszip');
+
+  function mulberry32(a: number): () => number {
+    return () => {
+      a |= 0;
+      a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function determineResult(expected: number, rng: () => number): { score1: number; score2: number } {
+    const takeFromSide0 = Math.min(0.05, expected);
+    const takeFromSide1 = Math.min(0.05, 1 - expected);
+    const draw = takeFromSide0 + takeFromSide1;
+    const win0 = expected - takeFromSide0;
+    const win1 = (1 - expected) - takeFromSide1;
+
+    const r = rng();
+    if (r < win0) return { score1: 3, score2: 1 };
+    if (r < win0 + draw) return { score1: 2, score2: 2 };
+    return { score1: 1, score2: 3 };
+  }
+
+  function generateBatchGames(players: PlayerData[], gameType: '2p' | '4p', rng: () => number, roundIndex: number): MatchData[] {
+    const games: MatchData[] = [];
+    const groupSize = gameType === '2p' ? 2 : 4;
+    const sorted = [...players].sort((a, b) => a.rating - b.rating);
+    const n = sorted.length;
+
+    const shuffled = [...sorted];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+
+    const groups: PlayerData[][] = [];
+    for (let i = 0; i < n; i += groupSize) {
+      const group = shuffled.slice(i, i + groupSize);
+      if (group.length === groupSize) {
+        groups.push(group);
+      }
+    }
+
+    for (const group of groups) {
+      let side0 = group.slice(0, groupSize / 2);
+      let side1 = group.slice(groupSize / 2);
+
+      if (rng() > 0.5) {
+        [side0, side1] = [side1, side0];
+      }
+
+      const side0Start = side0.reduce((s, p) => s + p.rating, 0) / side0.length;
+      const side1Start = side1.reduce((s, p) => s + p.rating, 0) / side1.length;
+      const rawDiff = side0Start - side1Start;
+
+      if (Math.abs(rawDiff) > 600) continue;
+
+      const expected = 1 / (1 + Math.pow(10, -rawDiff / 400));
+      const isDual = rng() < 0.3;
+
+      if (groupSize === 2) {
+        if (isDual) {
+          const game1 = determineResult(expected, rng);
+          const game2 = determineResult(expected, rng);
+          games.push({
+            player1: side0[0].rank,
+            player2: side1[0].rank,
+            player3: 0,
+            player4: 0,
+            score1: game1.score1,
+            score2: game2.score1,
+            side0Won: (game1.score1 > game1.score2 ? 1 : 0) + (game2.score1 > game2.score2 ? 1 : 0) >= 2,
+          });
+        } else {
+          const result = determineResult(expected, rng);
+          games.push({
+            player1: side0[0].rank,
+            player2: side1[0].rank,
+            player3: 0,
+            player4: 0,
+            score1: result.score1,
+            score2: 0,
+            side0Won: result.score1 > result.score2,
+          });
+        }
+      } else {
+        if (isDual) {
+          const game1 = determineResult(expected, rng);
+          const game2 = determineResult(expected, rng);
+          games.push({
+            player1: side0[0].rank,
+            player2: side0[1].rank,
+            player3: side1[0].rank,
+            player4: side1[1].rank,
+            score1: game1.score1,
+            score2: game2.score1,
+            side0Won: (game1.score1 > game1.score2 ? 1 : 0) + (game2.score1 > game2.score2 ? 1 : 0) >= 2,
+          });
+        } else {
+          const result = determineResult(expected, rng);
+          games.push({
+            player1: side0[0].rank,
+            player2: side0[1].rank,
+            player3: side1[0].rank,
+            player4: side1[1].rank,
+            score1: result.score1,
+            score2: 0,
+            side0Won: result.score1 > result.score2,
+          });
+        }
+      }
+    }
+
+    return games;
+  }
+
+  function generateClubLadderPlayers(rng: () => number, numPlayers: number, numRounds: number): PlayerData[] {
+    const players: PlayerData[] = [];
+    for (let i = 1; i <= numPlayers; i++) {
+      const rating = 1200 + Math.floor(rng() * 600);
+      const grade = (5 + Math.floor(rng() * 9)).toString();
+      players.push({
+        rank: i,
+        group: 'A',
+        lastName: `Player${i}`,
+        firstName: '',
+        rating,
+        nRating: 0,
+        trophyEligible: true,
+        grade,
+        num_games: 0,
+        attendance: 0,
+        info: '',
+        phone: '',
+        school: '',
+        room: '',
+        gameResults: Array(31).fill(null),
+      });
+    }
+
+    const allMatches: MatchData[] = [];
+    for (let round = 0; round < numRounds; round++) {
+      const batchGames = generateBatchGames(players, '4p', rng, round);
+      if (batchGames.length === 0) continue;
+      allMatches.push(...batchGames);
+    }
+
+    const withResults = repopulateGameResults(players, allMatches, 31);
+    const ratedPlayers = calculateRatings(withResults, allMatches).players;
+
+    const gamesPlayed = new Map<number, number>();
+    for (const m of allMatches) {
+      gamesPlayed.set(m.player1, (gamesPlayed.get(m.player1) ?? 0) + 1);
+      gamesPlayed.set(m.player2, (gamesPlayed.get(m.player2) ?? 0) + 1);
+      if (m.player3 > 0) gamesPlayed.set(m.player3, (gamesPlayed.get(m.player3) ?? 0) + 1);
+      if (m.player4 > 0) gamesPlayed.set(m.player4, (gamesPlayed.get(m.player4) ?? 0) + 1);
+    }
+    for (const p of ratedPlayers) {
+      p.num_games = gamesPlayed.get(p.rank) ?? 0;
+    }
+
+    return ratedPlayers;
+  }
+
+  it('should generate club ladder trophy report (no mini-games)', async () => {
+    await fs.mkdir(outputDir, { recursive: true });
+
+    const rng = mulberry32(999);
+    const players = generateClubLadderPlayers(rng, 50, 15);
+    const maxTrophies = Math.ceil(players.length / 3);
+
+    const clubTrophies = generateClubLadderTrophies(players, maxTrophies);
+
+    // Generate trophy report file (matches GUI format exactly with debug info)
+    const trophyReportLines: string[] = [];
+    
+    // Debug section (matches server generateTrophyReport debug output)
+    trophyReportLines.push(debugLine('DEBUG', 'TROPHY REPORT', '', '', '', '', '', ''));
+    trophyReportLines.push(debugLine('Players', String(players.length), '', '', '', '', '', ''));
+    trophyReportLines.push(debugLine('Max Trophies', `${maxTrophies} (ceil(${players.length} / 3))`, '', '', '', '', '', ''));
+    trophyReportLines.push('');
+    trophyReportLines.push(debugLine('Mode', 'Club Ladder (no mini-game files)', '', '', '', '', '', ''));
+    
+    trophyReportLines.push('');
+    trophyReportLines.push('AWARDED TROPHIES');
+    trophyReportLines.push('Rank\tPlayer\tTrophy Type\tMini-Game/Grade\tGr\tRating\tTotal Games\tGames Played');
+    
+    let blankRowInserted = false;
+    for (const trophy of clubTrophies) {
+      if (!blankRowInserted && trophy.trophyType === '1st Place' && trophy.miniGameOrGrade && trophy.miniGameOrGrade.startsWith('Gr ')) {
+        trophyReportLines.push('');
+        blankRowInserted = true;
+      }
+      trophyReportLines.push(`${trophy.rank}\t${trophy.player}\t${trophy.trophyType}\t${trophy.miniGameOrGrade}\t${trophy.gr}\t${trophy.rating}\t${trophy.totalGames || 0}\t${trophy.gamesPlayed}`);
+    }
+    
+    await fs.writeFile(path.join(outputDir, 'club_ladder_trophies.tab'), trophyReportLines.join('\n') + '\n');
+
+    console.log(`[CLUB LADDER TROPHY REPORT] Saved to: ${path.join(outputDir, 'club_ladder_trophies.tab')}`);
+
+    expect(clubTrophies.length).toBeGreaterThan(0);
+    expect(clubTrophies[0].trophyType).toBe('1st Place');
+    expect(clubTrophies[0].miniGameOrGrade).toBe('Club Ladder');
   });
 });
 
