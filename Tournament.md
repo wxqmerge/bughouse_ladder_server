@@ -591,6 +591,37 @@ The `MiniGameStore` interface is defined in `server/src/services/tournamentServi
 
 Export and import use `jszip` in the browser for ZIP creation/extraction, matching server-side `archiver` behavior.
 
+## Testing
+
+### Run Tournament Tests
+```bash
+# Core tournament tests (clear, export, add player, copy)
+cd server && npm run test:run test/tournament.test.ts
+
+# Extended tests (trophy generation, mini-game stress test, club ladder mode)
+cd server && npm run test:run test/tournamentExtended.test.ts
+
+# All tests including tournament
+npm run test:run
+```
+
+### Run Trophy Stress Test (generates output files)
+```bash
+cd server && npm run test:run test/tournamentExtended.test.ts -t "Mini-game trophy stress test"
+```
+
+Output files saved to `server/output/stress-test/`:
+- `tournament.zip` — all 6 mini-game files
+- `ladder.tab` — club ladder source
+- `tournament_trophies.tab` — generated trophy report
+
+### Run Club Ladder Trophy Report
+```bash
+cd server && npm run test:run test/tournamentExtended.test.ts -t "club ladder mode"
+```
+
+Output saved to `server/output/stress-test/club_ladder_trophies.tab`.
+
 ## Open Questions
 
 (none remaining)

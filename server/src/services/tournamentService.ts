@@ -10,6 +10,7 @@ import {
   generateClubLadderTrophies as sharedGenerateClubLadderTrophies,
   generateMiniGameTrophies as sharedGenerateMiniGameTrophies,
   debugLine as sharedDebugLine,
+  clubLadderGamesPlayed,
   MiniGameData,
 } from '../../../shared/utils/trophyGeneration.js';
 
@@ -289,7 +290,7 @@ export async function addPlayerToAllMiniGames(newPlayer: PlayerData): Promise<vo
   }
 }
 
-export async function generateTrophyReport(): Promise<{
+export async function generateTrophyReport(debugLevel: number = 3): Promise<{
   success: boolean;
   message: string;
   trophies?: any[];
@@ -318,6 +319,31 @@ export async function generateTrophyReport(): Promise<{
 
     if (isClubMode) {
       debugLines.push(sharedDebugLine('Mode', 'Club Ladder (no mini-game files)', '', '', '', '', '', ''));
+      
+      if (debugLevel >= 1) {
+        debugLines.push(sharedDebugLine('TOP 5 OVERALL', '(by rating)', '', '', '', '', '', ''));
+        const sortedOverall = [...players].sort((a, b) => b.nRating - a.nRating).slice(0, 5);
+        for (const p of sortedOverall) {
+          const games = clubLadderGamesPlayed(p);
+          debugLines.push(sharedDebugLine(String(p.rank), `${p.firstName} ${p.lastName}`, p.grade, String(p.nRating), '', '', String(games), ''));
+        }
+        
+        debugLines.push('');
+        debugLines.push(sharedDebugLine('TOP 5 PER GRADE', '', '', '', '', '', '', ''));
+        const gradeGroups = [...new Set(players.map(p => p.grade).filter(Boolean))].sort((a, b) => parseInt(b) - parseInt(a));
+        for (const grade of gradeGroups) {
+          const gradePlayers = players.filter(p => p.grade === grade).sort((a, b) => b.nRating - a.nRating).slice(0, 5);
+          if (gradePlayers.length === 0) continue;
+          debugLines.push('');
+          debugLines.push(sharedDebugLine('Gr ' + grade, '', '', '', '', '', '', ''));
+          for (const p of gradePlayers) {
+            const games = clubLadderGamesPlayed(p);
+            debugLines.push(sharedDebugLine(String(p.rank), `${p.firstName} ${p.lastName}`, p.grade, String(p.nRating), '', '', String(games), ''));
+          }
+        }
+        debugLines.push('');
+      }
+      
       trophies = sharedGenerateClubLadderTrophies(players, maxTrophies);
     } else {
       const existingFiles = await getExistingMiniGameFiles();
