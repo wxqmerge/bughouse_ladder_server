@@ -44,6 +44,7 @@ export const ERROR_MESSAGES: Record<number, string> = {
   7: "Missing player 4",
   9: "Player rank exceeds 200",
   10: "Conflicting results - players disagree on outcome",
+  11: "Player rank does not exist in ladder",
 };
 
 export function getValidationErrorMessage(errorCode: number): string {
