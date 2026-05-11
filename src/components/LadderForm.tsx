@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import type {
   PlayerData,
   ValidationResult,
@@ -4549,7 +4549,7 @@ export default function LadderForm({
 
               return (
                 <tr
-                  key={player.rank}
+                  key={`${player.rank}-${player.lastName}-${player.firstName}`}
                   style={{
                     backgroundColor:
                       rowIndex % 2 >= 1 ? "#f8fafc" : "transparent",
@@ -4573,7 +4573,7 @@ export default function LadderForm({
                                           field === "room" ? player.room : "";
                         if (field === "nRating") {
                           return (
-                            <>
+                            <React.Fragment key={`${rowIndex}-${col}`}>
                               <td
                                 key={`${rowIndex}-${col}`}
                             style={{
@@ -4736,10 +4736,10 @@ export default function LadderForm({
                                  player.trophyEligible !== false ? "+" : "-"
                                )}
                            </td>
-                        </>
-                      );
-                    }
-                   const narrowFields = ["attendance", "info", "school", "room"];
+                         </React.Fragment>
+                       );
+                     }
+                    const narrowFields = ["attendance", "info", "school", "room"];
                       const numericFields = ["rank", "rating", "grade", "num_games", "attendance"];
                       const cellWidth = isAdmin && narrowFields.includes(field) ? "40px" : undefined;
                       const isNumeric = numericFields.includes(field);
