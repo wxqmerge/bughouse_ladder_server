@@ -667,6 +667,9 @@ class DataService {
   }
 
   async readMiniGameFile(fileName: string): Promise<any> {
+    if (!this.config.miniGameStore) {
+      return null;
+    }
     const store = this.getStore();
     return store.readMiniGameFile(fileName);
   }
@@ -901,6 +904,9 @@ class DataService {
 
   async checkMiniGameFiles(): Promise<string[]> {
     if (this.config.mode === DataServiceMode.LOCAL) {
+      if (!this.config.miniGameStore) {
+        return [];
+      }
       const store = this.getStore();
       return store.checkMiniGameFilesWith();
     } else {

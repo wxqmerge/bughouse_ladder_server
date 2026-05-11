@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import LadderForm from "./components/LadderForm";
 import Settings from "./components/Settings";
 import { MigrationDialog } from "./components/MigrationDialog";
@@ -9,6 +9,7 @@ import type { PlayerData } from "./utils/hashUtils";
 import { getNextTitle, processNewDayTransformations, isMiniGameTitle } from "./utils/constants";
 import { downloadBlob } from "./utils/downloadBlob";
 import { formatPrefixToTitle } from "./utils/titleUtils";
+import type { ProgramMode } from "./utils/mode";
 import {
   updateConnectionState,
   initializeConnectionState,
@@ -61,8 +62,9 @@ function App() {
   // Show server-down blocking dialog on first load if server is unreachable
   const [showServerDownBlocking, setShowServerDownBlocking] = useState(false);
   const [versionMismatch, setVersionMismatch] = useState(false);
-  const [urlConfigApplied, setUrlConfigApplied] = useState(false);
+const [urlConfigApplied, setUrlConfigApplied] = useState(false);
   const [status, setStatus] = useState<string | null>("Initializing...");
+  const [currentMode, setCurrentMode] = useState<'local' | 'server_down' | 'server' | null>(null);
   const recalculateRef = useRef<(() => void) | undefined>(undefined);
   const refreshPlayersRef = useRef<(() => void) | undefined>(undefined);
 
@@ -170,6 +172,14 @@ function App() {
 
             (window as any).__ladder_healthCheckInterval = healthCheckInterval;
           }
+
+          // Check for migration needs
+          const migrationCheck = checkMigrationNeeded(mode as ProgramMode);
+          if (migrationCheck.needed) {
+            setShowMigrationDialog(true);
+          } else {
+            storeCurrentMode(migrationCheck.toMode);
+          }
         })
         .catch(console.error);
 
@@ -183,27 +193,34 @@ function App() {
           return;
         }
 
-        const wasServer = lastKnownMode === 'server';
+        const wasServer = oldMode === 'server';
         const isNowServer = newMode === 'server';
-        const wasServerDown = lastKnownMode === 'server_down';
+        const wasServerDown = oldMode === 'server_down';
 
         setLastKnownMode(newMode as 'local' | 'server_down' | 'server');
 
         if ((wasServerDown && isNowServer) || (wasServer && !isNowServer)) {
           setShowReconnectDialog(true);
         }
+
+        if (oldMode === 'local' && newMode === 'server') {
+          console.log('[MODE CHANGE] Local -> Server: fetching fresh data');
+          dataService.initializeHash().then(async () => {
+            dataService.startPolling(5000);
+            if (refreshPlayersRef.current) {
+              console.log('[MODE CHANGE] Calling refreshPlayersRef.current()');
+              await refreshPlayersRef.current();
+            } else {
+              console.warn('[MODE CHANGE] refreshPlayersRef.current is not set yet, fetching directly');
+              const freshPlayers = await dataService.getPlayers();
+              console.log('[MODE CHANGE] Fetched', freshPlayers.length, 'players directly');
+            }
+          }).catch(console.error);
+        }
       });
 
       // Step 5: Start periodic checks (every 10 seconds)
       startPeriodicChecks();
-
-      // Step 6: Check for migration needs
-      const migrationCheck = checkMigrationNeeded();
-      if (migrationCheck.needed) {
-        setShowMigrationDialog(true);
-      } else {
-        storeCurrentMode(migrationCheck.toMode);
-      }
     };
 
     init();
