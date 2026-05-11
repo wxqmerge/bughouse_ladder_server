@@ -32,14 +32,21 @@ A modern client-server reimplementation of the VB6 Bughouse Chess Ladder, featur
 │                               │                                  │
 │        ┌──────────────────────┼──────────────────────┐          │
 │        ▼                      ▼                      ▼          │
-│  ┌───────────┐        ┌───────────┐           ┌───────────┐    │
-│  │ localStorage │      │ DataService │         │  Polling  │    │
-│  │  (Offline)  │       │  (Server)  │          │ (Sync)    │    │
-│  └───────────┘        └───────────┘           └───────────┘    │
+│  ┌───────────┐        ┌───────────────────┐      ┌───────────┐ │
+│  │ localStorage │      │    DataService    │      │  SSE      │ │
+│  │  (Offline)  │       │  (Server + Push)  │      │  Events   │ │
+│  └───────────┘        └────────┬──────────┘      └───────────┘ │
+│                               │                                 │
+│        ┌──────────────────────┼──────────────────────┐         │
+│        ▼                      ▼                      ▼         │
+│  ┌───────────┐        ┌───────────┐           ┌───────────┐   │
+│  │ Polling   │        │ SSE       │           │ Hash      │   │
+│  │ (Fallback)│        │ (Primary) │           │ Compare   │   │
+│  └───────────┘        └───────────┘           └───────────┘   │
 │                                                                    │
 └────────────────────────────┬───────────────────────────────────────┘
-                             │ HTTP/REST
-                             ▼
+                              │ HTTP/REST + SSE
+                              ▼
 ┌────────────────────────────────────────────────────────────────────┐
 │                       SERVER LAYER (Express)                       │
 │                     Port: 3000 (configurable)                      │
@@ -62,6 +69,13 @@ A modern client-server reimplementation of the VB6 Bughouse Chess Ladder, featur
 │    ┌──────────┐     ┌──────────┐      ┌──────────┐              │
 │    │  File    │     │  Hash    │      │  Tab     │              │
 │    │  Locking │     │  Compare │      │  Format  │              │
+│    └──────────┘     └──────────┘      └──────────┘              │
+│                           │                                      │
+│         ┌─────────────────┼─────────────────┐                    │
+│         ▼                 ▼                 ▼                    │
+│    ┌──────────┐     ┌──────────┐      ┌──────────┐              │
+│    │ SSE      │     │ Write    │      │ Backup   │              │
+│    │ Broadcast│     │ Health   │      │ Rotation │              │
 │    └──────────┘     └──────────┘      └──────────┘              │
 │                           │                                      │
 │                           ▼                                      │
@@ -462,7 +476,7 @@ Rnk	Group	Last Name	First Name	Prev Rating	New Rating	Gr	Gms	Attendance	Phone	In
 
 ## Performance Considerations
 
-### Polling Overhead
+### SSE + Polling Overhead
 
 ```
 Assumptions:
@@ -470,12 +484,19 @@ Assumptions:
 - 50 players × 31 rounds = 1550 cells
 - Average payload: ~50KB JSON
 
-Calculation:
-- Requests per minute: 10 users × 12 polls/min = 120 req/min
-- Bandwidth: 120 × 50KB = 6MB/min = 360MB/hour
+SSE Channel (Primary):
+- 1 persistent connection per user
+- Zero requests until data changes
+- Latency: < 100ms (server push)
+- Bandwidth: Only when data changes
+
+Polling Fallback:
+- 10 users × 11 polls/min = 110 req/min (at 5.5s interval)
+- Overlap guard prevents stacking on slow connections
+- Bandwidth: 110 × 50KB = 5.5MB/min = 330MB/hour
 - Server load: Negligible (simple GET, file read)
 
-Conclusion: Acceptable for < 50 concurrent users
+Conclusion: SSE eliminates polling for idle periods. Polling handles reconnects.
 ```
 
 ### Change Detection Efficiency
@@ -529,21 +550,23 @@ When loading a file in admin/server mode, a confirmation dialog appears before p
 
 ## Future Enhancement Opportunities
 
-### 1. WebSocket Real-Time Sync
-**Benefit:** Instant updates (< 100ms latency)
-**Tradeoff:** Complexity, reconnect handling, infrastructure requirements
+### 1. WebSocket Full-Duplex Communication
+**Benefit:** Bidirectional server→client and client→server (e.g., chat, admin notifications)
+**Tradeoff:** More complex than SSE, sticky sessions on load balancers, proxy compatibility concerns
 
 ### 2. Optimistic Locking
 **Benefit:** True conflict detection for simultaneous edits
 **Tradeoff:** User friction on conflicts
 
 ### 3. Differential Sync
-**Benefit:** Only transfer changed cells
+**Benefit:** Only transfer changed cells instead of full player list
 **Tradeoff:** Complex change tracking on both sides
 
-### 4. Server-Sent Events (SSE)
-**Benefit:** Push without WebSocket complexity
-**Tradeoff:** One-way communication only
+### 4. Server-Sent Events (SSE) — ✅ Implemented
+**Status:** Active since v1.1.9
+**Implementation:** `EventSource` client + SSE broadcast service on server
+**Benefit:** Instant updates (< 100ms) with HTTP compatibility, auto-reconnect, nginx-friendly
+**Fallback:** Polling every 5.5s with overlap guard
 
 ---
 
@@ -551,15 +574,24 @@ When loading a file in admin/server mode, a confirmation dialog appears before p
 
 ### Multi-Client Sync Tests
 
-1. **Basic sync:** Browser A enters → Browser B sees within 5s
-2. **Bidirectional sync:** Both enter different games → Both visible in both
-3. **No unnecessary saves:** Wait 30s → Only GET requests, no PUT
-4. **Persistence through polls:** Enter → Wait 15s → Still visible
-5. **Reconnect merge:** Offline entry on both sides → Both preserved after reconnect
+1. **SSE sync:** Browser A enters → Browser B sees within 100ms (not 5s)
+2. **Polling fallback:** Disconnect SSE → Browser B still sees changes within 5.5s
+3. **Bidirectional sync:** Both enter different games → Both visible in both
+4. **No unnecessary saves:** Wait 30s → Only GET requests, no PUT
+5. **Persistence through polls:** Enter → Wait 15s → Still visible
+6. **Reconnect merge:** Offline entry on both sides → Both preserved after reconnect
+7. **Overlap guard:** Slow connection → Verify no request stacking (check network tab)
+
+### SSE Tests
+
+1. **Connection:** Verify `EventSource` connects to `/api/ladder/events`
+2. **Event routing:** Verify each write triggers correct SSE event name
+3. **Auto-reconnect:** Kill SSE → Verify EventSource reconnection
+4. **Client filtering:** Verify writer doesn't receive their own event
 
 ### Performance Tests
 
-1. **Polling load:** 10 browsers × 1 hour → Monitor server CPU/memory
+1. **SSE load:** 10 browsers × 1 hour → Monitor server memory (open connections)
 2. **Large ladder:** 200 players × 31 rounds → Measure poll response time
 3. **Hash collision:** Verify hash uniqueness with different game result combinations
 
@@ -580,6 +612,6 @@ When loading a file in admin/server mode, a confirmation dialog appears before p
 
 ---
 
-**Version:** 1.1.0  
-**Last Updated:** April 2026  
+**Version:** 1.1.9  
+**Last Updated:** May 2026  
 **Author:** System
