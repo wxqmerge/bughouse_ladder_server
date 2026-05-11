@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Compile shared/*.ts to shared/*.js for Node.js ESM runtime.
- * TypeScript doesn't allow in-place compilation, so we copy to temp, compile, then copy .js back.
+ * Copies .ts to temp dir, compiles there, copies .js back to shared/.
  */
 import { execSync } from 'child_process';
 import fs from 'fs';
@@ -19,31 +19,31 @@ if (fs.existsSync(sharedTemp)) {
 }
 fs.mkdirSync(sharedTemp, { recursive: true });
 
-// Copy shared source files to temp dir (preserving structure)
-function copySrcFiles(dir) {
+// Copy .ts files to temp dir (excluding .temp-compile itself)
+function copyTsFiles(dir, tempBase) {
   for (const file of fs.readdirSync(dir)) {
+    if (file === '.temp-compile') continue;
     const src = path.join(dir, file);
-    const rel = path.relative(sharedSrc, src);
-    const dest = path.join(sharedTemp, rel);
+    const dest = path.join(tempBase, file);
     const stat = fs.statSync(src);
-    
+
     if (stat.isDirectory()) {
       fs.mkdirSync(dest, { recursive: true });
-      copySrcFiles(src);
+      copyTsFiles(src, dest);
     } else if (file.endsWith('.ts') && !file.endsWith('.test.ts')) {
       fs.copyFileSync(src, dest);
     }
   }
 }
 
-copySrcFiles(sharedSrc);
+copyTsFiles(sharedSrc, sharedTemp);
 
-// Compile from temp dir
+// Compile from temp dir to temp dir (in-place in temp)
 const tsconfigContent = {
   compilerOptions: {
     target: 'ES2020',
     module: 'NodeNext',
-    lib: ['ES2020'],
+    lib: ['ES2020', 'DOM'],
     outDir: sharedTemp,
     rootDir: sharedTemp,
     strict: true,
@@ -66,26 +66,31 @@ fs.writeFileSync(tempTsconfig, JSON.stringify(tsconfigContent, null, 2));
 try {
   execSync(`tsc --project ${tempTsconfig}`, { cwd: sharedTemp, stdio: 'inherit' });
 
-  // Copy .js files from temp to shared/ (preserving directory structure)
-  function copyFiles(dir) {
+  // Copy .js files from temp to shared/ (excluding .temp-compile)
+  let count = 0;
+  function copyJsFiles(dir, destBase) {
     for (const file of fs.readdirSync(dir)) {
+      if (file === '.temp-compile') continue;
       const src = path.join(dir, file);
-      const rel = path.relative(sharedTemp, src);
-      const dest = path.join(sharedSrc, rel);
+      const dest = path.join(destBase, file);
       const stat = fs.statSync(src);
-      
+
       if (stat.isDirectory()) {
         fs.mkdirSync(dest, { recursive: true });
-        copyFiles(src);
+        copyJsFiles(src, dest);
       } else if (file.endsWith('.js')) {
         fs.copyFileSync(src, dest);
-        console.log(`  Copied: ${rel}`);
+        console.log(`  Copied: ${path.relative(sharedSrc, dest)}`);
+        count++;
       }
     }
   }
 
-  copyFiles(sharedTemp);
-  console.log('Shared files compiled successfully.');
+  copyJsFiles(sharedTemp, sharedSrc);
+  console.log(`Shared files compiled successfully (${count} files).`);
+} catch (err) {
+  console.error('Compilation failed:', err.message);
+  process.exit(1);
 } finally {
   // Clean up temp dir
   if (fs.existsSync(sharedTemp)) {
