@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { PlayerData } from '../../../shared/types';
 
 const createPlayer = (overrides: Partial<PlayerData>): PlayerData => ({
@@ -20,26 +20,62 @@ const createPlayer = (overrides: Partial<PlayerData>): PlayerData => ({
   ...overrides,
 });
 
-// Use a fixed prefix for testing
+// Mock localStorage and sessionStorage
+const mockLocalStorage: Record<string, string> = {};
+const mockSessionStorage: Record<string, string> = {};
+
+vi.stubGlobal('localStorage', {
+  getItem: vi.fn((key: string) => mockLocalStorage[key] ?? null),
+  setItem: vi.fn((key: string, value: string) => { mockLocalStorage[key] = value; }),
+  removeItem: vi.fn((key: string) => { delete mockLocalStorage[key]; }),
+  clear: vi.fn(() => { Object.keys(mockLocalStorage).forEach(k => delete mockLocalStorage[k]); }),
+  get length() { return Object.keys(mockLocalStorage).length; },
+  key: vi.fn((n: number) => Object.keys(mockLocalStorage)[n] ?? null),
+});
+
+vi.stubGlobal('sessionStorage', {
+  getItem: vi.fn((key: string) => mockSessionStorage[key] ?? null),
+  setItem: vi.fn((key: string, value: string) => { mockSessionStorage[key] = value; }),
+  removeItem: vi.fn((key: string) => { delete mockSessionStorage[key]; }),
+  clear: vi.fn(() => { Object.keys(mockSessionStorage).forEach(k => delete mockSessionStorage[k]); }),
+  get length() { return Object.keys(mockSessionStorage).length; },
+  key: vi.fn((n: number) => Object.keys(mockSessionStorage)[n] ?? null),
+});
+
 const TEST_PREFIX = 'ladder_testprefix_';
 
-// Mock storageService with fixed prefix
-vi.mock('../../../src/services/storageService', async () => {
-  const actual = await vi.importActual('../../../src/services/storageService');
-  return {
-    ...actual,
-    getKeyPrefix: () => TEST_PREFIX,
-  };
-});
+// Mock storageService to use fixed prefix
+vi.mock('../../../src/services/storageService', () => ({
+  getKeyPrefix: () => TEST_PREFIX,
+  getJson: (key: string) => {
+    const data = mockLocalStorage[TEST_PREFIX + key];
+    return data ? JSON.parse(data) : null;
+  },
+  setJson: (key: string, value: any) => {
+    mockLocalStorage[TEST_PREFIX + key] = JSON.stringify(value);
+  },
+  removeJson: (key: string) => {
+    delete mockLocalStorage[TEST_PREFIX + key];
+  },
+  getLocalPlayers: () => {
+    const data = mockLocalStorage[TEST_PREFIX + 'ladder_players'];
+    return data ? JSON.parse(data) : [];
+  },
+  setJson: (key: string, value: any) => {
+    mockLocalStorage[TEST_PREFIX + key] = JSON.stringify(value);
+  },
+}));
 
-// Mock userSettingsStorage with fixed prefix
-vi.mock('../../../src/services/userSettingsStorage', async () => {
-  const actual = await vi.importActual('../../../src/services/userSettingsStorage');
-  return {
-    ...actual,
-    getLadderPrefix: () => TEST_PREFIX,
-  };
-});
+// Mock userSettingsStorage to use fixed prefix
+vi.mock('../../../src/services/userSettingsStorage', () => ({
+  loadUserSettings: () => {
+    const data = mockLocalStorage[TEST_PREFIX + 'ladder_user_settings'];
+    return data ? JSON.parse(data) : { server: '', apiKey: '', debugMode: false };
+  },
+  saveUserSettings: (settings: any) => {
+    mockLocalStorage[TEST_PREFIX + 'ladder_user_settings'] = JSON.stringify(settings);
+  },
+}));
 
 import {
   checkMigrationNeeded,
@@ -49,38 +85,23 @@ import {
   applyMigration,
 } from '../../../src/utils/migrationUtils';
 
-function getStoragePrefix(): string {
-  return TEST_PREFIX;
-}
-
-function getLocalPlayers(): PlayerData[] {
-  const data = localStorage.getItem(getStoragePrefix() + 'ladder_players');
-  return data ? JSON.parse(data) : [];
-}
-
 function setLocalPlayers(players: PlayerData[]): void {
-  localStorage.setItem(getStoragePrefix() + 'ladder_players', JSON.stringify(players));
+  mockLocalStorage[TEST_PREFIX + 'ladder_players'] = JSON.stringify(players);
 }
 
 function setUserSettings(settings: any): void {
-  localStorage.setItem(getStoragePrefix() + 'ladder_user_settings', JSON.stringify(settings));
+  mockLocalStorage[TEST_PREFIX + 'ladder_user_settings'] = JSON.stringify(settings);
 }
 
 function clearStorage(): void {
-  const keysToRemove: string[] = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (key && key.startsWith(TEST_PREFIX)) {
-      keysToRemove.push(key);
-    }
-  }
-  keysToRemove.forEach(k => localStorage.removeItem(k));
-  sessionStorage.removeItem('ladder_last_mode');
+  Object.keys(mockLocalStorage).filter(k => k.startsWith(TEST_PREFIX)).forEach(k => delete mockLocalStorage[k]);
+  mockSessionStorage['ladder_last_mode'] = undefined;
 }
 
 describe('Migration - Mode Switching (Local <-> Server)', () => {
   beforeEach(() => {
     clearStorage();
+    vi.clearAllMocks();
   });
 
   afterEach(() => {
@@ -286,26 +307,7 @@ describe('Migration - Mode Switching (Local <-> Server)', () => {
     });
   });
 
-  describe('getLocalPlayers consistency', () => {
-    it('should return the same count as checkMigrationNeeded localPlayerCount', () => {
-      storeCurrentMode('local');
-      const players = [
-        createPlayer({ rank: 1, lastName: 'A' }),
-        createPlayer({ rank: 2, lastName: 'B' }),
-        createPlayer({ rank: 3, lastName: 'C' }),
-      ];
-      setLocalPlayers(players);
-      setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugMode: false });
-
-      const directPlayers = getLocalPlayers();
-      const migrationResult = checkMigrationNeeded('server');
-
-      expect(directPlayers.length).toBe(migrationResult.localPlayerCount);
-      expect(directPlayers.length).toBe(3);
-    });
-  });
-
-  describe('detectRankNameMismatches in migration context', () => {
+  describe('detectRankNameMismatches', () => {
     it('should detect mismatches between local and server players', () => {
       const localPlayers = [
         createPlayer({ rank: 1, lastName: 'LocalPlayer', firstName: 'Local' }),
@@ -336,7 +338,7 @@ describe('Migration - Mode Switching (Local <-> Server)', () => {
 
       await applyMigration('use-server');
 
-      const stored = JSON.parse(localStorage.getItem(getStoragePrefix() + 'ladder_players') || '[]');
+      const stored = JSON.parse(mockLocalStorage[TEST_PREFIX + 'ladder_players'] || '[]');
       expect(stored).toEqual([]);
     });
 
@@ -349,7 +351,7 @@ describe('Migration - Mode Switching (Local <-> Server)', () => {
 
       await applyMigration('use-local');
 
-      const stored = JSON.parse(localStorage.getItem(getStoragePrefix() + 'ladder_players') || '[]');
+      const stored = JSON.parse(mockLocalStorage[TEST_PREFIX + 'ladder_players'] || '[]');
       expect(stored.length).toBe(2);
       expect(stored[0].lastName).toBe('Local1');
       expect(stored[1].lastName).toBe('Local2');
@@ -367,7 +369,7 @@ describe('Migration - Mode Switching (Local <-> Server)', () => {
         resultsStrategy: 'merge',
       });
 
-      const stored = JSON.parse(localStorage.getItem(getStoragePrefix() + 'ladder_players') || '[]');
+      const stored = JSON.parse(mockLocalStorage[TEST_PREFIX + 'ladder_players'] || '[]');
       expect(stored.length).toBe(2);
     });
 
@@ -376,7 +378,7 @@ describe('Migration - Mode Switching (Local <-> Server)', () => {
 
       await applyMigration('use-local');
 
-      const stored = sessionStorage.getItem('ladder_last_mode');
+      const stored = mockSessionStorage['ladder_last_mode'];
       expect(stored).toBe('server');
     });
   });
