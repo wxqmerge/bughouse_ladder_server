@@ -138,7 +138,7 @@ export async function readLadderFile(filePath?: string): Promise<LadderData> {
     if (dataLines.length > 0) {
       const secondLine = dataLines[0];
       const secondLineCols = secondLine.split('\t');
-      const isHeader = secondLineCols[13] && secondLineCols[13].trim() === '1';
+      let isHeader = secondLineCols[13] && secondLineCols[13].trim() === '1';
       
       if (!isHeader && secondLine.includes('Last Name') && secondLine.includes('First Name')) {
         const normCols = secondLine.replace(/\r/g, '').split('\t');
