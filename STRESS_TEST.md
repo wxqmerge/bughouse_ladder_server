@@ -37,6 +37,15 @@ Each test:
 
 ## Running Tests
 
+### Prerequisites
+```bash
+# Install dependencies
+npm install
+
+# Verify test setup
+npm test -- --run src/test/simple.test.ts
+```
+
 ### Quick 1-Round Tests (instant, development cycle)
 
 ```bash

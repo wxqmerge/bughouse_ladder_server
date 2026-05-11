@@ -86,6 +86,15 @@ export function mergeGameResults(oldResults: (string | null)[], currentResults: 
   return merged;
 }
 
+function countGames(gameResults: (string | null)[] | undefined): number {
+  if (!gameResults) return 0;
+  return gameResults.filter(r => r && r !== '' && r !== '_').length;
+}
+
+export function clubLadderGamesPlayed(player: PlayerData): number {
+  return (player.num_games || 0) + countGames(player.gameResults);
+}
+
 export function generateClubLadderTrophies(players: PlayerData[], maxTrophies: number): any[] {
   const trophies: any[] = [];
   const seenPlayers = new Set<string>();
@@ -99,8 +108,9 @@ export function generateClubLadderTrophies(players: PlayerData[], maxTrophies: n
     return true;
   }
 
-  // Step 1: Award 1st place overall - first eligible by rating
+ // Step 1: Award 1st place overall - first eligible by rating
   for (const p of sortedPlayers) {
+    const g = clubLadderGamesPlayed(p);
     if (addTrophy({
       rank: trophies.length + 1,
       player: `${p.firstName} ${p.lastName}`,
@@ -108,8 +118,8 @@ export function generateClubLadderTrophies(players: PlayerData[], maxTrophies: n
       rating: p.nRating,
       trophyType: '1st Place',
       miniGameOrGrade: 'Club Ladder',
-      gamesPlayed: p.num_games,
-      totalGames: p.num_games,
+      gamesPlayed: g,
+      totalGames: g,
     })) {
       break;
     }
@@ -117,6 +127,7 @@ export function generateClubLadderTrophies(players: PlayerData[], maxTrophies: n
 
   // Step 2: Award 2nd place overall - next eligible by rating
   for (const p of sortedPlayers) {
+    const g = clubLadderGamesPlayed(p);
     if (addTrophy({
       rank: trophies.length + 1,
       player: `${p.firstName} ${p.lastName}`,
@@ -124,8 +135,8 @@ export function generateClubLadderTrophies(players: PlayerData[], maxTrophies: n
       rating: p.nRating,
       trophyType: '2nd Place',
       miniGameOrGrade: 'Club Ladder',
-      gamesPlayed: p.num_games,
-      totalGames: p.num_games,
+      gamesPlayed: g,
+      totalGames: g,
     })) {
       break;
     }
@@ -133,6 +144,7 @@ export function generateClubLadderTrophies(players: PlayerData[], maxTrophies: n
 
   // Step 3: Award 3rd place overall - next eligible by rating
   for (const p of sortedPlayers) {
+    const g = clubLadderGamesPlayed(p);
     if (addTrophy({
       rank: trophies.length + 1,
       player: `${p.firstName} ${p.lastName}`,
@@ -140,16 +152,17 @@ export function generateClubLadderTrophies(players: PlayerData[], maxTrophies: n
       rating: p.nRating,
       trophyType: '3rd Place',
       miniGameOrGrade: 'Club Ladder',
-      gamesPlayed: p.num_games,
-      totalGames: p.num_games,
+      gamesPlayed: g,
+      totalGames: g,
     })) {
       break;
     }
   }
 
-  // Step 4: Award most games - first eligible by num_games
-  const sortedByGames = [...players].sort((a, b) => b.num_games - a.num_games);
+  // Step 4: Award most games - first eligible by total games (num_games + current)
+  const sortedByGames = [...players].sort((a, b) => clubLadderGamesPlayed(b) - clubLadderGamesPlayed(a));
   for (const p of sortedByGames) {
+    const g = clubLadderGamesPlayed(p);
     if (addTrophy({
       rank: trophies.length + 1,
       player: `${p.firstName} ${p.lastName}`,
@@ -157,20 +170,21 @@ export function generateClubLadderTrophies(players: PlayerData[], maxTrophies: n
       rating: p.nRating,
       trophyType: 'Most Games',
       miniGameOrGrade: 'Club Ladder',
-      gamesPlayed: p.num_games,
-      totalGames: p.num_games,
+      gamesPlayed: g,
+      totalGames: g,
     })) {
       break;
     }
   }
 
-  // Step 5: Award grade 1st place if t > 4
+ // Step 5: Award grade 1st place if t > 4
   if (maxTrophies > 4) {
     const gradeGroups = [...new Set(players.map(p => p.grade).filter(Boolean))].sort((a, b) => parseInt(b) - parseInt(a));
     
     for (const grade of gradeGroups) {
       const gradePlayers = players.filter(p => p.grade === grade).sort((a, b) => b.nRating - a.nRating);
       for (const p of gradePlayers) {
+        const g = clubLadderGamesPlayed(p);
         if (addTrophy({
           rank: trophies.length + 1,
           player: `${p.firstName} ${p.lastName}`,
@@ -178,8 +192,8 @@ export function generateClubLadderTrophies(players: PlayerData[], maxTrophies: n
           rating: p.nRating,
           trophyType: '1st Place',
           miniGameOrGrade: `Gr ${grade}`,
-          gamesPlayed: p.num_games,
-          totalGames: p.num_games,
+          gamesPlayed: g,
+          totalGames: g,
         })) {
           break;
         }
@@ -187,13 +201,14 @@ export function generateClubLadderTrophies(players: PlayerData[], maxTrophies: n
     }
   }
 
-  // Step 6: Award grade 2nd place if any trophies remain
+ // Step 6: Award grade 2nd place if any trophies remain
   if (trophies.length < maxTrophies) {
     const gradeGroups = [...new Set(players.map(p => p.grade).filter(Boolean))].sort((a, b) => parseInt(b) - parseInt(a));
     
     for (const grade of gradeGroups) {
       const gradePlayers = players.filter(p => p.grade === grade).sort((a, b) => b.nRating - a.nRating);
       for (const p of gradePlayers) {
+        const g = clubLadderGamesPlayed(p);
         if (addTrophy({
           rank: trophies.length + 1,
           player: `${p.firstName} ${p.lastName}`,
@@ -201,8 +216,8 @@ export function generateClubLadderTrophies(players: PlayerData[], maxTrophies: n
           rating: p.nRating,
           trophyType: '2nd Place',
           miniGameOrGrade: `Gr ${grade}`,
-          gamesPlayed: p.num_games,
-          totalGames: p.num_games,
+          gamesPlayed: g,
+          totalGames: g,
         })) {
           break;
         }
@@ -217,6 +232,7 @@ export function generateClubLadderTrophies(players: PlayerData[], maxTrophies: n
     for (const grade of gradeGroups) {
       const gradePlayers = players.filter(p => p.grade === grade).sort((a, b) => b.nRating - a.nRating);
       for (const p of gradePlayers) {
+        const g = clubLadderGamesPlayed(p);
         if (addTrophy({
           rank: trophies.length + 1,
           player: `${p.firstName} ${p.lastName}`,
@@ -224,8 +240,8 @@ export function generateClubLadderTrophies(players: PlayerData[], maxTrophies: n
           rating: p.nRating,
           trophyType: '3rd Place',
           miniGameOrGrade: `Gr ${grade}`,
-          gamesPlayed: p.num_games,
-          totalGames: p.num_games,
+          gamesPlayed: g,
+          totalGames: g,
         })) {
           break;
         }

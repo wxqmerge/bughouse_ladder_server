@@ -1,21 +1,21 @@
 Group	Last Name	First Name	Rating	Rnk	N Rate	Gr	Gms	Attendance	Phone	Info	School	Room	1	2	3	4	5	6	7	8	9	10	11	12	13	14	15	16	17	18	19	20	21	22	23	24	25	26	27	28	29	30	31	Version 1.21
-A	Gomez	Susan	100	1	1	5	0	0					1LL7_	1DL3_	1LL6_	1WW5_																											
-A	Brown	Emily	-189	2	-12	5	0	0					2WW3_	2W7_	2WW8_																												
-A	Hall	Elizabeth	279	3	255	5	9	0					2WW3_	3W4_	1DL3_	3LL6_																											
-A	Mitchell	John	368	4	352	5	2	0					4D6_	4L5_	4L7_	4W8_	3W4_																										
-A	Jackson	Paul	458	5	459	5	10	0					5WW9_	5D11_	4L5_	5L6_	5W10_	5D8_	1WW5_																								
-A	Gonzalez	John	547	6	467	5	4	0					4D6_	6D8_	6W9_	5L6_	6L12_	3LL6_	6LL10_	6W7_	1LL6_																						
-A	Allen	Lisa	637	7	619	5	7	0					7W13_	7L12_	4L7_	1LL7_	7L9_	2W7_	6W7_	7D10_																							
-A	Young	Deborah	726	8	698	5	6	0					6D8_	8L11_	4W8_	8D9_	8L10_	5D8_	2WW8_	8W12_																							
-A	Lopez	James	816	9	834	5	9	0					5WW9_	6W9_	9L11_	9D15_	8D9_	7L9_	9LW10_																								
-A	Clark	Amanda	905	10	886	5	8	0					10DL16_	10L14_	5W10_	10DD13_	10DW12_	8L10_	9LW10_	6LL10_	7D10_	10DW11_																					
-A	Gomez	Margaret	995	11	952	5	3	0					5D11_	8L11_	9L11_	11W16_	11L17_	11LL13_	10DW11_																								
-A	Wilson	Donna	-1084	12	-1018	5	3	0					7L12_	12D15_	12W14_	6L12_	12L18_	10DW12_	12L16_	8W12_																							
-A	Clark	Emily	1174	13	1064	5	2	0					13L15_	7W13_	13WW17_	10DD13_	13DD19_	11LL13_	13W14_																								
-A	Hill	Jennifer	1263	14	1265	5	9	0					10L14_	12W14_	14W17_	14W16_	14WW20_	13W14_	14LL19_																								
-A	Brown	Timothy	1353	15	1305	5	4	0					13L15_	12D15_	15L17_	9D15_	15W20_	15W18_																									
-A	Williams	Christopher	1442	16	1440	5	9	0					10DL16_	16L19_	11W16_	14W16_	16L17_	12L16_																									
-A	Campbell	Amanda	1532	17	1468	5	2	0					17W18_	13WW17_	17LD20_	15L17_	14W17_	11L17_	16L17_																								
-A	Brown	Donna	1621	18	1531	5	3	0					17W18_	12L18_	18L20_	15W18_	18WW19_																										
-A	Torres	Michelle	1711	19	1708	5	10	0					19W20_	16L19_	13DD19_	18WW19_	14LL19_																										
-A	Carter	Susan	1800	20	1790	5	3	0					19W20_	17LD20_	18L20_	15W20_	14WW20_																										
+A	Gomez	Susan	100	1	1	5	0	0					1LL4_	1L3_	1WL5_																												
+A	Nguyen	John	-189	2	-90	12	2	0					2L7_	2W4_	2WW6_																												
+A	Wilson	Kevin	279	3	258	5	5	0					1L3_	3W6_	3D4_	3D5_																											
+A	Wilson	Charles	368	4	392	11	10	0					1LL4_	4W10_	4W5_	3D4_	2W4_	4W9_	4W7_	4L6_																							
+A	Gonzalez	John	458	5	406	8	6	0					5DW7_	5L10_	5L11_	5L9_	4W5_	1WL5_	3D5_	5W8_																							
+A	Perez	Kenneth	547	6	508	10	10	0					6W12_	6W8_	3W6_	6LL9_	2WW6_	6L11_	6L7_	4L6_																							
+A	Gonzalez	Sandra	637	7	627	5	9	0					5DW7_	7LD8_	2L7_	7WW11_	7WW10_	4W7_	6L7_																								
+A	Baker	Betty	726	8	710	11	8	0					8L13_	7LD8_	6W8_	8LL14_	8W11_	8L9_	8L12_	5W8_																							
+A	Gomez	Margaret	816	9	828	7	2	0					5L9_	9WW14_	9WW15_	6LL9_	8L9_	4W9_	9W13_																								
+A	Green	John	905	10	904	9	8	0					5L10_	4W10_	10W12_	7WW10_	10W15_	10DW11_																									
+A	Green	Elizabeth	995	11	978	5	10	0					11WW17_	11W13_	5L11_	11L12_	8W11_	7WW11_	6L11_	10DW11_																							
+A	Rivera	Patricia	1084	12	1083	7	4	0					12D15_	6W12_	12WW18_	10W12_	11L12_	12LL13_	8L12_																								
+A	Williams	Christopher	1174	13	1161	12	9	0					8L13_	13W19_	11W13_	13L16_	13LL17_	12LL13_	13L15_	9W13_																							
+A	Campbell	Ashley	1263	14	1271	5	8	0					14W16_	8LL14_	9WW14_	14L15_	14LW18_	14L20_	14LL19_																								
+A	Hill	Thomas	1353	15	1332	12	10	0					12D15_	15W18_	15L17_	15WW20_	9WW15_	15W19_	13L15_	14L15_	10W15_																						
+A	Carter	Melissa	1442	16	1357	8	3	0					14W16_	16L18_	13L16_	16W20_																											
+A	Robinson	Mary	1532	17	1496	13	4	0					11WW17_	15L17_	17D18_	13LL17_	17W20_	17L19_																									
+A	Torres	Michael	1621	18	1658	10	1	0					15W18_	12WW18_	16L18_	17D18_	14LW18_																										
+A	Hill	Kevin	1711	19	1705	7	7	0					13W19_	15W19_	17L19_	14LL19_																											
+A	Taylor	Joseph	1800	20	1800	12	9	0					15WW20_	17W20_	16W20_	14L20_																											

@@ -67,7 +67,7 @@ function createPlayer(rank: number, rating: number, rng: () => number): PlayerDa
     rating,
     nRating: 0,
     trophyEligible: rng() > 0.15, // ~15% chance of being ineligible
-    grade: '5',
+    grade: (5 + Math.floor(rng() * 9)).toString(),
     num_games: 0,
     attendance: 0,
     info: '',

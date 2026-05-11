@@ -34,6 +34,45 @@ Server tests use `node` environment. Client tests use `jsdom`.
 
 ---
 
+## Running Tests
+
+### All Tests (Root) — Client + Server
+```bash
+npm run test:run      # Run once (CI mode)
+npm test              # Watch mode
+npm run test:coverage # Coverage report
+```
+
+### Server Only
+```bash
+cd server && npm run test:run   # Run once
+cd server && npm test            # Watch mode
+```
+
+### Server Tournament Tests
+```bash
+cd server && npm run test:run test/tournament.test.ts       # Core tournament tests
+cd server && npm run test:run test/tournamentExtended.test.ts  # Extended: trophy generation, mini-game stress tests
+```
+
+### Rating Stress Test
+```bash
+npx vitest run src/test/unit/ratingStressTest.test.ts --reporter=verbose
+```
+
+### Single Test File
+```bash
+npm test src/test/unit/ratingFormula.test.ts        # Client
+cd server && npm run test:run test/adminLock.test.ts  # Server
+```
+
+### Single Test by Name
+```bash
+npm test -t "should return 0.5 when ratings are equal"
+```
+
+---
+
 ## Test Structure
 
 ```
