@@ -43,3 +43,4 @@ data
 coverage
 /*.xls
 /*.tab
+*.map
