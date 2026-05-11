@@ -1,6 +1,7 @@
 import { PlayerData } from '../../shared/types';
 import { getKeyPrefix, getLocalPlayers, setJson } from '../services/storageService';
 import { loadUserSettings } from '../services/userSettingsStorage';
+import { dataService, DataServiceMode } from '../services/dataService';
 import type { ProgramMode } from './mode';
 
 const SESSION_LAST_MODE_KEY = 'ladder_last_mode';
@@ -57,7 +58,7 @@ interface MigrationNeededResult {
 /**
  * Check if migration is needed (mode changed and data exists)
  */
-export function checkMigrationNeeded(actualMode?: ProgramMode): MigrationNeededResult {
+export async function checkMigrationNeeded(actualMode?: ProgramMode): Promise<MigrationNeededResult> {
   const currentMode = actualMode || detectCurrentMode();
   const lastMode = getLastStoredMode();
   
@@ -71,11 +72,19 @@ export function checkMigrationNeeded(actualMode?: ProgramMode): MigrationNeededR
   
   const localPlayers = getLocalPlayers();
   
-  const serverPlayers: PlayerData[] = []; 
+  let serverPlayerCount = 0;
+  try {
+    if (currentMode === 'server') {
+      const serverPlayers = await dataService.getPlayers();
+      serverPlayerCount = serverPlayers.length;
+    }
+  } catch (err) {
+    console.warn('[migrationUtils] Failed to fetch server players for migration check:', err);
+  }
   
   if (localPlayers.length === 0) {
     storeCurrentMode(currentMode);
-    return { needed: false, fromMode: lastMode, toMode: currentMode, localPlayerCount: 0, serverPlayerCount: serverPlayers.length };
+    return { needed: false, fromMode: lastMode, toMode: currentMode, localPlayerCount: 0, serverPlayerCount };
   }
   
   return {
@@ -83,7 +92,7 @@ export function checkMigrationNeeded(actualMode?: ProgramMode): MigrationNeededR
     fromMode: lastMode,
     toMode: currentMode,
     localPlayerCount: localPlayers.length,
-    serverPlayerCount: serverPlayers.length,
+    serverPlayerCount,
   };
 }
 

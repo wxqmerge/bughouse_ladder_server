@@ -174,7 +174,7 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
           }
 
           // Check for migration needs
-          const migrationCheck = checkMigrationNeeded(mode as ProgramMode);
+          const migrationCheck = await checkMigrationNeeded(mode as ProgramMode);
           if (migrationCheck.needed) {
             setShowMigrationDialog(true);
           } else {
