@@ -57,8 +57,8 @@ interface MigrationNeededResult {
 /**
  * Check if migration is needed (mode changed and data exists)
  */
-export function checkMigrationNeeded(): MigrationNeededResult {
-  const currentMode = detectCurrentMode();
+export function checkMigrationNeeded(actualMode?: ProgramMode): MigrationNeededResult {
+  const currentMode = actualMode || detectCurrentMode();
   const lastMode = getLastStoredMode();
   
   if (!lastMode || lastMode === currentMode) {
