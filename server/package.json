@@ -5,7 +5,7 @@
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
-    "build": "node ../scripts/compile-shared.js && tsc && node ../scripts/patch-shared-imports.js",
+    "build": "node ../scripts/compile-shared.js && npx tsc && node ../scripts/patch-shared-imports.js && node ../scripts/flatten-server-dist.js",
     "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts",
     "typecheck": "tsc --noEmit",
