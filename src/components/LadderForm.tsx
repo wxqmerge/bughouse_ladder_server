@@ -4138,6 +4138,7 @@ export default function LadderForm({
             availableMiniGames={availableMiniGames}
 
           serverUrl={splashServerUrl}
+          hasAdminApiKey={!!splashApiKey}
         />
       </div>
 

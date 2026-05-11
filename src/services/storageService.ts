@@ -604,13 +604,3 @@ export async function isAdminLocked(): Promise<boolean> {
   return info.locked;
 }
 
-export function notifyServerOfLockAction(action: 'acquire' | 'release' | 'force', clientId: string, clientName?: string): void {
-  const url = getServerUrl();
-  if (!url) return;
-  const settings = loadUserSettings();
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (settings.apiKey && settings.apiKey.trim()) {
-    headers['X-API-Key'] = settings.apiKey.trim();
-  }
-  fetch(`${url}/api/admin-lock/lock`, { method: 'POST', headers, body: JSON.stringify({ action, clientId, clientName }) }).catch(() => {});
-}
