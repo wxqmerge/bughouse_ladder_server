@@ -64,7 +64,7 @@ const tempTsconfig = path.join(sharedTemp, 'tsconfig.json');
 fs.writeFileSync(tempTsconfig, JSON.stringify(tsconfigContent, null, 2));
 
 try {
-  execSync(`tsc --project ${tempTsconfig}`, { cwd: sharedTemp, stdio: 'inherit' });
+  execSync(`npx tsc --project ${tempTsconfig}`, { cwd: sharedTemp, stdio: 'inherit' });
 
   // Copy .js files from temp to shared/ (excluding .temp-compile)
   let count = 0;
