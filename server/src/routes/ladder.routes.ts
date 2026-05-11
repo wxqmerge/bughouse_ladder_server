@@ -199,4 +199,56 @@ router.put('/', requireUserKey, writeLimiter, async (req: Request, res: Response
   }
 });
 
+// Batch update game results (requires user or admin API key)
+router.post('/batch', requireUserKey, writeLimiter, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { deltas } = req.body as { deltas: Array<{ playerRank: number; round: number; result: string }> };
+
+    if (!deltas || !Array.isArray(deltas)) {
+      res.status(400).json({
+        success: false,
+        error: { message: 'Invalid deltas data' },
+      });
+      return;
+    }
+
+    const ladderData = await withTiming(`readLadderFile(batch)`, readLadderFile);
+    const results: any[] = [];
+
+    for (const delta of deltas) {
+      const playerIndex = ladderData.players.findIndex((p: PlayerData) => p.rank === delta.playerRank);
+
+      if (playerIndex === -1) {
+        results.push({ playerRank: delta.playerRank, error: 'Player not found' });
+        continue;
+      }
+
+      const player = ladderData.players[playerIndex];
+      if (!player.gameResults) {
+        player.gameResults = new Array(31).fill(null);
+      }
+      while (player.gameResults.length <= delta.round) {
+        player.gameResults.push(null);
+      }
+
+      player.gameResults[delta.round] = delta.result;
+      ladderData.players[playerIndex] = player;
+      results.push({ playerRank: delta.playerRank, round: delta.round, success: true });
+    }
+
+    await withTiming(`writeLadderFile(batch-${deltas.length})`, () => writeLadderFile(ladderData));
+
+    res.json({
+      success: true,
+      data: { message: 'Game results submitted', results },
+    });
+  } catch (error) {
+    logError('[SERVER]', 'Error submitting deltas batch:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to submit deltas' },
+    });
+  }
+});
+
 export { router };
