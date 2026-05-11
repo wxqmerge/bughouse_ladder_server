@@ -24,6 +24,7 @@ import { errorHandler } from './middleware/errorHandler.js';
 import { initializeDefaultLadder } from './services/dataService.js';
 import { generatePerformanceReport, clearSlowOperations } from './utils/performance.js';
 import { getWriteHealth } from './services/dataService.js';
+import { addSSEClient, getSSEClientCount } from './services/sseService.js';
 
 const app: Application = express();
 const PORT = process.env.PORT || 3000;
@@ -189,6 +190,16 @@ app.get('/health', (req: Request, res: Response) => {
       consecutiveFailures: wh.consecutiveFailures,
     },
   });
+});
+
+// SSE endpoint for real-time data updates
+app.get('/api/ladder/events', (req: Request, res: Response) => {
+  const lastEventId = req.headers['last-event-id'] as string | undefined;
+  console.log(`[SSE] New client connected${lastEventId ? ` (lastEventId: ${lastEventId})` : ''}, total clients: ${getSSEClientCount() + 1}`);
+  addSSEClient(res);
+  
+  // Send initial connection event
+  res.write(`id: init\nevent: connected\ndata: {"message":"SSE connected"}\n\n`);
 });
 
 // API Routes

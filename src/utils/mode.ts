@@ -94,36 +94,19 @@ export async function testServerConnection(): Promise<boolean> {
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
-    if (response.ok) {
+    // 2xx = server up, 404 = server up but /health endpoint missing
+    const serverUp = response.ok || response.status === 404;
+    if (serverUp) {
       const settings = loadUserSettings();
       if (shouldSaveLastWorkingConfig(apiUrl, settings.apiKey)) {
         saveLastWorkingConfig(apiUrl, settings.apiKey);
         markLastWorkingConfigSaved(apiUrl, settings.apiKey);
       }
     }
-    return response.ok;
-  } catch (error) {
+    return serverUp;
+  } catch {
     clearTimeout(timeoutId);
-    // If /health doesn't exist, try the main endpoint
-    try {
-      const controller2 = new AbortController();
-      const timeoutId2 = setTimeout(() => controller2.abort(), 3000);
-      const response = await fetch(apiUrl, {
-        method: 'GET',
-        signal: controller2.signal,
-      });
-      clearTimeout(timeoutId2);
-      if (response.ok || response.status === 404) {
-        const settings = loadUserSettings();
-        if (shouldSaveLastWorkingConfig(apiUrl, settings.apiKey)) {
-          saveLastWorkingConfig(apiUrl, settings.apiKey);
-          markLastWorkingConfigSaved(apiUrl, settings.apiKey);
-        }
-      }
-      return response.ok || response.status === 404; // 404 means server is up
-    } catch {
-      return false;
-    }
+    return false;
   }
 }
 
