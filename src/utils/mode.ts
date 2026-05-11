@@ -15,6 +15,18 @@ let connectionState: {
   previousMode: null,
 };
 
+let lastSavedServer: string = '';
+let lastSavedApiKey: string = '';
+
+function shouldSaveLastWorkingConfig(server: string, apiKey: string): boolean {
+  return server !== lastSavedServer || apiKey !== lastSavedApiKey;
+}
+
+function markLastWorkingConfigSaved(server: string, apiKey: string): void {
+  lastSavedServer = server;
+  lastSavedApiKey = apiKey;
+}
+
 // Callback for mode changes
 let onModeChangeCallback: ((newMode: string, oldMode: string) => void) | null = null;
 
@@ -43,6 +55,8 @@ export function initializeConnectionState(): void {
       connectionState.serverReachable = null;
       connectionState.lastCheckTime = Date.now();
       connectionState.previousMode = null;
+      lastSavedServer = '';
+      lastSavedApiKey = '';
       return;
     }
   } catch (err) {
@@ -82,7 +96,10 @@ export async function testServerConnection(): Promise<boolean> {
     clearTimeout(timeoutId);
     if (response.ok) {
       const settings = loadUserSettings();
-      saveLastWorkingConfig(apiUrl, settings.apiKey);
+      if (shouldSaveLastWorkingConfig(apiUrl, settings.apiKey)) {
+        saveLastWorkingConfig(apiUrl, settings.apiKey);
+        markLastWorkingConfigSaved(apiUrl, settings.apiKey);
+      }
     }
     return response.ok;
   } catch (error) {
@@ -98,7 +115,10 @@ export async function testServerConnection(): Promise<boolean> {
       clearTimeout(timeoutId2);
       if (response.ok || response.status === 404) {
         const settings = loadUserSettings();
-        saveLastWorkingConfig(apiUrl, settings.apiKey);
+        if (shouldSaveLastWorkingConfig(apiUrl, settings.apiKey)) {
+          saveLastWorkingConfig(apiUrl, settings.apiKey);
+          markLastWorkingConfigSaved(apiUrl, settings.apiKey);
+        }
       }
       return response.ok || response.status === 404; // 404 means server is up
     } catch {
