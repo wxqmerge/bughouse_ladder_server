@@ -19,7 +19,7 @@ import { debugLine } from '../../shared/utils/trophyGeneration';
 import { calculateRatings, repopulateGameResults, processGameResults } from '../../shared/utils/hashUtils';
 import { buildDebugHeader, buildMiniGamePlayerSection, buildTrophiesSection, buildTrophyReportString } from '../../shared/utils/trophyDebugReport';
 import type { MatchData } from '../../shared/types';
-import { mulberry32, determineResult, generateBatchGames } from '../../src/test/shared/stressTestUtils';
+import { mulberry32, determineResult, generateBatchGames, cleanInvalidResults } from '../../src/test/shared/stressTestUtils';
 
 // ── Test Fixtures ──────────────────────────────────────────────────
 
@@ -479,7 +479,8 @@ describe('Mini-game trophy stress test', () => {
     }
 
     const withResults = repopulateGameResults(players, allMatches, 31);
-    const ratedPlayers = calculateRatings(withResults, allMatches).players;
+    const cleanPlayers = cleanInvalidResults(withResults, processGameResults);
+    const ratedPlayers = calculateRatings(cleanPlayers, allMatches).players;
 
     // Count games played
     const gamesPlayed = new Map<number, number>();
@@ -660,7 +661,8 @@ describe('Mini-game trophy stress test — club ladder mode', () => {
     }
 
     const withResults = repopulateGameResults(players, allMatches, 31);
-    const ratedPlayers = calculateRatings(withResults, allMatches).players;
+    const cleanPlayers = cleanInvalidResults(withResults, processGameResults);
+    const ratedPlayers = calculateRatings(cleanPlayers, allMatches).players;
 
     const gamesPlayed = new Map<number, number>();
     for (const m of allMatches) {
