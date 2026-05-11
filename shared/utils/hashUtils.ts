@@ -10,13 +10,13 @@ import {
   ProcessResult,
   UpdatePlayerGameDataResult,
   ValidationResultResult
-} from "../types";
+} from "../types/index.js";
 import { 
   CalculateRatingsDebugTrace, 
   MatchDebugTrace, 
   PlayerDebugUpdate,
   DebugLogger 
-} from "./debugUtils";
+} from "./debugUtils.js";
 
 // Local debug function for shared module (no localStorage dependency)
 function shouldLog(_threshold: number): boolean {
@@ -1133,11 +1133,12 @@ export function calculateRatings(
 
   if (options?.kFactorOverride !== undefined) {
     kFactor = options.kFactorOverride;
-  } else if (typeof localStorage !== "undefined") {
+  } else if (typeof (globalThis as Record<string, any>).localStorage !== "undefined") {
     try {
-      const savedSettings = localStorage.getItem("ladder_settings");
-      if (savedSettings) {
-        const parsed = JSON.parse(savedSettings);
+      const ls = (globalThis as Record<string, any>).localStorage;
+      const settingsValue = ls && typeof ls.getItem === "function" ? ls.getItem("ladder_settings") : null;
+      if (settingsValue) {
+        const parsed = JSON.parse(settingsValue);
         kFactor = parsed.kFactor ?? 20;
       }
     } catch {}
@@ -1148,11 +1149,12 @@ export function calculateRatings(
   let blendingFactor = 0.99;
   if (options?.blendingFactorOverride !== undefined) {
     blendingFactor = options.blendingFactorOverride;
-  } else if (typeof localStorage !== "undefined") {
+  } else if (typeof (globalThis as Record<string, any>).localStorage !== "undefined") {
     try {
-      const savedSettings2 = localStorage.getItem("ladder_settings");
-      if (savedSettings2) {
-        const parsed2 = JSON.parse(savedSettings2);
+      const ls2 = (globalThis as Record<string, any>).localStorage;
+      const settingsValue = ls2 && typeof ls2.getItem === "function" ? ls2.getItem("ladder_settings") : null;
+      if (settingsValue) {
+        const parsed2 = JSON.parse(settingsValue);
         blendingFactor = parsed2.performanceBlendingFactor ?? 0.99;
       }
     } catch {}
