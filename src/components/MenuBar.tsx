@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getVersionString, isServerDownMode, getProgramMode } from "../utils/mode";
+import { getVersionString, getProgramMode } from "../utils/mode";
 import { getVisibleTitles } from "../utils/titleMenu";
 import { getFontSize } from "../utils/getFontSize";
 import { useIntervalCheck } from "../utils/useIntervalCheck";
@@ -84,10 +84,7 @@ export default function MenuBar({
   tournamentMode = false,
   availableMiniGames = [],
 }: MenuBarProps) {
-  // Admin mode disabled: connected to server WITH API key but not actually admin
-  // Enabled: no server URL (local mode) OR server unreachable (repair mode) OR has API key
   const serverConfigured = !!(serverUrl && serverUrl.trim());
-  const adminModeDisabled = serverConfigured && !isServerDownMode();
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [isServerDown, setIsServerDown] = useState(false);
 
@@ -238,7 +235,7 @@ export default function MenuBar({
       },
       dataMenuItem: "Paste Multiple Results",
     },
-    ...(!adminModeDisabled && onAddPlayer
+    ...(isAdmin && onAddPlayer
       ? [
           {
             icon: <Plus size={16} />,
@@ -251,7 +248,7 @@ export default function MenuBar({
           },
         ]
       : []),
-    ...(!adminModeDisabled && onDeleteHiddenPlayers
+    ...(isAdmin && onDeleteHiddenPlayers
        ? [
            {
              icon: <Trash2 size={16} />,
@@ -264,7 +261,7 @@ export default function MenuBar({
            },
          ]
        : []),
-     ...(!adminModeDisabled && onAutoLetter
+      ...(isAdmin && onAutoLetter
        ? [
            {
              icon: <Type size={16} />,
@@ -277,21 +274,17 @@ export default function MenuBar({
            },
          ]
        : []),
-     ...(adminModeDisabled
-       ? []
-       : [
-           {
-             icon: <Shield size={16} />,
-             label: isAdmin ? "Exit Admin Mode" : "Admin Mode",
-             onClick: () => {
-               onToggleAdmin?.();
-               closeAllMenus();
-             },
-             dataMenuItem: isAdmin ? "Exit Admin Mode" : "Admin Mode",
-           },
-         ]),
+    {
+       icon: <Shield size={16} />,
+       label: isAdmin ? "Exit Admin Mode" : "Admin Mode",
+       onClick: () => {
+         onToggleAdmin?.();
+         closeAllMenus();
+       },
+       dataMenuItem: isAdmin ? "Exit Admin Mode" : "Admin Mode",
+     },
     // Restore Backup - admin only, before Settings
-    ...(!adminModeDisabled && onRestoreBackup
+    ...(isAdmin && onRestoreBackup
       ? [
           {
             icon: <History size={16} />,
