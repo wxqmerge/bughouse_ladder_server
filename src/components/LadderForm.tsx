@@ -1279,17 +1279,27 @@ export default function LadderForm({
     // REUSE the existing recalculateAndSave function from Operations menu
     await recalculateAndSave();
     
+    // After recalculateAndSave completes, check if errors were found
+    if (walkthroughErrors.length > 0) {
+      log('[ENTER_GAMES]', 'Errors found during recalculation - showing error dialog');
+      // isRecalculating stays true, ErrorDialog shows in recalculate mode with errors
+      setEnterGamesError(null);
+      console.log(">>> [ENTER_RECALCULATE_SAVE] Errors found, waiting for correction");
+      return;
+    }
+    
+    // No errors found - reset isRecalculating so ErrorDialog switches back to enter-games mode
+    setIsRecalculating(false);
+    
     // After successful save, find next empty cell
     const nextCell = findNextEmptyCell(currentCell.playerRank, currentCell.round);
     
     if (nextCell) {
       log('[ENTER_GAMES]', 'Moving to next empty cell: P' + nextCell.playerRank + ' R' + (nextCell.round + 1));
-      // Keep enter-games mode active and open next cell
-        setEntryCell(nextCell);
-        setTempGameResult(null);
-      } else {
-        log('[ENTER_GAMES]', 'No more empty cells - exiting Enter Games mode');
-      // No more empty cells - exit enter-games mode
+      setEntryCell(nextCell);
+      setTempGameResult(null);
+    } else {
+      log('[ENTER_GAMES]', 'No more empty cells - exiting Enter Games mode');
       setIsEnterGamesMode(false);
       setEntryCell(null);
       setTempGameResult(null);
