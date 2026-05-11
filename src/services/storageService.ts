@@ -533,8 +533,13 @@ export async function tryAcquireAdminLock(clientName?: string): Promise<boolean>
   if (!url) return true;
   const id = getClientId();
   const name = clientName || getClientName(id);
+  const settings = loadUserSettings();
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (settings.apiKey && settings.apiKey.trim()) {
+    headers['X-API-Key'] = settings.apiKey.trim();
+  }
   try {
-    const res = await fetch(`${url}/api/admin-lock/acquire`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientId: id, clientName: name }) });
+    const res = await fetch(`${url}/api/admin-lock/acquire`, { method: 'POST', headers, body: JSON.stringify({ clientId: id, clientName: name }) });
     const data = await res.json();
     return data.success;
   } catch { return false; }
@@ -545,8 +550,13 @@ export async function forceAcquireAdminLock(clientName?: string): Promise<boolea
   if (!url) return true;
   const id = getClientId();
   const name = clientName || getClientName(id);
+  const settings = loadUserSettings();
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (settings.apiKey && settings.apiKey.trim()) {
+    headers['X-API-Key'] = settings.apiKey.trim();
+  }
   try {
-    const res = await fetch(`${url}/api/admin-lock/force`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientId: id, clientName: name }) });
+    const res = await fetch(`${url}/api/admin-lock/force`, { method: 'POST', headers, body: JSON.stringify({ clientId: id, clientName: name }) });
     const data = await res.json();
     return data.success;
   } catch { return false; }
@@ -555,20 +565,35 @@ export async function forceAcquireAdminLock(clientName?: string): Promise<boolea
 export async function releaseAdminLock(): Promise<void> {
   const url = getServerUrl();
   if (!url) return;
-  try { await fetch(`${url}/api/admin-lock/release`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientId: getClientId() }) }); } catch {}
+  const settings = loadUserSettings();
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (settings.apiKey && settings.apiKey.trim()) {
+    headers['X-API-Key'] = settings.apiKey.trim();
+  }
+  try { await fetch(`${url}/api/admin-lock/release`, { method: 'POST', headers, body: JSON.stringify({ clientId: getClientId() }) }); } catch {}
 }
 
 export async function refreshAdminLock(): Promise<void> {
   const url = getServerUrl();
   if (!url) return;
-  try { await fetch(`${url}/api/admin-lock/refresh`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientId: getClientId() }) }); } catch {}
+  const settings = loadUserSettings();
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (settings.apiKey && settings.apiKey.trim()) {
+    headers['X-API-Key'] = settings.apiKey.trim();
+  }
+  try { await fetch(`${url}/api/admin-lock/refresh`, { method: 'POST', headers, body: JSON.stringify({ clientId: getClientId() }) }); } catch {}
 }
 
 export async function getAdminLockInfo(): Promise<{ locked: boolean; holderId?: string; holderName?: string; expiresAt?: number; serverReachable?: boolean }> {
   const url = getServerUrl();
   if (!url) return { locked: false, serverReachable: true };
+  const settings = loadUserSettings();
+  const headers: Record<string, string> = {};
+  if (settings.apiKey && settings.apiKey.trim()) {
+    headers['X-API-Key'] = settings.apiKey.trim();
+  }
   try {
-    const res = await fetch(`${url}/api/admin-lock/status`);
+    const res = await fetch(`${url}/api/admin-lock/status`, { headers });
     const data = await res.json();
     return data.locked ? { locked: true, holderId: data.lock?.clientId, holderName: data.lock?.clientName, expiresAt: data.expiresAt, serverReachable: true } : { locked: false, serverReachable: true };
   } catch { return { locked: false, serverReachable: false }; }
@@ -582,5 +607,10 @@ export async function isAdminLocked(): Promise<boolean> {
 export function notifyServerOfLockAction(action: 'acquire' | 'release' | 'force', clientId: string, clientName?: string): void {
   const url = getServerUrl();
   if (!url) return;
-  fetch(`${url}/api/admin-lock/lock`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, clientId, clientName }) }).catch(() => {});
+  const settings = loadUserSettings();
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (settings.apiKey && settings.apiKey.trim()) {
+    headers['X-API-Key'] = settings.apiKey.trim();
+  }
+  fetch(`${url}/api/admin-lock/lock`, { method: 'POST', headers, body: JSON.stringify({ action, clientId, clientName }) }).catch(() => {});
 }
