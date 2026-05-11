@@ -447,7 +447,7 @@ describe('Mini-game trophy stress test', () => {
     return players;
   }
 
-  function generateMiniGameFile(numPlayers: number, numRounds: number, seed: number): PlayerData[] {
+  function generateMiniGameFile(numPlayers: number, numRounds: number, seed: number, gameType: '2p' | '4p' = '4p'): PlayerData[] {
     const rng = mulberry32(seed);
     const players = generatePlayersForMiniGame(rng, numPlayers);
 
@@ -459,20 +459,21 @@ describe('Mini-game trophy stress test', () => {
 
     const allMatches: MatchData[] = [];
     for (let round = 0; round < numRounds; round++) {
-      const batchGames = generateBatchGames(players, '4p', rng, round, startRatings);
+      const batchGames = generateBatchGames(players, gameType, rng, round, startRatings);
       if (batchGames.length === 0) continue;
       allMatches.push(...batchGames);
     }
 
     if (allMatches.length === 0) {
-      // Generate at least one round of 2p games
+      // Generate at least one round of fallback games
+      const fallbackType = gameType === '4p' ? '2p' : '4p';
       const rng2 = mulberry32(seed + 999);
       const players2 = generatePlayersForMiniGame(rng2, numPlayers);
       const startRatings2 = new Map<number, number>();
       for (const p of players2) {
         startRatings2.set(p.rank, p.rating);
       }
-      const games2 = generateBatchGames(players2, '2p', rng2, 0, startRatings2);
+      const games2 = generateBatchGames(players2, fallbackType, rng2, 0, startRatings2);
       if (games2.length > 0) {
         allMatches.push(...games2);
       }
@@ -516,9 +517,17 @@ describe('Mini-game trophy stress test', () => {
       ];
 
       const miniGamePlayers: Record<string, PlayerData[]> = {};
+      const gameTypes: Record<string, '2p' | '4p'> = {
+        'Queen_Game.tab': '2p',
+        'Pawn_Game.tab': '2p',
+        'Pillar_Game.tab': '2p',
+        'Bishop_Game.tab': '2p',
+        'BG_Game.tab': '2p',
+        'bughouse.tab': '4p',
+      };
       let seed = 42;
       for (const fileName of miniGameFiles) {
-        const players = generateMiniGameFile(50, 15, seed);
+        const players = generateMiniGameFile(50, 15, seed, gameTypes[fileName]);
         miniGamePlayers[fileName] = players;
         const ladderData: LadderData = { header: [], players, rawLines: [] };
         await writeLadderFile(ladderData, path.join(testDir, fileName));
