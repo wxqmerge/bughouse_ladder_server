@@ -155,6 +155,7 @@ export default function ErrorDialog({
   const [displayPlayer3, setDisplayPlayer3] = useState<PlayerData | null>(null);
   const [displayPlayer4, setDisplayPlayer4] = useState<PlayerData | null>(null);
   const [extractedResults, setExtractedResults] = useState<string[]>([]);
+  const [invalidPlayerRanks, setInvalidPlayerRanks] = useState<Map<number, number>>(new Map());
 
   const displayOriginalString = error
     ? error.originalString?.toUpperCase() || ""
@@ -218,7 +219,23 @@ export default function ErrorDialog({
 
       // Set parse status
       if (validation.isValid && value !== "") {
-        setParseStatus({ isValid: true });
+        const rankSet = new Set(players.map(p => p.rank));
+        const parsedRanks = [
+          validation.parsedPlayer1Rank || 0,
+          validation.parsedPlayer2Rank || 0,
+          validation.parsedPlayer3Rank || 0,
+          validation.parsedPlayer4Rank || 0
+        ].filter((r): r is number => r > 0);
+        const missing = parsedRanks.filter(r => !rankSet.has(r));
+        if (missing.length > 0) {
+          setParseStatus({
+            isValid: false,
+            error: 11,
+            message: "Player rank(s) not found: " + missing.join(", "),
+          });
+        } else {
+          setParseStatus({ isValid: true });
+        }
       } else if (validation.error) {
         setParseStatus({
           isValid: false,
@@ -242,6 +259,7 @@ export default function ErrorDialog({
           player4Rank: validation.parsedPlayer4Rank || 0,
         });
 
+        const rankSet = new Set(players.map(p => p.rank));
         const p1 =
           (validation.parsedPlayer1Rank || 0) > 0
             ? players.find(p => p.rank === validation.parsedPlayer1Rank) || null
@@ -264,6 +282,21 @@ export default function ErrorDialog({
         setDisplayPlayer3(p3);
         setDisplayPlayer4(p4);
         
+        const invalidRanks = new Map<number, number>();
+        if ((validation.parsedPlayer1Rank || 0) > 0 && !rankSet.has(validation.parsedPlayer1Rank!)) {
+          invalidRanks.set(1, validation.parsedPlayer1Rank!);
+        }
+        if ((validation.parsedPlayer2Rank || 0) > 0 && !rankSet.has(validation.parsedPlayer2Rank!)) {
+          invalidRanks.set(2, validation.parsedPlayer2Rank!);
+        }
+        if ((validation.parsedPlayer3Rank || 0) > 0 && !rankSet.has(validation.parsedPlayer3Rank!)) {
+          invalidRanks.set(3, validation.parsedPlayer3Rank!);
+        }
+        if ((validation.parsedPlayer4Rank || 0) > 0 && !rankSet.has(validation.parsedPlayer4Rank!)) {
+          invalidRanks.set(4, validation.parsedPlayer4Rank!);
+        }
+        setInvalidPlayerRanks(invalidRanks);
+
         // Extract results for display
         const results = extractResults(value);
         setExtractedResults(results);
@@ -277,7 +310,23 @@ export default function ErrorDialog({
 
       // Set parse status
       if (validation.isValid && original !== "") {
-        setParseStatus({ isValid: true });
+        const rankSet = new Set(players.map(p => p.rank));
+        const parsedRanks = [
+          validation.parsedPlayer1Rank || 0,
+          validation.parsedPlayer2Rank || 0,
+          validation.parsedPlayer3Rank || 0,
+          validation.parsedPlayer4Rank || 0
+        ].filter((r): r is number => r > 0);
+        const missing = parsedRanks.filter(r => !rankSet.has(r));
+        if (missing.length > 0) {
+          setParseStatus({
+            isValid: false,
+            error: 11,
+            message: "Player rank(s) not found: " + missing.join(", "),
+          });
+        } else {
+          setParseStatus({ isValid: true });
+        }
       } else if (validation.error) {
         setParseStatus({
           isValid: false,
@@ -301,6 +350,7 @@ export default function ErrorDialog({
           player4Rank: validation.parsedPlayer4Rank || 0,
         });
 
+        const rankSet = new Set(players.map(p => p.rank));
         const p1 =
           (validation.parsedPlayer1Rank || 0) > 0
             ? players.find(p => p.rank === validation.parsedPlayer1Rank) || null
@@ -322,6 +372,21 @@ export default function ErrorDialog({
         setDisplayPlayer2(p2);
         setDisplayPlayer3(p3);
         setDisplayPlayer4(p4);
+        
+        const invalidRanks = new Map<number, number>();
+        if ((validation.parsedPlayer1Rank || 0) > 0 && !rankSet.has(validation.parsedPlayer1Rank!)) {
+          invalidRanks.set(1, validation.parsedPlayer1Rank!);
+        }
+        if ((validation.parsedPlayer2Rank || 0) > 0 && !rankSet.has(validation.parsedPlayer2Rank!)) {
+          invalidRanks.set(2, validation.parsedPlayer2Rank!);
+        }
+        if ((validation.parsedPlayer3Rank || 0) > 0 && !rankSet.has(validation.parsedPlayer3Rank!)) {
+          invalidRanks.set(3, validation.parsedPlayer3Rank!);
+        }
+        if ((validation.parsedPlayer4Rank || 0) > 0 && !rankSet.has(validation.parsedPlayer4Rank!)) {
+          invalidRanks.set(4, validation.parsedPlayer4Rank!);
+        }
+        setInvalidPlayerRanks(invalidRanks);
         
         // Extract results for display
         const results = extractResults(original);
@@ -395,7 +460,7 @@ export default function ErrorDialog({
     setDisplayPlayer1(null);
     setDisplayPlayer2(null);
     setDisplayPlayer3(null);
-    setDisplayPlayer4(null);
+    setInvalidPlayerRanks(new Map());
     setExtractedResults([]);
 
     // Use onClearCell prop if provided (clears all matching cells)
@@ -576,7 +641,23 @@ export default function ErrorDialog({
             message: conflict,
           });
         } else {
-          setParseStatus({ isValid: true });
+          const rankSet = new Set(players.map(p => p.rank));
+          const parsedRanks = [
+            validation.parsedPlayer1Rank || 0,
+            validation.parsedPlayer2Rank || 0,
+            validation.parsedPlayer3Rank || 0,
+            validation.parsedPlayer4Rank || 0
+          ].filter((r): r is number => r > 0);
+          const missing = parsedRanks.filter(r => !rankSet.has(r));
+          if (missing.length > 0) {
+            setParseStatus({
+              isValid: false,
+              error: 11,
+              message: "Player rank(s) not found: " + missing.join(", "),
+            });
+          } else {
+            setParseStatus({ isValid: true });
+          }
         }
       }
 
@@ -594,6 +675,7 @@ export default function ErrorDialog({
           player4Rank: validation.parsedPlayer4Rank || 0,
         });
 
+        const rankSet = new Set(players.map(p => p.rank));
         const p1 =
           (validation.parsedPlayer1Rank || 0) > 0
             ? players.find(p => p.rank === validation.parsedPlayer1Rank) || null
@@ -616,6 +698,21 @@ export default function ErrorDialog({
         setDisplayPlayer3(p3);
         setDisplayPlayer4(p4);
         
+        const invalidRanks = new Map<number, number>();
+        if ((validation.parsedPlayer1Rank || 0) > 0 && !rankSet.has(validation.parsedPlayer1Rank!)) {
+          invalidRanks.set(1, validation.parsedPlayer1Rank!);
+        }
+        if ((validation.parsedPlayer2Rank || 0) > 0 && !rankSet.has(validation.parsedPlayer2Rank!)) {
+          invalidRanks.set(2, validation.parsedPlayer2Rank!);
+        }
+        if ((validation.parsedPlayer3Rank || 0) > 0 && !rankSet.has(validation.parsedPlayer3Rank!)) {
+          invalidRanks.set(3, validation.parsedPlayer3Rank!);
+        }
+        if ((validation.parsedPlayer4Rank || 0) > 0 && !rankSet.has(validation.parsedPlayer4Rank!)) {
+          invalidRanks.set(4, validation.parsedPlayer4Rank!);
+        }
+        setInvalidPlayerRanks(invalidRanks);
+        
         // Extract results for display
         const results = extractResults(filteredValue);
         setExtractedResults(results);
@@ -632,6 +729,7 @@ export default function ErrorDialog({
   const displayIndex = walkthroughIndex ?? 0;
   const displayTotal = totalRounds ?? walkthroughErrors?.length ?? 1;
   const displayCell = entryCell ?? { playerRank: 0, round: 0 };
+  const hasNoErrors = isRecalculate && (totalRounds === 0 || (walkthroughErrors && walkthroughErrors.length === 0));
 
   return (
     <div
@@ -683,15 +781,17 @@ export default function ErrorDialog({
                       : "#ef4444",
             }}
           >
-            {isEnterGames
-              ? "Enter Games"
-              : isGameEntry
-                ? "Edit Game Result"
-                : isRecalculate
-                  ? `Recalculate Error ${displayIndex + 1} of ${displayTotal}`
-                  : isWalkthrough
-                    ? `Report Walkthrough - Report ${displayIndex + 1} of ${displayTotal}`
-                    : `Correction Required - Round ${displayCell.round + 1} of ${displayTotal}`}
+           {isEnterGames
+               ? "Enter Games"
+               : isGameEntry
+                 ? "Edit Game Result"
+                 : hasNoErrors
+                   ? "No Errors Found"
+                   : isRecalculate
+                     ? `Recalculate Error ${displayIndex + 1} of ${displayTotal}`
+                     : isWalkthrough
+                       ? `Report Walkthrough - Report ${displayIndex + 1} of ${displayTotal}`
+                       : `Correction Required - Round ${displayCell.round + 1} of ${displayTotal}`}
           </h2>
           <button
             onClick={onClose}
@@ -710,6 +810,18 @@ export default function ErrorDialog({
         </div>
 
         <div style={{ marginBottom: "1rem" }}>
+          {hasNoErrors && (
+            <p
+              style={{
+                fontSize: "1rem",
+                color: "#10b981",
+                marginBottom: "0.5rem",
+                fontWeight: "500",
+              }}
+            >
+              ✓ All game results are valid. No errors found.
+            </p>
+          )}
           {(isGameEntry || isEnterGames) && debugMode && (
             <p
               style={{
@@ -734,7 +846,7 @@ export default function ErrorDialog({
               {/* 2-Player Game */}
               {parsedGameData.player4Rank === 0 && (
                 <>
-                  {displayPlayer1 && (
+                  {displayPlayer1 ? (
                     <p
                       style={{
                         fontSize: "0.875rem",
@@ -750,7 +862,18 @@ export default function ErrorDialog({
                         displayPlayer1.rank +
                         ")"}
                     </p>
-                  )}
+                  ) : invalidPlayerRanks.has(1) ? (
+                    <p
+                      style={{
+                        fontSize: "0.875rem",
+                        color: "#ef4444",
+                        marginBottom: "0.5rem",
+                        fontWeight: "500",
+                      }}
+                    >
+                      Invalid player ({invalidPlayerRanks.get(1)!})
+                    </p>
+                  ) : null}
                   {extractedResults.length > 0 && (
                     <p
                       style={{
@@ -763,7 +886,7 @@ export default function ErrorDialog({
                       {formatResultText(extractedResults)}
                     </p>
                   )}
-                  {displayPlayer2 && (
+                  {displayPlayer2 ? (
                     <p
                       style={{
                         fontSize: "0.875rem",
@@ -779,7 +902,18 @@ export default function ErrorDialog({
                         displayPlayer2.rank +
                         ")"}
                     </p>
-                  )}
+                  ) : invalidPlayerRanks.has(2) ? (
+                    <p
+                      style={{
+                        fontSize: "0.875rem",
+                        color: "#ef4444",
+                        marginBottom: "0.5rem",
+                        fontWeight: "500",
+                      }}
+                    >
+                      Invalid player ({invalidPlayerRanks.get(2)!})
+                    </p>
+                  ) : null}
                 </>
               )}
               
@@ -787,7 +921,7 @@ export default function ErrorDialog({
               {parsedGameData.player4Rank !== 0 && (
                 <>
                   {/* Team 1 */}
-                  {displayPlayer1 && (
+                  {displayPlayer1 ? (
                     <p
                       style={{
                         fontSize: "0.875rem",
@@ -803,8 +937,19 @@ export default function ErrorDialog({
                         displayPlayer1.rank +
                         ")"}
                     </p>
-                  )}
-                  {displayPlayer2 && (
+                  ) : invalidPlayerRanks.has(1) ? (
+                    <p
+                      style={{
+                        fontSize: "0.875rem",
+                        color: "#ef4444",
+                        marginBottom: "0.25rem",
+                        fontWeight: "500",
+                      }}
+                    >
+                      Invalid player ({invalidPlayerRanks.get(1)!})
+                    </p>
+                  ) : null}
+                  {displayPlayer2 ? (
                     <p
                       style={{
                         fontSize: "0.875rem",
@@ -820,7 +965,18 @@ export default function ErrorDialog({
                         displayPlayer2.rank +
                         ")"}
                     </p>
-                  )}
+                  ) : invalidPlayerRanks.has(2) ? (
+                    <p
+                      style={{
+                        fontSize: "0.875rem",
+                        color: "#ef4444",
+                        marginBottom: "0.5rem",
+                        fontWeight: "500",
+                      }}
+                    >
+                      Invalid player ({invalidPlayerRanks.get(2)!})
+                    </p>
+                  ) : null}
                   
                   {/* Result between teams */}
                   {extractedResults.length > 0 && (
@@ -837,7 +993,7 @@ export default function ErrorDialog({
                   )}
                   
                   {/* Team 2 */}
-                  {displayPlayer3 && (
+                  {displayPlayer3 ? (
                     <p
                       style={{
                         fontSize: "0.875rem",
@@ -853,8 +1009,19 @@ export default function ErrorDialog({
                         displayPlayer3.rank +
                         ")"}
                     </p>
-                  )}
-                  {displayPlayer4 && (
+                  ) : invalidPlayerRanks.has(3) ? (
+                    <p
+                      style={{
+                        fontSize: "0.875rem",
+                        color: "#ef4444",
+                        marginBottom: "0.25rem",
+                        fontWeight: "500",
+                      }}
+                    >
+                      Invalid player ({invalidPlayerRanks.get(3)!})
+                    </p>
+                  ) : null}
+                  {displayPlayer4 ? (
                     <p
                       style={{
                         fontSize: "0.875rem",
@@ -870,7 +1037,18 @@ export default function ErrorDialog({
                         displayPlayer4.rank +
                         ")"}
                     </p>
-                  )}
+                  ) : invalidPlayerRanks.has(4) ? (
+                    <p
+                      style={{
+                        fontSize: "0.875rem",
+                        color: "#ef4444",
+                        marginBottom: "0.5rem",
+                        fontWeight: "500",
+                      }}
+                    >
+                      Invalid player ({invalidPlayerRanks.get(4)!})
+                    </p>
+                  ) : null}
                 </>
               )}
             </>
@@ -1002,7 +1180,7 @@ export default function ErrorDialog({
           </div>
         )}
 
-        <form onSubmit={isEnterGames ? handleEnterRecalculateSave : handleSubmit}>
+        {!hasNoErrors && <form onSubmit={isEnterGames ? handleEnterRecalculateSave : handleSubmit}>
           <label
             htmlFor="correctedResult"
             style={{
@@ -1250,7 +1428,7 @@ export default function ErrorDialog({
               </>
             )}
           </div>
-        </form>
+        </form>}
 
         {isAdmin && onAddPlayer && (
           <div

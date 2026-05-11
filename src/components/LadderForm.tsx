@@ -1079,7 +1079,6 @@ export default function LadderForm({
       }
       if (hasErrors && errors.length > 0) {
         console.warn("Game errors detected. Opening dialog for correction.");
-        setIsRecalculating(true);
         setPendingPlayers(playersList);
         setPendingMatches(matches);
         setPendingPlayerResultsByMatch(playerResultsByMatch);
@@ -1092,6 +1091,8 @@ export default function LadderForm({
         setWalkthroughIndex(0);
       }
     }
+
+    setIsRecalculating(true);
 
     return { hasErrors, matches, errors, errorCount, playerResultsByMatch, rankBlockingErrors: blockingErrors.length > 0 ? blockingErrors : undefined, rankWarnings: warnings.length > 0 ? warnings : undefined };
   };
