@@ -1279,8 +1279,8 @@ export function repopulateGameResults(
       const pair2Min = Math.min(m.player3, m.player4);
       const pairsSwapped = pair1Min > pair2Min;
 
-      const normScore1 = pairsSwapped ? swapScore(m.score2) : m.score1;
-      const normScore2 = pairsSwapped ? swapScore(m.score1) : m.score2;
+      const normScore1 = pairsSwapped && m.score2 > 0 ? swapScore(m.score2) : m.score1;
+      const normScore2 = pairsSwapped && m.score1 > 0 ? swapScore(m.score1) : m.score2;
 
       const score1Letter = scoreCodeToLetter(normScore1);
 

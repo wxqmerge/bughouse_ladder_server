@@ -151,3 +151,42 @@ export function generateBatchGames(
 
   return games;
 }
+
+// ─── Result Validation ────────────────────────────────────────────────
+/**
+ * Validate and clean game results by removing invalid entries.
+ * Repeats until processGameResults reports no errors.
+ */
+export function cleanInvalidResults(
+  players: PlayerData[],
+  processGameResults: (players: PlayerData[], rounds: number) => { hasErrors: boolean; errors: any[] }
+): PlayerData[] {
+  let current = players;
+  let iterations = 0;
+
+  while (iterations < 10) {
+    const validation = processGameResults(current, 31);
+    if (!validation.hasErrors || validation.errors.length === 0) break;
+
+    // Collect invalid (round, playerRank) pairs from errors
+    const invalidEntries = new Set<string>();
+    for (const err of validation.errors) {
+      invalidEntries.add(`${err.playerRank}:${err.resultIndex}`);
+    }
+
+    // Remove invalid entries
+    current = current.map(p => {
+      const newResults = [...p.gameResults];
+      for (let r = 0; r < 31; r++) {
+        if (invalidEntries.has(`${p.rank}:${r}`)) {
+          newResults[r] = null;
+        }
+      }
+      return { ...p, gameResults: newResults };
+    });
+
+    iterations++;
+  }
+
+  return current;
+}
