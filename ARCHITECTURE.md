@@ -1,6 +1,6 @@
 # Bughouse Chess Ladder - Architecture Documentation
 
-**Version: 1.1.7**
+**Version: 1.1.9**
 
 Technical deep-dive for developers. For deployment see [README_INSTALL.md](./README_INSTALL.md), for security see [SECURITY.md](./SECURITY.md), for admin operations see [ADMIN_MANUAL.md](./ADMIN_MANUAL.md).
 
@@ -115,14 +115,34 @@ markCellAsSaved(rank, round): void       // Mark cell as confirmed
 - SERVER: Production server → full client-server flow
 
 #### DataService.ts
-**Purpose:** Server communication and polling for multi-client sync
+**Purpose:** Server communication with SSE push and polling fallback for multi-client sync
 
 **Key Features:**
 ```typescript
-startPolling(intervalMs): void    // Start 5-second polling loop
+startPolling(intervalMs): void    // Start polling loop (fallback)
+startSSE(): void                  // Start SSE connection (primary channel)
+stopSSE(): void                   // Stop SSE connection
 refreshData(): Promise<boolean>   // Fetch and detect changes via hash
 subscribe(callback): Unsubscribe  // Subscribe to data changes
 ```
+
+**Hybrid Sync Strategy:**
+- **Primary:** SSE (Server-Sent Events) — instant push from server on any write
+- **Fallback:** Polling every 5.5s — catches anything SSE misses
+- **Overlap guard:** Poll skips if previous request still pending
+
+**SSE Events:**
+| Event | Trigger |
+|-------|---------|
+| `playerUpdated` | Single player PUT |
+| `cellCleared` | Cell DELETE |
+| `ladderUpdated` | Bulk PUT |
+| `deltasSubmitted` | Batch game results |
+| `gameSubmitted` | Single game POST |
+| `gamesSubmitted` | Batch games POST |
+| `miniGameSaved/Written/Cleared/Imported` | Tournament operations |
+| `fileUploaded` | File upload |
+| `backupRestored` | Backup restore |
 
 **Change Detection Algorithm:**
 1. Fetch from server (cache only, no sync)
@@ -166,10 +186,10 @@ DELETE /api/ladder/:rank/round/:roundIndex  // Clear cell (requires user/admin k
 ### Problem Statement
 
 Multiple users may edit the ladder simultaneously from different browsers. Requirements:
-1. Changes visible to all clients within reasonable time (< 5 seconds)
+1. Changes visible to all clients within milliseconds (instant via SSE)
 2. No data loss when multiple clients save around same time
 3. Graceful degradation when server is temporarily unavailable
-4. Simple implementation (avoid WebSockets complexity)
+4. Resilient sync — polling fallback if SSE disconnects
 
 ### Solution Design
 
@@ -201,19 +221,35 @@ const playersToUse = mergeServerWithLocal(serverPlayers, players);
 // Save to server
 ```
 
-#### 2. Polling with Change Detection
+#### 2. SSE Push with Polling Fallback
 
-**Goal:** Browser B sees Browser A's changes without manual refresh
+**Goal:** Browser B sees Browser A's changes instantly, with polling as resilience
 
+**Primary Channel — SSE (Server-Sent Events):**
 ```
-Every 5 seconds (in server mode):
-  1. Fetch from server (cache-only, no sync triggered)
-  2. Compute hash of game results
-  3. If hash != lastHash:
-       - Update lastHash
-       - Notify subscribers via dataService.subscribe()
-  4. Subscribers call refreshPlayers() → Update React state
+Server writes data → broadcastSSEEvent('gameSubmitted', {...})
+  → All connected clients receive event via EventSource
+  → dataService.notifySubscribers() → React re-renders
+  → Latency: < 100ms (one HTTP round-trip)
 ```
+
+**Fallback Channel — Polling:**
+```
+Every 5.5 seconds (in server mode):
+  1. Skip if previous request still pending (overlap guard)
+  2. Fetch from server (cache-only, no sync triggered)
+  3. Compute hash of game results
+  4. If hash != lastHash:
+        - Update lastHash
+        - Notify subscribers via dataService.subscribe()
+  5. Subscribers call refreshPlayers() → Update React state
+```
+
+**Optimizations:**
+- **Overlap guard:** Poll skips if previous request hasn't returned (prevents queue buildup on slow connections)
+- **Staggered intervals:** Data poll at 5.5s, health check at 30s (drifts apart from 10s server checks)
+- **Single health check:** Removed duplicate `/health` polling (was firing from both `mode.ts` and `App.tsx`)
+- **No double-fetch:** `testServerConnection()` returns 404 as "server up" instead of retrying with main URL
 
 **Change Detection:**
 ```typescript
@@ -306,35 +342,34 @@ replayPendingDeletes() {
 │  6. Save to server                                              │
 │     → PUT /api/ladder {players: [...]}                          │
 │     → Server writes to data/ladder.tab                          │
+│     → Server broadcasts SSE event                               │
 │     → Response: {success: true}                                 │
 │                                                                  │
 └────────────────────────────┬─────────────────────────────────────┘
-                             │
-                             │ Server updated
-                             ▼
+                              │
+                              │ Server updated + SSE broadcast
+                              ▼
 ┌──────────────────────────────────────────────────────────────────┐
 │                    BROWSER B (Tournament Director)               │
 ├──────────────────────────────────────────────────────────────────┤
 │                                                                  │
-│  [5 seconds later - polling interval]                           │
+│  [Instantly - SSE push]                                         │
 │                                                                  │
-│  1. Polling fetches from server                                 │
-│     → GET /api/ladder (cache-only)                              │
-│     → Response includes "4W5"                                   │
+│  1. EventSource receives 'gameSubmitted' event                  │
+│     → SSE stream: id: 42\nevent: gameSubmitted\ndata: {...}    │
 │                                                                  │
-│  2. Hash comparison                                             │
-│     → newHash != lastHash                                       │
-│     → Data changed!                                             │
-│                                                                  │
-│  3. Notify subscribers                                          │
+│  2. Notify subscribers                                          │
 │     → dataService.notifySubscribers()                           │
 │     → App.tsx calls refreshPlayersRef.current()                │
 │                                                                  │
-│  4. Refresh UI                                                  │
+│  3. Refresh UI                                                  │
 │     → refreshPlayers() called                                   │
 │     → GET /api/ladder                                           │
 │     → setPlayers(freshData)                                     │
 │     → React re-renders with "4W5" visible                       │
+│                                                                  │
+│  [Fallback: If SSE disconnected, polling catches it within      │
+│   5.5 seconds with overlap guard to prevent request stacking]   │
 │                                                                  │
 └──────────────────────────────────────────────────────────────────┘
 ```
@@ -370,13 +405,26 @@ Browser B clicks "Push to Server":
 
 ## Configuration Reference
 
-### Polling Configuration
+### Sync Configuration
 
 | Parameter | Default | Location | Description |
 |-----------|---------|----------|-------------|
-| Interval | 5000ms | App.tsx | Time between poll cycles |
+| SSE endpoint | `/api/ladder/events` | server/src/index.ts | Real-time push channel |
+| SSE reconnect | 3000ms | EventSource API | Auto-reconnect interval |
+| Poll interval | 5500ms | App.tsx | Fallback poll cycle (staggered) |
+| Health check | 30000ms | App.tsx | Version/write health check |
 | Hash algorithm | JSON.stringify | DataService.ts | Change detection method |
 | Cache mode | true | storageService.ts | Poll fetch doesn't trigger sync |
+| Overlap guard | true | DataService.ts | Skip poll if request pending |
+
+### Polling Optimizations
+
+| Optimization | Effect |
+|--------------|--------|
+| Overlap guard | Prevents request stacking on slow connections |
+| Staggered intervals | 5.5s poll vs 30s health check drift apart over time |
+| Single health check | Removed duplicate `/health` polling |
+| No double-fetch | `/health` 404 = server up, no fallback URL retry |
 
 ### Merge Configuration
 
