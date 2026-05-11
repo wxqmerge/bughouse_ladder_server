@@ -17,6 +17,7 @@ import {
 } from '../src/services/tournamentService';
 import { debugLine } from '../../shared/utils/trophyGeneration';
 import { calculateRatings, repopulateGameResults, processGameResults } from '../../shared/utils/hashUtils';
+import { buildDebugHeader, buildMiniGamePlayerSection, buildTrophiesSection, buildTrophyReportString } from '../../shared/utils/trophyDebugReport';
 import type { MatchData } from '../../shared/types';
 import { mulberry32, determineResult, generateBatchGames } from '../../src/test/shared/stressTestUtils';
 
@@ -600,56 +601,14 @@ describe('Mini-game trophy stress test', () => {
 
       // Generate trophy report file (matches GUI format exactly with debug info)
       // Mini-game mode: only mini-game trophies, no club ladder section
-      const trophyReportLines: string[] = [];
-      
-      // Debug section (matches server generateTrophyReport debug output)
       const numClubPlayers = miniGamePlayers[miniGameFiles[0]].length;
-      trophyReportLines.push(debugLine('DEBUG', 'TROPHY REPORT', '', '', '', '', '', ''));
-      trophyReportLines.push(debugLine('Players', String(numClubPlayers), '', '', '', '', '', ''));
-      trophyReportLines.push(debugLine('Max Trophies', `${maxTrophies} (ceil(${numClubPlayers} / 3))`, '', '', '', '', '', ''));
-      trophyReportLines.push('');
       
-      const numMiniGames = miniGameFiles.length;
-      const award2nd = maxTrophies > numMiniGames;
-      const awardGrade1st = maxTrophies > 2 * numMiniGames;
-      trophyReportLines.push(debugLine('Mode', 'Mini-Game Tournament', '', '', '', '', '', ''));
-      trophyReportLines.push(debugLine('Mini-games played', String(numMiniGames), '', '', '', '', '', ''));
-      trophyReportLines.push(debugLine('Award 2nd place', `t=${maxTrophies} > m=${numMiniGames} ? ${award2nd}`, '', '', '', '', '', ''));
-      trophyReportLines.push(debugLine('Award grade 1st', `t=${maxTrophies} > 2*m=${2 * numMiniGames} ? ${awardGrade1st}`, '', '', '', '', '', ''));
-      trophyReportLines.push('');
+      const headerLines = buildDebugHeader(miniGamePlayers[miniGameFiles[0]], maxTrophies, false, miniGameFiles.length);
+      const miniGameLines = buildMiniGamePlayerSection(miniGameDataList);
+      const trophiesLines = buildTrophiesSection(miniGameTrophies);
       
-      // Mini-game player debug section
-      trophyReportLines.push(debugLine('MINI-GAME PLAYERS', '(after 5 recalcs)', '', '', '', '', '', ''));
-      for (const fileName of miniGameFiles) {
-        const players = miniGamePlayers[fileName];
-        const playersWithGames = players.filter(p =>
-          p.gameResults && p.gameResults.some(r => r && r !== '' && r !== '_')
-        );
-        if (playersWithGames.length === 0) continue;
-        
-        const sorted = playersWithGames.sort((a, b) => b.nRating - a.nRating).slice(0, 5);
-        trophyReportLines.push('');
-        trophyReportLines.push(debugLine(fileName.replace('.tab', ''), '', '', '', '', '', '', ''));
-        for (const p of sorted) {
-          const games = p.gameResults?.filter(r => r && r !== '' && r !== '_')?.length || 0;
-          trophyReportLines.push(debugLine(String(p.rank), `${p.lastName} ${p.firstName}`, p.grade, String(p.nRating), '', '', String(games), ''));
-        }
-      }
-      
-      trophyReportLines.push('');
-      trophyReportLines.push('AWARDED TROPHIES');
-      trophyReportLines.push('Rank\tPlayer\tTrophy Type\tMini-Game/Grade\tGr\tRating\tTotal Games\tGames Played');
-      
-      let blankRowInserted = false;
-      for (const trophy of miniGameTrophies) {
-        if (!blankRowInserted && trophy.trophyType === '1st Place' && trophy.miniGameOrGrade && trophy.miniGameOrGrade.startsWith('Gr ')) {
-          trophyReportLines.push('');
-          blankRowInserted = true;
-        }
-        trophyReportLines.push(`${trophy.rank}\t${trophy.player}\t${trophy.trophyType}\t${trophy.miniGameOrGrade}\t${trophy.gr}\t${trophy.rating}\t${trophy.totalGames || 0}\t${trophy.gamesPlayed}`);
-      }
-      
-      await fs.writeFile(path.join(outputDir, 'tournament_trophies.tab'), trophyReportLines.join('\n') + '\n');
+      const trophyReportString = buildTrophyReportString(headerLines, miniGameLines, trophiesLines);
+      await fs.writeFile(path.join(outputDir, 'tournament_trophies.tab'), trophyReportString);
 
       console.log(`[STRESS TEST] Output files saved to: ${outputDir}`);
       console.log(`[STRESS TEST] Files: tournament.zip, ladder.tab, tournament_trophies.tab`);

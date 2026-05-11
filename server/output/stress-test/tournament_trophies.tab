@@ -10,46 +10,46 @@ Award grade 1st	t=17 > 2*m=12 ? true
 MINI-GAME PLAYERS	(after 5 recalcs)						
 
 Queen_Game							
-45	Player45 	13	1915			13	
-44	Player44 	11	1859			14	
-5	Player5 	9	1839			14	
-36	Player36 	6	1831			15	
-29	Player29 	8	1769			14	
+45	 Player45	13	1915			13	
+44	 Player44	11	1859			14	
+5	 Player5	9	1839			14	
+36	 Player36	6	1831			15	
+29	 Player29	8	1769			14	
 
 Pawn_Game							
-9	Player9 	7	1898			14	
-6	Player6 	12	1887			15	
-27	Player27 	10	1856			14	
-44	Player44 	7	1817			15	
-14	Player14 	5	1787			13	
+9	 Player9	7	1898			14	
+6	 Player6	12	1887			15	
+27	 Player27	10	1856			14	
+44	 Player44	7	1817			15	
+14	 Player14	5	1787			13	
 
 Pillar_Game							
-16	Player16 	6	1941			14	
-34	Player34 	13	1779			14	
-30	Player30 	6	1767			13	
-42	Player42 	6	1760			13	
-40	Player40 	9	1754			13	
+16	 Player16	6	1941			14	
+34	 Player34	13	1779			14	
+30	 Player30	6	1767			13	
+42	 Player42	6	1760			13	
+40	 Player40	9	1754			13	
 
 Bishop_Game							
-25	Player25 	10	1971			14	
-43	Player43 	13	1920			13	
-4	Player4 	10	1892			15	
-37	Player37 	6	1871			15	
-41	Player41 	8	1842			13	
+25	 Player25	10	1971			14	
+43	 Player43	13	1920			13	
+4	 Player4	10	1892			15	
+37	 Player37	6	1871			15	
+41	 Player41	8	1842			13	
 
 BG_Game							
-45	Player45 	8	1909			15	
-42	Player42 	12	1885			14	
-35	Player35 	13	1788			13	
-11	Player11 	7	1775			13	
-28	Player28 	7	1729			15	
+45	 Player45	8	1909			15	
+42	 Player42	12	1885			14	
+35	 Player35	13	1788			13	
+11	 Player11	7	1775			13	
+28	 Player28	7	1729			15	
 
 bughouse							
-31	Player31 	11	1970			13	
-26	Player26 	12	1891			15	
-38	Player38 	5	1856			14	
-49	Player49 	7	1846			15	
-42	Player42 	7	1835			15	
+31	 Player31	11	1970			13	
+26	 Player26	12	1891			15	
+38	 Player38	5	1856			14	
+49	 Player49	7	1846			15	
+42	 Player42	7	1835			15	
 
 AWARDED TROPHIES
 Rank	Player	Trophy Type	Mini-Game/Grade	Gr	Rating	Total Games	Games Played
