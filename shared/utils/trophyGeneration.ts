@@ -287,55 +287,36 @@ export function generateMiniGameTrophies(
     playerTotalGames.set(`${p.firstName} ${p.lastName}`, getPlayerTotalGames(p));
   }
 
-  // Step 1: Award 1st place for each mini-game - always
-  for (const fileName of MINI_GAME_DIFFICULTY_ORDER) {
-    const mgd = miniGameFiles.find(f => f.fileName === fileName);
-    if (!mgd || mgd.players.length === 0) continue;
+  // Award places per mini-game: 1st, 2nd, 3rd, 4th, ...
+  // Place N is awarded if maxTrophies > (N-1) * m
+  let place = 1;
+  while (trophies.length < maxTrophies) {
+    if (trophies.length > 0 && trophies[trophies.length - 1].trophyType === 'Most Games') break;
 
-    const playersWithGames = mgd.players.filter(p => {
-      if (!p.gameResults) return false;
-      return p.gameResults.some(r => r && r !== '' && r !== '_');
-    });
-
-    const sortedPlayers = playersWithGames.sort((a, b) => b.nRating - a.nRating);
-    for (const p of sortedPlayers) {
-      if (seenPlayers.has(`${p.firstName} ${p.lastName}`)) continue;
-      const miniGameGames = p.gameResults?.filter(r => r && r !== '' && r !== '_')?.length || 0;
-      addTrophy({
-        rank: trophies.length + 1,
-        player: `${p.firstName} ${p.lastName}`,
-        gr: p.grade,
-        rating: p.nRating,
-        trophyType: '1st Place',
-        miniGameOrGrade: fileName.replace('.tab', ''),
-        gamesPlayed: miniGameGames,
-        totalGames: playerTotalGames.get(`${p.firstName} ${p.lastName}`) || 0,
-      });
-      break;
-    }
-  }
-
-  // Step 2: Award 2nd place for each mini-game - only if t > m
-  if (t > m) {
+    const trophiesBefore = trophies.length;
     for (const fileName of MINI_GAME_DIFFICULTY_ORDER) {
+      if (trophies.length >= maxTrophies) break;
+
       const mgd = miniGameFiles.find(f => f.fileName === fileName);
       if (!mgd || mgd.players.length === 0) continue;
 
       const playersWithGames = mgd.players.filter(p => {
         if (!p.gameResults) return false;
-     return p.gameResults.some((r: string | null) => r && r !== '' && r !== '_');
+        return p.gameResults.some(r => r && r !== '' && r !== '_');
       });
 
       const sortedPlayers = playersWithGames.sort((a, b) => b.nRating - a.nRating);
       for (const p of sortedPlayers) {
         if (seenPlayers.has(`${p.firstName} ${p.lastName}`)) continue;
-    const miniGameGames = p.gameResults?.filter((r: string | null) => r && r !== '' && r !== '_')?.length || 0;
+        if (trophies.length >= maxTrophies) break;
+
+        const miniGameGames = p.gameResults?.filter(r => r && r !== '' && r !== '_')?.length || 0;
         addTrophy({
           rank: trophies.length + 1,
           player: `${p.firstName} ${p.lastName}`,
           gr: p.grade,
           rating: p.nRating,
-          trophyType: '2nd Place',
+          trophyType: place === 1 ? '1st Place' : place === 2 ? '2nd Place' : `${place}rd Place`,
           miniGameOrGrade: fileName.replace('.tab', ''),
           gamesPlayed: miniGameGames,
           totalGames: playerTotalGames.get(`${p.firstName} ${p.lastName}`) || 0,
@@ -343,31 +324,9 @@ export function generateMiniGameTrophies(
         break;
       }
     }
-  }
 
-  // Step 3: Award grade 1st place - only if t > 2*m
-  if (t > 2 * m) {
-    const remainingPlayers = players.filter(p => !seenPlayers.has(`${p.firstName} ${p.lastName}`));
-    const gradeGroups = [...new Set(remainingPlayers.map(p => p.grade).filter(Boolean))].sort((a, b) => parseInt(b) - parseInt(a));
-    
-    for (const grade of gradeGroups) {
-      const gradePlayers = remainingPlayers.filter(p => p.grade === grade)
-        .sort((a, b) => (playerTotalGames.get(`${b.firstName} ${b.lastName}`) || 0) - (playerTotalGames.get(`${a.firstName} ${a.lastName}`) || 0));
-      
-      if (gradePlayers.length > 0) {
-        const p = gradePlayers[0];
-        addTrophy({
-          rank: trophies.length + 1,
-          player: `${p.firstName} ${p.lastName}`,
-          gr: grade,
-          rating: p.nRating,
-          trophyType: '1st Place',
-          miniGameOrGrade: `Gr ${grade}`,
-          gamesPlayed: p.gameResults?.filter(r => r && r !== '' && r !== '_')?.length || 0,
-          totalGames: playerTotalGames.get(`${p.firstName} ${p.lastName}`) || 0,
-        });
-      }
-    }
+    if (trophies.length === trophiesBefore) break;
+    place++;
   }
 
   return trophies;
