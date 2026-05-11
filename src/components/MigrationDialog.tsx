@@ -6,7 +6,8 @@ import {
   MigrationNonResultStrategy,
   MigrationResultsStrategy,
 } from '../utils/migrationUtils';
-import { getJson } from '../services/storageService';
+import { getJson, getKeyPrefix } from '../services/storageService';
+import { dataService } from '../services/dataService';
 
 interface MigrationDialogProps {
   isAdmin: boolean;
@@ -25,13 +26,33 @@ export function MigrationDialog({ isAdmin, onClose }: MigrationDialogProps) {
   const [selectedOption, setSelectedOption] = useState<'simple' | 'custom'>('simple');
 
   useEffect(() => {
-    const local = getJson<PlayerData[]>('ladder_ladder_players') || [];
-    const server = getJson<PlayerData[]>('ladder_server_ladder_players') || [];
+    const prefix = getKeyPrefix();
+    console.log('[MigrationDialog] Key prefix:', prefix);
+    
+    const local = getJson<PlayerData[]>('ladder_players') || [];
+    
+    console.log('[MigrationDialog] Local data key:', prefix + 'ladder_players', 'count:', local.length, 'players:', local.map(p => p.rank + ':' + p.lastName));
+    console.log('[MigrationDialog] All localStorage keys:', Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i)).filter(k => k && k.startsWith('ladder_')));
     
     setLocalPlayers(local);
-    setServerPlayers(server);
     
-    const mismatchInfo = detectRankNameMismatches(local, server);
+    dataService.getPlayers().then((server) => {
+      console.log('[MigrationDialog] Server data from API', 'count:', server.length, 'players:', server.map(p => p.rank + ':' + p.lastName));
+      setServerPlayers(server);
+      
+      const mismatchInfo = detectRankNameMismatches(local, server);
+      setHasMismatch(mismatchInfo.hasMismatch);
+      setMismatchedRanks(mismatchInfo.mismatchedRanks);
+    }).catch((err) => {
+      console.warn('[MigrationDialog] Failed to fetch server players:', err);
+      setServerPlayers([]);
+      
+      const mismatchInfo = detectRankNameMismatches(local, []);
+      setHasMismatch(mismatchInfo.hasMismatch);
+      setMismatchedRanks(mismatchInfo.mismatchedRanks);
+    });
+    
+    const mismatchInfo = detectRankNameMismatches(local, []);
     setHasMismatch(mismatchInfo.hasMismatch);
     setMismatchedRanks(mismatchInfo.mismatchedRanks);
   }, []);
