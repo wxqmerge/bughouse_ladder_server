@@ -169,12 +169,13 @@ class DataService {
         const data = await response.json();
         serverPlayers = data.data?.players || [];
         
-        // Compute hash of current server data
+     // Compute hash of current server data
         const newHash = this.computeHash(serverPlayers);
         
-        // Check if data actually changed (DON'T update lastDataHash - it stays fixed from init)
+        // Check if data actually changed
         if (newHash !== this.lastDataHash) {
           console.log('[DataService] Polling detected data change');
+          this.lastDataHash = newHash;
           return true; // Data changed
         }
         
