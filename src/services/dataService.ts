@@ -34,6 +34,9 @@ class DataService {
   private lastDataHash: string | null = null;
   private currentMiniGameFile: string | null = null;
   private subscribers: Set<() => void> = new Set();
+  private isPolling = false;
+  private sseEventSource: EventSource | null = null;
+  private sseConnected = false;
 
   constructor(config: DataServiceConfig) {
     this.config = config;
@@ -60,6 +63,11 @@ class DataService {
   startPolling(intervalMs: number = 15000): void {
     this.stopPolling();
     this.pollInterval = setInterval(async () => {
+      if (this.isPolling) {
+        console.log('[DataService] Skipping poll - previous request still pending');
+        return;
+      }
+      this.isPolling = true;
       try {
         const changed = await this.refreshData();
         if (changed) {
@@ -68,6 +76,8 @@ class DataService {
         }
       } catch (error) {
         console.error('Polling error:', error);
+      } finally {
+        this.isPolling = false;
       }
     }, intervalMs);
   }
@@ -78,6 +88,117 @@ class DataService {
       clearInterval(this.pollInterval);
       this.pollInterval = null;
     }
+  }
+
+  // Start SSE connection for real-time updates
+  startSSE(): void {
+    if (this.config.mode === DataServiceMode.LOCAL) return;
+    if (this.sseEventSource) return; // Already connected
+    
+    const url = `${this.getApiUrl()}/api/ladder/events`;
+    console.log('[DataService] Connecting to SSE:', url);
+    
+    this.sseEventSource = new EventSource(url);
+    
+    this.sseEventSource.onopen = () => {
+      this.sseConnected = true;
+      console.log('[DataService] SSE connection established');
+    };
+    
+    this.sseEventSource.addEventListener('connected', (e: any) => {
+      console.log('[DataService] SSE: connected event received');
+    });
+    
+    this.sseEventSource.addEventListener('playerUpdated', () => {
+      console.log('[DataService] SSE: playerUpdated');
+      this.notifySubscribers();
+    });
+    
+    this.sseEventSource.addEventListener('cellCleared', () => {
+      console.log('[DataService] SSE: cellCleared');
+      this.notifySubscribers();
+    });
+    
+    this.sseEventSource.addEventListener('ladderUpdated', () => {
+      console.log('[DataService] SSE: ladderUpdated');
+      this.notifySubscribers();
+    });
+    
+    this.sseEventSource.addEventListener('deltasSubmitted', () => {
+      console.log('[DataService] SSE: deltasSubmitted');
+      this.notifySubscribers();
+    });
+    
+    this.sseEventSource.addEventListener('gameSubmitted', () => {
+      console.log('[DataService] SSE: gameSubmitted');
+      this.notifySubscribers();
+    });
+    
+    this.sseEventSource.addEventListener('gamesSubmitted', () => {
+      console.log('[DataService] SSE: gamesSubmitted');
+      this.notifySubscribers();
+    });
+    
+    this.sseEventSource.addEventListener('miniGameSaved', () => {
+      console.log('[DataService] SSE: miniGameSaved');
+      this.notifySubscribers();
+    });
+    
+    this.sseEventSource.addEventListener('miniGameWritten', () => {
+      console.log('[DataService] SSE: miniGameWritten');
+      this.notifySubscribers();
+    });
+    
+    this.sseEventSource.addEventListener('playersCopied', () => {
+      console.log('[DataService] SSE: playersCopied');
+      this.notifySubscribers();
+    });
+    
+    this.sseEventSource.addEventListener('playerAdded', () => {
+      console.log('[DataService] SSE: playerAdded');
+      this.notifySubscribers();
+    });
+    
+    this.sseEventSource.addEventListener('miniGamesCleared', () => {
+      console.log('[DataService] SSE: miniGamesCleared');
+      this.notifySubscribers();
+    });
+    
+    this.sseEventSource.addEventListener('miniGamesImported', () => {
+      console.log('[DataService] SSE: miniGamesImported');
+      this.notifySubscribers();
+    });
+    
+    this.sseEventSource.addEventListener('fileUploaded', () => {
+      console.log('[DataService] SSE: fileUploaded');
+      this.notifySubscribers();
+    });
+    
+    this.sseEventSource.addEventListener('backupRestored', () => {
+      console.log('[DataService] SSE: backupRestored');
+      this.notifySubscribers();
+    });
+    
+    this.sseEventSource.onerror = (error) => {
+      this.sseConnected = false;
+      console.log('[DataService] SSE connection error - falling back to polling');
+      // EventSource auto-reconnects, but log for visibility
+    };
+  }
+
+  // Stop SSE connection
+  stopSSE(): void {
+    if (this.sseEventSource) {
+      this.sseEventSource.close();
+      this.sseEventSource = null;
+      this.sseConnected = false;
+      console.log('[DataService] SSE connection closed');
+    }
+  }
+
+  // Check if SSE is connected
+  isSSEConnected(): boolean {
+    return this.sseConnected;
   }
 
   // Simple hash function for comparing data

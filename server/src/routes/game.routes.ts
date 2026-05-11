@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { requireUserKey } from '../middleware/auth.middleware.js';
 import { writeLimiter } from '../middleware/rateLimit.middleware.js';
 import { readLadderFile, writeLadderFile, PlayerData, withTiming } from '../services/dataService.js';
+import { broadcastSSEEvent } from '../services/sseService.js';
 
 interface GameResult {
   playerRank: number;
@@ -76,6 +77,8 @@ router.post('/submit', requireUserKey, writeLimiter, async (req: Request, res: R
 
     await writeLadderFile(ladderData);
 
+    broadcastSSEEvent('gameSubmitted', { playerRank, round, result, type: 'gameSubmit' });
+
     res.json({
       success: true,
       data: { message: 'Game result submitted', playerRank, round, result },
@@ -127,6 +130,8 @@ router.post('/batch', requireUserKey, writeLimiter, async (req: Request, res: Re
     }
 
     await withTiming(`writeLadderFile(batch-${games.length})`, () => writeLadderFile(ladderData));
+
+    broadcastSSEEvent('gamesSubmitted', { type: 'batchGameSubmit', count: games.length });
 
     res.json({
       success: true,

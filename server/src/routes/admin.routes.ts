@@ -6,6 +6,7 @@ import archiver from 'archiver';
 import { requireAdminKey } from '../middleware/auth.middleware.js';
 import { readLadderFile, writeLadderFile, ensureDataDirectory, PlayerData, generateTabContent, createBackup, rotateBackups, withTiming, getBackupList, restoreBackup, deleteBackup } from '../services/dataService.js';
 import { log } from '../utils/logger.js';
+import { broadcastSSEEvent } from '../services/sseService.js';
 
 import {
   loadTournamentState,
@@ -89,6 +90,8 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
     // Clean up uploaded file
     await withTiming('unlink(upload)', () => fs.unlink(req.file!.path));
 
+    broadcastSSEEvent('fileUploaded', { lines: lines.length, type: 'fileUpload' });
+
     res.json({
       success: true,
       data: { message: 'File uploaded successfully', lines: lines.length },
@@ -158,6 +161,7 @@ router.post('/backups/restore/:filename', async (req: Request, res: Response): P
     const restored = await restoreBackup(filename);
     
     if (restored) {
+      broadcastSSEEvent('backupRestored', { filename, type: 'backupRestore' });
       res.json({
         success: true,
         data: {
@@ -266,6 +270,8 @@ router.post('/tournament/save-mini-game', async (req: Request, res: Response): P
     // Write mini-game file
     await writeMiniGameFile(fileName, ladderData);
     
+    broadcastSSEEvent('miniGameSaved', { fileName, type: 'miniGameSave' });
+    
     res.json({
       success: true,
       data: { message: `Saved ${fileName}` },
@@ -349,6 +355,8 @@ router.post('/tournament/write-mini-game', async (req: Request, res: Response): 
       rawLines: [],
     });
 
+    broadcastSSEEvent('miniGameWritten', { fileName, type: 'miniGameWrite' });
+
     res.json({
       success: true,
       data: { message: `Saved ${fileName}` },
@@ -391,6 +399,8 @@ router.post('/tournament/copy-players', async (req: Request, res: Response): Pro
       players: targetPlayers,
       rawLines: [],
     });
+    
+    broadcastSSEEvent('playersCopied', { fileName, type: 'playersCopy' });
     
     res.json({
       success: true,
@@ -481,6 +491,8 @@ router.post('/tournament/import', async (req: Request, res: Response): Promise<v
     
     const result = await tournamentStore.importMiniGameFiles(content);
     
+    broadcastSSEEvent('miniGamesImported', { imported: result.imported, type: 'miniGamesImport' });
+    
     res.json({
       success: true,
       data: result,
@@ -511,6 +523,8 @@ router.post('/tournament/clear-mini-games', async (req: Request, res: Response):
       }
     }
     
+    broadcastSSEEvent('miniGamesCleared', { deletedCount, type: 'miniGamesClear' });
+
     res.json({
       success: true,
       data: { message: `Cleared ${deletedCount} mini-game files`, deletedCount },
@@ -538,6 +552,8 @@ router.post('/tournament/add-player-to-mini-games', async (req: Request, res: Re
     }
     
     await addPlayerToAllMiniGames(player);
+    
+    broadcastSSEEvent('playerAdded', { type: 'playerAddToMiniGames' });
     
     res.json({
       success: true,

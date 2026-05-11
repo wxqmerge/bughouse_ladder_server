@@ -9,6 +9,7 @@ import {
   withTiming,
 } from '../services/dataService.js';
 import { log, logError } from '../utils/logger.js';
+import { broadcastSSEEvent } from '../services/sseService.js';
 
 const router = Router();
 
@@ -103,6 +104,8 @@ router.put('/:rank', requireUserKey, writeLimiter, async (req: Request, res: Res
     ladderData.players[playerIndex] = updatedPlayer;
     await writeLadderFile(ladderData);
 
+    broadcastSSEEvent('playerUpdated', { rank: updatedPlayer.rank, type: 'playerUpdate' });
+
     res.json({
       success: true,
       data: updatedPlayer,
@@ -151,6 +154,8 @@ router.delete('/:rank/round/:roundIndex', requireUserKey, writeLimiter, async (r
 
     await writeLadderFile(ladderData);
 
+    broadcastSSEEvent('cellCleared', { rank, round: roundIndex, type: 'cellClear' });
+
     res.json({
       success: true,
       data: { 
@@ -185,6 +190,8 @@ router.put('/', requireUserKey, writeLimiter, async (req: Request, res: Response
     ladderData.players = players;
 
     await withTiming(`writeLadderFile(bulk-${players.length})`, () => writeLadderFile(ladderData));
+
+    broadcastSSEEvent('ladderUpdated', { type: 'bulkUpdate', count: players.length });
 
     res.json({
       success: true,
@@ -237,6 +244,8 @@ router.post('/batch', requireUserKey, writeLimiter, async (req: Request, res: Re
     }
 
     await withTiming(`writeLadderFile(batch-${deltas.length})`, () => writeLadderFile(ladderData));
+
+    broadcastSSEEvent('deltasSubmitted', { type: 'batchUpdate', count: deltas.length });
 
     res.json({
       success: true,

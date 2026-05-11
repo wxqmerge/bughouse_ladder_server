@@ -126,8 +126,11 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
           if (mode !== 'local' && mode !== 'server_down') {
             console.log('[APP] Initializing data sync...');
             await dataService.initializeHash();
-            console.log('[APP] Starting data polling (5 second interval)');
-            dataService.startPolling(5000);
+            console.log('[APP] Starting data polling (5.5 second interval)');
+            dataService.startPolling(5500);
+            
+            // Start SSE for real-time updates (polling remains as fallback)
+            dataService.startSSE();
 
             const unsubscribe = dataService.subscribe(() => {
               console.log('[APP] Data changed - notifying LadderForm');
@@ -137,8 +140,11 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
             });
             (window as any).__ladder_dataServiceUnsubscribe = unsubscribe;
 
-            // Start write health polling (every 10 seconds)
+            // Start write health polling (every 30 seconds)
+            let healthCheckPending = false;
             const healthCheckInterval = setInterval(async () => {
+              if (healthCheckPending) return;
+              healthCheckPending = true;
               try {
                 const userSettings = loadUserSettings();
                 const serverUrl = userSettings.server?.trim();
@@ -167,8 +173,10 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
                 }
               } catch {
                 // Health check failed - server unreachable, no action needed
+              } finally {
+                healthCheckPending = false;
               }
-            }, 10000);
+            }, 30000);
 
             (window as any).__ladder_healthCheckInterval = healthCheckInterval;
           }
@@ -206,7 +214,8 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
         if (oldMode === 'local' && newMode === 'server') {
           console.log('[MODE CHANGE] Local -> Server: fetching fresh data');
           dataService.initializeHash().then(async () => {
-            dataService.startPolling(5000);
+            dataService.startPolling(5500);
+            dataService.startSSE();
             if (refreshPlayersRef.current) {
               console.log('[MODE CHANGE] Calling refreshPlayersRef.current()');
               await refreshPlayersRef.current();
@@ -230,8 +239,9 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
 
       const mode = getProgramMode();
       if (mode !== 'local' && mode !== 'server_down') {
-        console.log('[APP] Stopping data polling');
+        console.log('[APP] Stopping data polling and SSE');
         dataService.stopPolling();
+        dataService.stopSSE();
 
         if ((window as any).__ladder_dataServiceUnsubscribe) {
           (window as any).__ladder_dataServiceUnsubscribe();
