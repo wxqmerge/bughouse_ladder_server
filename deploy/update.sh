@@ -68,6 +68,10 @@ if [ -d "server" ] && [ -f "server/package.json" ]; then
         echo "  Aborting. Check build output above."
         exit 1
     fi
+    # Patch shared/*.js files to add .js extensions to relative imports
+    # (TypeScript compiler strips .js extensions, but Node.js ESM requires them)
+    echo "  Patching shared/ imports..."
+    node scripts/patch-shared-imports.js
 else
     echo "  Skipped (no server directory)."
 fi
