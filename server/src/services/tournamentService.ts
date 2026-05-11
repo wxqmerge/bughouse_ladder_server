@@ -394,7 +394,7 @@ export async function generateTrophyReport(debugLevel: number = 3): Promise<{
         
         if (playersWithGames.length === 0) continue;
         
-        const sorted = playersWithGames.sort((a, b) => b.nRating - a.nRating);
+        const sorted = playersWithGames.sort((a, b) => b.nRating - a.nRating).slice(0, 5);
         debugLines.push('');
         debugLines.push(sharedDebugLine(fileName, '', '', '', '', '', '', ''));
         for (const p of sorted) {
