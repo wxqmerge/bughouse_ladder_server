@@ -118,7 +118,7 @@ describe("MenuBar component", () => {
         const props = {
           ...baseProps,
           serverUrl: "http://example.com",
-          hasAdminApiKey: false,
+          
         };
         render(<MenuBar {...props} />);
         fireEvent.click(screen.getByText("Operations"));
@@ -350,40 +350,26 @@ describe("MenuBar component", () => {
     });
 
     describe("Admin Mode toggle", () => {
-      it("should show Admin Mode button when in admin mode with API key", () => {
-        const props = {
-          ...adminProps,
-          serverUrl: "http://example.com",
-          hasAdminApiKey: true,
-        };
+      it("should show Admin Mode button when in admin mode", () => {
+        const props = { ...adminProps };
         render(<MenuBar {...props} />);
         fireEvent.click(screen.getByText("Operations"));
         expect(screen.getByText("Exit Admin Mode")).toBeInTheDocument();
       });
 
       it("should call onToggleAdmin when Exit Admin Mode clicked", () => {
-        const props = {
-          ...adminProps,
-          serverUrl: "http://example.com",
-          hasAdminApiKey: true,
-          onToggleAdmin: vi.fn(),
-        };
+        const props = { ...adminProps, onToggleAdmin: vi.fn() };
         render(<MenuBar {...props} />);
         fireEvent.click(screen.getByText("Operations"));
         fireEvent.click(screen.getByText("Exit Admin Mode"));
         expect(props.onToggleAdmin).toHaveBeenCalledTimes(1);
       });
 
-      it("should show Admin Mode button when not admin but has API key", () => {
-        const props = {
-          ...baseProps,
-          isAdmin: false,
-          serverUrl: "http://example.com",
-          hasAdminApiKey: true,
-        };
+      it("should show Exit Admin Mode button when in admin mode", () => {
+        const props = { ...baseProps, isAdmin: true };
         render(<MenuBar {...props} />);
         fireEvent.click(screen.getByText("Operations"));
-        expect(screen.getByText("Admin Mode")).toBeInTheDocument();
+        expect(screen.getByText("Exit Admin Mode")).toBeInTheDocument();
       });
 
       it("should show Admin Mode button in local mode (no server)", () => {
@@ -397,7 +383,7 @@ describe("MenuBar component", () => {
         const props = {
           ...baseProps,
           serverUrl: "http://example.com",
-          hasAdminApiKey: false,
+          
         };
         render(<MenuBar {...props} />);
         fireEvent.click(screen.getByText("Operations"));

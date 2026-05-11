@@ -182,6 +182,9 @@ function parseEntry(
   let errorNum = 0;
   let resultIndex = 0; // Track which result slot (0 or 1)
   let hasColon = false; // Track if colon was used (indicates 4-player format)
+  let colonCount = 0; // Track how many colons (should be 2 for valid 4-player)
+  let entryAtFirstResult = 0; // Track player count when first result was stored
+  let entryAtSecondResult = 0; // Track player count when second result was stored
 
   for (let i = 1; i <= strlen; i++) {
     const mychar = normalizedText.substring(i - 1, i);
@@ -204,6 +207,7 @@ function parseEntry(
         // Only store before colons, not before W/L/D
         if (myasc === 58) {
           // Colon separates pairs within same team
+          colonCount++;
           hasColon = true;
           if (
             numOrChar === 0 &&
@@ -232,6 +236,12 @@ function parseEntry(
               break;
             }
             entry++;
+          }
+          // Track player count when result is stored (for format validation)
+          if (resultIndex === 0) {
+            entryAtFirstResult = entry;
+          } else if (resultIndex === 1) {
+            entryAtSecondResult = entry;
           }
           // Clear entryString since we stored the player
           entryString = "";
@@ -284,6 +294,15 @@ function parseEntry(
   } else if (entry === 4 && resultIndex > 2) {
     // For 4-player games, allow up to 2 results
     errorNum = 5; // too many results
+  } else if (!hasColon && resultIndex === 2 && entryAtSecondResult >= 2) {
+    // For 2-player games, second result must be before second player (e.g. "2ww3" not "2w3w")
+    errorNum = 2; // Incomplete 2-player game
+  } else if (hasColon && entryAtSecondResult >= 4) {
+    // For 4-player games, second result must be before second pair (e.g. "4:3W2:5" not "4:3W2:5W")
+    errorNum = 2; // Incomplete 2-player game
+  } else if (hasColon && colonCount !== 2) {
+    // Must have exactly 2 colons for 4-player format
+    errorNum = 2; // Incomplete 2-player game
   }
 
   // VB6 Line: 245-271 - Process scores
