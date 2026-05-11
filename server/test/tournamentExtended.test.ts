@@ -18,6 +18,7 @@ import {
 import { debugLine } from '../../shared/utils/trophyGeneration';
 import { calculateRatings, repopulateGameResults, processGameResults } from '../../shared/utils/hashUtils';
 import type { MatchData } from '../../shared/types';
+import { mulberry32, determineResult, generateBatchGames } from '../../src/test/shared/stressTestUtils';
 
 // ── Test Fixtures ──────────────────────────────────────────────────
 
@@ -420,123 +421,6 @@ describe('Mini-game trophy stress test', () => {
   const outputDir = path.join(__dirname, '..', 'output', 'stress-test');
   const JSZip = require('jszip');
 
-  // Mulberry32 PRNG for deterministic randomness
-  function mulberry32(a: number): () => number {
-    return () => {
-      a |= 0;
-      a = (a + 0x6D2B79F5) | 0;
-      let t = Math.imul(a ^ (a >>> 15), 1 | a);
-      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-  }
-
-  function determineResult(expected: number, rng: () => number): { score1: number; score2: number } {
-    const takeFromSide0 = Math.min(0.05, expected);
-    const takeFromSide1 = Math.min(0.05, 1 - expected);
-    const draw = takeFromSide0 + takeFromSide1;
-    const win0 = expected - takeFromSide0;
-    const win1 = (1 - expected) - takeFromSide1;
-
-    const r = rng();
-    if (r < win0) return { score1: 3, score2: 1 };
-    if (r < win0 + draw) return { score1: 2, score2: 2 };
-    return { score1: 1, score2: 3 };
-  }
-
-  function generateBatchGames(players: PlayerData[], gameType: '2p' | '4p', rng: () => number, roundIndex: number): MatchData[] {
-    const games: MatchData[] = [];
-    const groupSize = gameType === '2p' ? 2 : 4;
-    const sorted = [...players].sort((a, b) => a.rating - b.rating);
-    const n = sorted.length;
-
-    const shuffled = [...sorted];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(rng() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-
-    const groups: PlayerData[][] = [];
-    for (let i = 0; i < n; i += groupSize) {
-      const group = shuffled.slice(i, i + groupSize);
-      if (group.length === groupSize) {
-        groups.push(group);
-      }
-    }
-
-    for (const group of groups) {
-      let side0 = group.slice(0, groupSize / 2);
-      let side1 = group.slice(groupSize / 2);
-
-      if (rng() > 0.5) {
-        [side0, side1] = [side1, side0];
-      }
-
-      const side0Start = side0.reduce((s, p) => s + p.rating, 0) / side0.length;
-      const side1Start = side1.reduce((s, p) => s + p.rating, 0) / side1.length;
-      const rawDiff = side0Start - side1Start;
-
-      if (Math.abs(rawDiff) > 600) continue;
-
-      const expected = 1 / (1 + Math.pow(10, -rawDiff / 400));
-      const isDual = rng() < 0.3;
-
-      if (groupSize === 2) {
-        if (isDual) {
-          const game1 = determineResult(expected, rng);
-          const game2 = determineResult(expected, rng);
-          games.push({
-            player1: side0[0].rank,
-            player2: side1[0].rank,
-            player3: 0,
-            player4: 0,
-            score1: game1.score1,
-            score2: game2.score1,
-            side0Won: (game1.score1 > game1.score2 ? 1 : 0) + (game2.score1 > game2.score2 ? 1 : 0) >= 2,
-          });
-        } else {
-          const result = determineResult(expected, rng);
-          games.push({
-            player1: side0[0].rank,
-            player2: side1[0].rank,
-            player3: 0,
-            player4: 0,
-            score1: result.score1,
-            score2: 0,
-            side0Won: result.score1 > result.score2,
-          });
-        }
-      } else {
-        if (isDual) {
-          const game1 = determineResult(expected, rng);
-          const game2 = determineResult(expected, rng);
-          games.push({
-            player1: side0[0].rank,
-            player2: side0[1].rank,
-            player3: side1[0].rank,
-            player4: side1[1].rank,
-            score1: game1.score1,
-            score2: game2.score1,
-            side0Won: (game1.score1 > game1.score2 ? 1 : 0) + (game2.score1 > game2.score2 ? 1 : 0) >= 2,
-          });
-        } else {
-          const result = determineResult(expected, rng);
-          games.push({
-            player1: side0[0].rank,
-            player2: side0[1].rank,
-            player3: side1[0].rank,
-            player4: side1[1].rank,
-            score1: result.score1,
-            score2: 0,
-            side0Won: result.score1 > result.score2,
-          });
-        }
-      }
-    }
-
-    return games;
-  }
-
   function generatePlayersForMiniGame(rng: () => number, numPlayers: number): PlayerData[] {
     const players: PlayerData[] = [];
     for (let i = 1; i <= numPlayers; i++) {
@@ -567,9 +451,15 @@ describe('Mini-game trophy stress test', () => {
     const rng = mulberry32(seed);
     const players = generatePlayersForMiniGame(rng, numPlayers);
 
+    // Build startRatings map from initial player ratings
+    const startRatings = new Map<number, number>();
+    for (const p of players) {
+      startRatings.set(p.rank, p.rating);
+    }
+
     const allMatches: MatchData[] = [];
     for (let round = 0; round < numRounds; round++) {
-      const batchGames = generateBatchGames(players, '4p', rng, round);
+      const batchGames = generateBatchGames(players, '4p', rng, round, startRatings);
       if (batchGames.length === 0) continue;
       allMatches.push(...batchGames);
     }
@@ -578,7 +468,11 @@ describe('Mini-game trophy stress test', () => {
       // Generate at least one round of 2p games
       const rng2 = mulberry32(seed + 999);
       const players2 = generatePlayersForMiniGame(rng2, numPlayers);
-      const games2 = generateBatchGames(players2, '2p', rng2, 0);
+      const startRatings2 = new Map<number, number>();
+      for (const p of players2) {
+        startRatings2.set(p.rank, p.rating);
+      }
+      const games2 = generateBatchGames(players2, '2p', rng2, 0, startRatings2);
       if (games2.length > 0) {
         allMatches.push(...games2);
       }
@@ -771,122 +665,6 @@ describe('Mini-game trophy stress test — club ladder mode', () => {
   const outputDir = path.join(__dirname, '..', 'output', 'stress-test');
   const JSZip = require('jszip');
 
-  function mulberry32(a: number): () => number {
-    return () => {
-      a |= 0;
-      a = (a + 0x6D2B79F5) | 0;
-      let t = Math.imul(a ^ (a >>> 15), 1 | a);
-      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-  }
-
-  function determineResult(expected: number, rng: () => number): { score1: number; score2: number } {
-    const takeFromSide0 = Math.min(0.05, expected);
-    const takeFromSide1 = Math.min(0.05, 1 - expected);
-    const draw = takeFromSide0 + takeFromSide1;
-    const win0 = expected - takeFromSide0;
-    const win1 = (1 - expected) - takeFromSide1;
-
-    const r = rng();
-    if (r < win0) return { score1: 3, score2: 1 };
-    if (r < win0 + draw) return { score1: 2, score2: 2 };
-    return { score1: 1, score2: 3 };
-  }
-
-  function generateBatchGames(players: PlayerData[], gameType: '2p' | '4p', rng: () => number, roundIndex: number): MatchData[] {
-    const games: MatchData[] = [];
-    const groupSize = gameType === '2p' ? 2 : 4;
-    const sorted = [...players].sort((a, b) => a.rating - b.rating);
-    const n = sorted.length;
-
-    const shuffled = [...sorted];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(rng() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-
-    const groups: PlayerData[][] = [];
-    for (let i = 0; i < n; i += groupSize) {
-      const group = shuffled.slice(i, i + groupSize);
-      if (group.length === groupSize) {
-        groups.push(group);
-      }
-    }
-
-    for (const group of groups) {
-      let side0 = group.slice(0, groupSize / 2);
-      let side1 = group.slice(groupSize / 2);
-
-      if (rng() > 0.5) {
-        [side0, side1] = [side1, side0];
-      }
-
-      const side0Start = side0.reduce((s, p) => s + p.rating, 0) / side0.length;
-      const side1Start = side1.reduce((s, p) => s + p.rating, 0) / side1.length;
-      const rawDiff = side0Start - side1Start;
-
-      if (Math.abs(rawDiff) > 600) continue;
-
-      const expected = 1 / (1 + Math.pow(10, -rawDiff / 400));
-      const isDual = rng() < 0.3;
-
-      if (groupSize === 2) {
-        if (isDual) {
-          const game1 = determineResult(expected, rng);
-          const game2 = determineResult(expected, rng);
-          games.push({
-            player1: side0[0].rank,
-            player2: side1[0].rank,
-            player3: 0,
-            player4: 0,
-            score1: game1.score1,
-            score2: game2.score1,
-            side0Won: (game1.score1 > game1.score2 ? 1 : 0) + (game2.score1 > game2.score2 ? 1 : 0) >= 2,
-          });
-        } else {
-          const result = determineResult(expected, rng);
-          games.push({
-            player1: side0[0].rank,
-            player2: side1[0].rank,
-            player3: 0,
-            player4: 0,
-            score1: result.score1,
-            score2: 0,
-            side0Won: result.score1 > result.score2,
-          });
-        }
-      } else {
-        if (isDual) {
-          const game1 = determineResult(expected, rng);
-          const game2 = determineResult(expected, rng);
-          games.push({
-            player1: side0[0].rank,
-            player2: side0[1].rank,
-            player3: side1[0].rank,
-            player4: side1[1].rank,
-            score1: game1.score1,
-            score2: game2.score1,
-            side0Won: (game1.score1 > game1.score2 ? 1 : 0) + (game2.score1 > game2.score2 ? 1 : 0) >= 2,
-          });
-        } else {
-          const result = determineResult(expected, rng);
-          games.push({
-            player1: side0[0].rank,
-            player2: side0[1].rank,
-            player3: side1[0].rank,
-            player4: side1[1].rank,
-            score1: result.score1,
-            score2: 0,
-            side0Won: result.score1 > result.score2,
-          });
-        }
-      }
-    }
-
-    return games;
-  }
-
   function generateClubLadderPlayers(rng: () => number, numPlayers: number, numRounds: number): PlayerData[] {
     const players: PlayerData[] = [];
     for (let i = 1; i <= numPlayers; i++) {
@@ -911,9 +689,14 @@ describe('Mini-game trophy stress test — club ladder mode', () => {
       });
     }
 
+    const startRatings = new Map<number, number>();
+    for (const p of players) {
+      startRatings.set(p.rank, p.rating);
+    }
+
     const allMatches: MatchData[] = [];
     for (let round = 0; round < numRounds; round++) {
-      const batchGames = generateBatchGames(players, '4p', rng, round);
+      const batchGames = generateBatchGames(players, '4p', rng, round, startRatings);
       if (batchGames.length === 0) continue;
       allMatches.push(...batchGames);
     }
