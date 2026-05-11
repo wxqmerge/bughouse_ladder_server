@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 
 interface SSEClient {
-  response: Response;
+  res: Response;
   lastEventId: string;
 }
 
@@ -9,7 +9,7 @@ let clients: SSEClient[] = [];
 let eventCounter = 0;
 
 export function addSSEClient(res: Response): void {
-  const client: SSEClient = { response, lastEventId: '0' };
+  const client: SSEClient = { res, lastEventId: '0' };
   clients.push(client);
   
   res.setHeader('Content-Type', 'text/event-stream');
@@ -20,7 +20,7 @@ export function addSSEClient(res: Response): void {
   
   // Handle client disconnect
   res.on('close', () => {
-    clients = clients.filter(c => c.response !== res);
+    clients = clients.filter(c => c.res !== res);
   });
 }
 
@@ -33,7 +33,7 @@ export function broadcastSSEEvent(event: string, data: unknown, filterClientId?:
   const activeClients: SSEClient[] = [];
   
   for (const client of clients) {
-    if (filterClientId && client.response.locals?.clientId !== filterClientId) {
+    if (filterClientId && client.res.locals?.clientId !== filterClientId) {
       // Skip the client that made the change (they already have their data)
       continue;
     }
@@ -43,11 +43,11 @@ export function broadcastSSEEvent(event: string, data: unknown, filterClientId?:
       const lastId = client.lastEventId ? `\nid: ${client.lastEventId}` : '';
       
       // If client disconnected, remove them
-      if (client.response.writableEnded) {
+      if (client.res.writableEnded) {
         continue;
       }
       
-      client.response.write(message);
+      client.res.write(message);
       client.lastEventId = id;
       activeClients.push(client);
     } catch {
@@ -63,6 +63,6 @@ export function getSSEClientCount(): number {
 }
 
 export function stopSSEClient(res: Response): void {
-  clients = clients.filter(c => c.response !== res);
+  clients = clients.filter(c => c.res !== res);
   res.end();
 }
