@@ -50,7 +50,7 @@ export function getValidationErrorMessage(errorCode: number): string {
   return ERROR_MESSAGES[errorCode] || "Unknown error";
 }
 
-import { PlayerData } from "../types";
+import { PlayerData } from "../types/index.js";
 
 export function getNextTitle(currentTitle: string): string {
   const normalizedTitle = String(currentTitle || "")
