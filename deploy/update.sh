@@ -17,7 +17,7 @@ echo "To trace live logs: sudo journalctl -u $SERVICE -f"
 echo ""
 
 # 1. Stash any local changes
-echo "[1/6] Stashing local changes..."
+echo "[1/7] Stashing local changes..."
 if ! git diff --quiet 2>/dev/null; then
     if git stash; then
         echo "  Changes stashed."
@@ -31,7 +31,7 @@ else
 fi
 
 # 2. Pull latest code
-echo "[2/6] Pulling latest code..."
+echo "[2/7] Pulling latest code..."
 if ! git pull; then
     echo "  ERROR: git pull failed. Restoring stash..."
     git stash pop 2>/dev/null || true
@@ -39,8 +39,19 @@ if ! git pull; then
     exit 1
 fi
 
-# 3. Install dependencies (no --production: we need devDeps for building)
-echo "[3/6] Installing dependencies..."
+# 3. Clean stale build artifacts
+echo "[3/6] Cleaning stale build artifacts..."
+if [ -d "dist" ]; then
+    rm -rf dist
+    echo "  Removed dist/"
+fi
+if [ -d "server/dist" ]; then
+    rm -rf server/dist
+    echo "  Removed server/dist/"
+fi
+
+# 4. Install dependencies (no --production: we need devDeps for building)
+echo "[4/6] Installing dependencies..."
 if [ -f "package.json" ]; then
     if ! npm install; then
         echo "  ERROR: Frontend npm install failed."
@@ -48,16 +59,16 @@ if [ -f "package.json" ]; then
     fi
 fi
 
-# 4. Build frontend
-echo "[4/6] Building frontend..."
+# 5. Build frontend
+echo "[5/6] Building frontend..."
 if ! npm run build; then
     echo "  ERROR: Frontend build failed."
     echo "  Aborting. Check build output above."
     exit 1
 fi
 
-# 5. Build server
-echo "[5/6] Building server..."
+# 6. Build server
+echo "[6/6] Building server..."
 if [ -d "server" ] && [ -f "server/package.json" ]; then
     if ! (cd server && npm install); then
         echo "  ERROR: Server npm install failed."
@@ -76,8 +87,8 @@ else
     echo "  Skipped (no server directory)."
 fi
 
-# 6. Restart service
-echo "[6/6] Restarting service: $SERVICE"
+# 7. Restart service
+echo "[7/7] Restarting service: $SERVICE"
 if ! sudo -n systemctl restart "$SERVICE" 2>&1; then
     echo "  ERROR: systemctl restart failed."
     echo "  If this says 'sudo: a password is required', you need passwordless sudo."
