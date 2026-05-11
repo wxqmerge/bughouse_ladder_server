@@ -628,7 +628,7 @@ describe('Mini-game trophy stress test', () => {
         );
         if (playersWithGames.length === 0) continue;
         
-        const sorted = playersWithGames.sort((a, b) => b.nRating - a.nRating).slice(0, 10);
+        const sorted = playersWithGames.sort((a, b) => b.nRating - a.nRating).slice(0, 5);
         trophyReportLines.push('');
         trophyReportLines.push(debugLine(fileName.replace('.tab', ''), '', '', '', '', '', '', ''));
         for (const p of sorted) {

@@ -15,11 +15,6 @@ Queen_Game
 5	Player5 	9	1839			14	
 36	Player36 	6	1831			15	
 29	Player29 	8	1769			14	
-20	Player20 	10	1747			13	
-28	Player28 	5	1741			14	
-35	Player35 	7	1733			15	
-11	Player11 	5	1704			11	
-48	Player48 	7	1678			14	
 
 Pawn_Game							
 9	Player9 	7	1898			14	
@@ -27,11 +22,6 @@ Pawn_Game
 27	Player27 	10	1856			14	
 44	Player44 	7	1817			15	
 14	Player14 	5	1787			13	
-18	Player18 	13	1700			13	
-24	Player24 	9	1691			14	
-43	Player43 	11	1691			10	
-16	Player16 	13	1688			15	
-42	Player42 	5	1661			15	
 
 Pillar_Game							
 16	Player16 	6	1941			14	
@@ -39,11 +29,6 @@ Pillar_Game
 30	Player30 	6	1767			13	
 42	Player42 	6	1760			13	
 40	Player40 	9	1754			13	
-25	Player25 	12	1737			15	
-26	Player26 	12	1733			15	
-8	Player8 	5	1720			13	
-1	Player1 	10	1692			14	
-46	Player46 	6	1687			15	
 
 Bishop_Game							
 25	Player25 	10	1971			14	
@@ -51,11 +36,6 @@ Bishop_Game
 4	Player4 	10	1892			15	
 37	Player37 	6	1871			15	
 41	Player41 	8	1842			13	
-47	Player47 	7	1796			13	
-45	Player45 	9	1776			14	
-3	Player3 	7	1676			14	
-21	Player21 	11	1673			14	
-35	Player35 	7	1665			14	
 
 BG_Game							
 45	Player45 	8	1909			15	
@@ -63,11 +43,6 @@ BG_Game
 35	Player35 	13	1788			13	
 11	Player11 	7	1775			13	
 28	Player28 	7	1729			15	
-16	Player16 	13	1702			14	
-48	Player48 	8	1677			15	
-25	Player25 	13	1670			15	
-33	Player33 	13	1650			14	
-7	Player7 	10	1640			13	
 
 bughouse							
 31	Player31 	11	1970			13	
@@ -75,11 +50,6 @@ bughouse
 38	Player38 	5	1856			14	
 49	Player49 	7	1846			15	
 42	Player42 	7	1835			15	
-36	Player36 	9	1790			14	
-3	Player3 	8	1771			15	
-30	Player30 	13	1732			14	
-50	Player50 	9	1705			13	
-13	Player13 	7	1696			13	
 
 AWARDED TROPHIES
 Rank	Player	Trophy Type	Mini-Game/Grade	Gr	Rating	Total Games	Games Played
