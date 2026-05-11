@@ -13,6 +13,13 @@ import {
   clubLadderGamesPlayed,
   MiniGameData,
 } from '../../../shared/utils/trophyGeneration.js';
+import {
+  buildDebugHeader,
+  buildMiniGamePlayerSection,
+  buildClubLadderPlayerSection,
+  buildTrophiesSection,
+  buildTrophyReportString,
+} from '../../../shared/utils/trophyDebugReport.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -312,47 +319,17 @@ export async function generateTrophyReport(debugLevel: number = 3): Promise<{
     let trophies: any[] = [];
     const debugLines: string[] = [];
 
-    debugLines.push(sharedDebugLine('DEBUG', 'TROPHY REPORT', '', '', '', '', '', ''));
-    debugLines.push(sharedDebugLine('Players', String(players.length), '', '', '', '', '', ''));
-    debugLines.push(sharedDebugLine('Max Trophies', `${maxTrophies} (ceil(${players.length} / 3))`, '', '', '', '', '', ''));
-    debugLines.push('');
+    const headerLines = buildDebugHeader(players, maxTrophies, isClubMode);
+    debugLines.push(...headerLines);
 
     if (isClubMode) {
-      debugLines.push(sharedDebugLine('Mode', 'Club Ladder (no mini-game files)', '', '', '', '', '', ''));
-      
-      if (debugLevel >= 1) {
-        debugLines.push(sharedDebugLine('TOP 5 OVERALL', '(by rating)', '', '', '', '', '', ''));
-        const sortedOverall = [...players].sort((a, b) => b.nRating - a.nRating).slice(0, 5);
-        for (const p of sortedOverall) {
-          const games = clubLadderGamesPlayed(p);
-          debugLines.push(sharedDebugLine(String(p.rank), `${p.firstName} ${p.lastName}`, p.grade, String(p.nRating), '', '', String(games), ''));
-        }
-        
-        debugLines.push('');
-        debugLines.push(sharedDebugLine('TOP 5 PER GRADE', '', '', '', '', '', '', ''));
-        const gradeGroups = [...new Set(players.map(p => p.grade).filter(Boolean))].sort((a, b) => parseInt(b) - parseInt(a));
-        for (const grade of gradeGroups) {
-          const gradePlayers = players.filter(p => p.grade === grade).sort((a, b) => b.nRating - a.nRating).slice(0, 5);
-          if (gradePlayers.length === 0) continue;
-          debugLines.push('');
-          debugLines.push(sharedDebugLine('Gr ' + grade, '', '', '', '', '', '', ''));
-          for (const p of gradePlayers) {
-            const games = clubLadderGamesPlayed(p);
-            debugLines.push(sharedDebugLine(String(p.rank), `${p.firstName} ${p.lastName}`, p.grade, String(p.nRating), '', '', String(games), ''));
-          }
-        }
-        debugLines.push('');
-      }
+      const clubPlayerLines = buildClubLadderPlayerSection(players, debugLevel);
+      debugLines.push(...clubPlayerLines);
       
       trophies = sharedGenerateClubLadderTrophies(players, maxTrophies);
     } else {
       const existingFiles = await getExistingMiniGameFiles();
       const m = existingFiles.length;
-      debugLines.push(sharedDebugLine('Mode', 'Mini-Game Tournament', '', '', '', '', '', ''));
-      debugLines.push(sharedDebugLine('Mini-games played', String(m), '', '', '', '', '', ''));
-      debugLines.push(sharedDebugLine('Award 2nd place', `t=${maxTrophies} > m=${m} ? ${maxTrophies > m}`, '', '', '', '', '', ''));
-      debugLines.push(sharedDebugLine('Award grade 1st', `t=${maxTrophies} > 2*m=${2 * m} ? ${maxTrophies > 2 * m}`, '', '', '', '', '', ''));
-      debugLines.push('');
 
       // Recalculate ratings (5 passes) for each mini-game
       for (const fileName of existingFiles) {
@@ -379,34 +356,22 @@ export async function generateTrophyReport(debugLevel: number = 3): Promise<{
         loggerLog('[TOURNAMENT]', `Recalculated ${fileName} (5 passes)`);
       }
 
-      debugLines.push(sharedDebugLine('MINI-GAME PLAYERS', '(after 5 recalcs)', '', '', '', '', '', ''));
-      
       // Build MiniGameData array for shared trophy generation
       const miniGameDataList: MiniGameData[] = [];
       for (const fileName of existingFiles) {
         const data = await readMiniGameFile(fileName);
         if (!data || data.players.length === 0) continue;
-        
-        const playersWithGames = data.players.filter(p => {
-          if (!p.gameResults) return false;
-          return p.gameResults.some(r => r && r !== '' && r !== '_');
-        });
-        
-        if (playersWithGames.length === 0) continue;
-        
-        const sorted = playersWithGames.sort((a, b) => b.nRating - a.nRating).slice(0, 5);
-        debugLines.push('');
-        debugLines.push(sharedDebugLine(fileName, '', '', '', '', '', '', ''));
-        for (const p of sorted) {
-          const games = p.gameResults?.filter(r => r && r !== '' && r !== '_')?.length || 0;
-          debugLines.push(sharedDebugLine(String(p.rank), `${p.firstName} ${p.lastName}`, p.grade, String(p.nRating), '', '', String(games), ''));
-        }
-        
         miniGameDataList.push({ fileName, players: data.players });
       }
       
+      const miniGameLines = buildMiniGamePlayerSection(miniGameDataList);
+      debugLines.push(...miniGameLines);
+      
       trophies = sharedGenerateMiniGameTrophies(players, maxTrophies, miniGameDataList);
     }
+
+    const trophiesSection = buildTrophiesSection(trophies);
+    debugLines.push(...trophiesSection);
 
     return {
       success: true,
