@@ -44,3 +44,14 @@ coverage
 /*.xls
 /*.tab
 *.map
+
+# Generated JS/declaration files (keep only .ts source)
+shared/**/*.js
+shared/**/*.d.ts
+shared/**/*.d.ts.map
+
+# UML diagrams and docs
+uml-diagram*
+
+# Server output (test reports, stress test files)
+server/output/
