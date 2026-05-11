@@ -261,30 +261,33 @@ describe('mergeGameResults - edge cases', () => {
 });
 
 describe('Gr trophy generation - club ladder mode', () => {
-  it('should award Club Ladder 1st, 2nd, Most Games plus Gr trophies', async () => {
+  it('should award Club Ladder 1st, 2nd, 3rd place by rating', async () => {
     const players = [
       createPlayer(1, 'Top', 'Player', 1600, '5', 10, []),
       createPlayer(2, 'Second', 'Player', 1500, '5', 8, []),
       createPlayer(3, 'Third', 'Player', 1400, '6', 5, []),
     ];
     const trophies = await generateClubLadderTrophies(players, 10);
-    // Club Ladder 1st, 2nd, Most Games = 3, then Gr 5 (1st, 2nd, 3rd), Gr 6 (1st, 2nd, 3rd) = 6 more
-    expect(trophies.length).toBeGreaterThan(3);
+    // 3 players all get overall position trophies; Most Games skipped (Top Player already has 1st), Gr trophies skipped (all players already have trophies)
+    expect(trophies.length).toBe(3);
     expect(trophies[0].trophyType).toBe('1st Place');
     expect(trophies[0].miniGameOrGrade).toBe('Club Ladder');
     expect(trophies[1].trophyType).toBe('2nd Place');
     expect(trophies[1].miniGameOrGrade).toBe('Club Ladder');
-    expect(trophies[2].trophyType).toBe('Most Games');
+    expect(trophies[2].trophyType).toBe('3rd Place');
     expect(trophies[2].miniGameOrGrade).toBe('Club Ladder');
   });
 
-  it('should respect maxTrophies limit', async () => {
+  it('should award overall position trophies even when maxTrophies is 0', async () => {
     const players = [
       createPlayer(1, 'A', 'B', 1600, '5', 10, []),
       createPlayer(2, 'C', 'D', 1500, '5', 8, []),
     ];
     const trophies = await generateClubLadderTrophies(players, 0);
-    expect(trophies.length).toBe(0);
+    // Steps 1-4 (1st, 2nd, 3rd, Most Games) always run regardless of maxTrophies; only Gr trophies check maxTrophies
+    expect(trophies.length).toBe(2);
+    expect(trophies[0].trophyType).toBe('1st Place');
+    expect(trophies[1].trophyType).toBe('2nd Place');
   });
 });
 
@@ -337,7 +340,7 @@ describe('Gr trophy generation - mini-game tournament mode', () => {
     expect(trophies[2]).toBeDefined(); // Gr 11
   });
 
-  it('should award Gr 1st, 2nd, 3rd position-by-position across grades', async () => {
+  it('should award overall positions before grade positions', async () => {
     // Create players with different grades and ratings
     const players = [
       createPlayer(1, 'High', 'Gr13', 1600, '13', 10, []),
@@ -347,14 +350,20 @@ describe('Gr trophy generation - mini-game tournament mode', () => {
 
     const trophies = await generateClubLadderTrophies(players, 10);
 
-    // All 3 grades get 1st place (position-by-position, not grade-by-grade)
-    const firstPlaceCount = trophies.filter(t => t.trophyType === '1st Place' && t.miniGameOrGrade.startsWith('Gr ')).length;
-    expect(firstPlaceCount).toBe(3);
+    // All 3 players get overall position trophies (1st, 2nd, 3rd); Gr trophies not awarded because all players already have trophies
+    expect(trophies.length).toBe(3);
+    expect(trophies[0].trophyType).toBe('1st Place');
+    expect(trophies[0].miniGameOrGrade).toBe('Club Ladder');
+    expect(trophies[1].trophyType).toBe('2nd Place');
+    expect(trophies[2].trophyType).toBe('3rd Place');
+    // No Gr trophies - players already received overall position trophies
+    const grTrophies = trophies.filter(t => t.miniGameOrGrade && t.miniGameOrGrade.startsWith('Gr '));
+    expect(grTrophies.length).toBe(0);
   });
 });
 
 describe('Gr trophy ties', () => {
-  it('should award same position to tied ratings', async () => {
+  it('should rank tied players by their sort order and award overall positions', async () => {
     // Two players with same rating in same grade
     const players = [
       createPlayer(1, 'Tied', 'A', 1500, '5', 10, []),
@@ -364,9 +373,15 @@ describe('Gr trophy ties', () => {
 
     const trophies = await generateClubLadderTrophies(players, 10);
 
-    // Both tied players should get 1st Place
-    const firstPlace = trophies.filter(t => t.trophyType === '1st Place' && t.miniGameOrGrade.startsWith('Gr '));
-    expect(firstPlace.length).toBeGreaterThanOrEqual(1);
+    // Tied A gets 1st Place, Tied B gets 2nd Place, Lower C gets 3rd Place
+    // No Gr trophies since all players already have overall position trophies
+    expect(trophies.length).toBe(3);
+    expect(trophies[0].trophyType).toBe('1st Place');
+    expect(trophies[0].player).toBe('A Tied');
+    expect(trophies[1].trophyType).toBe('2nd Place');
+    expect(trophies[2].trophyType).toBe('3rd Place');
+    const grTrophies = trophies.filter(t => t.miniGameOrGrade && t.miniGameOrGrade.startsWith('Gr '));
+    expect(grTrophies.length).toBe(0);
   });
 });
 

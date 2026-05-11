@@ -81,14 +81,13 @@ export default function MenuBar({
   onSetTitle,
   playerCount,
   serverUrl,
-  hasAdminApiKey,
   tournamentMode = false,
   availableMiniGames = [],
 }: MenuBarProps) {
   // Admin mode disabled: connected to server WITH API key but not actually admin
   // Enabled: no server URL (local mode) OR server unreachable (repair mode) OR has API key
   const serverConfigured = !!(serverUrl && serverUrl.trim());
-  const adminModeDisabled = serverConfigured && !isServerDownMode() && !hasAdminApiKey;
+  const adminModeDisabled = serverConfigured && !isServerDownMode();
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [isServerDown, setIsServerDown] = useState(false);
 
