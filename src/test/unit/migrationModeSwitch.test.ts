@@ -372,11 +372,13 @@ describe('Migration - Mode Switching (Local <-> Server)', () => {
   describe('applyMigration', () => {
     it('should store players under ladder_players key when using server strategy', async () => {
       setLocalPlayers([createPlayer({ rank: 1, lastName: 'Local' })]);
+      const serverPlayers = [createPlayer({ rank: 1, lastName: 'Server' })];
+      mockGetPlayers.mockResolvedValue(serverPlayers);
 
       await applyMigration('use-server');
 
       const stored = JSON.parse(mockLocalStorage[TEST_PREFIX + 'ladder_players'] || '[]');
-      expect(stored).toEqual([]);
+      expect(stored).toEqual(serverPlayers);
     });
 
     it('should store players when using local strategy', async () => {
@@ -399,7 +401,12 @@ describe('Migration - Mode Switching (Local <-> Server)', () => {
         createPlayer({ rank: 1, lastName: 'Local', gameResults: ['W', null, 'L'] }),
         createPlayer({ rank: 3, lastName: 'Local3' }),
       ];
+      const serverPlayers = [
+        createPlayer({ rank: 1, lastName: 'Server', gameResults: [null, 'W', null] }),
+        createPlayer({ rank: 2, lastName: 'Server2' }),
+      ];
       setLocalPlayers(localPlayers);
+      mockGetPlayers.mockResolvedValue(serverPlayers);
 
       await applyMigration('custom', {
         nonResultStrategy: 'use-server',
@@ -407,7 +414,7 @@ describe('Migration - Mode Switching (Local <-> Server)', () => {
       });
 
       const stored = JSON.parse(mockLocalStorage[TEST_PREFIX + 'ladder_players'] || '[]');
-      expect(stored.length).toBe(2);
+      expect(stored.length).toBe(3);
     });
 
     it('should store current mode as server after migration', async () => {

@@ -175,7 +175,14 @@ export async function applyMigration(
   customOptions?: MigrationOptions
 ): Promise<void> {
   const localPlayers = getLocalPlayers();
-  const serverPlayers: PlayerData[] = []; 
+  let serverPlayers: PlayerData[] = [];
+  
+  try {
+    serverPlayers = await dataService.getPlayers();
+    console.log('[migrationUtils] Fetched', serverPlayers.length, 'server players for migration');
+  } catch (err) {
+    console.warn('[migrationUtils] Failed to fetch server players for migration:', err);
+  }
   
   let finalPlayers: PlayerData[];
   if (strategy === 'use-server') {
