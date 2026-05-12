@@ -4,7 +4,7 @@
  */
 
 import { PlayerData } from '../types/index.js';
-import { debugLine, clubLadderGamesPlayed } from './trophyGeneration.js';
+import { debugLine, clubLadderGamesPlayed, formatPlayerName } from './trophyGeneration.js';
 
 export interface MiniGameData {
   fileName: string;
@@ -21,12 +21,12 @@ export function syncEligibilityFromClubLadder(
 ): PlayerData[] {
   const clubEligibleMap = new Map<string, boolean>();
   for (const p of clubPlayers) {
-    clubEligibleMap.set(`${p.firstName} ${p.lastName}`, p.trophyEligible);
+    clubEligibleMap.set(formatPlayerName(p), p.trophyEligible);
   }
   const allIneligible: PlayerData[] = [];
   for (const mgd of miniGameDataList) {
     for (const p of mgd.players) {
-      const key = `${p.firstName} ${p.lastName}`;
+      const key = formatPlayerName(p);
       if (clubEligibleMap.has(key)) {
         p.trophyEligible = clubEligibleMap.get(key)!;
       }
@@ -110,7 +110,7 @@ export function buildMiniGamePlayerSection(miniGameDataList: MiniGameData[], deb
       lines.push(debugLine(mgd.fileName.replace('.tab', ''), '', '', '', '', '', '', ''));
       for (const p of sorted) {
         const games = p.gameResults?.filter((r: string | null) => r && r !== '' && r !== '_')?.length || 0;
-        lines.push(debugLine(String(p.rank), `${p.firstName} ${p.lastName}`, p.grade, String(p.nRating), '', '', String(games), ''));
+        lines.push(debugLine(String(p.rank), formatPlayerName(p), p.grade, String(p.nRating), '', '', String(games), ''));
       }
       
       const ineligible = mgd.players.filter((p: PlayerData) => p.trophyEligible === false).sort((a: PlayerData, b: PlayerData) => b.nRating - a.nRating).slice(0, 1);
@@ -119,7 +119,7 @@ export function buildMiniGamePlayerSection(miniGameDataList: MiniGameData[], deb
         lines.push(debugLine('Top Ineligible', '', '', '', '', '', '', ''));
         for (const p of ineligible) {
           const games = p.gameResults?.filter((r: string | null) => r && r !== '' && r !== '_')?.length || 0;
-          lines.push(debugLine(String(p.rank), `${p.firstName} ${p.lastName}`, p.grade, String(p.nRating), '', '', String(games), ''));
+          lines.push(debugLine(String(p.rank), formatPlayerName(p), p.grade, String(p.nRating), '', '', String(games), ''));
         }
       }
       
@@ -136,7 +136,7 @@ export function buildMiniGamePlayerSection(miniGameDataList: MiniGameData[], deb
       const topIneligible = allIneligible.sort((a, b) => b.nRating - a.nRating).slice(0, 1);
       for (const p of topIneligible) {
         const totalGames = mgdPlayersTotalGames(p, miniGameDataList);
-        lines.push(debugLine(String(p.rank), `${p.firstName} ${p.lastName}`, p.grade, String(p.nRating), '', '', String(totalGames), ''));
+        lines.push(debugLine(String(p.rank), formatPlayerName(p), p.grade, String(p.nRating), '', '', String(totalGames), ''));
       }
     }
   }
@@ -155,7 +155,7 @@ export function buildClubLadderPlayerSection(players: PlayerData[], debugLevel: 
     const sortedOverall = players.filter(p => p.trophyEligible !== false).sort((a, b) => b.nRating - a.nRating).slice(0, 5);
     for (const p of sortedOverall) {
       const games = clubLadderGamesPlayed(p);
-      lines.push(debugLine(String(p.rank), `${p.firstName} ${p.lastName}`, p.grade, String(p.nRating), '', '', String(games), ''));
+      lines.push(debugLine(String(p.rank), formatPlayerName(p), p.grade, String(p.nRating), '', '', String(games), ''));
     }
     
     const overallIneligible = players.filter(p => p.trophyEligible === false).sort((a, b) => b.nRating - a.nRating).slice(0, 1);
@@ -164,7 +164,7 @@ export function buildClubLadderPlayerSection(players: PlayerData[], debugLevel: 
       lines.push(debugLine('Top Ineligible', '', '', '', '', '', '', ''));
       for (const p of overallIneligible) {
         const games = clubLadderGamesPlayed(p);
-        lines.push(debugLine(String(p.rank), `${p.firstName} ${p.lastName}`, p.grade, String(p.nRating), '', '', String(games), ''));
+        lines.push(debugLine(String(p.rank), formatPlayerName(p), p.grade, String(p.nRating), '', '', String(games), ''));
       }
     }
     
@@ -178,7 +178,7 @@ export function buildClubLadderPlayerSection(players: PlayerData[], debugLevel: 
       lines.push(debugLine('Gr ' + grade, '', '', '', '', '', '', ''));
       for (const p of gradePlayers) {
         const games = clubLadderGamesPlayed(p);
-        lines.push(debugLine(String(p.rank), `${p.firstName} ${p.lastName}`, p.grade, String(p.nRating), '', '', String(games), ''));
+        lines.push(debugLine(String(p.rank), formatPlayerName(p), p.grade, String(p.nRating), '', '', String(games), ''));
       }
       
       const gradeIneligible = players.filter(p => p.grade === grade && p.trophyEligible === false).sort((a, b) => b.nRating - a.nRating).slice(0, 1);
@@ -187,7 +187,7 @@ export function buildClubLadderPlayerSection(players: PlayerData[], debugLevel: 
         lines.push(debugLine('Top Ineligible', '', '', '', '', '', '', ''));
         for (const p of gradeIneligible) {
           const games = clubLadderGamesPlayed(p);
-          lines.push(debugLine(String(p.rank), `${p.firstName} ${p.lastName}`, p.grade, String(p.nRating), '', '', String(games), ''));
+          lines.push(debugLine(String(p.rank), formatPlayerName(p), p.grade, String(p.nRating), '', '', String(games), ''));
         }
       }
     }

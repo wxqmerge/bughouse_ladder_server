@@ -5,6 +5,35 @@
 
 import type { PlayerData, MatchData } from '../../../shared/types';
 
+// ─── Player Name Arrays ──────────────────────────────────────────────
+export const firstNames = ['James', 'Mary', 'John', 'Patricia', 'Robert', 'Jennifer', 'Michael', 'Linda', 'William', 'Elizabeth', 'David', 'Barbara', 'Richard', 'Susan', 'Joseph', 'Jessica', 'Thomas', 'Sarah', 'Charles', 'Karen', 'Christopher', 'Lisa', 'Daniel', 'Nancy', 'Matthew', 'Betty', 'Anthony', 'Margaret', 'Mark', 'Sandra', 'Donald', 'Ashley', 'Steven', 'Dorothy', 'Paul', 'Kimberly', 'Andrew', 'Emily', 'Joshua', 'Donna', 'Kenneth', 'Michelle', 'Kevin', 'Carol', 'Brian', 'Amanda', 'George', 'Melissa', 'Timothy', 'Deborah'];
+export const lastNames = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Rodriguez', 'Martinez', 'Hernandez', 'Lopez', 'Gonzalez', 'Wilson', 'Anderson', 'Thomas', 'Taylor', 'Moore', 'Jackson', 'Martin', 'Lee', 'Perez', 'Thompson', 'White', 'Harris', 'Sanchez', 'Clark', 'Ramirez', 'Lewis', 'Robinson', 'Walker', 'Young', 'Allen', 'King', 'Wright', 'Scott', 'Torres', 'Nguyen', 'Hill', 'Flores', 'Green', 'Adams', 'Nelson', 'Baker', 'Hall', 'Rivera', 'Campbell', 'Mitchell', 'Carter', 'Roberts', 'Gomez'];
+
+// ─── Player Creation ─────────────────────────────────────────────────
+/**
+ * Create a player with realistic name, grade, and eligibility.
+ * ~15% chance of being ineligible for trophies.
+ */
+export function createStressTestPlayer(rank: number, rating: number, rng: () => number): PlayerData {
+  return {
+    rank,
+    group: 'A',
+    lastName: lastNames[Math.floor(rng() * lastNames.length)],
+    firstName: firstNames[Math.floor(rng() * firstNames.length)],
+    rating,
+    nRating: 0,
+    trophyEligible: rng() > 0.15,
+    grade: (5 + Math.floor(rng() * 9)).toString(),
+    num_games: 0,
+    attendance: 0,
+    info: '',
+    phone: '',
+    school: '',
+    room: '',
+    gameResults: Array(31).fill(null),
+  };
+}
+
 // ─── PRNG (Mulberry32) ───────────────────────────────────────────────
 export function mulberry32(a: number): () => number {
   return () => {
