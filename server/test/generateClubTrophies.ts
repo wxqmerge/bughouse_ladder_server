@@ -24,8 +24,8 @@ async function main() {
   lines.push('');
 
  if (debugLevel >= 1) {
-    const sortedByRating = [...players].sort((a, b) => b.nRating - a.nRating);
-    lines.push(debugLine('TOP 5 OVERALL', 'BY RATING', '', '', '', '', '', ''));
+    const sortedByRating = players.filter(p => p.trophyEligible !== false).sort((a, b) => b.nRating - a.nRating);
+    lines.push(debugLine('TOP 5 OVERALL', 'BY RATING (eligible only)', '', '', '', '', '', ''));
     lines.push(debugLine('Rank', 'Player', 'Gr', 'Rating', 'Games Played', '', '', ''));
     for (let i = 0; i < Math.min(5, sortedByRating.length); i++) {
       const p = sortedByRating[i];
@@ -40,7 +40,7 @@ async function main() {
 
     const gradeGroups = [...new Set(players.map(p => p.grade).filter(Boolean))].sort((a, b) => parseInt(b) - parseInt(a));
     for (const grade of gradeGroups) {
-      const gradePlayers = players.filter(p => p.grade === grade).sort((a, b) => b.nRating - a.nRating);
+      const gradePlayers = players.filter(p => p.grade === grade && p.trophyEligible !== false).sort((a, b) => b.nRating - a.nRating);
       lines.push(debugLine('TOP 5', 'Gr ' + grade, '', '', '', '', '', ''));
       lines.push(debugLine('Rank', 'Player', 'Gr', 'Rating', 'Games Played', '', '', ''));
       for (let i = 0; i < Math.min(5, gradePlayers.length); i++) {
