@@ -91,7 +91,7 @@ bughouse_ladder_server/
 ### Auto-Detect Server URL (Default)
 
 When no manual config exists, the app auto-detects the server from `window.location.origin`:
-1. Tries `HEAD /api/ladder` with 3s timeout
+1. Tries `GET /health` with 3s timeout
 2. If server responds → enters SERVER mode
 3. If failed → falls back to LOCAL mode
 
