@@ -4,6 +4,8 @@
  */
 
 import type { PlayerData, MatchData } from '../../../shared/types';
+import { DEFAULT_GAME_RESULTS } from '../../../shared/constants';
+import { processGameResults as _processGameResults } from '../../../shared/utils/hashUtils';
 
 // ─── Player Name Arrays ──────────────────────────────────────────────
 export const firstNames = ['James', 'Mary', 'John', 'Patricia', 'Robert', 'Jennifer', 'Michael', 'Linda', 'William', 'Elizabeth', 'David', 'Barbara', 'Richard', 'Susan', 'Joseph', 'Jessica', 'Thomas', 'Sarah', 'Charles', 'Karen', 'Christopher', 'Lisa', 'Daniel', 'Nancy', 'Matthew', 'Betty', 'Anthony', 'Margaret', 'Mark', 'Sandra', 'Donald', 'Ashley', 'Steven', 'Dorothy', 'Paul', 'Kimberly', 'Andrew', 'Emily', 'Joshua', 'Donna', 'Kenneth', 'Michelle', 'Kevin', 'Carol', 'Brian', 'Amanda', 'George', 'Melissa', 'Timothy', 'Deborah'];
@@ -30,7 +32,7 @@ export function createStressTestPlayer(rank: number, rating: number, rng: () => 
     phone: '',
     school: '',
     room: '',
-    gameResults: Array(31).fill(null),
+    gameResults: [...DEFAULT_GAME_RESULTS],
   };
 }
 
@@ -188,13 +190,13 @@ export function generateBatchGames(
  */
 export function cleanInvalidResults(
   players: PlayerData[],
-  processGameResults: (players: PlayerData[], rounds: number) => { hasErrors: boolean; errors: any[] }
+  processGameResultsFn: (players: PlayerData[], rounds: number) => { hasErrors: boolean; errors: any[] } = _processGameResults
 ): PlayerData[] {
   let current = players;
   let iterations = 0;
 
   while (iterations < 10) {
-    const validation = processGameResults(current, 31);
+    const validation = processGameResultsFn(current, 31);
     if (!validation.hasErrors || validation.errors.length === 0) break;
 
     // Collect invalid (round, playerRank) pairs from errors
@@ -218,4 +220,17 @@ export function cleanInvalidResults(
   }
 
   return current;
+}
+
+// ─── RSS Calculation ─────────────────────────────────────────────────
+/**
+ * Compute root-mean-square deviation from start ratings.
+ */
+export function computeRss(players: PlayerData[], startRatings: Map<number, number>): number {
+  let rss = 0;
+  for (const p of players) {
+    const d = p.nRating - (startRatings.get(p.rank) ?? 0);
+    rss += d * d;
+  }
+  return Math.sqrt(rss / players.length);
 }

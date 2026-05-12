@@ -3,6 +3,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
 import { readLadderFile, writeLadderFile, generateTabContent, PlayerData, LadderData } from '../src/services/dataService';
+import { createTestPlayer } from '../../src/test/shared/factories';
 import { copyPlayersToTarget, mergeGameResults, getExistingMiniGameFiles, readMiniGameFile, writeMiniGameFile, getMiniGameFilePath } from '../src/services/tournamentService';
 
 // ── Test Fixtures ──────────────────────────────────────────────────
