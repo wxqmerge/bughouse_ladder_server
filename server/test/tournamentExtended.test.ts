@@ -423,6 +423,11 @@ describe('Mini-game trophy stress test', () => {
 
   function generatePlayersForMiniGame(rng: () => number, numPlayers: number): PlayerData[] {
     const players: PlayerData[] = [];
+    const ineligibleSet = new Set<number>();
+    const numIneligible = Math.floor(numPlayers / 3);
+    while (ineligibleSet.size < numIneligible) {
+      ineligibleSet.add(1 + Math.floor(rng() * numPlayers));
+    }
     for (let i = 1; i <= numPlayers; i++) {
       const rating = 1200 + Math.floor(rng() * 600);
       const grade = (5 + Math.floor(rng() * 9)).toString();
@@ -433,7 +438,7 @@ describe('Mini-game trophy stress test', () => {
         firstName: '',
         rating,
         nRating: 0,
-        trophyEligible: true,
+        trophyEligible: !ineligibleSet.has(i),
         grade,
         num_games: 0,
         attendance: 0,
@@ -635,6 +640,11 @@ describe('Mini-game trophy stress test — club ladder mode', () => {
 
   function generateClubLadderPlayers(rng: () => number, numPlayers: number, numRounds: number): PlayerData[] {
     const players: PlayerData[] = [];
+    const ineligibleSet = new Set<number>();
+    const numIneligible = Math.floor(numPlayers / 3);
+    while (ineligibleSet.size < numIneligible) {
+      ineligibleSet.add(1 + Math.floor(rng() * numPlayers));
+    }
     for (let i = 1; i <= numPlayers; i++) {
       const rating = 1200 + Math.floor(rng() * 600);
       const grade = (5 + Math.floor(rng() * 9)).toString();
@@ -645,7 +655,7 @@ describe('Mini-game trophy stress test — club ladder mode', () => {
         firstName: '',
         rating,
         nRating: 0,
-        trophyEligible: true,
+        trophyEligible: !ineligibleSet.has(i),
         grade,
         num_games: 0,
         attendance: 0,

@@ -10,63 +10,63 @@ Award grade 1st	t=17 > 2*m=12 ? true
 MINI-GAME PLAYERS	(after 5 recalcs)						
 
 Queen_Game							
-29	 Player29	8	1906			14	
-35	 Player35	7	1874			14	
-11	 Player11	5	1854			14	
-44	 Player44	11	1829			13	
-45	 Player45	13	1825			14	
+44	 Player44	6	1918			11	
+22	 Player22	6	1916			13	
+20	 Player20	5	1872			13	
+21	 Player21	8	1864			12	
+36	 Player36	11	1850			13	
 
 Pawn_Game							
-3	 Player3	7	1906			15	
-32	 Player32	5	1903			13	
-27	 Player27	10	1900			13	
-14	 Player14	5	1855			14	
-49	 Player49	8	1844			13	
+7	 Player7	13	1936			11	
+25	 Player25	10	1883			11	
+35	 Player35	7	1863			9	
+5	 Player5	5	1851			13	
+18	 Player18	10	1851			13	
 
 Pillar_Game							
-26	 Player26	12	1913			14	
-32	 Player32	11	1888			12	
-40	 Player40	9	1840			11	
-25	 Player25	12	1838			15	
-16	 Player16	6	1803			12	
+14	 Player14	12	1915			12	
+5	 Player5	6	1891			12	
+35	 Player35	6	1888			12	
+49	 Player49	5	1826			13	
+23	 Player23	13	1819			14	
 
 Bishop_Game							
-25	 Player25	10	1859			13	
-37	 Player37	6	1850			13	
-41	 Player41	8	1848			13	
-45	 Player45	9	1846			15	
-21	 Player21	11	1804			13	
+34	 Player34	7	1918			14	
+13	 Player13	8	1887			13	
+14	 Player14	8	1818			14	
+5	 Player5	9	1752			14	
+22	 Player22	8	1739			13	
 
 BG_Game							
-14	 Player14	5	1864			14	
-49	 Player49	10	1858			15	
-35	 Player35	13	1849			14	
-16	 Player16	13	1846			14	
-36	 Player36	6	1802			14	
+34	 Player34	5	1887			13	
+8	 Player8	10	1872			12	
+23	 Player23	8	1840			15	
+24	 Player24	11	1825			14	
+27	 Player27	12	1815			13	
 
 bughouse							
-31	 Player31	11	1970			13	
-26	 Player26	12	1891			15	
-38	 Player38	5	1856			14	
-49	 Player49	7	1846			15	
-42	 Player42	7	1835			15	
+7	 Player7	6	1978			13	
+29	 Player29	5	1939			13	
+42	 Player42	5	1936			12	
+4	 Player4	7	1897			14	
+33	 Player33	7	1885			13	
 
 AWARDED TROPHIES
 Rank	Player	Trophy Type	Mini-Game/Grade	Gr	Rating	Total Games	Games Played
-1	 Player29	1st Place	Queen_Game	8	1906	82	14
-2	 Player3	1st Place	Pawn_Game	7	1906	85	15
-3	 Player26	1st Place	Pillar_Game	12	1913	81	14
-4	 Player25	1st Place	Bishop_Game	10	1859	84	13
-5	 Player14	1st Place	BG_Game	5	1864	80	14
-6	 Player31	1st Place	bughouse	11	1970	79	13
-7	 Player35	2nd Place	Queen_Game	7	1874	81	14
-8	 Player32	2nd Place	Pawn_Game	5	1903	76	13
-9	 Player40	2nd Place	Pillar_Game	9	1840	79	11
-10	 Player37	2nd Place	Bishop_Game	6	1850	81	13
-11	 Player49	2nd Place	BG_Game	10	1858	85	15
-12	 Player38	2nd Place	bughouse	5	1856	80	14
-13	 Player11	3rd Place	Queen_Game	5	1854	84	14
-14	 Player27	3rd Place	Pawn_Game	10	1900	79	13
-15	 Player16	3rd Place	Pillar_Game	6	1803	79	12
-16	 Player41	3rd Place	Bishop_Game	8	1848	77	13
-17	 Player36	3rd Place	BG_Game	6	1802	82	14
+1	 Player44	1st Place	Queen_Game	6	1918	73	11
+2	 Player7	1st Place	Pawn_Game	13	1936	74	11
+3	 Player14	1st Place	Pillar_Game	12	1915	80	12
+4	 Player34	1st Place	Bishop_Game	7	1918	82	14
+5	 Player8	1st Place	BG_Game	10	1872	80	12
+6	 Player29	1st Place	bughouse	5	1939	78	13
+7	 Player22	2nd Place	Queen_Game	6	1916	76	13
+8	 Player25	2nd Place	Pawn_Game	10	1883	78	11
+9	 Player5	2nd Place	Pillar_Game	6	1891	80	12
+10	 Player13	2nd Place	Bishop_Game	8	1887	79	13
+11	 Player23	2nd Place	BG_Game	8	1840	77	15
+12	 Player42	2nd Place	bughouse	5	1936	76	12
+13	 Player20	3rd Place	Queen_Game	5	1872	77	13
+14	 Player35	3rd Place	Pawn_Game	7	1863	73	9
+15	 Player49	3rd Place	Pillar_Game	5	1826	78	13
+16	 Player2	3rd Place	Bishop_Game	7	1730	78	13
+17	 Player24	3rd Place	BG_Game	11	1825	79	14
