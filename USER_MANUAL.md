@@ -6,18 +6,26 @@
 
 ### Connecting to a Server
 
-#### Option 1: Settings Dialog
-1. Open **Operations → Settings**
-2. Enter server URL and API key
-3. Click **Save**
+#### Auto-Detect (Default)
 
-#### Option 2: One-Click URL
-Open this URL to auto-configure:
+When no manual config exists, the app auto-detects the server from your current location. No URL or API key needed — just open the app at your club's subdomain and it connects automatically.
+
+#### Manual Configuration via Settings Dialog
+
+1. Open **Operations → Settings**
+2. The server URL field is pre-filled with your current location
+3. Modify if needed, optionally enter API key
+4. Click **Save** — page reloads with new configuration
+
+#### One-Click URL (Remote Setup)
+
+Share a single URL to auto-configure any client:
 ```
 http://your-domain.com/?config=1&server=http://your-server:port&key=your-api-key-here
 ```
 
-#### Option 3: Load Local File
+#### Load Local File (No Server)
+
 Drag a `.tab`, `.xls`, or `.txt` file onto the splash screen (no server needed).
 
 ### API Key Access

@@ -122,7 +122,15 @@ server/
 
 ## Current Test Coverage
 
-**Total: 470 tests** across client and server. **468 passed, 2 skipped.**
+**Total: 561 tests** across client and server. **All passed.**
+
+### Test Count Breakdown (v1.1.9)
+
+| Category | Tests | Notes |
+|----------|-------|-------|
+| Client unit tests | ~350 | Rating formula, stress tests, normalization, conflict detection, settings, admin lock, etc. |
+| Client component tests | ~75 | LadderForm, MenuBar, Settings gating |
+| Server tests | ~136 | Admin lock, auth, backup, tournament, mini-games |
 
 ### Client Unit Tests
 

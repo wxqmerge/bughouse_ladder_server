@@ -404,6 +404,9 @@ export default function LadderForm({
         setSplashServerUrl(normalizeServerUrl(userSettings.server) || '');
         setSplashApiKey(userSettings.apiKey || '');
         setHadExistingUserSettings(true);
+      } else {
+        // Pre-populate with current origin for auto-detection
+        setSplashServerUrl(window.location.origin);
       }
       
       // Check for local player data
@@ -3278,7 +3281,7 @@ export default function LadderForm({
                 fontStyle: "italic",
               }}
             >
-              No previous server configuration found.
+              Auto-detected server: {window.location.origin}. Click Connect to use it, or enter a different URL.
             </p>
           )}
           {!hasLocalPlayerData && (
@@ -3290,14 +3293,14 @@ export default function LadderForm({
                 fontStyle: "italic",
               }}
             >
-              No local player data found. Enter server details to connect, or load a file.
+              No local player data found. Click Connect to load from server, or load a file.
             </p>
           )}
           
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginBottom: "1rem" }}>
             <input
               type="text"
-              placeholder="Server URL (e.g., omen.com:3000)"
+              placeholder="Server URL (auto-detected)"
               value={splashServerUrl}
               onChange={(e) => setSplashServerUrl(e.target.value)}
               style={{
@@ -3361,7 +3364,7 @@ export default function LadderForm({
               color: "#64748b",
             }}
           >
-            Leave Server URL empty for local mode (no server). Changes are auto-saved.
+            Server URL is auto-detected from your location. Clear the field for local mode (no server). Changes are auto-saved.
           </p>
         </div>
         

@@ -41,35 +41,63 @@ export function onModeChange(callback: (newMode: string, oldMode: string) => voi
 }
 
 /**
- * Initialize connection state based on configuration
- * Reads ONLY from localStorage user settings - no env fallback
- */
-export function initializeConnectionState(): void {
-  // Read from localStorage user settings only
-  try {
-    const userSettings = loadUserSettings();
-    if (userSettings.server && userSettings.server.trim()) {
-      connectionState.configuredForServer = true;
-      connectionState.serverUrl = userSettings.server.trim();
-      console.log('[mode.ts] Using USER SETTINGS server:', connectionState.serverUrl);
-      connectionState.serverReachable = null;
-      connectionState.lastCheckTime = Date.now();
-      connectionState.previousMode = null;
-      lastSavedServer = '';
-      lastSavedApiKey = '';
-      return;
-    }
-  } catch (err) {
-    console.error('[mode.ts] Failed to read user settings:', err);
-  }
-  
-  // No server configured - local mode
-  connectionState.configuredForServer = false;
-  connectionState.serverUrl = null;
-  connectionState.serverReachable = null;
-  connectionState.lastCheckTime = Date.now();
-  connectionState.previousMode = null;
-}
+  * Initialize connection state based on configuration
+  * Reads ONLY from localStorage user settings - no env fallback
+  */
+ export async function initializeConnectionState(): Promise<void> {
+   // Read from localStorage user settings only
+   try {
+     const userSettings = loadUserSettings();
+     if (userSettings.server && userSettings.server.trim()) {
+       connectionState.configuredForServer = true;
+       connectionState.serverUrl = userSettings.server.trim();
+       console.log('[mode.ts] Using USER SETTINGS server:', connectionState.serverUrl);
+       connectionState.serverReachable = null;
+       connectionState.lastCheckTime = Date.now();
+       connectionState.previousMode = null;
+       lastSavedServer = '';
+       lastSavedApiKey = '';
+       return;
+     }
+   } catch (err) {
+     console.error('[mode.ts] Failed to read user settings:', err);
+   }
+   
+   // No server configured - try same-origin auto-detection
+   try {
+     const origin = window.location.origin;
+     const controller = new AbortController();
+     const timeoutId = setTimeout(() => controller.abort(), 3000);
+     
+     const response = await fetch(`${origin}/health`, {
+       method: 'GET',
+       signal: controller.signal,
+     });
+     clearTimeout(timeoutId);
+     
+     const serverUp = response.ok || response.status === 404;
+     if (serverUp) {
+       connectionState.configuredForServer = true;
+       connectionState.serverUrl = origin;
+       connectionState.serverReachable = true;
+       connectionState.lastCheckTime = Date.now();
+       connectionState.previousMode = null;
+       lastSavedServer = '';
+       lastSavedApiKey = '';
+       console.log('[mode.ts] Same-origin auto-detected:', origin);
+       return;
+     }
+   } catch (e) {
+     console.log('[mode.ts] Same-origin detection failed, falling back to local mode');
+   }
+   
+   // No server configured - local mode
+   connectionState.configuredForServer = false;
+   connectionState.serverUrl = null;
+   connectionState.serverReachable = null;
+   connectionState.lastCheckTime = Date.now();
+   connectionState.previousMode = null;
+ }
 
 /**
  * Test if the server is reachable
