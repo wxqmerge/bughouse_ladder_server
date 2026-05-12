@@ -11,18 +11,16 @@ async function main() {
   const filePath = path.join(__dirname, '../../src/test/unit/reports/150p_20r_150p_ng0-10.tab');
   const data = await readLadderFile(filePath);
   const players = data.players;
-  const maxTrophies = Math.ceil(players.length / 3);
+ const minTrophies = Math.ceil(players.length / 3);
 
-  console.log('Players:', players.length);
-  console.log('Max Trophies:', maxTrophies);
-  console.log('');
+  console.log('Min Trophies:', minTrophies);
 
-  const trophies = generateClubLadderTrophies(players, maxTrophies);
+  const trophies = generateClubLadderTrophies(players, minTrophies);
 
   const lines: string[] = [];
   lines.push(debugLine('DEBUG', 'TROPHY REPORT', '', '', '', '', '', ''));
   lines.push(debugLine('Players', String(players.length), '', '', '', '', '', ''));
-  lines.push(debugLine('Max Trophies', maxTrophies + ' (ceil(' + players.length + ' / 3))', '', '', '', '', '', ''));
+  lines.push(debugLine('Min Trophies', minTrophies + ' (ceil(' + players.length + ' / 3))', '', '', '', '', '', ''));
   lines.push('');
 
   if (debugLevel >= 1) {

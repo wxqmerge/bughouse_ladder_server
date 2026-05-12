@@ -254,13 +254,13 @@ export const miniGameStore: MiniGameStore = {
         return { success: false, message: 'No players found' };
       }
 
-      const maxTrophies = Math.ceil(players.length / 3);
+      const minTrophies = Math.ceil(players.length / 3);
       let trophies: any[] = [];
       const debugLines: string[] = [];
 
       debugLines.push(sharedDebugLine('DEBUG', 'TROPHY REPORT', '', '', '', '', '', ''));
       debugLines.push(sharedDebugLine('Players', String(players.length), '', '', '', '', '', ''));
-      debugLines.push(sharedDebugLine('Max Trophies', `${maxTrophies} (ceil(${players.length} / 3))`, '', '', '', '', '', ''));
+      debugLines.push(sharedDebugLine('Min Trophies', `${minTrophies} (ceil(${players.length} / 3))`, '', '', '', '', '', ''));
       debugLines.push('');
 
       if (isClubMode) {
@@ -290,14 +290,14 @@ export const miniGameStore: MiniGameStore = {
           debugLines.push('');
         }
         
-        trophies = sharedGenerateClubLadderTrophies(players, maxTrophies);
+        trophies = sharedGenerateClubLadderTrophies(players, minTrophies);
       } else {
         const existingFiles = await this.getExistingMiniGameFiles();
         const m = existingFiles.length;
         debugLines.push(sharedDebugLine('Mode', 'Mini-Game Tournament', '', '', '', '', '', ''));
         debugLines.push(sharedDebugLine('Mini-games played', String(m), '', '', '', '', '', ''));
-        debugLines.push(sharedDebugLine('Award 2nd place', `t=${maxTrophies} > m=${m} ? ${maxTrophies > m}`, '', '', '', '', '', ''));
-        debugLines.push(sharedDebugLine('Award grade 1st', `t=${maxTrophies} > 2*m=${2 * m} ? ${maxTrophies > 2 * m}`, '', '', '', '', '', ''));
+  debugLines.push(sharedDebugLine('Award 2nd place', `t=${minTrophies} > m=${m} ? ${minTrophies > m}`, '', '', '', '', '', ''));
+   debugLines.push(sharedDebugLine('Award grade 1st', `t=${minTrophies} > 2*m=${2 * m} ? ${minTrophies > 2 * m}`, '', '', '', '', '', ''));
         debugLines.push('');
         
         // Recalculate ratings (5 passes) for each mini-game
@@ -349,7 +349,7 @@ export const miniGameStore: MiniGameStore = {
           miniGameDataList.push({ fileName, players: data.players });
         }
         
-        trophies = sharedGenerateMiniGameTrophies(players, maxTrophies, miniGameDataList);
+        trophies = sharedGenerateMiniGameTrophies(players, minTrophies, miniGameDataList);
       }
 
       return {

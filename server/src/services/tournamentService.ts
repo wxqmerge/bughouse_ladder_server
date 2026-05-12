@@ -315,18 +315,18 @@ export async function generateTrophyReport(debugLevel: number = 3): Promise<{
       return { success: false, message: 'No players found' };
     }
 
-    const maxTrophies = Math.ceil(players.length / 3);
+    const minTrophies = Math.ceil(players.length / 3);
     let trophies: any[] = [];
     const debugLines: string[] = [];
 
-    const headerLines = buildDebugHeader(players, maxTrophies, isClubMode);
+    const headerLines = buildDebugHeader(players, minTrophies, isClubMode);
     debugLines.push(...headerLines);
 
     if (isClubMode) {
       const clubPlayerLines = buildClubLadderPlayerSection(players, debugLevel);
       debugLines.push(...clubPlayerLines);
       
-      trophies = sharedGenerateClubLadderTrophies(players, maxTrophies);
+      trophies = sharedGenerateClubLadderTrophies(players, minTrophies);
     } else {
       const existingFiles = await getExistingMiniGameFiles();
       const m = existingFiles.length;
@@ -367,7 +367,7 @@ export async function generateTrophyReport(debugLevel: number = 3): Promise<{
       const miniGameLines = buildMiniGamePlayerSection(miniGameDataList);
       debugLines.push(...miniGameLines);
       
-      trophies = sharedGenerateMiniGameTrophies(players, maxTrophies, miniGameDataList);
+      trophies = sharedGenerateMiniGameTrophies(players, minTrophies, miniGameDataList);
     }
 
     const trophiesSection = buildTrophiesSection(trophies);
