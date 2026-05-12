@@ -392,6 +392,10 @@ export async function savePlayers(players: PlayerData[], waitForServer = false, 
   const mode = dataService.getMode();
   const userSettings = loadUserSettings();
   const serverUrl = userSettings.server?.trim() || '';
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (userSettings.apiKey && userSettings.apiKey.trim()) {
+    headers['X-API-Key'] = userSettings.apiKey.trim();
+  }
   
   if (mode === DataServiceMode.LOCAL && !serverUrl) {
     setJson('ladder_players', players);
@@ -408,19 +412,23 @@ export async function savePlayers(players: PlayerData[], waitForServer = false, 
     if (waitForServer) {
       const url = dataService.getConfigServerUrl();
       if (!url) return { success: true, serverSynced: false, error: 'No server URL' };
-      const res = await fetch(`${url}/api/ladder`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ players }) });
+      const res = await fetch(`${url}/api/ladder`, { method: 'PUT', headers, body: JSON.stringify({ players }) });
       if (res.ok) {
         dataService.resetHashPublic();
         return { success: true, serverSynced: true };
       }
-      return { success: false, serverSynced: false, error: res.statusText };
+      let errorMsg = res.statusText;
+      if (res.status === 401 || res.status === 403) {
+        errorMsg = 'Write rejected by server. Check your API key in settings.';
+      }
+      return { success: false, serverSynced: false, error: errorMsg };
     } else if (skipServerSync) {
       return { success: true, serverSynced: false };
     } else {
       (async () => {
         const url = dataService.getConfigServerUrl();
         if (url) {
-          const res = await fetch(`${url}/api/ladder`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ players }) });
+          const res = await fetch(`${url}/api/ladder`, { method: 'PUT', headers, body: JSON.stringify({ players }) });
           if (res.ok) dataService.resetHashPublic();
         }
       })();
@@ -540,6 +548,7 @@ export async function tryAcquireAdminLock(clientName?: string): Promise<boolean>
   }
   try {
     const res = await fetch(`${url}/api/admin-lock/acquire`, { method: 'POST', headers, body: JSON.stringify({ clientId: id, clientName: name }) });
+    if (!res.ok) return false;
     const data = await res.json();
     return data.success;
   } catch { return false; }
@@ -557,6 +566,7 @@ export async function forceAcquireAdminLock(clientName?: string): Promise<boolea
   }
   try {
     const res = await fetch(`${url}/api/admin-lock/force`, { method: 'POST', headers, body: JSON.stringify({ clientId: id, clientName: name }) });
+    if (!res.ok) return false;
     const data = await res.json();
     return data.success;
   } catch { return false; }
@@ -584,7 +594,7 @@ export async function refreshAdminLock(): Promise<void> {
   try { await fetch(`${url}/api/admin-lock/refresh`, { method: 'POST', headers, body: JSON.stringify({ clientId: getClientId() }) }); } catch {}
 }
 
-export async function getAdminLockInfo(): Promise<{ locked: boolean; holderId?: string; holderName?: string; expiresAt?: number; serverReachable?: boolean }> {
+export async function getAdminLockInfo(): Promise<{ locked: boolean; holderId?: string; holderName?: string; expiresAt?: number; serverReachable?: boolean; adminBlocked?: boolean }> {
   const url = getServerUrl();
   if (!url) return { locked: false, serverReachable: true };
   const settings = loadUserSettings();
@@ -594,6 +604,12 @@ export async function getAdminLockInfo(): Promise<{ locked: boolean; holderId?: 
   }
   try {
     const res = await fetch(`${url}/api/admin-lock/status`, { headers });
+    if (res.status === 401 || res.status === 403) {
+      return { locked: false, serverReachable: true, adminBlocked: true };
+    }
+    if (!res.ok) {
+      return { locked: false, serverReachable: false };
+    }
     const data = await res.json();
     return data.locked ? { locked: true, holderId: data.lock?.clientId, holderName: data.lock?.clientName, expiresAt: data.expiresAt, serverReachable: true } : { locked: false, serverReachable: true };
   } catch { return { locked: false, serverReachable: false }; }
@@ -602,5 +618,18 @@ export async function getAdminLockInfo(): Promise<{ locked: boolean; holderId?: 
 export async function isAdminLocked(): Promise<boolean> {
   const info = await getAdminLockInfo();
   return info.locked;
+}
+
+export async function checkWritePermission(): Promise<boolean> {
+  const url = getServerUrl();
+  if (!url) return true;
+  const settings = loadUserSettings();
+  // If no API key is saved, assume write is allowed (user may need to save key first via UI)
+  if (!settings.apiKey || !settings.apiKey.trim()) return true;
+  const headers: Record<string, string> = { 'X-API-Key': settings.apiKey.trim() };
+  try {
+    const res = await fetch(`${url}/api/ladder`, { method: 'PUT', headers, body: JSON.stringify({ players: [] }) });
+    return res.ok;
+  } catch { return false; }
 }
 
