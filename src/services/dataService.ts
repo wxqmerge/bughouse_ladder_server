@@ -1083,12 +1083,14 @@ async function determineMode(): Promise<DataServiceConfig> {
   }
 
   // Priority 2: Try same-origin auto-detection
+  const origin = window.location.origin;
+  const existingSettings = loadUserSettings();
+  console.log('[DataService] Auto-detect: origin=', origin, 'stored server=', existingSettings.server || '(none)');
+  
+  let autoDetectedUrl: string | null = null;
+  
+  // Step 1: Check same-origin first
   try {
-    const origin = window.location.origin;
-    const existingSettings = loadUserSettings();
-    console.log('[DataService] Auto-detect: origin=', origin, 'stored server=', existingSettings.server || '(none)');
-    
-    // Step 1: Check /health endpoint
     const healthController = new AbortController();
     const healthTimeoutId = setTimeout(() => healthController.abort(), 3000);
     
@@ -1101,7 +1103,6 @@ async function determineMode(): Promise<DataServiceConfig> {
     
     const healthOk = healthResponse.ok || healthResponse.status === 404;
     
-    // Step 2: Verify API routes are actually accessible
     const apiController = new AbortController();
     const apiTimeoutId = setTimeout(() => apiController.abort(), 3000);
     
@@ -1112,24 +1113,93 @@ async function determineMode(): Promise<DataServiceConfig> {
     clearTimeout(apiTimeoutId);
     console.log('[DataService] Auto-detect: /api/ladder status=', apiResponse.status, 'ok=', apiResponse.ok);
     
-    // /api/ladder GET is public - should return 200 with data
-    // 404 means Express routes aren't registered (server not running)
-    // 401/403 means auth is required (still a valid server)
     const apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403;
     
     if (healthOk && apiOk) {
-      console.log('[DataService] Same-origin auto-detected:', origin);
-      const normalized = origin.replace(/\/$/, '');
-      saveUserSettings({ server: normalized, apiKey: existingSettings.apiKey, debugMode: false });
-      return {
-        mode: DataServiceMode.SERVER,
-        serverUrl: normalized,
-      };
+      autoDetectedUrl = origin.replace(/\/$/, '');
+      console.log('[DataService] Same-origin auto-detected:', autoDetectedUrl);
     } else {
-      console.log('[DataService] Auto-detection FAILED: healthOk=', healthOk, 'apiOk=', apiOk, '(health status=', healthResponse.status, 'api status=', apiResponse.status, ')');
+      console.log('[DataService] Same-origin detection FAILED: healthOk=', healthOk, 'apiOk=', apiOk);
     }
   } catch (e) {
     console.log('[DataService] Same-origin detection threw error:', (e as Error).message);
+  }
+  
+  // Step 2: If same-origin failed, try subdomain-based detection
+  // Pattern: /{project-name}/dist/ → https://{project-name}.{hostname}
+  if (!autoDetectedUrl) {
+    try {
+      const pathname = window.location.pathname;
+      const hostname = window.location.hostname;
+      
+      // Extract project name from path (e.g., /dev-ladder/dist/ → dev-ladder)
+      const match = pathname.match(/^\/([^/]+)\/dist(?:\/.*)?$/);
+      if (match) {
+        const projectName = match[1];
+        const candidateUrl = `https://${projectName}.${hostname}`;
+        console.log('[DataService] Subdomain candidate from path:', projectName, '→', candidateUrl);
+        
+        // Validate candidate
+        const healthController = new AbortController();
+        const healthTimeoutId = setTimeout(() => healthController.abort(), 3000);
+        
+        let healthOk = false;
+        try {
+          const healthResponse = await fetch(`${candidateUrl}/health`, {
+            method: 'GET',
+            signal: healthController.signal,
+          });
+          clearTimeout(healthTimeoutId);
+          console.log('[DataService] Subdomain check: /health status=', healthResponse.status);
+          healthOk = healthResponse.ok || healthResponse.status === 404;
+        } catch {
+          clearTimeout(healthTimeoutId);
+        }
+        
+        if (healthOk) {
+          const apiController = new AbortController();
+          const apiTimeoutId = setTimeout(() => apiController.abort(), 3000);
+          
+          let apiOk = false;
+          let apiStatus = 0;
+          try {
+            const apiResponse = await fetch(`${candidateUrl}/api/ladder`, {
+              method: 'GET',
+              signal: apiController.signal,
+            });
+            clearTimeout(apiTimeoutId);
+            apiStatus = apiResponse.status;
+            console.log('[DataService] Subdomain check: /api/ladder status=', apiStatus);
+            apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403;
+          } catch (e) {
+            clearTimeout(apiTimeoutId);
+            console.log('[DataService] Subdomain check: /api/ladder error:', (e as Error).message);
+          }
+          
+          if (apiOk) {
+            autoDetectedUrl = candidateUrl;
+            console.log('[DataService] Subdomain auto-detected:', autoDetectedUrl);
+          } else {
+            console.log('[DataService] Subdomain detection FAILED: apiOk=', apiOk, 'apiStatus=', apiStatus);
+          }
+        } else {
+          console.log('[DataService] Subdomain /health check failed');
+        }
+      } else {
+        console.log('[DataService] No project name found in path:', pathname, '(expected /{project-name}/dist/)');
+      }
+    } catch (e) {
+      console.log('[DataService] Subdomain detection threw error:', (e as Error).message);
+    }
+  }
+  
+  // Step 3: Use auto-detected URL if found
+  if (autoDetectedUrl) {
+    saveUserSettings({ server: autoDetectedUrl, apiKey: existingSettings.apiKey, debugMode: false });
+    return {
+      mode: DataServiceMode.SERVER,
+      serverUrl: autoDetectedUrl,
+    };
   }
 
   // Priority 3: Local mode
