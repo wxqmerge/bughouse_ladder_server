@@ -49,9 +49,10 @@ describe('Debug Level bounds', () => {
   });
 
   describe('Settings input behavior simulation', () => {
-    // Simulates the onChange handler: Math.max(0, Math.min(20, parseInt(e.target.value) || 5))
+    // Simulates the onChange handler: isNaN/empty → 5, then clamp 0-20
     function clampDebugLevel(input: string): number {
-      return Math.max(0, Math.min(20, parseInt(input) || 5));
+      const parsed = parseInt(input, 10);
+      return input === '' || isNaN(parsed) ? 5 : Math.max(0, Math.min(20, parsed));
     }
 
     it('should handle empty string input → default 5', () => {
@@ -74,10 +75,8 @@ describe('Debug Level bounds', () => {
       expect(clampDebugLevel('5')).toBe(5);
     });
 
-    it('should treat 0 as falsy and use default 5 (parseInt 0 || 5)', () => {
-      // parseInt('0') returns 0, which is falsy, so || 5 kicks in
-      // This matches the actual Settings.tsx behavior
-      expect(clampDebugLevel('0')).toBe(5);
+    it('should accept 0 (no debug output)', () => {
+      expect(clampDebugLevel('0')).toBe(0);
     });
 
     it('should preserve 10 (critical only)', () => {

@@ -273,11 +273,12 @@ export default function Settings({
                 min="0"
                 max="20"
                 value={debugLevel}
-                onChange={(e) =>
+                onChange={(e) => {
+                  const parsed = parseInt(e.target.value, 10);
                   setDebugLevel(
-                    Math.max(0, Math.min(20, parseInt(e.target.value) || 5)),
-                  )
-                }
+                    e.target.value === '' || isNaN(parsed) ? 5 : Math.max(0, Math.min(20, parsed)),
+                  );
+                }}
                 style={{
                   width: "100%",
                   padding: "0.5rem",

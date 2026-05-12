@@ -425,8 +425,7 @@ Tests K-Factor clamping at Settings input boundary:
 #### `debugLevelBounds.test.ts` (16 tests)
 Tests Debug Level clamping at Settings input boundary:
 - `Math.max(0, Math.min(20, value))` clamps <0→0, >20→20
-- Settings input simulation: `parseInt(e.target.value) || 5` handles empty/invalid → default 5
-- Note: `parseInt('0')` returns 0 (falsy), so `0 || 5` → default 5 (matches actual Settings.tsx behavior)
+- Settings input simulation: empty/invalid → default 5, 0 → 0 (no debug output)
 - Boundary values: 0 and 20 preserved
 
 #### `exportFilename.test.ts` (13 tests)
