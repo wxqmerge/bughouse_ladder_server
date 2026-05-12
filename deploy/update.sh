@@ -40,7 +40,7 @@ if ! git pull; then
 fi
 
 # 3. Clean stale build artifacts
-echo "[3/6] Cleaning stale build artifacts..."
+echo "[3/7] Cleaning stale build artifacts..."
 if [ -d "dist" ]; then
     rm -rf dist
     echo "  Removed dist/"
@@ -48,6 +48,11 @@ fi
 if [ -d "server/dist" ]; then
     rm -rf server/dist
     echo "  Removed server/dist/"
+fi
+# Clean shared/ JS files so Vite re-compiles from TypeScript sources
+if [ -d "shared/utils" ]; then
+    rm -f shared/utils/*.js shared/utils/*.js.map shared/utils/*.d.ts shared/utils/*.d.ts.map
+    echo "  Removed stale shared/utils/*.js"
 fi
 
 # 4. Install dependencies (no --production: we need devDeps for building)
