@@ -60,7 +60,7 @@ Vite proxies `/api` → `http://localhost:3000`. Backend SSE endpoint is `/api/l
 
 ### Frontend Server Auto-Detect
 When no manual server config exists, the app auto-detects from `window.location.origin`:
-1. `HEAD /api/ladder` with 3s timeout
+1. `GET /health` with 3s timeout
 2. Responds → SERVER mode; fails → LOCAL mode (localStorage only)
 
 ### Frontend URL-Based Configuration

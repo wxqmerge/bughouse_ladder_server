@@ -64,32 +64,55 @@ export function onModeChange(callback: (newMode: string, oldMode: string) => voi
    }
    
    // No server configured - try same-origin auto-detection
-   try {
-     const origin = window.location.origin;
-     const controller = new AbortController();
-     const timeoutId = setTimeout(() => controller.abort(), 3000);
-     
-     const response = await fetch(`${origin}/health`, {
-       method: 'GET',
-       signal: controller.signal,
-     });
-     clearTimeout(timeoutId);
-     
-     const serverUp = response.ok || response.status === 404;
-     if (serverUp) {
-       connectionState.configuredForServer = true;
-       connectionState.serverUrl = origin;
-       connectionState.serverReachable = true;
-       connectionState.lastCheckTime = Date.now();
-       connectionState.previousMode = null;
-       lastSavedServer = '';
-       lastSavedApiKey = '';
-       console.log('[mode.ts] Same-origin auto-detected:', origin);
-       return;
-     }
-   } catch (e) {
-     console.log('[mode.ts] Same-origin detection failed, falling back to local mode');
-   }
+    try {
+      const origin = window.location.origin;
+      console.log('[mode.ts] Auto-detect: origin=', origin);
+      
+      // Step 1: Check /health endpoint
+      const healthController = new AbortController();
+      const healthTimeoutId = setTimeout(() => healthController.abort(), 3000);
+      
+      const healthResponse = await fetch(`${origin}/health`, {
+        method: 'GET',
+        signal: healthController.signal,
+      });
+      clearTimeout(healthTimeoutId);
+      console.log('[mode.ts] Auto-detect: /health status=', healthResponse.status, 'ok=', healthResponse.ok);
+      
+      const healthOk = healthResponse.ok || healthResponse.status === 404;
+      
+      // Step 2: Verify API routes are actually accessible (not just something responding to /health)
+      const apiController = new AbortController();
+      const apiTimeoutId = setTimeout(() => apiController.abort(), 3000);
+      
+      const apiResponse = await fetch(`${origin}/api/ladder`, {
+        method: 'GET',
+        signal: apiController.signal,
+      });
+      clearTimeout(apiTimeoutId);
+      console.log('[mode.ts] Auto-detect: /api/ladder status=', apiResponse.status, 'ok=', apiResponse.ok);
+      
+      // /api/ladder GET is public - should return 200 with data
+      // 404 means Express routes aren't registered (server not running)
+      // 401/403 means auth is required (still a valid server)
+      const apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403;
+      
+      if (healthOk && apiOk) {
+        connectionState.configuredForServer = true;
+        connectionState.serverUrl = origin;
+        connectionState.serverReachable = true;
+        connectionState.lastCheckTime = Date.now();
+        connectionState.previousMode = null;
+        lastSavedServer = '';
+        lastSavedApiKey = '';
+        console.log('[mode.ts] Same-origin auto-detected:', origin);
+        return;
+      } else {
+        console.log('[mode.ts] Auto-detection FAILED: healthOk=', healthOk, 'apiOk=', apiOk, '(health status=', healthResponse.status, 'api status=', apiResponse.status, ')');
+      }
+    } catch (e) {
+      console.log('[mode.ts] Same-origin detection threw error:', (e as Error).message);
+    }
    
    // No server configured - local mode
    connectionState.configuredForServer = false;
@@ -112,30 +135,67 @@ export async function testServerConnection(): Promise<boolean> {
   // Report status for long-running operations
   (window as any).__ladder_setStatus?.(`Connecting to ${new URL(apiUrl).hostname}...`);
   
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 3000);
+  // Step 1: Check /health endpoint
+  const healthController = new AbortController();
+  const healthTimeoutId = setTimeout(() => healthController.abort(), 3000);
   
+  let healthOk = false;
+  let healthStatus = 0;
   try {
-    // Use GET instead of HEAD - Express doesn't handle HEAD on custom routes
-    const response = await fetch(`${apiUrl}/health`, {
+    const healthResponse = await fetch(`${apiUrl}/health`, {
       method: 'GET',
-      signal: controller.signal,
+      signal: healthController.signal,
     });
-    clearTimeout(timeoutId);
-    // 2xx = server up, 404 = server up but /health endpoint missing
-    const serverUp = response.ok || response.status === 404;
-    if (serverUp) {
-      const settings = loadUserSettings();
-      if (shouldSaveLastWorkingConfig(apiUrl, settings.apiKey)) {
-        saveLastWorkingConfig(apiUrl, settings.apiKey);
-        markLastWorkingConfigSaved(apiUrl, settings.apiKey);
-      }
-    }
-    return serverUp;
-  } catch {
-    clearTimeout(timeoutId);
+    clearTimeout(healthTimeoutId);
+    healthStatus = healthResponse.status;
+    healthOk = healthResponse.ok || healthResponse.status === 404;
+    console.log('[mode.ts] testServerConnection: /health status=', healthStatus);
+  } catch (e) {
+    clearTimeout(healthTimeoutId);
+    console.log('[mode.ts] testServerConnection: /health error:', (e as Error).message);
     return false;
   }
+  
+  if (!healthOk) {
+    console.log('[mode.ts] testServerConnection: /health not ok (status', healthStatus, ')');
+    return false;
+  }
+  
+  // Step 2: Verify API routes are actually accessible
+  const apiController = new AbortController();
+  const apiTimeoutId = setTimeout(() => apiController.abort(), 3000);
+  
+  let apiOk = false;
+  let apiStatus = 0;
+  try {
+    const apiResponse = await fetch(`${apiUrl}/api/ladder`, {
+      method: 'GET',
+      signal: apiController.signal,
+    });
+    clearTimeout(apiTimeoutId);
+    apiStatus = apiResponse.status;
+    // /api/ladder GET is public - should return 200 with data
+    // 404 means Express routes aren't registered
+    // 401/403 means auth is required (still a valid server)
+    apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403;
+    console.log('[mode.ts] testServerConnection: /api/ladder status=', apiStatus);
+  } catch (e) {
+    clearTimeout(apiTimeoutId);
+    console.log('[mode.ts] testServerConnection: /api/ladder error:', (e as Error).message);
+    return false;
+  }
+  
+  if (!apiOk) {
+    console.log('[mode.ts] testServerConnection: /api/ladder not ok (status', apiStatus, ')');
+    return false;
+  }
+  
+  const settings = loadUserSettings();
+  if (shouldSaveLastWorkingConfig(apiUrl, settings.apiKey)) {
+    saveLastWorkingConfig(apiUrl, settings.apiKey);
+    markLastWorkingConfigSaved(apiUrl, settings.apiKey);
+  }
+  return true;
 }
 
 /**

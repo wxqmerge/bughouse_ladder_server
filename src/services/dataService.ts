@@ -1085,20 +1085,51 @@ async function determineMode(): Promise<DataServiceConfig> {
   // Priority 2: Try same-origin auto-detection
   try {
     const origin = window.location.origin;
-    const response = await fetch(`${origin}/api/ladder`, { method: 'HEAD', signal: AbortSignal.timeout(3000) });
-    const serverUp = response.ok || response.status === 404 || response.status === 401 || response.status === 403;
+    const existingSettings = loadUserSettings();
+    console.log('[DataService] Auto-detect: origin=', origin, 'stored server=', existingSettings.server || '(none)');
     
-    if (serverUp) {
+    // Step 1: Check /health endpoint
+    const healthController = new AbortController();
+    const healthTimeoutId = setTimeout(() => healthController.abort(), 3000);
+    
+    const healthResponse = await fetch(`${origin}/health`, {
+      method: 'GET',
+      signal: healthController.signal,
+    });
+    clearTimeout(healthTimeoutId);
+    console.log('[DataService] Auto-detect: /health status=', healthResponse.status, 'ok=', healthResponse.ok);
+    
+    const healthOk = healthResponse.ok || healthResponse.status === 404;
+    
+    // Step 2: Verify API routes are actually accessible
+    const apiController = new AbortController();
+    const apiTimeoutId = setTimeout(() => apiController.abort(), 3000);
+    
+    const apiResponse = await fetch(`${origin}/api/ladder`, {
+      method: 'GET',
+      signal: apiController.signal,
+    });
+    clearTimeout(apiTimeoutId);
+    console.log('[DataService] Auto-detect: /api/ladder status=', apiResponse.status, 'ok=', apiResponse.ok);
+    
+    // /api/ladder GET is public - should return 200 with data
+    // 404 means Express routes aren't registered (server not running)
+    // 401/403 means auth is required (still a valid server)
+    const apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403;
+    
+    if (healthOk && apiOk) {
       console.log('[DataService] Same-origin auto-detected:', origin);
       const normalized = origin.replace(/\/$/, '');
-      saveUserSettings({ server: normalized, apiKey: '', debugMode: false });
+      saveUserSettings({ server: normalized, apiKey: existingSettings.apiKey, debugMode: false });
       return {
         mode: DataServiceMode.SERVER,
         serverUrl: normalized,
       };
+    } else {
+      console.log('[DataService] Auto-detection FAILED: healthOk=', healthOk, 'apiOk=', apiOk, '(health status=', healthResponse.status, 'api status=', apiResponse.status, ')');
     }
   } catch (e) {
-    console.log('[DataService] Same-origin detection failed, falling back to local mode');
+    console.log('[DataService] Same-origin detection threw error:', (e as Error).message);
   }
 
   // Priority 3: Local mode
