@@ -669,6 +669,9 @@ describe('Mini-game trophy stress test — club ladder mode', () => {
 
     const clubTrophies = generateClubLadderTrophies(players, minTrophies);
 
+    const clubLadderData: LadderData = { header: [], players, rawLines: [] };
+    await writeLadderFile(clubLadderData, path.join(outputDir, 'ladder.tab'));
+
     // Generate trophy report file (matches GUI format exactly with debug info)
     const headerLines = buildDebugHeader(players, minTrophies, true);
     const clubPlayerLines = buildClubLadderPlayerSection(players, 3);
@@ -679,6 +682,7 @@ describe('Mini-game trophy stress test — club ladder mode', () => {
     await fs.writeFile(path.join(outputDir, 'club_ladder_trophies.tab'), trophyReportString);
 
     console.log(`[CLUB LADDER TROPHY REPORT] Saved to: ${path.join(outputDir, 'club_ladder_trophies.tab')}`);
+    console.log(`[CLUB LADDER TROPHY REPORT] Ladder used: ${path.join(outputDir, 'ladder.tab')}`);
 
     const ineligiblePlayers = players.filter(p => p.trophyEligible === false);
     expect(ineligiblePlayers.length).toBeGreaterThan(0);
