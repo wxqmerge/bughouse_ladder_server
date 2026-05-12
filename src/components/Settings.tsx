@@ -18,6 +18,12 @@ import "../css/index.css";
 import { getSettings, saveSettings } from "../services/storageService";
 import { loadUserSettings, saveUserSettings, normalizeServerUrl, getLastWorkingConfig, type UserSettings } from "../services/userSettingsStorage";
 
+interface ActionSettings {
+  showRatings: boolean[];
+  debugLevel: number;
+  kFactor: number;
+}
+
 interface SettingsProps {
   onClose: () => void;
   onReset: () => void;
@@ -31,6 +37,7 @@ interface SettingsProps {
   onGenerateTrophies?: () => void;
   isTournamentActive?: boolean;
   isAdmin: boolean;
+  onSaveBeforeAction?: (settings: ActionSettings, userSettings: UserSettings) => void;
 }
 
 export default function Settings({
@@ -46,6 +53,7 @@ export default function Settings({
   onGenerateTrophies,
   isTournamentActive,
   isAdmin,
+  onSaveBeforeAction,
 }: SettingsProps) {
   const [showRatings, setShowRatings] = useState(true);
   const [debugLevel, setDebugLevel] = useState(5);
@@ -113,6 +121,20 @@ export default function Settings({
     }, 500);
   };
 
+  const saveForAction = () => {
+    const settings: ActionSettings = {
+      showRatings: [showRatings, showRatings, showRatings, showRatings],
+      debugLevel: debugLevel,
+      kFactor: Math.max(1, Math.min(100, kFactor || 20)),
+    };
+    const userSettings: UserSettings = {
+      server: serverUrl.trim(),
+      apiKey: apiKey.trim(),
+      debugMode: debugMode,
+    };
+    onSaveBeforeAction?.(settings, userSettings);
+  };
+
   const handleClearAll = () => {
     console.log(">>> [BUTTON PRESSED] Set Sample Data");
     if (
@@ -120,6 +142,7 @@ export default function Settings({
         "Are you sure you want to reset all data to sample data? This will clear all loaded players and game results.",
       )
     ) {
+      saveForAction();
       onReset();
       onClose();
     }
@@ -132,6 +155,7 @@ export default function Settings({
         "Are you sure you want to clear all data? This will leave the grid blank.",
       )
     ) {
+      saveForAction();
       onClearAll();
       onClose();
     }
@@ -144,6 +168,7 @@ export default function Settings({
         "Are you sure you want to start a new day? This will copy New Rating to Previous Rating and clear reports.",
       )
     ) {
+      saveForAction();
       onNewDay();
       onClose();
     }
@@ -156,6 +181,7 @@ export default function Settings({
         "Are you sure you want to start a new day with re-ranking? This will copy New Rating to Previous Rating, clear reports, and sort players by rating.",
       )
     ) {
+      saveForAction();
       onNewDayWithReRank();
       onClose();
     }
@@ -420,6 +446,7 @@ export default function Settings({
                     <button
                       onClick={() => {
                         if (window.confirm("Clear all mini-game files? This will remove all 7 mini-game .tab files and end tournament mode.")) {
+                          saveForAction();
                           onClearMiniGames();
                         }
                       }}
@@ -447,6 +474,7 @@ export default function Settings({
                   {isTournamentActive && onExportTournamentFiles && (
                     <button
                       onClick={() => {
+                        saveForAction();
                         onClose();
                         onExportTournamentFiles();
                       }}
@@ -474,6 +502,7 @@ export default function Settings({
                   {!isTournamentActive && onImportTournamentFiles && (
                     <button
                       onClick={() => {
+                        saveForAction();
                         onClose();
                         onImportTournamentFiles();
                       }}
@@ -501,6 +530,7 @@ export default function Settings({
                   {onGenerateTrophies && (
                     <button
                       onClick={() => {
+                        saveForAction();
                         onClose();
                         onGenerateTrophies();
                       }}
@@ -528,6 +558,7 @@ export default function Settings({
                   {onWalkThroughReports && (
                     <button
                       onClick={() => {
+                        saveForAction();
                         onClose();
                         onWalkThroughReports();
                       }}
