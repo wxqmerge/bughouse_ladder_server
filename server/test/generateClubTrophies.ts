@@ -1,5 +1,5 @@
 import { readLadderFile } from '../src/services/dataService';
-import { generateClubLadderTrophies, debugLine } from '../../shared/utils/trophyGeneration';
+import { generateClubLadderTrophies, debugLine, clubLadderGamesPlayed } from '../../shared/utils/trophyGeneration';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
@@ -11,9 +11,12 @@ async function main() {
   const filePath = path.join(__dirname, '../../src/test/unit/reports/150p_20r_150p_ng0-10.tab');
   const data = await readLadderFile(filePath);
   const players = data.players;
- const minTrophies = Math.ceil(players.length / 3);
+  const minTrophies = Math.ceil(players.length / 3);
 
   console.log('Min Trophies:', minTrophies);
+  console.log('Total players:', players.length);
+  console.log('Eligible:', players.filter(p => p.trophyEligible !== false).length);
+  console.log('Ineligible:', players.filter(p => p.trophyEligible === false).length);
 
   const trophies = generateClubLadderTrophies(players, minTrophies);
 
@@ -23,40 +26,48 @@ async function main() {
   lines.push(debugLine('Min Trophies', minTrophies + ' (ceil(' + players.length + ' / 3))', '', '', '', '', '', ''));
   lines.push('');
 
- if (debugLevel >= 1) {
+  if (debugLevel >= 1) {
     const sortedByRating = players.filter(p => p.trophyEligible !== false).sort((a, b) => b.nRating - a.nRating);
     lines.push(debugLine('TOP 5 OVERALL', 'BY RATING (eligible only)', '', '', '', '', '', ''));
-    lines.push(debugLine('Rank', 'Player', 'Gr', 'Rating', 'Games Played', '', '', ''));
     for (let i = 0; i < Math.min(5, sortedByRating.length); i++) {
       const p = sortedByRating[i];
-      const g = (p.num_games || 0) + (p.gameResults || []).filter(r => r && r !== '' && r !== '_').length;
-      lines.push(debugLine(i + 1, p.firstName + ' ' + p.lastName, p.grade, p.nRating, g));
+      const g = clubLadderGamesPlayed(p);
+      lines.push(debugLine(i + 1, p.firstName + ' ' + p.lastName, p.grade, p.nRating, '', '', String(g), ''));
     }
     const ineligibleOverall = players.filter(p => p.trophyEligible === false).sort((a, b) => b.nRating - a.nRating).slice(0, 1);
     if (ineligibleOverall.length > 0) {
-      lines.push('-');
+      lines.push('');
+      lines.push(debugLine('Top Ineligible', '', '', '', '', '', '', ''));
+      for (const p of ineligibleOverall) {
+        const g = clubLadderGamesPlayed(p);
+        lines.push(debugLine(String(p.rank), p.firstName + ' ' + p.lastName, p.grade, p.nRating, '', '', String(g), ''));
+      }
     }
     lines.push('');
 
     const gradeGroups = [...new Set(players.map(p => p.grade).filter(Boolean))].sort((a, b) => parseInt(b) - parseInt(a));
     for (const grade of gradeGroups) {
       const gradePlayers = players.filter(p => p.grade === grade && p.trophyEligible !== false).sort((a, b) => b.nRating - a.nRating);
-      lines.push(debugLine('TOP 5', 'Gr ' + grade, '', '', '', '', '', ''));
-      lines.push(debugLine('Rank', 'Player', 'Gr', 'Rating', 'Games Played', '', '', ''));
+      if (gradePlayers.length === 0) continue;
+      lines.push('');
+      lines.push(debugLine('Gr ' + grade, '', '', '', '', '', '', ''));
       for (let i = 0; i < Math.min(5, gradePlayers.length); i++) {
         const p = gradePlayers[i];
-        const g = (p.num_games || 0) + (p.gameResults || []).filter(r => r && r !== '' && r !== '_').length;
-        lines.push(debugLine(i + 1, p.firstName + ' ' + p.lastName, p.grade, p.nRating, g));
+        const g = clubLadderGamesPlayed(p);
+        lines.push(debugLine(i + 1, p.firstName + ' ' + p.lastName, p.grade, p.nRating, '', '', String(g), ''));
       }
       const ineligibleGrade = players.filter(p => p.grade === grade && p.trophyEligible === false).sort((a, b) => b.nRating - a.nRating).slice(0, 1);
       if (ineligibleGrade.length > 0) {
-        lines.push('-');
+        lines.push('');
+        lines.push(debugLine('Top Ineligible', '', '', '', '', '', '', ''));
+        for (const p of ineligibleGrade) {
+          const g = clubLadderGamesPlayed(p);
+          lines.push(debugLine(String(p.rank), p.firstName + ' ' + p.lastName, p.grade, p.nRating, '', '', String(g), ''));
+        }
       }
-      lines.push('');
     }
   }
 
-  lines.push(debugLine('Mode', 'Club Ladder (no mini-game files)', '', '', '', '', '', ''));
   lines.push('');
   lines.push('AWARDED TROPHIES');
   lines.push('Rank\tPlayer\tTrophy Type\tMini-Game/Grade\tGr\tRating\tTotal Games\tGames Played');
@@ -71,7 +82,6 @@ async function main() {
   }
 
   const output = lines.join('\n') + '\n';
-  console.log(output);
 
   const outputDir = path.join(__dirname, '../../src/test/unit/reports');
   const outputPath = path.join(outputDir, '150p_20r_150p_ng0-10_trophies.tab');
