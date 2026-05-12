@@ -65,6 +65,16 @@ export function buildMiniGamePlayerSection(miniGameDataList: MiniGameData[]): st
       const games = p.gameResults?.filter((r: string | null) => r && r !== '' && r !== '_')?.length || 0;
       lines.push(debugLine(String(p.rank), `${p.firstName} ${p.lastName}`, p.grade, String(p.nRating), '', '', String(games), ''));
     }
+    
+    const ineligible = playersWithGames.filter((p: PlayerData) => p.trophyEligible === false).sort((a: PlayerData, b: PlayerData) => b.nRating - a.nRating).slice(0, 1);
+    if (ineligible.length > 0) {
+      lines.push('');
+      lines.push(debugLine('Top Ineligible', '', '', '', '', '', '', ''));
+      for (const p of ineligible) {
+        const games = p.gameResults?.filter((r: string | null) => r && r !== '' && r !== '_')?.length || 0;
+        lines.push(debugLine(String(p.rank), `${p.firstName} ${p.lastName}`, p.grade, String(p.nRating), '', '', String(games), ''));
+      }
+    }
   }
   
   return lines;
@@ -96,6 +106,24 @@ export function buildClubLadderPlayerSection(players: PlayerData[], debugLevel: 
         const games = clubLadderGamesPlayed(p);
         lines.push(debugLine(String(p.rank), `${p.firstName} ${p.lastName}`, p.grade, String(p.nRating), '', '', String(games), ''));
       }
+      
+      const gradeIneligible = players.filter(p => p.grade === grade && p.trophyEligible === false).sort((a, b) => b.nRating - a.nRating).slice(0, 1);
+      if (gradeIneligible.length > 0) {
+        lines.push('');
+        lines.push(debugLine('Top Ineligible', '', '', '', '', '', '', ''));
+        for (const p of gradeIneligible) {
+          const games = clubLadderGamesPlayed(p);
+          lines.push(debugLine(String(p.rank), `${p.firstName} ${p.lastName}`, p.grade, String(p.nRating), '', '', String(games), ''));
+        }
+      }
+    }
+    
+    lines.push('');
+    lines.push(debugLine('TOP INELIGIBLE OVERALL', '', '', '', '', '', '', ''));
+    const overallIneligible = players.filter(p => p.trophyEligible === false).sort((a, b) => b.nRating - a.nRating).slice(0, 1);
+    for (const p of overallIneligible) {
+      const games = clubLadderGamesPlayed(p);
+      lines.push(debugLine(String(p.rank), `${p.firstName} ${p.lastName}`, p.grade, String(p.nRating), '', '', String(games), ''));
     }
     lines.push('');
   }
