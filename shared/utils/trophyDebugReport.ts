@@ -11,6 +11,33 @@ export interface MiniGameData {
   players: PlayerData[];
 }
 
+/**
+ * Sync trophyEligible from club ladder (source of truth) to each mini-game file.
+ * Returns a deduplicated list of all ineligible players across mini-games.
+ */
+export function syncEligibilityFromClubLadder(
+  clubPlayers: PlayerData[],
+  miniGameDataList: MiniGameData[]
+): PlayerData[] {
+  const clubEligibleMap = new Map<string, boolean>();
+  for (const p of clubPlayers) {
+    clubEligibleMap.set(`${p.firstName} ${p.lastName}`, p.trophyEligible);
+  }
+  const allIneligible: PlayerData[] = [];
+  for (const mgd of miniGameDataList) {
+    for (const p of mgd.players) {
+      const key = `${p.firstName} ${p.lastName}`;
+      if (clubEligibleMap.has(key)) {
+        p.trophyEligible = clubEligibleMap.get(key)!;
+      }
+      if (p.trophyEligible === false && !allIneligible.find(a => a.rank === p.rank)) {
+        allIneligible.push(p);
+      }
+    }
+  }
+  return allIneligible;
+}
+
 export interface TrophyReportDebug {
   header: string[];
   miniGameSections: string[];
