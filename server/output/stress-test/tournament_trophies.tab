@@ -10,11 +10,11 @@ Award grade 1st	t=17 > 2*m=12 ? true
 MINI-GAME PLAYERS	(after 5 recalcs)						
 
 Queen_Game							
-44	 Player44	6	1918			11	
 22	 Player22	6	1916			13	
 20	 Player20	5	1872			13	
 21	 Player21	8	1864			12	
 36	 Player36	11	1850			13	
+37	 Player37	13	1829			12	
 
 Top Ineligible							
 44	 Player44	6	1918			11	
@@ -30,31 +30,31 @@ Top Ineligible
 34	 Player34	11	1793			12	
 
 Pillar_Game							
-14	 Player14	12	1915			12	
 5	 Player5	6	1891			12	
 35	 Player35	6	1888			12	
 49	 Player49	5	1826			13	
-23	 Player23	13	1819			14	
+21	 Player21	11	1818			9	
+15	 Player15	12	1815			12	
 
 Top Ineligible							
 14	 Player14	12	1915			12	
 
 Bishop_Game							
-34	 Player34	7	1918			14	
-13	 Player13	8	1887			13	
-14	 Player14	8	1818			14	
 5	 Player5	9	1752			14	
 22	 Player22	8	1739			13	
+2	 Player2	7	1730			13	
+12	 Player12	11	1705			14	
+4	 Player4	9	1692			13	
 
 Top Ineligible							
 34	 Player34	7	1918			14	
 
 BG_Game							
-34	 Player34	5	1887			13	
 8	 Player8	10	1872			12	
-23	 Player23	8	1840			15	
-24	 Player24	11	1825			14	
-27	 Player27	12	1815			13	
+18	 Player18	6	1788			14	
+21	 Player21	9	1766			14	
+15	 Player15	5	1742			14	
+17	 Player17	8	1739			12	
 
 Top Ineligible							
 34	 Player34	5	1887			13	
