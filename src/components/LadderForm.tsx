@@ -57,7 +57,8 @@ import {
   clearPendingNewDay,
   clearSettings,
   getLocalPlayers,
-  removeAllKeysWithPrefix
+  removeAllKeysWithPrefix,
+  checkWritePermission
 } from "../services/storageService";
 import {
   getPlayers,
@@ -251,6 +252,7 @@ export default function LadderForm({
   const [showVersionWarningDialog, setShowVersionWarningDialog] = useState(false);
   const [serverVersion, setServerVersion] = useState<string>('');
   const [writeErrors, setWriteErrors] = useState<{ count: number; message: string } | null>(null);
+  const [writePermission, setWritePermission] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [availableMiniGames, setAvailableMiniGames] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<
@@ -458,8 +460,26 @@ export default function LadderForm({
       }
     };
     
+    // Check write permissions
+    const checkPermissions = async () => {
+      const canWrite = await checkWritePermission();
+      if (!canWrite) {
+        console.warn('[LADDER] Server rejected write access - entering view-only mode');
+        setIsAdmin(false);
+      }
+    };
+    
     reacquireAdminLock();
   }, []); // Run once on init
+
+  // Check write permissions on mount
+  useEffect(() => {
+    const checkPermissions = async () => {
+      const canWrite = await checkWritePermission();
+      setWritePermission(canWrite);
+    };
+    checkPermissions();
+  }, []);
 
   // Track mode changes for UI updates
   const mode = useIntervalCheck(() => {
@@ -3068,6 +3088,12 @@ export default function LadderForm({
       // Server mode: check lock status
       const lockInfo = await getAdminLockInfo();
       
+      // Check if server is blocking admin access (no API key configured)
+      if (lockInfo.adminBlocked) {
+        alert("Admin mode is not available:\n\nThe server does not have an admin API key configured. Contact your server administrator to set ADMIN_API_KEY in the server environment.");
+        return;
+      }
+      
       // Check if server is unreachable first
       if (lockInfo.serverReachable === false) {
         alert("Cannot reach admin server. Please check:\n\n- Server URL is correct\n- Server is running\n- Network connection is active\n\nServer: " + (serverUrl || 'unknown'));
@@ -3089,6 +3115,11 @@ export default function LadderForm({
       } else {
         // Acquisition failed - check what's happening and offer force acquire
         const lockInfo2 = await getAdminLockInfo();
+        
+        if (lockInfo2.adminBlocked) {
+          alert("Admin mode is not available:\n\nThe server does not have an admin API key configured. Contact your server administrator to set ADMIN_API_KEY in the server environment.");
+          return;
+        }
         
         if (lockInfo2.serverReachable === false) {
           alert("Cannot reach admin server. Please check:\n\n- Server URL is correct\n- Server is running\n- Network connection is active");
@@ -3157,11 +3188,15 @@ export default function LadderForm({
     if (acquired) {
       setIsAdmin(true);
     } else {
-      const lockInfo = await getAdminLockInfo();
-      if (lockInfo.serverReachable === false) {
-        alert('Cannot reach admin server. Please check your connection.');
-        return;
-      }
+                   const lockInfo = await getAdminLockInfo();
+                    if (lockInfo.adminBlocked) {
+                      alert("Admin mode is not available:\n\nThe server does not have an admin API key configured. Contact your server administrator to set ADMIN_API_KEY in the server environment.");
+                      return;
+                    }
+                    if (lockInfo.serverReachable === false) {
+                      alert("Cannot reach admin server. Please check your connection.");
+                      return;
+                    }
       
       if (lockInfo.locked && lockInfo.holderId !== getClientId()) {
         setOverrideLockHolder(lockInfo.holderName || "Another user");
@@ -3676,6 +3711,10 @@ export default function LadderForm({
                       return;
                     }
                     const lockInfo = await getAdminLockInfo();
+                    if (lockInfo.adminBlocked) {
+                      alert("Admin mode is not available:\n\nThe server does not have an admin API key configured. Contact your server administrator to set ADMIN_API_KEY in the server environment.");
+                      return;
+                    }
                     if (lockInfo.serverReachable === false) {
                       alert("Cannot reach admin server. Please check:\n\n- Server URL is correct\n- Server is running\n- Network connection is active\n\nServer: " + serverUrl);
                       return;
@@ -4048,6 +4087,7 @@ export default function LadderForm({
         projectName={projectName}
         onSetTitle={handleSetTitle}
         availableMiniGames={availableMiniGames}
+        writePermission={writePermission}
       />
 
       {/* Version mismatch warning banner */}
@@ -4153,6 +4193,7 @@ export default function LadderForm({
 
           serverUrl={splashServerUrl}
           hasAdminApiKey={!!splashApiKey}
+          writePermission={writePermission}
         />
       </div>
 
@@ -4161,8 +4202,10 @@ export default function LadderForm({
         className="mobile-menu-trigger"
         style={{
           background: isMiniGameTitle(projectName)
-            ? "linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)"
-            : "linear-gradient(135deg, #0f172a 0%, #334155 100%)",
+            ? "linear-gradient(135deg, #166534 0%, #22c55e 100%)"
+            : !writePermission
+              ? "linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)"
+              : "linear-gradient(135deg, #0f172a 0%, #334155 100%)",
           color: "white",
           padding: "1rem 2rem",
           marginBottom: "0.5rem",
@@ -4174,12 +4217,17 @@ export default function LadderForm({
         }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: "1.25rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <span>{projectName}</span>
-              <span style={{ fontSize: "0.875rem", opacity: 0.8 }}>{getVersionString()}</span>
-            </h1>
-          </div>
+           <div>
+             <h1 style={{ margin: 0, fontSize: "1.25rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+               <span>{projectName}</span>
+               <span style={{ fontSize: "0.875rem", opacity: 0.8 }}>{getVersionString()}</span>
+               {!writePermission && (
+                 <span style={{ fontSize: "0.75rem", backgroundColor: "#ef4444", color: "white", padding: "0.125rem 0.5rem", borderRadius: "0.25rem", fontWeight: 600 }}>
+                   VIEW-ONLY
+                 </span>
+               )}
+             </h1>
+           </div>
           <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
             <div>
               <span
@@ -4748,7 +4796,7 @@ export default function LadderForm({
                             textAlign: isNumeric ? "right" : "left",
                           }}
                         >
-                      {isAdmin ? (
+                       {isAdmin && writePermission ? (
                             <span
                               contentEditable={field !== "rank"}
                               suppressContentEditableWarning={true}
@@ -4915,9 +4963,9 @@ export default function LadderForm({
                                  {displayValue}
                                </span>
                              ) : (
-                               // User mode: only editable when entryCell points to this cell
-                               <span
-                                 contentEditable={!!(entryCell && entryCell.playerRank === player.rank && entryCell.round === gCol)}
+                               // User mode: only editable when entryCell points to this cell and write permission
+                                <span
+                                  contentEditable={!!(entryCell && entryCell.playerRank === player.rank && entryCell.round === gCol) && writePermission}
                                  suppressContentEditableWarning={true}
                                  data-cell={`player-${player.rank}-game-${gCol}`}
                                  style={{ cursor: "text" }}
@@ -5004,8 +5052,8 @@ export default function LadderForm({
             })}
         {isAdmin && (
                <tr style={{ backgroundColor: "#f0f9ff" }}>
-                 {["rank","group","lastName","firstName","rating","nRating","trophyEligible","grade","num_games","attendance","phone","info","school","room"].map((field, colIndex) => {
-                     const isEditable = field !== "rank";
+                  {["rank","group","lastName","firstName","rating","nRating","trophyEligible","grade","num_games","attendance","phone","info","school","room"].map((field, colIndex) => {
+                      const isEditable = field !== "rank" && writePermission;
                       if (field === "trophyEligible") {
                          return (
                            <td

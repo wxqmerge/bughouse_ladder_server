@@ -32,6 +32,7 @@ interface MobileMenuProps {
   projectName?: string;
   onSetTitle?: (title: string) => void;
   availableMiniGames?: string[];
+  writePermission?: boolean;
 }
 
 interface MenuItem {
@@ -62,6 +63,7 @@ export default function MobileMenu({
   projectName,
   onSetTitle,
   availableMiniGames = [],
+  writePermission = true,
 }: MobileMenuProps) {
   if (!isOpen) return null;
 
@@ -135,11 +137,12 @@ export default function MobileMenu({
     },
   ];
 
-  const operationsItems: MenuItem[] = [
+ const operationsItems: MenuItem[] = [
     {
       label: "Recalculate_Save",
       onClick: () => handleItemClick(onRecalculateRatings),
       dataMenuItem: "Recalculate_Save",
+      disabled: !writePermission,
     },
     {
       label: "Check Errors",
@@ -150,11 +153,13 @@ export default function MobileMenu({
       label: "Enter Games",
       onClick: () => handleItemClick(onEnterGames || (() => {})),
       dataMenuItem: "Enter Games",
+      disabled: !writePermission,
     },
     {
       label: isAdmin ? "Exit Admin Mode" : "Admin Mode",
       onClick: () => handleItemClick(onToggleAdmin),
       dataMenuItem: isAdmin ? "Exit Admin Mode" : "Admin Mode",
+      disabled: !writePermission,
     },
 ...(isAdmin && onAddPlayer
        ? [
@@ -162,36 +167,40 @@ export default function MobileMenu({
              label: "Add Player",
              onClick: () => handleItemClick(onAddPlayer),
              dataMenuItem: "Add Player",
+             disabled: !writePermission,
            },
          ]
        : []),
-     ...(isAdmin && onDeleteHiddenPlayers
+      ...(isAdmin && onDeleteHiddenPlayers
        ? [
            {
              label: "Delete Hidden Players",
              onClick: () => handleItemClick(onDeleteHiddenPlayers),
              dataMenuItem: "Delete Hidden Players",
+             disabled: !writePermission,
            },
          ]
        : []),
-     ...(isAdmin && onAutoLetter
+      ...(isAdmin && onAutoLetter
        ? [
            {
              label: "Auto-Letter",
              onClick: () => handleItemClick(onAutoLetter),
              dataMenuItem: "Auto-Letter",
+             disabled: !writePermission,
            },
          ]
        : []),
-     ...(isAdmin && onRestoreBackup
-      ? [
-          {
-            label: "Restore Backup",
-            onClick: () => handleItemClick(onRestoreBackup),
-            dataMenuItem: "Restore Backup",
-          },
-        ]
-      : []),
+      ...(isAdmin && onRestoreBackup
+       ? [
+           {
+             label: "Restore Backup",
+             onClick: () => handleItemClick(onRestoreBackup),
+             dataMenuItem: "Restore Backup",
+             disabled: !writePermission,
+           },
+         ]
+       : []),
   ];
 
   const viewItems: MenuItem[] = [
@@ -329,7 +338,7 @@ export default function MobileMenu({
             justifyContent: "space-between",
             alignItems: "center",
             padding: "1rem",
-            backgroundColor: "#1e293b",
+            backgroundColor: tournamentMode ? "#166534" : !writePermission ? "#1e40af" : "#1e293b",
             color: "white",
           }}
         >

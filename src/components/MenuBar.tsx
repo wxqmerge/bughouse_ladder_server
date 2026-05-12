@@ -51,6 +51,7 @@ interface MenuBarProps {
   hasAdminApiKey?: boolean;
   tournamentMode?: boolean;
   availableMiniGames?: string[];
+  writePermission?: boolean;
 }
 
 interface MenuItem {
@@ -85,6 +86,7 @@ export default function MenuBar({
   hasAdminApiKey = false,
   tournamentMode = false,
   availableMiniGames = [],
+  writePermission = true,
 }: MenuBarProps) {
   const serverConfigured = !!(serverUrl && serverUrl.trim());
   const [openMenu, setOpenMenu] = useState<string | null>(null);
@@ -200,7 +202,7 @@ export default function MenuBar({
     },
   ];
 
-  const operationsMenuItems: MenuItem[] = [
+ const operationsMenuItems: MenuItem[] = [
     {
       icon: <RefreshCw size={16} />,
       label: "Recalculate_Save",
@@ -209,6 +211,7 @@ export default function MenuBar({
         closeAllMenus();
       },
       dataMenuItem: "Recalculate_Save",
+      disabled: !writePermission,
     },
     {
       icon: <AlertTriangle size={16} />,
@@ -227,6 +230,7 @@ export default function MenuBar({
         closeAllMenus();
       },
       dataMenuItem: "Enter Games",
+      disabled: !writePermission,
     },
     {
       icon: <ClipboardPaste size={16} />,
@@ -236,6 +240,7 @@ export default function MenuBar({
         closeAllMenus();
       },
       dataMenuItem: "Paste Multiple Results",
+      disabled: !writePermission,
     },
     ...(isAdmin && onAddPlayer
       ? [
@@ -247,6 +252,7 @@ export default function MenuBar({
               closeAllMenus();
             },
             dataMenuItem: "Add Player",
+            disabled: !writePermission,
           },
         ]
       : []),
@@ -260,6 +266,7 @@ export default function MenuBar({
                closeAllMenus();
              },
              dataMenuItem: "Delete Hidden Players",
+             disabled: !writePermission,
            },
          ]
        : []),
@@ -273,6 +280,7 @@ export default function MenuBar({
                closeAllMenus();
              },
              dataMenuItem: "Auto-Letter",
+             disabled: !writePermission,
            },
          ]
        : []),
@@ -286,6 +294,7 @@ export default function MenuBar({
             closeAllMenus();
           },
           dataMenuItem: isAdmin ? "Exit Admin Mode" : "Admin Mode",
+          disabled: !writePermission,
         }]),
     // Restore Backup - admin only, before Settings
     ...(isAdmin && onRestoreBackup
@@ -298,6 +307,7 @@ export default function MenuBar({
               closeAllMenus();
             },
             dataMenuItem: "Restore Backup",
+            disabled: !writePermission,
           },
         ]
       : []),
@@ -479,7 +489,7 @@ export default function MenuBar({
         style={{
           display: "flex",
           alignItems: "center",
-          backgroundColor: tournamentMode ? "#1e40af" : "#1e293b",
+          backgroundColor: tournamentMode ? "#166534" : !writePermission ? "#1e40af" : "#1e293b",
           borderBottom: "1px solid #334155",
           fontSize: getFontSize(zoomLevel),
         }}
