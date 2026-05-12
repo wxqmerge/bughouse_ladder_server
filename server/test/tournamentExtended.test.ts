@@ -563,10 +563,24 @@ describe('Mini-game trophy stress test', () => {
       // Copy club ladder to output dir
       await fs.copyFile(path.join(testDir, 'ladder.tab'), path.join(outputDir, 'ladder.tab'));
 
-      // Build MiniGameData array for shared trophy generation
+      // Run mini-game trophy generation (shared function — generates 1st, 2nd, and grade trophies)
+      const clubPlayers = miniGamePlayers[miniGameFiles[0]];
+  const minTrophies = Math.ceil(clubPlayers.length / 3);
+
+      // Sync trophyEligible from clubPlayers to each mini-game file (club ladder is source of truth)
+      const clubEligibleMap = new Map<string, boolean>();
+      for (const p of clubPlayers) {
+        clubEligibleMap.set(`${p.firstName} ${p.lastName}`, p.trophyEligible);
+      }
       const miniGameDataList: { fileName: string; players: PlayerData[] }[] = [];
       for (const fileName of miniGameFiles) {
         const players = miniGamePlayers[fileName];
+        for (const p of players) {
+          const key = `${p.firstName} ${p.lastName}`;
+          if (clubEligibleMap.has(key)) {
+            p.trophyEligible = clubEligibleMap.get(key)!;
+          }
+        }
         const playersWithGames = players.filter(p =>
           p.gameResults && p.gameResults.some(r => r && r !== '' && r !== '_')
         );
@@ -574,10 +588,6 @@ describe('Mini-game trophy stress test', () => {
           miniGameDataList.push({ fileName, players });
         }
       }
-
-      // Run mini-game trophy generation (shared function — generates 1st, 2nd, and grade trophies)
-      const clubPlayers = miniGamePlayers[miniGameFiles[0]];
-  const minTrophies = Math.ceil(clubPlayers.length / 3);
 
       const miniGameTrophies = generateMiniGameTrophies(clubPlayers, minTrophies, miniGameDataList);
       // Verify Kings_Cross is not in any trophy
@@ -591,6 +601,14 @@ describe('Mini-game trophy stress test', () => {
       // Verify all trophy player names are valid
       for (const trophy of miniGameTrophies) {
         expect(trophy.player).toMatch(/Player\d+$/);
+      }
+
+      // Verify no ineligible player won a trophy
+      const ineligiblePlayers = clubPlayers.filter(p => p.trophyEligible === false);
+      expect(ineligiblePlayers.length).toBeGreaterThan(0);
+      const ineligibleNames = new Set(ineligiblePlayers.map(p => `${p.firstName} ${p.lastName}`));
+      for (const trophy of miniGameTrophies) {
+        expect(ineligibleNames.has(trophy.player)).toBe(false);
       }
 
       // Verify trophy ranks are sequential
@@ -732,6 +750,13 @@ describe('Mini-game trophy stress test — club ladder mode', () => {
     await fs.writeFile(path.join(outputDir, 'club_ladder_trophies.tab'), trophyReportLines.join('\n') + '\n');
 
     console.log(`[CLUB LADDER TROPHY REPORT] Saved to: ${path.join(outputDir, 'club_ladder_trophies.tab')}`);
+
+    const ineligiblePlayers = players.filter(p => p.trophyEligible === false);
+    expect(ineligiblePlayers.length).toBeGreaterThan(0);
+    const ineligibleNames = new Set(ineligiblePlayers.map(p => `${p.firstName} ${p.lastName}`));
+    for (const trophy of clubTrophies) {
+      expect(ineligibleNames.has(trophy.player)).toBe(false);
+    }
 
     expect(clubTrophies.length).toBeGreaterThan(0);
     expect(clubTrophies[0].trophyType).toBe('1st Place');

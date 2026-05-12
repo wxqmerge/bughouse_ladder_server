@@ -94,6 +94,11 @@ export function buildClubLadderPlayerSection(players: PlayerData[], debugLevel: 
       lines.push(debugLine(String(p.rank), `${p.firstName} ${p.lastName}`, p.grade, String(p.nRating), '', '', String(games), ''));
     }
     
+    const overallIneligible = players.filter(p => p.trophyEligible === false).sort((a, b) => b.nRating - a.nRating).slice(0, 1);
+    if (overallIneligible.length > 0) {
+      lines.push('-');
+    }
+    
     lines.push('');
     lines.push(debugLine('TOP 5 PER GRADE', '', '', '', '', '', '', ''));
     const gradeGroups = [...new Set(players.map(p => p.grade).filter(Boolean))].sort((a, b) => parseInt(b) - parseInt(a));
@@ -117,15 +122,6 @@ export function buildClubLadderPlayerSection(players: PlayerData[], debugLevel: 
         }
       }
     }
-    
-    lines.push('');
-    lines.push(debugLine('TOP INELIGIBLE OVERALL', '', '', '', '', '', '', ''));
-    const overallIneligible = players.filter(p => p.trophyEligible === false).sort((a, b) => b.nRating - a.nRating).slice(0, 1);
-    for (const p of overallIneligible) {
-      const games = clubLadderGamesPlayed(p);
-      lines.push(debugLine(String(p.rank), `${p.firstName} ${p.lastName}`, p.grade, String(p.nRating), '', '', String(games), ''));
-    }
-    lines.push('');
   }
   
   return lines;
