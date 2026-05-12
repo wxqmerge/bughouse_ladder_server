@@ -623,7 +623,7 @@ describe('Mini-game trophy stress test', () => {
       const numClubPlayers = miniGamePlayers[miniGameFiles[0]].length;
       
       const headerLines = buildDebugHeader(miniGamePlayers[miniGameFiles[0]], minTrophies, false, miniGameFiles.length);
-      const miniGameLines = buildMiniGamePlayerSection(miniGameDataList);
+      const miniGameLines = buildMiniGamePlayerSection(miniGameDataList, 3);
       const trophiesLines = buildTrophiesSection(miniGameTrophies);
       
       const trophyReportString = buildTrophyReportString(headerLines, miniGameLines, trophiesLines);

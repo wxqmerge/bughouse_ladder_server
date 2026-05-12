@@ -39,6 +39,7 @@ import {
   clearSettings,
   setPendingNewDay,
 } from "./services/storageService";
+import { getDebugLevel } from "./utils/debug";
 import "./css/index.css";
 
 // Global status tracking
@@ -422,7 +423,7 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
 
   const handleGenerateTrophies = async () => {
     try {
-      const blob = await dataService.generateTrophyReport();
+      const blob = await dataService.generateTrophyReport(getDebugLevel());
       downloadBlob(blob, `tournament_trophies_${new Date().toISOString().split('T')[0]}.tab`);
     } catch (error) {
       console.error('Failed to generate trophies:', error);

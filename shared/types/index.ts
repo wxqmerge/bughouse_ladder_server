@@ -103,7 +103,7 @@ export interface MiniGameStore {
   hasMiniGameFiles(): Promise<boolean>;
   checkMiniGameFilesWith(): Promise<string[]>;
   addPlayerToAllMiniGames(newPlayer: PlayerData): Promise<void>;
-  generateTrophyReport(players: PlayerData[]): Promise<{
+  generateTrophyReport(players: PlayerData[], debugLevel: number): Promise<{
     success: boolean;
     message: string;
     trophies?: any[];
