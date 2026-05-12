@@ -14,7 +14,7 @@ import {
   clubLadderGamesPlayed,
   MiniGameData,
 } from '../../shared/utils/trophyGeneration';
-import { buildTrophiesSection } from '../../shared/utils/trophyDebugReport';
+import { buildTrophiesSection, buildClubLadderPlayerSection } from '../../shared/utils/trophyDebugReport';
 
 const MINI_GAME_FILES = [
   'BG_Game.tab',
@@ -268,29 +268,8 @@ export const miniGameStore: MiniGameStore = {
       if (isClubMode) {
         debugLines.push(sharedDebugLine('Mode', 'Club Ladder (no mini-game files)', '', '', '', '', '', ''));
         
-        if (debugLevel >= 1) {
-          debugLines.push(sharedDebugLine('TOP 5 OVERALL', '(by rating, eligible only)', '', '', '', '', '', ''));
-          const sortedOverall = players.filter(p => p.trophyEligible !== false).sort((a, b) => b.nRating - a.nRating).slice(0, 5);
-          for (const p of sortedOverall) {
-            const games = clubLadderGamesPlayed(p);
-            debugLines.push(sharedDebugLine(String(p.rank), `${p.firstName} ${p.lastName}`, p.grade, String(p.nRating), '', '', String(games), ''));
-          }
-          
-          debugLines.push('');
-          debugLines.push(sharedDebugLine('TOP 5 PER GRADE', '', '', '', '', '', '', ''));
-          const gradeGroups = [...new Set(players.map(p => p.grade).filter(Boolean))].sort((a, b) => parseInt(b) - parseInt(a));
-          for (const grade of gradeGroups) {
-            const gradePlayers = players.filter(p => p.grade === grade && p.trophyEligible !== false).sort((a, b) => b.nRating - a.nRating).slice(0, 5);
-            if (gradePlayers.length === 0) continue;
-            debugLines.push('');
-            debugLines.push(sharedDebugLine('Gr ' + grade, '', '', '', '', '', '', ''));
-            for (const p of gradePlayers) {
-              const games = clubLadderGamesPlayed(p);
-              debugLines.push(sharedDebugLine(String(p.rank), `${p.firstName} ${p.lastName}`, p.grade, String(p.nRating), '', '', String(games), ''));
-            }
-          }
-          debugLines.push('');
-        }
+        const clubPlayerLines = buildClubLadderPlayerSection(players, debugLevel);
+        debugLines.push(...clubPlayerLines);
         
         trophies = sharedGenerateClubLadderTrophies(players, minTrophies);
       } else {
@@ -333,6 +312,7 @@ export const miniGameStore: MiniGameStore = {
           clubEligibleMap.set(`${p.firstName} ${p.lastName}`, p.trophyEligible);
         }
         // Build MiniGameData array for shared trophy generation
+        const allIneligible: PlayerData[] = [];
         const miniGameDataList: MiniGameData[] = [];
         for (const fileName of existingFiles) {
           const data = await this.readMiniGameFile(fileName);
@@ -341,6 +321,9 @@ export const miniGameStore: MiniGameStore = {
             const key = `${p.firstName} ${p.lastName}`;
             if (clubEligibleMap.has(key)) {
               p.trophyEligible = clubEligibleMap.get(key)!;
+            }
+            if (p.trophyEligible === false && !allIneligible.find(a => a.rank === p.rank)) {
+              allIneligible.push(p);
             }
           }
           
@@ -360,7 +343,33 @@ export const miniGameStore: MiniGameStore = {
             debugLines.push(sharedDebugLine(String(p.rank), `${p.firstName} ${p.lastName}`, p.grade, String(p.nRating), '', '', String(games), ''));
           }
           
+          const ineligible = data.players.filter(p => p.trophyEligible === false).sort((a, b) => b.nRating - a.nRating).slice(0, 1);
+          if (ineligible.length > 0) {
+            debugLines.push('');
+            debugLines.push(sharedDebugLine('Top Ineligible', '', '', '', '', '', '', ''));
+            for (const p of ineligible) {
+              const games = p.gameResults?.filter(r => r && r !== '' && r !== '_')?.length || 0;
+              debugLines.push(sharedDebugLine(String(p.rank), `${p.firstName} ${p.lastName}`, p.grade, String(p.nRating), '', '', String(games), ''));
+            }
+          }
+          
           miniGameDataList.push({ fileName, players: data.players });
+        }
+        
+        if (allIneligible.length > 0) {
+          debugLines.push('');
+          debugLines.push(sharedDebugLine('Top Ineligible Overall', '', '', '', '', '', '', ''));
+          const topIneligible = allIneligible.sort((a, b) => b.nRating - a.nRating).slice(0, 1);
+          for (const p of topIneligible) {
+            let totalGames = 0;
+            for (const mgd of miniGameDataList) {
+              const mgPlayer = mgd.players.find(mp => mp.rank === p.rank);
+              if (mgPlayer?.gameResults) {
+                totalGames += mgPlayer.gameResults.filter(r => r && r !== '' && r !== '_').length;
+              }
+            }
+            debugLines.push(sharedDebugLine(String(p.rank), `${p.firstName} ${p.lastName}`, p.grade, String(p.nRating), '', '', String(totalGames), ''));
+          }
         }
         
         trophies = sharedGenerateMiniGameTrophies(players, minTrophies, miniGameDataList);
