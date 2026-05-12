@@ -83,53 +83,55 @@ function mgdPlayersTotalGames(player: PlayerData, miniGameDataList: MiniGameData
 /**
  * Build the mini-game player debug section
  */
-export function buildMiniGamePlayerSection(miniGameDataList: MiniGameData[]): string[] {
+export function buildMiniGamePlayerSection(miniGameDataList: MiniGameData[], debugLevel: number): string[] {
   const lines: string[] = [];
   
-  lines.push(debugLine('MINI-GAME PLAYERS', '(after 5 recalcs)', '', '', '', '', '', ''));
-  
-  const allIneligible: PlayerData[] = [];
-  for (const mgd of miniGameDataList) {
-    const playersWithGames = mgd.players.filter((p: PlayerData) => {
-      if (!p.gameResults) return false;
-      if (p.trophyEligible === false) return false;
-      return p.gameResults.some((r: string | null) => r && r !== '' && r !== '_');
-    });
+  if (debugLevel >= 1) {
+    lines.push(debugLine('MINI-GAME PLAYERS', '(after 5 recalcs)', '', '', '', '', '', ''));
     
-    if (playersWithGames.length === 0) continue;
-    
-    const sorted = playersWithGames.sort((a: PlayerData, b: PlayerData) => b.nRating - a.nRating).slice(0, 5);
-    lines.push('');
-    lines.push(debugLine(mgd.fileName.replace('.tab', ''), '', '', '', '', '', '', ''));
-    for (const p of sorted) {
-      const games = p.gameResults?.filter((r: string | null) => r && r !== '' && r !== '_')?.length || 0;
-      lines.push(debugLine(String(p.rank), `${p.firstName} ${p.lastName}`, p.grade, String(p.nRating), '', '', String(games), ''));
-    }
-    
-    const ineligible = mgd.players.filter((p: PlayerData) => p.trophyEligible === false).sort((a: PlayerData, b: PlayerData) => b.nRating - a.nRating).slice(0, 1);
-    if (ineligible.length > 0) {
+    const allIneligible: PlayerData[] = [];
+    for (const mgd of miniGameDataList) {
+      const playersWithGames = mgd.players.filter((p: PlayerData) => {
+        if (!p.gameResults) return false;
+        if (p.trophyEligible === false) return false;
+        return p.gameResults.some((r: string | null) => r && r !== '' && r !== '_');
+      });
+      
+      if (playersWithGames.length === 0) continue;
+      
+      const sorted = playersWithGames.sort((a: PlayerData, b: PlayerData) => b.nRating - a.nRating).slice(0, 5);
       lines.push('');
-      lines.push(debugLine('Top Ineligible', '', '', '', '', '', '', ''));
-      for (const p of ineligible) {
+      lines.push(debugLine(mgd.fileName.replace('.tab', ''), '', '', '', '', '', '', ''));
+      for (const p of sorted) {
         const games = p.gameResults?.filter((r: string | null) => r && r !== '' && r !== '_')?.length || 0;
         lines.push(debugLine(String(p.rank), `${p.firstName} ${p.lastName}`, p.grade, String(p.nRating), '', '', String(games), ''));
       }
-    }
-    
-    for (const p of mgd.players) {
-      if (p.trophyEligible === false && !allIneligible.find(a => a.rank === p.rank)) {
-        allIneligible.push(p);
+      
+      const ineligible = mgd.players.filter((p: PlayerData) => p.trophyEligible === false).sort((a: PlayerData, b: PlayerData) => b.nRating - a.nRating).slice(0, 1);
+      if (ineligible.length > 0) {
+        lines.push('');
+        lines.push(debugLine('Top Ineligible', '', '', '', '', '', '', ''));
+        for (const p of ineligible) {
+          const games = p.gameResults?.filter((r: string | null) => r && r !== '' && r !== '_')?.length || 0;
+          lines.push(debugLine(String(p.rank), `${p.firstName} ${p.lastName}`, p.grade, String(p.nRating), '', '', String(games), ''));
+        }
+      }
+      
+      for (const p of mgd.players) {
+        if (p.trophyEligible === false && !allIneligible.find(a => a.rank === p.rank)) {
+          allIneligible.push(p);
+        }
       }
     }
-  }
-  
-  if (allIneligible.length > 0) {
-    lines.push('');
-    lines.push(debugLine('Top Ineligible Overall', '', '', '', '', '', '', ''));
-    const topIneligible = allIneligible.sort((a, b) => b.nRating - a.nRating).slice(0, 1);
-    for (const p of topIneligible) {
-      const totalGames = mgdPlayersTotalGames(p, miniGameDataList);
-      lines.push(debugLine(String(p.rank), `${p.firstName} ${p.lastName}`, p.grade, String(p.nRating), '', '', String(totalGames), ''));
+    
+    if (allIneligible.length > 0) {
+      lines.push('');
+      lines.push(debugLine('Top Ineligible Overall', '', '', '', '', '', '', ''));
+      const topIneligible = allIneligible.sort((a, b) => b.nRating - a.nRating).slice(0, 1);
+      for (const p of topIneligible) {
+        const totalGames = mgdPlayersTotalGames(p, miniGameDataList);
+        lines.push(debugLine(String(p.rank), `${p.firstName} ${p.lastName}`, p.grade, String(p.nRating), '', '', String(totalGames), ''));
+      }
     }
   }
   

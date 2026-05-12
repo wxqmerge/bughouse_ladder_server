@@ -368,7 +368,7 @@ export async function generateTrophyReport(debugLevel: number = 3): Promise<{
       // Sync trophyEligible from club ladder (source of truth) to each mini-game file
       syncEligibilityFromClubLadder(players, miniGameDataList);
       
-      const miniGameLines = buildMiniGamePlayerSection(miniGameDataList);
+      const miniGameLines = buildMiniGamePlayerSection(miniGameDataList, debugLevel);
       debugLines.push(...miniGameLines);
       
       trophies = sharedGenerateMiniGameTrophies(players, minTrophies, miniGameDataList);

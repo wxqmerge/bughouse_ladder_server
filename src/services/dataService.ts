@@ -935,11 +935,11 @@ class DataService {
     }
   }
 
-  async generateTrophyReport(): Promise<Blob> {
+  async generateTrophyReport(debugLevel: number = 3): Promise<Blob> {
     if (this.config.mode === DataServiceMode.LOCAL) {
       const store = this.getStore();
       const players = await this.getLocalPlayers();
-      const result = await store.generateTrophyReport(players);
+      const result = await store.generateTrophyReport(players, debugLevel);
       
       if (!result.success) {
         throw new Error(result.message);
