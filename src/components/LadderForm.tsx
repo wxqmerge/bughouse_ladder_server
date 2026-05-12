@@ -4257,30 +4257,6 @@ export default function LadderForm({
             >
               Export Files
             </button>
- 
-            <button
-              onClick={async () => {
-                try {
-                  const blob = await dataService.generateTrophyReport();
-                  downloadBlob(blob, `tournament_trophies_${new Date().toISOString().split('T')[0]}.tab`);
-                } catch (error) {
-                  console.error('Failed to generate trophies:', error);
-                  alert('Failed to generate: ' + (error as Error).message);
-                }
-              }}
-              style={{
-                padding: "0.375rem 0.75rem",
-                backgroundColor: "#ea580c",
-                color: "white",
-                border: "none",
-                borderRadius: "0.25rem",
-                cursor: "pointer",
-                fontSize: "0.75rem",
-                fontWeight: 600,
-              }}
-            >
-              Generate Trophies
-            </button>
           </div>
         )}
       </header>
