@@ -14,6 +14,7 @@ import {
   clubLadderGamesPlayed,
   MiniGameData,
 } from '../../shared/utils/trophyGeneration';
+import { buildTrophiesSection } from '../../shared/utils/trophyDebugReport';
 
 const MINI_GAME_FILES = [
   'BG_Game.tab',
@@ -245,6 +246,7 @@ export const miniGameStore: MiniGameStore = {
     trophies?: any[];
     isClubMode?: boolean;
     debugInfo?: string;
+    trophiesSection?: string[];
   }> {
     try {
       const hasMiniGames = await this.hasMiniGameFiles();
@@ -352,12 +354,15 @@ export const miniGameStore: MiniGameStore = {
         trophies = sharedGenerateMiniGameTrophies(players, minTrophies, miniGameDataList);
       }
 
+      const trophiesSection = buildTrophiesSection(trophies);
+
       return {
         success: true,
         message: `Generated ${trophies.length} trophies`,
         trophies,
         isClubMode,
         debugInfo: debugLines.join('\n'),
+        trophiesSection,
       };
     } catch (error) {
       return { success: false, message: `Trophy generation failed: ${(error as Error).message}` };
