@@ -446,7 +446,8 @@ router.get('/tournament/export', async (req: Request, res: Response): Promise<vo
 // Generate trophy report
 router.get('/tournament/trophies', async (req: Request, res: Response): Promise<void> => {
   try {
-    const result = await generateTrophyReport();
+    const debugLevel = parseInt(req.query.debugLevel as string, 10) || 3;
+    const result = await generateTrophyReport(debugLevel);
     
     if (!result.success) {
       res.status(404).json({
