@@ -53,6 +53,7 @@ export function buildMiniGamePlayerSection(miniGameDataList: MiniGameData[]): st
   for (const mgd of miniGameDataList) {
     const playersWithGames = mgd.players.filter((p: PlayerData) => {
       if (!p.gameResults) return false;
+      if (p.trophyEligible === false) return false;
       return p.gameResults.some((r: string | null) => r && r !== '' && r !== '_');
     });
     
@@ -66,7 +67,7 @@ export function buildMiniGamePlayerSection(miniGameDataList: MiniGameData[]): st
       lines.push(debugLine(String(p.rank), `${p.firstName} ${p.lastName}`, p.grade, String(p.nRating), '', '', String(games), ''));
     }
     
-    const ineligible = playersWithGames.filter((p: PlayerData) => p.trophyEligible === false).sort((a: PlayerData, b: PlayerData) => b.nRating - a.nRating).slice(0, 1);
+    const ineligible = mgd.players.filter((p: PlayerData) => p.trophyEligible === false).sort((a: PlayerData, b: PlayerData) => b.nRating - a.nRating).slice(0, 1);
     if (ineligible.length > 0) {
       lines.push('');
       lines.push(debugLine('Top Ineligible', '', '', '', '', '', '', ''));
@@ -87,8 +88,8 @@ export function buildClubLadderPlayerSection(players: PlayerData[], debugLevel: 
   const lines: string[] = [];
   
   if (debugLevel >= 1) {
-    lines.push(debugLine('TOP 5 OVERALL', '(by rating)', '', '', '', '', '', ''));
-    const sortedOverall = [...players].sort((a, b) => b.nRating - a.nRating).slice(0, 5);
+    lines.push(debugLine('TOP 5 OVERALL', '(by rating, eligible only)', '', '', '', '', '', ''));
+    const sortedOverall = players.filter(p => p.trophyEligible !== false).sort((a, b) => b.nRating - a.nRating).slice(0, 5);
     for (const p of sortedOverall) {
       const games = clubLadderGamesPlayed(p);
       lines.push(debugLine(String(p.rank), `${p.firstName} ${p.lastName}`, p.grade, String(p.nRating), '', '', String(games), ''));
@@ -103,7 +104,7 @@ export function buildClubLadderPlayerSection(players: PlayerData[], debugLevel: 
     lines.push(debugLine('TOP 5 PER GRADE', '', '', '', '', '', '', ''));
     const gradeGroups = [...new Set(players.map(p => p.grade).filter(Boolean))].sort((a, b) => parseInt(b) - parseInt(a));
     for (const grade of gradeGroups) {
-      const gradePlayers = players.filter(p => p.grade === grade).sort((a, b) => b.nRating - a.nRating).slice(0, 5);
+      const gradePlayers = players.filter(p => p.grade === grade && p.trophyEligible !== false).sort((a, b) => b.nRating - a.nRating).slice(0, 5);
       if (gradePlayers.length === 0) continue;
       lines.push('');
       lines.push(debugLine('Gr ' + grade, '', '', '', '', '', '', ''));
