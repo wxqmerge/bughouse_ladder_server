@@ -32,6 +32,15 @@ export function debugLine(col1: string, col2 = '', col3 = '', col4 = '', col5 = 
   return [col1, col2, col3, col4, col5, col6, col7, col8].join('\t');
 }
 
+export function formatPlayerName(player: PlayerData): string {
+  const firstName = player.firstName?.trim() || '';
+  const lastName = player.lastName?.trim() || '';
+  if (firstName && lastName) {
+    return `${firstName} ${lastName}`;
+  }
+  return firstName || lastName;
+}
+
 export function copyPlayersToTarget(sourcePlayers: PlayerData[], targetPlayers: PlayerData[]): PlayerData[] {
   const sourceMap = new Map<string, PlayerData>();
   for (const player of sourcePlayers) {
@@ -114,7 +123,7 @@ export function generateClubLadderTrophies(players: PlayerData[], minTrophies: n
     const g = clubLadderGamesPlayed(p);
     if (addTrophy({
       rank: trophies.length + 1,
-      player: `${p.firstName} ${p.lastName}`,
+      player: formatPlayerName(p),
       gr: p.grade,
       rating: p.nRating,
       trophyType: '1st Place',
@@ -132,7 +141,7 @@ export function generateClubLadderTrophies(players: PlayerData[], minTrophies: n
     const g = clubLadderGamesPlayed(p);
     if (addTrophy({
       rank: trophies.length + 1,
-      player: `${p.firstName} ${p.lastName}`,
+      player: formatPlayerName(p),
       gr: p.grade,
       rating: p.nRating,
       trophyType: '2nd Place',
@@ -150,7 +159,7 @@ export function generateClubLadderTrophies(players: PlayerData[], minTrophies: n
     const g = clubLadderGamesPlayed(p);
     if (addTrophy({
       rank: trophies.length + 1,
-      player: `${p.firstName} ${p.lastName}`,
+      player: formatPlayerName(p),
       gr: p.grade,
       rating: p.nRating,
       trophyType: '3rd Place',
@@ -168,7 +177,7 @@ export function generateClubLadderTrophies(players: PlayerData[], minTrophies: n
     const g = clubLadderGamesPlayed(p);
     if (addTrophy({
       rank: trophies.length + 1,
-      player: `${p.firstName} ${p.lastName}`,
+      player: formatPlayerName(p),
       gr: p.grade,
       rating: p.nRating,
       trophyType: 'Most Games',
@@ -180,7 +189,7 @@ export function generateClubLadderTrophies(players: PlayerData[], minTrophies: n
     }
   }
 
- // Step 5: Award grade 1st place if t > 4
+  // Step 5: Award grade 1st place if t > 4
   if (minTrophies > 4) {
     const gradeGroups = [...new Set(players.map(p => p.grade).filter(Boolean))].sort((a, b) => parseInt(b) - parseInt(a));
     
@@ -190,7 +199,7 @@ export function generateClubLadderTrophies(players: PlayerData[], minTrophies: n
         const g = clubLadderGamesPlayed(p);
         if (addTrophy({
           rank: trophies.length + 1,
-          player: `${p.firstName} ${p.lastName}`,
+          player: formatPlayerName(p),
           gr: grade,
           rating: p.nRating,
           trophyType: '1st Place',
@@ -204,7 +213,7 @@ export function generateClubLadderTrophies(players: PlayerData[], minTrophies: n
     }
   }
 
- // Step 6: Award grade 2nd place if any trophies remain
+  // Step 6: Award grade 2nd place if any trophies remain
   if (trophies.length < minTrophies) {
     const gradeGroups = [...new Set(players.map(p => p.grade).filter(Boolean))].sort((a, b) => parseInt(b) - parseInt(a));
     
@@ -214,7 +223,7 @@ export function generateClubLadderTrophies(players: PlayerData[], minTrophies: n
         const g = clubLadderGamesPlayed(p);
         if (addTrophy({
           rank: trophies.length + 1,
-          player: `${p.firstName} ${p.lastName}`,
+          player: formatPlayerName(p),
           gr: grade,
           rating: p.nRating,
           trophyType: '2nd Place',
@@ -238,7 +247,7 @@ export function generateClubLadderTrophies(players: PlayerData[], minTrophies: n
         const g = clubLadderGamesPlayed(p);
         if (addTrophy({
           rank: trophies.length + 1,
-          player: `${p.firstName} ${p.lastName}`,
+          player: formatPlayerName(p),
           gr: grade,
           rating: p.nRating,
           trophyType: '3rd Place',
@@ -287,7 +296,7 @@ export function generateMiniGameTrophies(
   // Pre-calculate total games for all players
   const playerTotalGames = new Map<string, number>();
   for (const p of players) {
-    playerTotalGames.set(`${p.firstName} ${p.lastName}`, getPlayerTotalGames(p));
+    playerTotalGames.set(formatPlayerName(p), getPlayerTotalGames(p));
   }
 
   // Award places per mini-game: 1st, 2nd, 3rd, 4th, ...
@@ -311,19 +320,20 @@ export function generateMiniGameTrophies(
 
       const sortedPlayers = playersWithGames.sort((a, b) => b.nRating - a.nRating);
       for (const p of sortedPlayers) {
-        if (seenPlayers.has(`${p.firstName} ${p.lastName}`)) continue;
+        const playerName = formatPlayerName(p);
+        if (seenPlayers.has(playerName)) continue;
      if (trophies.length >= minTrophies) break;
 
         const miniGameGames = p.gameResults?.filter(r => r && r !== '' && r !== '_')?.length || 0;
         addTrophy({
           rank: trophies.length + 1,
-          player: `${p.firstName} ${p.lastName}`,
+          player: playerName,
           gr: p.grade,
           rating: p.nRating,
           trophyType: place === 1 ? '1st Place' : place === 2 ? '2nd Place' : `${place}rd Place`,
           miniGameOrGrade: fileName.replace('.tab', ''),
           gamesPlayed: miniGameGames,
-          totalGames: playerTotalGames.get(`${p.firstName} ${p.lastName}`) || 0,
+          totalGames: playerTotalGames.get(playerName) || 0,
         });
         break;
       }

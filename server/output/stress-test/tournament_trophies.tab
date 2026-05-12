@@ -10,84 +10,84 @@ Award grade 1st	t=17 > 2*m=12 ? true
 MINI-GAME PLAYERS	(after 5 recalcs)						
 
 Queen_Game							
-22	 Player22	6	1916			13	
-20	 Player20	5	1872			13	
-21	 Player21	8	1864			12	
-36	 Player36	11	1850			13	
-37	 Player37	13	1829			12	
+15	Deborah Scott	8	1897			13	
+4	Kenneth Harris	9	1849			13	
+42	Kimberly White	7	1803			13	
+17	Robert Campbell	12	1790			13	
+22	Carol Allen	6	1755			13	
 
 Top Ineligible							
-44	 Player44	6	1918			11	
+9	Melissa Perez	5	1911			13	
 
 Pawn_Game							
-7	 Player7	13	1936			11	
-25	 Player25	10	1883			11	
-35	 Player35	7	1863			9	
-5	 Player5	5	1851			13	
-18	 Player18	10	1851			13	
+49	Deborah Wright	12	1903			12	
+28	Daniel Carter	7	1848			12	
+43	Susan Smith	10	1827			13	
+18	Kevin Gonzalez	12	1826			12	
+2	Timothy Harris	5	1780			12	
 
 Top Ineligible							
-34	 Player34	11	1793			12	
+40	Susan Anderson	7	1862			14	
 
 Pillar_Game							
-5	 Player5	6	1891			12	
-35	 Player35	6	1888			12	
-49	 Player49	5	1826			13	
-21	 Player21	11	1818			9	
-15	 Player15	12	1815			12	
+10	Kevin Torres	5	1920			12	
+18	Emily Thomas	6	1887			14	
+36	Emily White	6	1886			10	
+38	Dorothy Nelson	13	1873			12	
+25	Thomas Torres	6	1696			13	
 
 Top Ineligible							
-14	 Player14	12	1915			12	
+39	George Allen	9	1845			12	
 
 Bishop_Game							
-5	 Player5	9	1752			14	
-22	 Player22	8	1739			13	
-2	 Player2	7	1730			13	
-12	 Player12	11	1705			14	
-4	 Player4	9	1692			13	
+43	Joseph Harris	5	1888			14	
+48	Jennifer Baker	6	1841			12	
+31	Amanda Flores	9	1795			14	
+14	Richard Rivera	12	1764			15	
+37	Sarah Davis	8	1753			11	
 
 Top Ineligible							
-34	 Player34	7	1918			14	
+45	George Mitchell	11	1804			13	
 
 BG_Game							
-8	 Player8	10	1872			12	
-18	 Player18	6	1788			14	
-21	 Player21	9	1766			14	
-15	 Player15	5	1742			14	
-17	 Player17	8	1739			12	
+29	Ashley Gomez	8	1905			14	
+33	Timothy Thomas	12	1879			14	
+39	Thomas Davis	6	1727			13	
+20	Emily Robinson	9	1701			14	
+5	Betty Lewis	6	1700			12	
 
 Top Ineligible							
-34	 Player34	5	1887			13	
+26	Deborah White	7	1879			13	
 
 bughouse							
-7	 Player7	6	1978			13	
-29	 Player29	5	1939			13	
-42	 Player42	5	1936			12	
-4	 Player4	7	1897			14	
-33	 Player33	7	1885			13	
+9	Emily Roberts	6	1993			15	
+47	Betty Nelson	8	1879			13	
+12	Robert Wright	13	1862			14	
+38	Michael Baker	8	1813			14	
+27	Brian Lee	6	1713			14	
 
 Top Ineligible							
-16	 Player16	13	1664			15	
+3	Michelle Thompson	8	1752			15	
 
 Top Ineligible Overall							
-44	 Player44	6	1918			73	
+9	Melissa Perez	5	1911			80	
 
 AWARDED TROPHIES
 Rank	Player	Trophy Type	Mini-Game/Grade	Gr	Rating	Total Games	Games Played
-1	 Player22	1st Place	Queen_Game	6	1916	76	13
-2	 Player7	1st Place	Pawn_Game	13	1936	74	11
-3	 Player5	1st Place	Pillar_Game	6	1891	80	12
-4	 Player2	1st Place	Bishop_Game	7	1730	78	13
-5	 Player8	1st Place	BG_Game	10	1872	80	12
-6	 Player29	1st Place	bughouse	5	1939	78	13
-7	 Player20	2nd Place	Queen_Game	5	1872	77	13
-8	 Player25	2nd Place	Pawn_Game	10	1883	78	11
-9	 Player35	2nd Place	Pillar_Game	6	1888	73	12
-10	 Player12	2nd Place	Bishop_Game	11	1705	80	14
-11	 Player18	2nd Place	BG_Game	6	1788	79	14
-12	 Player42	2nd Place	bughouse	5	1936	76	12
-13	 Player21	3rd Place	Queen_Game	8	1864	76	12
-14	 Player40	3rd Place	Pawn_Game	8	1847	83	14
-15	 Player49	3rd Place	Pillar_Game	5	1826	78	13
-16	 Player4	3rd Place	Bishop_Game	9	1692	79	13
-17	 Player15	3rd Place	BG_Game	5	1742	79	14
+1	Deborah Scott	1st Place	Queen_Game	8	1897	80	13
+2	Deborah Wright	1st Place	Pawn_Game	12	1903	0	12
+3	Kevin Torres	1st Place	Pillar_Game	5	1920	0	12
+4	Joseph Harris	1st Place	Bishop_Game	5	1888	0	14
+5	Ashley Gomez	1st Place	BG_Game	8	1905	0	14
+6	Emily Roberts	1st Place	bughouse	6	1993	0	15
+7	Kenneth Harris	2nd Place	Queen_Game	9	1849	81	13
+8	Daniel Carter	2nd Place	Pawn_Game	7	1848	0	12
+9	Emily Thomas	2nd Place	Pillar_Game	6	1887	0	14
+10	Jennifer Baker	2nd Place	Bishop_Game	6	1841	0	12
+11	Timothy Thomas	2nd Place	BG_Game	12	1879	0	14
+12	Betty Nelson	2nd Place	bughouse	8	1879	0	13
+13	Kimberly White	3rd Place	Queen_Game	7	1803	77	13
+14	Susan Smith	3rd Place	Pawn_Game	10	1827	0	13
+15	Emily White	3rd Place	Pillar_Game	6	1886	0	10
+16	Amanda Flores	3rd Place	Bishop_Game	9	1795	0	14
+17	Thomas Davis	3rd Place	BG_Game	6	1727	0	13
