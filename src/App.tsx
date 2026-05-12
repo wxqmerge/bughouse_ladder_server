@@ -99,7 +99,7 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
       }
 
       // Step 2: Initialize connection state from localStorage (now has fresh config)
-      initializeConnectionState();
+      await initializeConnectionState();
 
       // Step 2.5: Wire up miniGameStore for local mode
       if (dataService.getMode() === DataServiceMode.LOCAL) {

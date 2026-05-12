@@ -424,6 +424,16 @@ Browser B clicks "Push to Server":
 
 ## Configuration Reference
 
+### Server URL Resolution (v1.1.9+)
+
+Priority order for determining the server URL:
+
+1. **User settings (localStorage)** — `?config=1&server=...` or manual entry via Settings dialog
+2. **Same-origin auto-detection** — `HEAD /api/ladder` with 3s timeout on `window.location.origin`
+3. **Local mode** — localStorage only, no server
+
+Auto-detection works because frontend and backend share the same origin per subdomain (nginx proxy). On success, the origin is saved to localStorage so subsequent loads skip the HTTP check.
+
 ### Sync Configuration
 
 | Parameter | Default | Location | Description |

@@ -197,7 +197,9 @@ sudo systemctl reload nginx
 
 ## Step 6: Configure Client for Staging
 
-Users access staging at `https://staging.your-domain.com`. To auto-configure the server URL:
+Users access staging at `https://staging.your-domain.com`. The app auto-detects the server URL from the current origin — no manual configuration needed.
+
+For first-time setup or remote clients, share this URL:
 
 ```
 https://staging.your-domain.com/?config=1&server=https://staging.your-domain.com
