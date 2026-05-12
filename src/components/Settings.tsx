@@ -99,8 +99,6 @@ export default function Settings({
     };
     saveUserSettings(userSettings);
     
-    onClose();
-    
     // Show confirmation with current mode
     const mode = userSettings.server && userSettings.server.trim()
       ? `Server mode: ${userSettings.server}`
