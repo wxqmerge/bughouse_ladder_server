@@ -1,6 +1,6 @@
 # Security Configuration
 
-**Version: 1.1.7**
+**Version: 1.1.9**
 
 ## Environment Variables
 
