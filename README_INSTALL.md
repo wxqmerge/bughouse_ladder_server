@@ -1,6 +1,6 @@
 # Bughouse Chess Ladder - Production Installation Guide
 
-**Version: 1.1.9**
+**Version: 1.2.0**
 
 **Communication:** TCP/HTTP (NOT UDP). Default port is 3000.
 
@@ -370,7 +370,7 @@ nohup NODE_ENV=production node dist/index.js > server.log 2>&1 &
 
 Users can configure the application in four ways:
 
-#### Method 1: Auto-Detect (Default, v1.1.9+)
+#### Method 1: Auto-Detect (Default, v1.2.0+)
 
 When no manual config exists, the app auto-detects the server from `window.location.origin` via `GET /health` (3s timeout). Works because frontend and backend share the same origin per subdomain. No user action needed — just open the app.
 
