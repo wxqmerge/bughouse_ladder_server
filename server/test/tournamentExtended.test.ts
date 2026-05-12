@@ -17,7 +17,7 @@ import {
 } from '../src/services/tournamentService';
 import { debugLine } from '../../shared/utils/trophyGeneration';
 import { calculateRatings, repopulateGameResults, processGameResults } from '../../shared/utils/hashUtils';
-import { buildDebugHeader, buildClubLadderPlayerSection, buildMiniGamePlayerSection, buildTrophiesSection, buildTrophyReportString } from '../../shared/utils/trophyDebugReport';
+import { buildDebugHeader, buildClubLadderPlayerSection, buildMiniGamePlayerSection, buildTrophiesSection, buildTrophyReportString, syncEligibilityFromClubLadder } from '../../shared/utils/trophyDebugReport';
 import type { MatchData } from '../../shared/types';
 import { mulberry32, determineResult, generateBatchGames, cleanInvalidResults } from '../../src/test/shared/stressTestUtils';
 
@@ -567,27 +567,13 @@ describe('Mini-game trophy stress test', () => {
       const clubPlayers = miniGamePlayers[miniGameFiles[0]];
   const minTrophies = Math.ceil(clubPlayers.length / 3);
 
-      // Sync trophyEligible from clubPlayers to each mini-game file (club ladder is source of truth)
-      const clubEligibleMap = new Map<string, boolean>();
-      for (const p of clubPlayers) {
-        clubEligibleMap.set(`${p.firstName} ${p.lastName}`, p.trophyEligible);
-      }
+      // Build MiniGameData array for shared trophy generation
       const miniGameDataList: { fileName: string; players: PlayerData[] }[] = [];
       for (const fileName of miniGameFiles) {
-        const players = miniGamePlayers[fileName];
-        for (const p of players) {
-          const key = `${p.firstName} ${p.lastName}`;
-          if (clubEligibleMap.has(key)) {
-            p.trophyEligible = clubEligibleMap.get(key)!;
-          }
-        }
-        const playersWithGames = players.filter(p =>
-          p.gameResults && p.gameResults.some(r => r && r !== '' && r !== '_')
-        );
-        if (playersWithGames.length > 0) {
-          miniGameDataList.push({ fileName, players });
-        }
+        miniGameDataList.push({ fileName, players: miniGamePlayers[fileName] });
       }
+      // Sync trophyEligible from clubPlayers to each mini-game file (club ladder is source of truth)
+      syncEligibilityFromClubLadder(clubPlayers, miniGameDataList);
 
       const miniGameTrophies = generateMiniGameTrophies(clubPlayers, minTrophies, miniGameDataList);
       // Verify Kings_Cross is not in any trophy
@@ -725,29 +711,13 @@ describe('Mini-game trophy stress test — club ladder mode', () => {
     const clubTrophies = generateClubLadderTrophies(players, minTrophies);
 
     // Generate trophy report file (matches GUI format exactly with debug info)
-    const trophyReportLines: string[] = [];
-    
-    // Debug section (matches server generateTrophyReport debug output)
     const headerLines = buildDebugHeader(players, minTrophies, true);
-    trophyReportLines.push(...headerLines);
-    
     const clubPlayerLines = buildClubLadderPlayerSection(players, 3);
-    trophyReportLines.push(...clubPlayerLines);
+    const trophiesSectionLines = buildTrophiesSection(clubTrophies);
     
-    trophyReportLines.push('');
-    trophyReportLines.push('AWARDED TROPHIES');
-    trophyReportLines.push('Rank\tPlayer\tTrophy Type\tMini-Game/Grade\tGr\tRating\tTotal Games\tGames Played');
+    const trophyReportString = buildTrophyReportString(headerLines, clubPlayerLines, trophiesSectionLines);
     
-    let blankRowInserted = false;
-    for (const trophy of clubTrophies) {
-      if (!blankRowInserted && trophy.trophyType === '1st Place' && trophy.miniGameOrGrade && trophy.miniGameOrGrade.startsWith('Gr ')) {
-        trophyReportLines.push('');
-        blankRowInserted = true;
-      }
-      trophyReportLines.push(`${trophy.rank}\t${trophy.player}\t${trophy.trophyType}\t${trophy.miniGameOrGrade}\t${trophy.gr}\t${trophy.rating}\t${trophy.totalGames || 0}\t${trophy.gamesPlayed}`);
-    }
-    
-    await fs.writeFile(path.join(outputDir, 'club_ladder_trophies.tab'), trophyReportLines.join('\n') + '\n');
+    await fs.writeFile(path.join(outputDir, 'club_ladder_trophies.tab'), trophyReportString);
 
     console.log(`[CLUB LADDER TROPHY REPORT] Saved to: ${path.join(outputDir, 'club_ladder_trophies.tab')}`);
 
