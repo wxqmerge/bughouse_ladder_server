@@ -1,6 +1,6 @@
 DEBUG	TROPHY REPORT						
 Players	152						
-Max Trophies	51 (ceil(152 / 3))						
+Min Trophies	51 (ceil(152 / 3))						
 
 TOP 5 OVERALL	BY RATING						
 Rank	Player	Gr	Rating	Games Played			

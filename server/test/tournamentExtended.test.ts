@@ -283,13 +283,13 @@ describe('Gr trophy generation - club ladder mode', () => {
     expect(trophies[2].miniGameOrGrade).toBe('Club Ladder');
   });
 
-  it('should award overall position trophies even when maxTrophies is 0', async () => {
+  it('should award overall position trophies even when minTrophies is 0', async () => {
     const players = [
       createPlayer(1, 'A', 'B', 1600, '5', 10, []),
       createPlayer(2, 'C', 'D', 1500, '5', 8, []),
     ];
     const trophies = await generateClubLadderTrophies(players, 0);
-    // Steps 1-4 (1st, 2nd, 3rd, Most Games) always run regardless of maxTrophies; only Gr trophies check maxTrophies
+    // Steps 1-4 (1st, 2nd, 3rd, Most Games) always run regardless of minTrophies; only Gr trophies check minTrophies
     expect(trophies.length).toBe(2);
     expect(trophies[0].trophyType).toBe('1st Place');
     expect(trophies[1].trophyType).toBe('2nd Place');
@@ -572,9 +572,9 @@ describe('Mini-game trophy stress test', () => {
 
       // Run mini-game trophy generation (shared function — generates 1st, 2nd, and grade trophies)
       const clubPlayers = miniGamePlayers[miniGameFiles[0]];
-      const maxTrophies = Math.ceil(clubPlayers.length / 3);
-      const miniGameTrophies = generateMiniGameTrophies(clubPlayers, maxTrophies, miniGameDataList);
+  const minTrophies = Math.ceil(clubPlayers.length / 3);
 
+      const miniGameTrophies = generateMiniGameTrophies(clubPlayers, minTrophies, miniGameDataList);
       // Verify Kings_Cross is not in any trophy
       const kingsCrossTrophies = miniGameTrophies.filter(t => t.miniGameOrGrade === 'Kings_Cross');
       expect(kingsCrossTrophies.length).toBe(0);
@@ -613,7 +613,7 @@ describe('Mini-game trophy stress test', () => {
       // Mini-game mode: only mini-game trophies, no club ladder section
       const numClubPlayers = miniGamePlayers[miniGameFiles[0]].length;
       
-      const headerLines = buildDebugHeader(miniGamePlayers[miniGameFiles[0]], maxTrophies, false, miniGameFiles.length);
+      const headerLines = buildDebugHeader(miniGamePlayers[miniGameFiles[0]], minTrophies, false, miniGameFiles.length);
       const miniGameLines = buildMiniGamePlayerSection(miniGameDataList);
       const trophiesLines = buildTrophiesSection(miniGameTrophies);
       
@@ -692,9 +692,9 @@ describe('Mini-game trophy stress test — club ladder mode', () => {
 
     const rng = mulberry32(999);
     const players = generateClubLadderPlayers(rng, 50, 15);
-    const maxTrophies = Math.ceil(players.length / 3);
+    const minTrophies = Math.ceil(players.length / 3);
 
-    const clubTrophies = generateClubLadderTrophies(players, maxTrophies);
+    const clubTrophies = generateClubLadderTrophies(players, minTrophies);
 
     // Generate trophy report file (matches GUI format exactly with debug info)
     const trophyReportLines: string[] = [];
@@ -702,7 +702,7 @@ describe('Mini-game trophy stress test — club ladder mode', () => {
     // Debug section (matches server generateTrophyReport debug output)
     trophyReportLines.push(debugLine('DEBUG', 'TROPHY REPORT', '', '', '', '', '', ''));
     trophyReportLines.push(debugLine('Players', String(players.length), '', '', '', '', '', ''));
-    trophyReportLines.push(debugLine('Max Trophies', `${maxTrophies} (ceil(${players.length} / 3))`, '', '', '', '', '', ''));
+    trophyReportLines.push(debugLine('Min Trophies', `${minTrophies} (ceil(${players.length} / 3))`, '', '', '', '', '', ''));
     trophyReportLines.push('');
     trophyReportLines.push(debugLine('Mode', 'Club Ladder (no mini-game files)', '', '', '', '', '', ''));
     
