@@ -18,16 +18,20 @@ export const USER_API_KEY = process.env.USER_API_KEY || '';
 /**
  * Middleware to verify user API key for write operations.
  * Allows requests through if EITHER the user key matches OR the admin key matches.
- * If no keys are configured, allows all requests (local/dev mode).
+ * In production, if no keys are configured, rejects all writes (view-only mode).
  */
 export function requireUserKey(
   req: Request,
   res: Response,
   next: NextFunction
 ): void {
-  // If no API keys are configured at all, allow all requests (local/dev mode)
-  if (!USER_API_KEY && !ADMIN_API_KEY) {
-    next();
+  // In production, if no API keys are configured, reject all writes (view-only mode)
+  if (process.env.NODE_ENV === 'production' && !USER_API_KEY && !ADMIN_API_KEY) {
+    console.log(`[USER_AUTH] 403 - No API keys configured in production (view-only mode) | IP: ${req.ip} | Path: ${req.path}`);
+    res.status(403).json({
+      success: false,
+      error: { message: 'Server is in view-only mode. Contact your administrator.' },
+    });
     return;
   }
 
@@ -62,7 +66,7 @@ export function requireUserKey(
     }
   }
 
-  // If we got here: USER_API_KEY is not configured, so allow the request
+  // If we got here: USER_API_KEY is not configured, so allow the request (dev mode)
   next();
 }
 
@@ -72,7 +76,17 @@ export function requireAdminKey(
   res: Response,
   next: NextFunction
 ): void {
-  // If no API key is configured, allow all requests (local/dev mode)
+  // In production, admin key is mandatory - reject if not configured
+  if (process.env.NODE_ENV === 'production' && !ADMIN_API_KEY) {
+    console.log(`[ADMIN_AUTH] 403 - ADMIN_API_KEY not configured in production | IP: ${req.ip} | Path: ${req.path}`);
+    res.status(403).json({
+      success: false,
+      error: { message: 'Admin API key not configured on server' },
+    });
+    return;
+  }
+  
+  // In dev mode, if no API key configured, allow all requests
   if (!ADMIN_API_KEY) {
     next();
     return;
@@ -81,9 +95,7 @@ export function requireAdminKey(
   const apiKey = req.headers['x-api-key'] as string;
   
   if (!apiKey) {
-    if (process.env.NODE_ENV !== 'production') {
-        console.log(`[ADMIN_AUTH] 401 - Missing API key | IP: ${req.ip} | Path: ${req.path}`);
-      }
+    console.log(`[ADMIN_AUTH] 401 - Missing API key | IP: ${req.ip} | Path: ${req.path}`);
     res.status(401).json({
       success: false,
       error: { message: 'Admin API key required' },
