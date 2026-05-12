@@ -1,7 +1,7 @@
 # Bughouse Chess Ladder - Administrator Manual
-
-**Version: 1.1.7**
-
+ 
+**Version: 1.1.9**
+ 
 ## Table of Contents
 
 1. [Introduction](#introduction)
@@ -15,6 +15,7 @@
 9. [Troubleshooting](#troubleshooting)
 10. [Appendix A: Rating Algorithm Details](#appendix-a-rating-algorithm-details)
 11. [Appendix B: Settings Dialog Reference](#appendix-b-settings-dialog-reference)
+12. [Admin API Reference](#admin-api-reference)
 
 ---
 
@@ -461,3 +462,26 @@ These buttons only appear when admin mode is enabled.
 **Version:** 1.1.0  
 **Last Updated:** April 2026  
 **Prerequisites:** User Manual knowledge assumed
+
+## Admin API Reference
+
+The following endpoints require an admin API key.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/admin/upload` | Upload .tab/.xls file |
+| `GET` | `/api/admin/export` | Export as .tab file |
+| `POST` | `/api/admin/tournament/save-mini-game` | Save mini-game file |
+| `GET` | `/api/admin/tournament/read-mini-game` | Read mini-game file |
+| `POST` | `/api/admin/tournament/write-mini-game` | Write mini-game file |
+| `POST` | `/api/admin/tournament/copy-players` | Copy players to new mini-game file |
+| `GET` | `/api/admin/tournament/export` | Export tournament files (ZIP) |
+| `GET` | `/api/admin/tournament/trophies` | Generate trophy report |
+| `POST` | `/api/admin/tournament/import` | Import mini-game files |
+| `POST` | `/api/admin/tournament/clear-mini-games` | Clear all mini-game files |
+| `GET` | `/api/admin/tournament/check-mini-games` | Check which mini-game files have data |
+| `GET` | `/api/admin/export-mini-data` | Export all data TAB files (ZIP) |
+| `GET` | `/api/admin/backups` | List available backups |
+| `POST` | `/api/admin/backups/restore/:filename` | Restore a specific backup |
+| `DELETE` | `/api/admin/backups/:filename` | Delete a specific backup |
+| `GET` | `/api/admin/stats` | Server statistics |

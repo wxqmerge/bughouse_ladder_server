@@ -154,7 +154,12 @@ subscribe(callback): Unsubscribe  // Subscribe to data changes
 | `deltasSubmitted` | Batch game results |
 | `gameSubmitted` | Single game POST |
 | `gamesSubmitted` | Batch games POST |
-| `miniGameSaved/Written/Cleared/Imported` | Tournament operations |
+| `miniGameSaved` | Save mini-game file |
+| `miniGameWritten` | Write mini-game file |
+| `playersCopied` | Copy players to new mini-game file |
+| `miniGamesImported` | Import mini-game files |
+| `miniGamesCleared` | Clear all mini-game files |
+| `playerAdded` | Add player to mini-game |
 | `fileUploaded` | File upload |
 | `backupRestored` | Backup restore |
 

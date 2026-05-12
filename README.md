@@ -1,6 +1,6 @@
 # Bughouse Chess Ladder Server
 
-**Version: 1.1.7**
+**Version: 1.1.9**
 
 A modern client-server implementation of the VB6 Bughouse Chess Ladder application.
 
@@ -123,73 +123,18 @@ Drag a `.tab`, `.xls`, or `.txt` file onto the splash screen to load it directly
 | `PUT` | `/api/ladder/:rank` | User/Admin key | Update player |
 | `PUT` | `/api/ladder` | User/Admin key | Bulk update players |
 | `DELETE` | `/api/ladder/:rank/round/:roundIndex` | User/Admin key | Remove game result |
+| `POST` | `/api/ladder/batch` | User/Admin key | Batch submit game results |
 
 ### Games
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | `POST` | `/api/games/submit` | User/Admin key | Submit game result |
 | `POST` | `/api/games/batch` | User/Admin key | Batch submit games |
-| `POST` | `/api/games/recalculate` | User/Admin key | Merge results & recalculate |
 | `GET` | `/api/games/player/:rank` | None | Get player's game results |
-
-### Admin *(requires admin API key)*
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/admin/upload` | Upload .tab/.xls file |
-| `GET` | `/api/admin/export` | Export as .tab file |
-| `POST` | `/api/admin/process` | Process game results |
-| `POST` | `/api/admin/regenerate` | Regenerate ratings |
-| `GET` | `/api/admin/stats` | Server statistics |
-| `GET` | `/api/admin/performance` | Performance metrics |
-| `POST` | `/api/admin/performance/clear` | Clear performance data |
-
-### Admin Lock *(requires admin API key)*
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/admin-lock/acquire` | Acquire edit lock |
-| `POST` | `/api/admin-lock/force` | Force override lock |
-| `POST` | `/api/admin-lock/release` | Release edit lock |
-| `POST` | `/api/admin-lock/refresh` | Refresh lock expiration |
-| `GET` | `/api/admin-lock/status` | Get lock status |
-
-### Backups *(requires admin API key)*
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/admin/backups` | List all backups (up to 20) |
-| `GET` | `/api/admin/backups/preview/:filename` | Preview backup content |
-| `POST` | `/api/admin/backups/restore/:filename` | Restore from backup |
-| `DELETE` | `/api/admin/backups/:filename` | Delete a backup |
-
-### Health Check
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/health` | Server health status |
-
----
-
-## Environment Variables
-
-See [SECURITY.md](./SECURITY.md) for full security configuration details.
-
-```env
-# Server Configuration
-PORT=3000
-NODE_ENV=production
-
-# CORS Origins - Your production domain(s), comma-separated
-CORS_ORIGINS=https://your-domain.com
-
-# Admin API Key - OPTIONAL: Protects admin endpoints (/api/admin/*)
-ADMIN_API_KEY=
-
-# User API Key - OPTIONAL: Protects write operations (PUT/POST/DELETE)
-USER_API_KEY=
-```
 
 ---
 
 ## Documentation
-
 | File | Purpose |
 |------|--------|
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | System architecture, multi-client sync design |
