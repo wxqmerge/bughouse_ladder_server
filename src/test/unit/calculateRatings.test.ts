@@ -7,31 +7,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { calculateRatings, processGameResults } from '../../../shared/utils/hashUtils';
 import type { PlayerData, MatchData } from '../../../shared/types';
-
-function createPlayer(
-  rank: number,
-  rating: number,
-  num_games: number,
-  nRating: number = 0,
-): PlayerData {
-  return {
-    rank,
-    group: 'A',
-    lastName: `Player${rank}`,
-    firstName: `F${rank}`,
-    rating,
-    nRating,
-    trophyEligible: rating >= 0,
-    grade: '5',
-    num_games,
-    attendance: 0,
-    info: '',
-    phone: '',
-    school: '',
-    room: '',
-    gameResults: Array(31).fill(null),
-  };
-}
+import { createPlayer } from '../shared/factories';
 
 function createMatch(
   player1Rank: number,

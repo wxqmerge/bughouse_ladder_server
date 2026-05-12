@@ -9,32 +9,13 @@ import {
   mergePlayerLists,
 } from '../../../src/utils/migrationUtils';
 import type { PlayerData } from '../../../shared/types';
-
-// Helper to create test players
-const createPlayer = (overrides: Partial<PlayerData>): PlayerData => ({
-  rank: 1,
-  group: 'A',
-  lastName: 'Smith',
-  firstName: 'John',
-  rating: 1200,
-  nRating: 1200,
-  trophyEligible: true,
-  grade: '4',
-  num_games: 0,
-  attendance: 0,
-  info: '',
-  phone: '',
-  school: '',
-  room: '',
-  gameResults: Array(31).fill(null),
-  ...overrides,
-});
+import { createTestPlayer } from '../shared/factories';
 
 describe('Migration Utilities', () => {
   describe('detectRankNameMismatches', () => {
     it('should detect no mismatches when data is identical', () => {
-      const localPlayers = [createPlayer({ rank: 1, lastName: 'Smith' })];
-      const serverPlayers = [createPlayer({ rank: 1, lastName: 'Smith' })];
+      const localPlayers = [createTestPlayer({ rank: 1, lastName: 'Smith' })];
+      const serverPlayers = [createTestPlayer({ rank: 1, lastName: 'Smith' })];
 
       const result = detectRankNameMismatches(localPlayers, serverPlayers);
 
@@ -43,8 +24,8 @@ describe('Migration Utilities', () => {
     });
 
     it('should detect mismatch when last names differ at same rank', () => {
-      const localPlayers = [createPlayer({ rank: 1, lastName: 'Smith' })];
-      const serverPlayers = [createPlayer({ rank: 1, lastName: 'Johnson' })];
+      const localPlayers = [createTestPlayer({ rank: 1, lastName: 'Smith' })];
+      const serverPlayers = [createTestPlayer({ rank: 1, lastName: 'Johnson' })];
 
       const result = detectRankNameMismatches(localPlayers, serverPlayers);
 
@@ -54,14 +35,14 @@ describe('Migration Utilities', () => {
 
     it('should detect multiple mismatches', () => {
       const localPlayers = [
-        createPlayer({ rank: 1, lastName: 'Smith' }),
-        createPlayer({ rank: 5, lastName: 'Williams' }),
-        createPlayer({ rank: 10, lastName: 'Brown' }),
+        createTestPlayer({ rank: 1, lastName: 'Smith' }),
+        createTestPlayer({ rank: 5, lastName: 'Williams' }),
+        createTestPlayer({ rank: 10, lastName: 'Brown' }),
       ];
       const serverPlayers = [
-        createPlayer({ rank: 1, lastName: 'Johnson' }), // Mismatch
-        createPlayer({ rank: 5, lastName: 'Jones' }),   // Mismatch
-        createPlayer({ rank: 10, lastName: 'Brown' }),  // Match
+        createTestPlayer({ rank: 1, lastName: 'Johnson' }), // Mismatch
+        createTestPlayer({ rank: 5, lastName: 'Jones' }),   // Mismatch
+        createTestPlayer({ rank: 10, lastName: 'Brown' }),  // Match
       ];
 
       const result = detectRankNameMismatches(localPlayers, serverPlayers);
@@ -74,10 +55,10 @@ describe('Migration Utilities', () => {
 
     it('should handle players only in local', () => {
       const localPlayers = [
-        createPlayer({ rank: 1, lastName: 'Smith' }),
-        createPlayer({ rank: 2, lastName: 'LocalOnly' }),
+        createTestPlayer({ rank: 1, lastName: 'Smith' }),
+        createTestPlayer({ rank: 2, lastName: 'LocalOnly' }),
       ];
-      const serverPlayers = [createPlayer({ rank: 1, lastName: 'Smith' })];
+      const serverPlayers = [createTestPlayer({ rank: 1, lastName: 'Smith' })];
 
       const result = detectRankNameMismatches(localPlayers, serverPlayers);
 
@@ -86,10 +67,10 @@ describe('Migration Utilities', () => {
     });
 
     it('should handle players only in server', () => {
-      const localPlayers = [createPlayer({ rank: 1, lastName: 'Smith' })];
+      const localPlayers = [createTestPlayer({ rank: 1, lastName: 'Smith' })];
       const serverPlayers = [
-        createPlayer({ rank: 1, lastName: 'Smith' }),
-        createPlayer({ rank: 2, lastName: 'ServerOnly' }),
+        createTestPlayer({ rank: 1, lastName: 'Smith' }),
+        createTestPlayer({ rank: 2, lastName: 'ServerOnly' }),
       ];
 
       const result = detectRankNameMismatches(localPlayers, serverPlayers);
@@ -102,7 +83,7 @@ describe('Migration Utilities', () => {
   describe('mergePlayerLists', () => {
     it('should use server-only players when no local equivalent exists', () => {
       const localPlayers: PlayerData[] = [];
-      const serverPlayers = [createPlayer({ rank: 1, lastName: 'ServerOnly' })];
+      const serverPlayers = [createTestPlayer({ rank: 1, lastName: 'ServerOnly' })];
 
       const merged = mergePlayerLists(localPlayers, serverPlayers, {
         nonResultStrategy: 'use-server',
@@ -114,7 +95,7 @@ describe('Migration Utilities', () => {
     });
 
     it('should use local-only players when no server equivalent exists', () => {
-      const localPlayers = [createPlayer({ rank: 1, lastName: 'LocalOnly' })];
+      const localPlayers = [createTestPlayer({ rank: 1, lastName: 'LocalOnly' })];
       const serverPlayers: PlayerData[] = [];
 
       const merged = mergePlayerLists(localPlayers, serverPlayers, {
@@ -127,13 +108,13 @@ describe('Migration Utilities', () => {
     });
 
     it('should use server non-result fields when strategy is use-server', () => {
-      const localPlayers = [createPlayer({ 
+      const localPlayers = [createTestPlayer({ 
         rank: 1, 
         lastName: 'Local',
         firstName: 'LocalFirst',
         rating: 1000,
       })];
-      const serverPlayers = [createPlayer({ 
+      const serverPlayers = [createTestPlayer({ 
         rank: 1, 
         lastName: 'Server',
         firstName: 'ServerFirst',
@@ -151,13 +132,13 @@ describe('Migration Utilities', () => {
     });
 
     it('should use local non-result fields when strategy is use-local', () => {
-      const localPlayers = [createPlayer({ 
+      const localPlayers = [createTestPlayer({ 
         rank: 1, 
         lastName: 'Local',
         firstName: 'LocalFirst',
         rating: 1000,
       })];
-      const serverPlayers = [createPlayer({ 
+      const serverPlayers = [createTestPlayer({ 
         rank: 1, 
         lastName: 'Server',
         firstName: 'ServerFirst',
@@ -175,12 +156,12 @@ describe('Migration Utilities', () => {
     });
 
     it('should merge game results when strategy is merge', () => {
-      const localPlayers = [createPlayer({ 
+      const localPlayers = [createTestPlayer({ 
         rank: 1,
         lastName: 'Player',
         gameResults: ['W', null, 'L', null],
       })];
-      const serverPlayers = [createPlayer({ 
+      const serverPlayers = [createTestPlayer({ 
         rank: 1,
         lastName: 'Player',
         gameResults: [null, 'W', null, 'L'],
@@ -198,12 +179,12 @@ describe('Migration Utilities', () => {
     });
 
     it('should use server results when strategy is dont-merge', () => {
-      const localPlayers = [createPlayer({ 
+      const localPlayers = [createTestPlayer({ 
         rank: 1,
         lastName: 'Player',
         gameResults: ['W', 'L', 'D', null],
       })];
-      const serverPlayers = [createPlayer({ 
+      const serverPlayers = [createTestPlayer({ 
         rank: 1,
         lastName: 'Player',
         gameResults: ['L', 'W', null, 'D'],
@@ -222,11 +203,11 @@ describe('Migration Utilities', () => {
 
     it('should sort merged players by rank', () => {
       const localPlayers = [
-        createPlayer({ rank: 3, lastName: 'Third' }),
-        createPlayer({ rank: 1, lastName: 'First' }),
+        createTestPlayer({ rank: 3, lastName: 'Third' }),
+        createTestPlayer({ rank: 1, lastName: 'First' }),
       ];
       const serverPlayers = [
-        createPlayer({ rank: 2, lastName: 'Second' }),
+        createTestPlayer({ rank: 2, lastName: 'Second' }),
       ];
 
       const merged = mergePlayerLists(localPlayers, serverPlayers, {
@@ -240,7 +221,7 @@ describe('Migration Utilities', () => {
     });
 
     it('should preserve all 13 non-result fields correctly', () => {
-      const localPlayers = [createPlayer({ 
+      const localPlayers = [createTestPlayer({ 
         rank: 1,
         group: 'L',
         lastName: 'Local',
@@ -256,7 +237,7 @@ describe('Migration Utilities', () => {
         school: 'Local School',
         room: 'L1',
       })];
-      const serverPlayers = [createPlayer({ 
+      const serverPlayers = [createTestPlayer({ 
         rank: 1,
         group: 'S',
         lastName: 'Server',

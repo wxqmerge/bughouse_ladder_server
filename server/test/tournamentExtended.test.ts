@@ -20,19 +20,9 @@ import { calculateRatings, repopulateGameResults, processGameResults } from '../
 import { buildDebugHeader, buildClubLadderPlayerSection, buildMiniGamePlayerSection, buildTrophiesSection, buildTrophyReportString, syncEligibilityFromClubLadder } from '../../shared/utils/trophyDebugReport';
 import type { MatchData } from '../../shared/types';
 import { mulberry32, determineResult, generateBatchGames, cleanInvalidResults, createStressTestPlayer } from '../../src/test/shared/stressTestUtils';
+import { createMatchPlayer } from '../../src/test/shared/factories';
 
 // ── Test Fixtures ──────────────────────────────────────────────────
-
-function createPlayer(
-  rank: number, lastName: string, firstName: string, rating: number,
-  grade: string, num_games: number, gameResults: (string | null)[]
-): PlayerData {
-  return {
-    rank, group: 'A1', lastName, firstName, rating, nRating: rating,
-    trophyEligible: true, grade, num_games, attendance: 0, phone: '',
-    info: '', school: '', room: '', gameResults: gameResults.concat(Array(31 - gameResults.length).fill(null)),
-  };
-}
 
 function createLadderData(players: PlayerData[]): LadderData {
   return { header: [], players, rawLines: [] };
@@ -167,7 +157,7 @@ describe('addPlayerToAllMiniGames', () => {
       await writeLadderFile(emptyData, path.join(testDir, file));
     }
 
-    const newPlayer = createPlayer(1, 'Test', 'Player', 1500, '5', 0, []);
+    const newPlayer = createMatchPlayer(1, 'Test', 'Player', 1500, '5', 0, []);
     await addPlayerToAllMiniGames(newPlayer);
 
     for (const file of MINI_GAME_FILES) {
@@ -179,11 +169,11 @@ describe('addPlayerToAllMiniGames', () => {
 
   it('should add player to existing mini-game files', async () => {
     // Create one mini-game file with existing players
-    const existingPlayers = [createPlayer(1, 'Existing', 'Player', 1400, '5', 3, ['1L1'])];
+    const existingPlayers = [createMatchPlayer(1, 'Existing', 'Player', 1400, '5', 3, ['1L1'])];
     const ladderData = createLadderData(existingPlayers);
     await writeLadderFile(ladderData, path.join(testDir, 'BG_Game.tab'));
 
-    const newPlayer = createPlayer(2, 'New', 'Player', 1300, '6', 0, []);
+    const newPlayer = createMatchPlayer(2, 'New', 'Player', 1300, '6', 0, []);
     await addPlayerToAllMiniGames(newPlayer);
 
     // Check BG_Game.tab has both players
@@ -200,7 +190,7 @@ describe('addPlayerToAllMiniGames', () => {
       await writeLadderFile(emptyData, path.join(testDir, file));
     }
 
-    const existingPlayer = createPlayer(1, 'Same', 'Player', 1500, '5', 0, []);
+    const existingPlayer = createMatchPlayer(1, 'Same', 'Player', 1500, '5', 0, []);
     await addPlayerToAllMiniGames(existingPlayer);
     await addPlayerToAllMiniGames(existingPlayer);
 
@@ -212,7 +202,7 @@ describe('addPlayerToAllMiniGames', () => {
 
 describe('copyPlayersToTarget - edge cases', () => {
   it('should handle players with no name', () => {
-    const source = [createPlayer(1, '', '', 1500, '5', 0, [])];
+    const source = [createMatchPlayer(1, '', '', 1500, '5', 0, [])];
     const target: PlayerData[] = [];
     const result = copyPlayersToTarget(source, target);
     expect(result.length).toBe(1);
@@ -220,8 +210,8 @@ describe('copyPlayersToTarget - edge cases', () => {
 
   it('should handle duplicate names in source', () => {
     const source = [
-      createPlayer(1, 'Smith', 'John', 1500, '5', 3, []),
-      createPlayer(2, 'Smith', 'John', 1600, '5', 5, []),
+      createMatchPlayer(1, 'Smith', 'John', 1500, '5', 3, []),
+      createMatchPlayer(2, 'Smith', 'John', 1600, '5', 5, []),
     ];
     const target: PlayerData[] = [];
     const result = copyPlayersToTarget(source, target);
@@ -229,7 +219,7 @@ describe('copyPlayersToTarget - edge cases', () => {
   });
 
   it('should preserve gameResults length', () => {
-    const source = [createPlayer(1, 'Test', 'Player', 1500, '5', 3, ['1L1', '2W1'])];
+    const source = [createMatchPlayer(1, 'Test', 'Player', 1500, '5', 3, ['1L1', '2W1'])];
     const target: PlayerData[] = [];
     const result = copyPlayersToTarget(source, target);
     expect(result[0].gameResults.length).toBe(31);
@@ -268,9 +258,9 @@ describe('mergeGameResults - edge cases', () => {
 describe('Gr trophy generation - club ladder mode', () => {
   it('should award Club Ladder 1st, 2nd, 3rd place by rating', async () => {
     const players = [
-      createPlayer(1, 'Top', 'Player', 1600, '5', 10, []),
-      createPlayer(2, 'Second', 'Player', 1500, '5', 8, []),
-      createPlayer(3, 'Third', 'Player', 1400, '6', 5, []),
+      createMatchPlayer(1, 'Top', 'Player', 1600, '5', 10, []),
+      createMatchPlayer(2, 'Second', 'Player', 1500, '5', 8, []),
+      createMatchPlayer(3, 'Third', 'Player', 1400, '6', 5, []),
     ];
     const trophies = await generateClubLadderTrophies(players, 10);
     // 3 players all get overall position trophies; Most Games skipped (Top Player already has 1st), Gr trophies skipped (all players already have trophies)
@@ -285,8 +275,8 @@ describe('Gr trophy generation - club ladder mode', () => {
 
   it('should award overall position trophies even when minTrophies is 0', async () => {
     const players = [
-      createPlayer(1, 'A', 'B', 1600, '5', 10, []),
-      createPlayer(2, 'C', 'D', 1500, '5', 8, []),
+      createMatchPlayer(1, 'A', 'B', 1600, '5', 10, []),
+      createMatchPlayer(2, 'C', 'D', 1500, '5', 8, []),
     ];
     const trophies = await generateClubLadderTrophies(players, 0);
     // Steps 1-4 (1st, 2nd, 3rd, Most Games) always run regardless of minTrophies; only Gr trophies check minTrophies
@@ -311,9 +301,9 @@ describe('Gr trophy generation - mini-game tournament mode', () => {
 
   it('should award 1st place per mini-game (hardest first)', async () => {
     const players = [
-      createPlayer(1, 'Queen', 'Winner', 1600, '5', 10, []),
-      createPlayer(2, 'Pawn', 'Winner', 1500, '5', 8, []),
-      createPlayer(3, 'Bishop', 'Winner', 1400, '6', 5, []),
+      createMatchPlayer(1, 'Queen', 'Winner', 1600, '5', 10, []),
+      createMatchPlayer(2, 'Pawn', 'Winner', 1500, '5', 8, []),
+      createMatchPlayer(3, 'Bishop', 'Winner', 1400, '6', 5, []),
     ];
     const existingFiles = ['Queen_Game.tab', 'Pawn_Game.tab', 'Bishop_Game.tab'];
 
@@ -332,9 +322,9 @@ describe('Gr trophy generation - mini-game tournament mode', () => {
 
   it('should award Gr 1st place after mini-game trophies', async () => {
     const players = [
-      createPlayer(1, 'Gr13', 'Player', 1600, '13', 10, []),
-      createPlayer(2, 'Gr12', 'Player', 1500, '12', 8, []),
-      createPlayer(3, 'Gr11', 'Player', 1400, '11', 5, []),
+      createMatchPlayer(1, 'Gr13', 'Player', 1600, '13', 10, []),
+      createMatchPlayer(2, 'Gr12', 'Player', 1500, '12', 8, []),
+      createMatchPlayer(3, 'Gr11', 'Player', 1400, '11', 5, []),
     ];
     const trophies = await generateClubLadderTrophies(players, 10);
 
@@ -347,9 +337,9 @@ describe('Gr trophy generation - mini-game tournament mode', () => {
   it('should award overall positions before grade positions', async () => {
     // Create players with different grades and ratings
     const players = [
-      createPlayer(1, 'High', 'Gr13', 1600, '13', 10, []),
-      createPlayer(2, 'Mid', 'Gr12', 1500, '12', 8, []),
-      createPlayer(3, 'Low', 'Gr11', 1400, '11', 5, []),
+      createMatchPlayer(1, 'High', 'Gr13', 1600, '13', 10, []),
+      createMatchPlayer(2, 'Mid', 'Gr12', 1500, '12', 8, []),
+      createMatchPlayer(3, 'Low', 'Gr11', 1400, '11', 5, []),
     ];
 
     const trophies = await generateClubLadderTrophies(players, 10);
@@ -370,9 +360,9 @@ describe('Gr trophy ties', () => {
   it('should rank tied players by their sort order and award overall positions', async () => {
     // Two players with same rating in same grade
     const players = [
-      createPlayer(1, 'Tied', 'A', 1500, '5', 10, []),
-      createPlayer(2, 'Tied', 'B', 1500, '5', 8, []),
-      createPlayer(3, 'Lower', 'C', 1400, '5', 5, []),
+      createMatchPlayer(1, 'Tied', 'A', 1500, '5', 10, []),
+      createMatchPlayer(2, 'Tied', 'B', 1500, '5', 8, []),
+      createMatchPlayer(3, 'Lower', 'C', 1400, '5', 5, []),
     ];
 
     const trophies = await generateClubLadderTrophies(players, 10);
@@ -403,7 +393,7 @@ describe('countGamesAcrossMiniGames', () => {
         await writeLadderFile(emptyData, path.join(testDir2, file));
       }
 
-      const player = createPlayer(1, 'Count', 'Test', 1500, '5', 0, []);
+      const player = createMatchPlayer(1, 'Count', 'Test', 1500, '5', 0, []);
       await addPlayerToAllMiniGames(player);
       await addPlayerToAllMiniGames(player);
 

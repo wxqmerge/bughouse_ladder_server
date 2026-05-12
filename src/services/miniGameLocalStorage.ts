@@ -3,7 +3,7 @@
  * Uses shared trophy logic from shared/utils/trophyGeneration.ts
  */
 
-import { PlayerData, LadderData, MiniGameStore } from '../../shared/types';
+import { PlayerData, LadderData, MiniGameStore, MiniGameData } from '../../shared/types';
 import { calculateRatings, processGameResults } from '../../shared/utils/hashUtils';
 import {
   copyPlayersToTarget as sharedCopyPlayersToTarget,
@@ -12,7 +12,6 @@ import {
   generateMiniGameTrophies as sharedGenerateMiniGameTrophies,
   debugLine as sharedDebugLine,
   clubLadderGamesPlayed,
-  MiniGameData,
 } from '../../shared/utils/trophyGeneration';
 import { buildTrophiesSection, buildClubLadderPlayerSection, buildMiniGamePlayerSection, syncEligibilityFromClubLadder } from '../../shared/utils/trophyDebugReport';
 

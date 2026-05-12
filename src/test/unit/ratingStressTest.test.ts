@@ -14,7 +14,7 @@ import { calculateRatings, repopulateGameResults, processGameResults } from '../
 import type { PlayerData, MatchData } from '../../../shared/types';
 import fs from 'fs';
 import path from 'path';
-import { mulberry32, determineResult, generateBatchGames } from '../shared/stressTestUtils';
+import { mulberry32, determineResult, generateBatchGames, firstNames, lastNames, createStressTestPlayer as createPlayer, cleanInvalidResults, computeRss } from '../shared/stressTestUtils';
 
 // ─── Types ────────────────────────────────────────────────────────────
 interface StressConfig {
@@ -42,30 +42,6 @@ interface StressResult {
   playerDetails: PlayerDetail[];
   startPlayers: PlayerData[];
   endPlayers: PlayerData[];
-}
-
-// ─── Player Creation ──────────────────────────────────────────────────
-const firstNames = ['James', 'Mary', 'John', 'Patricia', 'Robert', 'Jennifer', 'Michael', 'Linda', 'William', 'Elizabeth', 'David', 'Barbara', 'Richard', 'Susan', 'Joseph', 'Jessica', 'Thomas', 'Sarah', 'Charles', 'Karen', 'Christopher', 'Lisa', 'Daniel', 'Nancy', 'Matthew', 'Betty', 'Anthony', 'Margaret', 'Mark', 'Sandra', 'Donald', 'Ashley', 'Steven', 'Dorothy', 'Paul', 'Kimberly', 'Andrew', 'Emily', 'Joshua', 'Donna', 'Kenneth', 'Michelle', 'Kevin', 'Carol', 'Brian', 'Amanda', 'George', 'Melissa', 'Timothy', 'Deborah'];
-const lastNames = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Rodriguez', 'Martinez', 'Hernandez', 'Lopez', 'Gonzalez', 'Wilson', 'Anderson', 'Thomas', 'Taylor', 'Moore', 'Jackson', 'Martin', 'Lee', 'Perez', 'Thompson', 'White', 'Harris', 'Sanchez', 'Clark', 'Ramirez', 'Lewis', 'Robinson', 'Walker', 'Young', 'Allen', 'King', 'Wright', 'Scott', 'Torres', 'Nguyen', 'Hill', 'Flores', 'Green', 'Adams', 'Nelson', 'Baker', 'Hall', 'Rivera', 'Campbell', 'Mitchell', 'Carter', 'Roberts', 'Gomez'];
-
-function createPlayer(rank: number, rating: number, rng: () => number): PlayerData {
-  return {
-    rank,
-    group: 'A',
-    lastName: lastNames[Math.floor(rng() * lastNames.length)],
-    firstName: firstNames[Math.floor(rng() * firstNames.length)],
-    rating,
-    nRating: 0,
-    trophyEligible: rng() > 0.15, // ~15% chance of being ineligible
-    grade: (5 + Math.floor(rng() * 9)).toString(),
-    num_games: 0,
-    attendance: 0,
-    info: '',
-    phone: '',
-    school: '',
-    room: '',
-    gameResults: Array(31).fill(null),
-  };
 }
 
 // ─── Ladder Tab Generator ────────────────────────────────────────────
@@ -101,42 +77,6 @@ function generateLadderTab(players: PlayerData[]): string {
   });
 
   return [header, ...lines].join('\n') + '\n';
-}
-
-// ─── Result Validation ────────────────────────────────────────────────
-/**
- * Validate and clean game results by removing invalid entries.
- * Repeats until processGameResults reports no errors.
- */
-function cleanInvalidResults(players: PlayerData[]): PlayerData[] {
-  let current = players;
-  let iterations = 0;
-
-  while (iterations < 10) {
-    const validation = processGameResults(current, 31);
-    if (!validation.hasErrors || validation.errors.length === 0) break;
-
-    // Collect invalid (round, playerRank) pairs from errors
-    const invalidEntries = new Set<string>();
-    for (const err of validation.errors) {
-      invalidEntries.add(`${err.playerRank}:${err.resultIndex}`);
-    }
-
-    // Remove invalid entries
-    current = current.map(p => {
-      const newResults = [...p.gameResults];
-      for (let r = 0; r < 31; r++) {
-        if (invalidEntries.has(`${p.rank}:${r}`)) {
-          newResults[r] = null;
-        }
-      }
-      return { ...p, gameResults: newResults };
-    });
-
-    iterations++;
-  }
-
- return current;
 }
 
 // ─── Simulation ───────────────────────────────────────────────────────
@@ -241,15 +181,6 @@ function runSimulation(config: StressConfig): StressResult {
     startPlayers,
     endPlayers: JSON.parse(JSON.stringify(finalPlayers)),
   };
-}
-
-function computeRss(players: PlayerData[], startRatings: Map<number, number>, useNRating = true): number {
-  let rss = 0;
-  for (const p of players) {
-    const diff = (useNRating ? p.nRating : p.rating) - (startRatings.get(p.rank) ?? 0);
-    rss += diff * diff;
-  }
-  return Math.sqrt(rss / players.length);
 }
 
 // ─── Configurations ───────────────────────────────────────────────────

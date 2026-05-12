@@ -25,6 +25,8 @@ export interface PlayerData {
   gameResults: (string | null)[];
 }
 
+export const DEFAULT_GAME_RESULTS: (string | null)[] = Array(31).fill(null);
+
 export type PlayersArray = Record<number, PlayerData>;
 
 export interface ValidationResult {
@@ -41,6 +43,11 @@ export interface ValidationResult {
   originalString: string;
   playerRank: number;
   conflictingResults?: { playerRank: number; result: string }[];
+}
+
+export interface MiniGameData {
+  fileName: string;
+  players: PlayerData[];
 }
 
 export interface MatchData {
