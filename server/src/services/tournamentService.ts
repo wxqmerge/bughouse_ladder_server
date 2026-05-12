@@ -303,6 +303,7 @@ export async function generateTrophyReport(debugLevel: number = 3): Promise<{
   trophies?: any[];
   isClubMode?: boolean;
   debugInfo?: string;
+  trophiesSection?: string[];
 }> {
   try {
     const hasMiniGames = await hasMiniGameFiles();
@@ -371,7 +372,6 @@ export async function generateTrophyReport(debugLevel: number = 3): Promise<{
     }
 
     const trophiesSection = buildTrophiesSection(trophies);
-    debugLines.push(...trophiesSection);
 
     return {
       success: true,
@@ -379,6 +379,7 @@ export async function generateTrophyReport(debugLevel: number = 3): Promise<{
       trophies,
       isClubMode,
       debugInfo: debugLines.join('\n'),
+      trophiesSection: trophiesSection,
     };
   } catch (error) {
     loggerLog('[TOURNAMENT]', `Trophy generation failed: ${(error as Error).message}`);

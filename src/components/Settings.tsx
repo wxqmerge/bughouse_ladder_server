@@ -498,7 +498,7 @@ export default function Settings({
                     </button>
                   )}
 
-                  {isTournamentActive && onGenerateTrophies && (
+                  {onGenerateTrophies && (
                     <button
                       onClick={() => {
                         onClose();

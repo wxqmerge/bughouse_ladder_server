@@ -952,18 +952,8 @@ class DataService {
         lines.push('');
       }
       
-      lines.push('');
-      lines.push('AWARDED TROPHIES');
-      const header = 'Rank\tPlayer\tTrophy Type\tMini-Game/Grade\tGr\tRating\tTotal Games\tGames Played';
-      lines.push(header);
-      
-      let blankRowInserted = false;
-      for (const trophy of result.trophies!) {
-        if (!blankRowInserted && trophy.trophyType === '1st Place' && trophy.miniGameOrGrade && trophy.miniGameOrGrade.startsWith('Gr ') && !result.isClubMode) {
-          lines.push('');
-          blankRowInserted = true;
-        }
-        lines.push(`${trophy.rank}\t${trophy.player}\t${trophy.trophyType}\t${trophy.miniGameOrGrade}\t${trophy.gr}\t${trophy.rating}\t${trophy.totalGames || 0}\t${trophy.gamesPlayed}`);
+      if (result.trophiesSection) {
+        lines.push(...result.trophiesSection);
       }
       
       const content = lines.join('\n') + '\n';
