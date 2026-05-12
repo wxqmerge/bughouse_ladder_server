@@ -1,55 +1,99 @@
 # Agent Instructions: Bughouse Chess Ladder
 
 ## Project Structure
-- **Frontend (Root):** React/Vite application (Port 5173).
-- **Backend (`server/`):** Node.js/Express API (Port 3000).
-- **Shared (`shared/`):** Common TypeScript types and utilities used by both client and server.
+- **Frontend (Root):** React/Vite SPA (Port 5173). Built to `dist/` as a single file.
+- **Backend (`server/`):** Node.js/Express API (Port 3000). Built to `server/dist/`.
+- **Shared (`shared/`):** TypeScript types + utilities compiled separately. Consumed by both client and server.
+- **Source of truth:** `server/data/ladder.tab` (excluded from git).
 
 ## Developer Commands
 
 ### Frontend (Root Directory)
-- `npm run dev`: Start Vite development server.
-- `npm run build`: Build production assets (`tsc && vite build`).
-- `npm run typecheck`: Run TypeScript type checking (`tsc --noEmit`).
-- `npm run test`: Run Vitest unit tests.
+- `npm run dev`: Start Vite dev server. Proxies `/api` requests to `localhost:3000`.
+- `npm run build`: `tsc && vite build` (must run typecheck first).
+- `npm run typecheck`: `tsc --noEmit` (root tsconfig includes `src` + `shared`).
+- `npm run test`: Run Vitest in watch mode. Use `npm run test:run` for CI.
 
 ### Backend (`server/` Directory)
-- `npm run dev`: Start development server with `tsx watch`.
-- `npm run build`: **CRITICAL** - Performs complex build involving shared code compilation and patching. Do NOT run `tsc` alone.
-- `npm run start`: Run the production build.
-- `npm run typecheck`: Run TypeScript type checking.
-- `npm run test`: Run Vitest unit tests.
+- `npm run dev`: `tsx watch src/index.ts` — hot-reload for development.
+- `npm run build`: **CRITICAL** — 4-step pipeline:
+  1. `scripts/compile-shared.js` — compiles `shared/` via its own tsconfig to `shared/dist/`
+  2. `npx tsc` — compiles `server/src/` to `server/dist/`
+  3. `scripts/patch-shared-imports.js` — rewrites `@shared/*` imports to relative `../../shared/dist/*` paths
+  4. `scripts/flatten-server-dist.js` — flattens the server dist structure
+  **Do NOT run `tsc` alone in `server/`** — it will fail on `@shared/*` imports.
+- `npm run start`: `node dist/index.js` (production).
+- `npm run typecheck`: `tsc --noEmit` (server tsconfig, separate from root).
+- `npm run test:run`: `vitest run` (server tests).
 
-## Core Architecture & Synchronization
+## Key Technical Details
 
-### Hybrid Sync Strategy
-To support multi-client synchronization and offline resilience, the system uses a hybrid approach:
-1. **Primary (SSE):** Server-Sent Events provide instant updates (<100ms) on any write operation.
-2. **Fallback (Polling):** A 5.5s polling loop catches any missed SSE events.
-   - **Overlap Guard:** Polling skips a cycle if the previous request is still pending to prevent request stacking.
+### TypeScript Path Aliases
+- **Frontend:** `@/*` → `src/*` (root tsconfig + vite alias).
+- **Server:** `@shared/*` → `../shared/*` (server tsconfig). At runtime, imports resolve to `shared/dist/*`.
 
-### Merge & Conflict Resolution
-The system uses a "Fetch-Before-Save" pattern to prevent data loss during concurrent edits.
-**Merge Priority (Highest to Lowest):**
-1. **Local unconfirmed entries:** Cells without a `_` suffix.
-2. **Pending deletes:** Queued deletions in `localStorage`.
-3. **Server confirmed entries:** Cells with a `_` suffix.
-4. **Server default:** Fallback to current server state.
+### Shared Code Compilation
+The `shared/` directory has its own tsconfig and is compiled to `shared/dist/` by the server build. Generated `.js`, `.d.ts`, and `.d.ts.map` files in `shared/` are gitignored. Do not edit files in `shared/dist/`.
 
-### Change Detection
-The client uses a hash-based change detection algorithm. It computes a hash of game results from the server response and compares it to the `lastDataHash` to decide whether to notify subscribers.
+### Dev Server Proxy
+Vite proxies `/api` → `http://localhost:3000` (vite.config.ts). The backend SSE endpoint is `/api/ladder/events`.
+
+### Test Configuration
+- **Framework:** Vitest (v4+), jsdom environment, globals enabled.
+- **Setup file:** `src/test/setup.ts`.
+- **Frontend tests:** `src/test/unit/`, `src/test/shared/`, `src/test/fixtures/`.
+- **Server tests:** `server/test/`.
+- **Test pattern:** `**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}`.
+- **Coverage:** `npm run test:coverage` (v8 provider, text/json/html reporters).
+
+### Merge & Conflict Resolution (Client-Side)
+Uses "Fetch-Before-Save" pattern. Merge priority (highest to lowest):
+1. Local unconfirmed entries (cells without `_` suffix).
+2. Pending deletes (queued in `localStorage` under `ladder_pending_deletes`).
+3. Server confirmed entries (cells with `_` suffix).
+4. Server default.
+
+### Sync Strategy
+- **Primary:** SSE (`EventSource` → `/api/ladder/events`) for instant push (<100ms).
+- **Fallback:** Polling every 5.5s with overlap guard (skips if previous request pending).
+- **Change detection:** Hash of game results compared against `lastDataHash`.
 
 ## Configuration
 
-### Environment
-- **Backend:** Requires `.env` in `server/` directory. Copy from `server/.env.example`.
-- **Frontend:** Supports URL-based configuration for quick setup:
-  - `?config=1&server=URL&key=KEY`: Connect to a specific server with an API key.
-  - `?config=2`: Reset to `LOCAL` mode (localStorage).
-  - `?config=3&file=URL`: Load a remote `.tab` or `.xls` file.
+### Environment (Backend)
+- Copy `server/.env.example` → `server/.env`.
+- Required keys: `PORT`, `ADMIN_API_KEY`, `CORS_ORIGIN`, `TAB_FILE_PATH`.
+- `.env` is gitignored. Never commit.
 
-## Testing & Verification
-- **Framework:** Vitest is used for both frontend and backend.
-- **Client Tests:** Located in `src/test/unit/`.
-- **Server Tests:** Located in `server/test/`.
-- **Verification:** Always run `npm run typecheck` and relevant tests after making changes.
+### Frontend URL-Based Configuration
+- `?config=1&server=URL&key=KEY`: Connect to server with API key.
+- `?config=2`: Reset to LOCAL mode (localStorage only).
+- `?config=3&file=URL`: Load remote `.tab`/`.xls` file.
+- URL params are cleared via `history.replaceState` after applying.
+
+### Drag & Drop
+`.tab`, `.xls`, or `.txt` files can be dropped on the splash screen to load locally (no server needed).
+
+## Architecture Deep-Dive
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for multi-client sync details, data flow diagrams, SSE event types, merge algorithms, and performance notes.
+
+## Documentation Index
+| File | Purpose |
+|------|---------|
+| [README.md](./README.md) | Quick start, API endpoints, features |
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | Technical deep-dive, sync design, data flow |
+| [README_INSTALL.md](./README_INSTALL.md) | Production deployment (nginx, systemd) |
+| [USER_MANUAL.md](./USER_MANUAL.md) | End-user game entry guide |
+| [ADMIN_MANUAL.md](./ADMIN_MANUAL.md) | Admin operations, backups, troubleshooting |
+| [SECURITY.md](./SECURITY.md) | API keys, CORS, rate limiting |
+| [TESTS.md](./TESTS.md) | Test suite documentation |
+
+## Deployment
+- **Server deploy:** `deploy/update.sh` — git pull, clean artifacts, `npm install`, frontend build, server build, systemctl restart. Requires passwordless sudo for `systemctl restart`.
+
+## Gotchas
+- **Server build order matters:** Always use `npm run build` in `server/`, never `tsc` alone.
+- **`ladder.tab` is gitignored:** You must create or import data to test server-side features.
+- **Frontend `npm run build` requires successful `tsc` first:** If typecheck fails, the build aborts.
+- **SSE events are broadcast to all connected clients** (writer receives their own event but filters it client-side).
+- **"Push to Server" on reconnect does NOT fetch-merge-first** — use "Pull from Server" to avoid data loss.
