@@ -624,8 +624,8 @@ export async function checkWritePermission(): Promise<boolean> {
   const url = getServerUrl();
   if (!url) return true;
   const settings = loadUserSettings();
-  // If no API key is saved, assume write is allowed (user may need to save key first via UI)
-  if (!settings.apiKey || !settings.apiKey.trim()) return true;
+  // Server mode without key → view only
+  if (!settings.apiKey || !settings.apiKey.trim()) return false;
   const headers: Record<string, string> = { 'X-API-Key': settings.apiKey.trim() };
   try {
     const res = await fetch(`${url}/api/ladder`, { method: 'PUT', headers, body: JSON.stringify({ players: [] }) });
