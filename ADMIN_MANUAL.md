@@ -67,7 +67,7 @@ When multiple clients connect to the same server, only one can hold admin mode a
 
 ### Auto-Detect (Default)
 
-When no manual config exists, the app auto-detects the server from `window.location.origin` via `HEAD /api/ladder` (3s timeout). Works because frontend and backend share the same origin per subdomain.
+When no manual config exists, the app auto-detects the server from `window.location.origin` via `GET /health` (3s timeout). Works because frontend and backend share the same origin per subdomain.
 
 ### Settings Dialog
 

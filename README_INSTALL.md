@@ -372,7 +372,7 @@ Users can configure the application in four ways:
 
 #### Method 1: Auto-Detect (Default, v1.1.9+)
 
-When no manual config exists, the app auto-detects the server from `window.location.origin` via `HEAD /api/ladder` (3s timeout). Works because frontend and backend share the same origin per subdomain. No user action needed — just open the app.
+When no manual config exists, the app auto-detects the server from `window.location.origin` via `GET /health` (3s timeout). Works because frontend and backend share the same origin per subdomain. No user action needed — just open the app.
 
 #### Method 2: Settings Dialog (Interactive)
 
