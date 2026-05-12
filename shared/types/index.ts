@@ -109,6 +109,7 @@ export interface MiniGameStore {
     trophies?: any[];
     isClubMode?: boolean;
     debugInfo?: string;
+    trophiesSection?: string[];
   }>;
   importMiniGameFiles(content: string): Promise<{ imported: string[]; errors: string[] }>;
 }

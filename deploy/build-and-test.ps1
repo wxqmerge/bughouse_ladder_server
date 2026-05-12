@@ -4,6 +4,9 @@
 $ErrorActionPreference = "Stop"
 $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $ProjectRoot = Split-Path -Parent $ScriptRoot
+$OriginalLocation = Get-Location
+
+try {
 
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host " Bughouse Ladder - Build & Test" -ForegroundColor Cyan
@@ -16,7 +19,7 @@ Set-Location $ProjectRoot
 npm run build
 if ($LASTEXITCODE -ne 0) {
     Write-Host "ERROR: Frontend build failed!" -ForegroundColor Red
-    exit 1
+    throw "Frontend build failed"
 }
 Write-Host "Frontend build complete." -ForegroundColor Green
 Write-Host ""
@@ -27,7 +30,7 @@ Set-Location "$ProjectRoot\server"
 npm run build
 if ($LASTEXITCODE -ne 0) {
     Write-Host "ERROR: Server build failed!" -ForegroundColor Red
-    exit 1
+    throw "Server build failed"
 }
 Write-Host "Server build complete." -ForegroundColor Green
 Write-Host ""
@@ -38,7 +41,7 @@ Set-Location $ProjectRoot
 npm run test:run
 if ($LASTEXITCODE -ne 0) {
     Write-Host "ERROR: Frontend tests failed!" -ForegroundColor Red
-    exit 1
+    throw "Frontend tests failed"
 }
 Write-Host "Frontend tests complete." -ForegroundColor Green
 Write-Host ""
@@ -49,7 +52,7 @@ Set-Location "$ProjectRoot\server"
 npm run test:run
 if ($LASTEXITCODE -ne 0) {
     Write-Host "ERROR: Server tests failed!" -ForegroundColor Red
-    exit 1
+    throw "Server tests failed"
 }
 Write-Host "Server tests complete." -ForegroundColor Green
 Write-Host ""
@@ -57,3 +60,7 @@ Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host " ALL DONE - Build & Tests Passed" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Cyan
+}
+finally {
+    Set-Location $OriginalLocation
+}
