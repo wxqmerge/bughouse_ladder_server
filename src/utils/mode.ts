@@ -63,56 +63,125 @@ export function onModeChange(callback: (newMode: string, oldMode: string) => voi
      console.error('[mode.ts] Failed to read user settings:', err);
    }
    
-   // No server configured - try same-origin auto-detection
-    try {
-      const origin = window.location.origin;
-      console.log('[mode.ts] Auto-detect: origin=', origin);
-      
-      // Step 1: Check /health endpoint
-      const healthController = new AbortController();
-      const healthTimeoutId = setTimeout(() => healthController.abort(), 3000);
-      
-      const healthResponse = await fetch(`${origin}/health`, {
-        method: 'GET',
-        signal: healthController.signal,
-      });
-      clearTimeout(healthTimeoutId);
-      console.log('[mode.ts] Auto-detect: /health status=', healthResponse.status, 'ok=', healthResponse.ok);
-      
-      const healthOk = healthResponse.ok || healthResponse.status === 404;
-      
-      // Step 2: Verify API routes are actually accessible (not just something responding to /health)
-      const apiController = new AbortController();
-      const apiTimeoutId = setTimeout(() => apiController.abort(), 3000);
-      
-      const apiResponse = await fetch(`${origin}/api/ladder`, {
-        method: 'GET',
-        signal: apiController.signal,
-      });
-      clearTimeout(apiTimeoutId);
-      console.log('[mode.ts] Auto-detect: /api/ladder status=', apiResponse.status, 'ok=', apiResponse.ok);
-      
-      // /api/ladder GET is public - should return 200 with data
-      // 404 means Express routes aren't registered (server not running)
-      // 401/403 means auth is required (still a valid server)
-      const apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403;
-      
-      if (healthOk && apiOk) {
-        connectionState.configuredForServer = true;
-        connectionState.serverUrl = origin;
-        connectionState.serverReachable = true;
-        connectionState.lastCheckTime = Date.now();
-        connectionState.previousMode = null;
-        lastSavedServer = '';
-        lastSavedApiKey = '';
-        console.log('[mode.ts] Same-origin auto-detected:', origin);
-        return;
-      } else {
-        console.log('[mode.ts] Auto-detection FAILED: healthOk=', healthOk, 'apiOk=', apiOk, '(health status=', healthResponse.status, 'api status=', apiResponse.status, ')');
-      }
-    } catch (e) {
-      console.log('[mode.ts] Same-origin detection threw error:', (e as Error).message);
-    }
+  // No server configured - try same-origin auto-detection
+   let autoDetectedUrl: string | null = null;
+   try {
+     const origin = window.location.origin;
+     console.log('[mode.ts] Auto-detect: origin=', origin);
+     
+     // Step 1: Check same-origin first
+     const healthController = new AbortController();
+     const healthTimeoutId = setTimeout(() => healthController.abort(), 3000);
+     
+     const healthResponse = await fetch(`${origin}/health`, {
+       method: 'GET',
+       signal: healthController.signal,
+     });
+     clearTimeout(healthTimeoutId);
+     console.log('[mode.ts] Auto-detect: /health status=', healthResponse.status, 'ok=', healthResponse.ok);
+     
+     const healthOk = healthResponse.ok || healthResponse.status === 404;
+     
+     const apiController = new AbortController();
+     const apiTimeoutId = setTimeout(() => apiController.abort(), 3000);
+     
+     const apiResponse = await fetch(`${origin}/api/ladder`, {
+       method: 'GET',
+       signal: apiController.signal,
+     });
+     clearTimeout(apiTimeoutId);
+     console.log('[mode.ts] Auto-detect: /api/ladder status=', apiResponse.status, 'ok=', apiResponse.ok);
+     
+     const apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403;
+     
+     if (healthOk && apiOk) {
+       autoDetectedUrl = origin.replace(/\/$/, '');
+       console.log('[mode.ts] Same-origin auto-detected:', autoDetectedUrl);
+     } else {
+       console.log('[mode.ts] Same-origin detection FAILED: healthOk=', healthOk, 'apiOk=', apiOk);
+     }
+   } catch (e) {
+     console.log('[mode.ts] Same-origin detection threw error:', (e as Error).message);
+   }
+   
+   // Step 2: If same-origin failed, try subdomain-based detection
+   if (!autoDetectedUrl) {
+     try {
+       const pathname = window.location.pathname;
+       const hostname = window.location.hostname;
+       
+       // Extract project name from path (e.g., /dev-ladder/dist/ → dev-ladder)
+       const match = pathname.match(/^\/([^/]+)\/dist(?:\/.*)?$/);
+       if (match) {
+         const projectName = match[1];
+         const candidateUrl = `https://${projectName}.${hostname}`;
+         console.log('[mode.ts] Subdomain candidate from path:', projectName, '→', candidateUrl);
+         
+         // Validate candidate
+         const healthController = new AbortController();
+         const healthTimeoutId = setTimeout(() => healthController.abort(), 3000);
+         
+         let healthOk = false;
+         try {
+           const healthResponse = await fetch(`${candidateUrl}/health`, {
+             method: 'GET',
+             signal: healthController.signal,
+           });
+           clearTimeout(healthTimeoutId);
+           console.log('[mode.ts] Subdomain check: /health status=', healthResponse.status);
+           healthOk = healthResponse.ok || healthResponse.status === 404;
+         } catch {
+           clearTimeout(healthTimeoutId);
+         }
+         
+         if (healthOk) {
+           const apiController = new AbortController();
+           const apiTimeoutId = setTimeout(() => apiController.abort(), 3000);
+           
+           let apiOk = false;
+           let apiStatus = 0;
+           try {
+             const apiResponse = await fetch(`${candidateUrl}/api/ladder`, {
+               method: 'GET',
+               signal: apiController.signal,
+             });
+             clearTimeout(apiTimeoutId);
+             apiStatus = apiResponse.status;
+             console.log('[mode.ts] Subdomain check: /api/ladder status=', apiStatus);
+             apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403;
+           } catch (e) {
+             clearTimeout(apiTimeoutId);
+             console.log('[mode.ts] Subdomain check: /api/ladder error:', (e as Error).message);
+           }
+           
+           if (apiOk) {
+             autoDetectedUrl = candidateUrl;
+             console.log('[mode.ts] Subdomain auto-detected:', autoDetectedUrl);
+           } else {
+             console.log('[mode.ts] Subdomain detection FAILED: apiOk=', apiOk, 'apiStatus=', apiStatus);
+           }
+         } else {
+           console.log('[mode.ts] Subdomain /health check failed');
+         }
+       } else {
+         console.log('[mode.ts] No project name found in path:', pathname, '(expected /{project-name}/dist/)');
+       }
+     } catch (e) {
+       console.log('[mode.ts] Subdomain detection threw error:', (e as Error).message);
+     }
+   }
+   
+   // Step 3: Use auto-detected URL if found
+   if (autoDetectedUrl) {
+     connectionState.configuredForServer = true;
+     connectionState.serverUrl = autoDetectedUrl;
+     connectionState.serverReachable = true;
+     connectionState.lastCheckTime = Date.now();
+     connectionState.previousMode = null;
+     lastSavedServer = '';
+     lastSavedApiKey = '';
+     return;
+   }
    
    // No server configured - local mode
    connectionState.configuredForServer = false;
@@ -120,7 +189,7 @@ export function onModeChange(callback: (newMode: string, oldMode: string) => voi
    connectionState.serverReachable = null;
    connectionState.lastCheckTime = Date.now();
    connectionState.previousMode = null;
- }
+  }
 
 /**
  * Test if the server is reachable
