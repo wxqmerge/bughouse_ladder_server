@@ -95,7 +95,7 @@ export function clubLadderGamesPlayed(player: PlayerData): number {
   return (player.num_games || 0) + countGames(player.gameResults);
 }
 
-export function generateClubLadderTrophies(players: PlayerData[], maxTrophies: number): any[] {
+export function generateClubLadderTrophies(players: PlayerData[], minTrophies: number): any[] {
   const trophies: any[] = [];
   const seenPlayers = new Set<string>();
   const sortedPlayers = [...players].sort((a, b) => b.nRating - a.nRating);
@@ -178,7 +178,7 @@ export function generateClubLadderTrophies(players: PlayerData[], maxTrophies: n
   }
 
  // Step 5: Award grade 1st place if t > 4
-  if (maxTrophies > 4) {
+  if (minTrophies > 4) {
     const gradeGroups = [...new Set(players.map(p => p.grade).filter(Boolean))].sort((a, b) => parseInt(b) - parseInt(a));
     
     for (const grade of gradeGroups) {
@@ -202,7 +202,7 @@ export function generateClubLadderTrophies(players: PlayerData[], maxTrophies: n
   }
 
  // Step 6: Award grade 2nd place if any trophies remain
-  if (trophies.length < maxTrophies) {
+  if (trophies.length < minTrophies) {
     const gradeGroups = [...new Set(players.map(p => p.grade).filter(Boolean))].sort((a, b) => parseInt(b) - parseInt(a));
     
     for (const grade of gradeGroups) {
@@ -226,7 +226,7 @@ export function generateClubLadderTrophies(players: PlayerData[], maxTrophies: n
   }
 
   // Step 7: Award grade 3rd place if any trophies remain
-  if (trophies.length < maxTrophies) {
+  if (trophies.length < minTrophies) {
     const gradeGroups = [...new Set(players.map(p => p.grade).filter(Boolean))].sort((a, b) => parseInt(b) - parseInt(a));
     
     for (const grade of gradeGroups) {
@@ -254,14 +254,14 @@ export function generateClubLadderTrophies(players: PlayerData[], maxTrophies: n
 
 export function generateMiniGameTrophies(
   players: PlayerData[],
-  maxTrophies: number,
+  minTrophies: number,
   miniGameFiles: MiniGameData[]
 ): any[] {
   const trophies: any[] = [];
   const seenPlayers = new Set<string>();
   const existingFiles = miniGameFiles.map(f => f.fileName);
   const m = existingFiles.length;
-  const t = maxTrophies;
+  const t = minTrophies;
 
   function getPlayerTotalGames(player: PlayerData): number {
     let total = 0;
@@ -288,14 +288,14 @@ export function generateMiniGameTrophies(
   }
 
   // Award places per mini-game: 1st, 2nd, 3rd, 4th, ...
-  // Place N is awarded if maxTrophies > (N-1) * m
+  // Place N is awarded if minTrophies > (N-1) * m
   let place = 1;
-  while (trophies.length < maxTrophies) {
+  while (trophies.length < minTrophies) {
     if (trophies.length > 0 && trophies[trophies.length - 1].trophyType === 'Most Games') break;
 
     const trophiesBefore = trophies.length;
     for (const fileName of MINI_GAME_DIFFICULTY_ORDER) {
-      if (trophies.length >= maxTrophies) break;
+       if (trophies.length >= minTrophies) break;
 
       const mgd = miniGameFiles.find(f => f.fileName === fileName);
       if (!mgd || mgd.players.length === 0) continue;
@@ -308,7 +308,7 @@ export function generateMiniGameTrophies(
       const sortedPlayers = playersWithGames.sort((a, b) => b.nRating - a.nRating);
       for (const p of sortedPlayers) {
         if (seenPlayers.has(`${p.firstName} ${p.lastName}`)) continue;
-        if (trophies.length >= maxTrophies) break;
+     if (trophies.length >= minTrophies) break;
 
         const miniGameGames = p.gameResults?.filter(r => r && r !== '' && r !== '_')?.length || 0;
         addTrophy({

@@ -21,12 +21,12 @@ export interface TrophyReportDebug {
 /**
  * Build the header debug section for trophy reports
  */
-export function buildDebugHeader(players: PlayerData[], maxTrophies: number, isClubMode: boolean, miniGameCount?: number): string[] {
+export function buildDebugHeader(players: PlayerData[], minTrophies: number, isClubMode: boolean, miniGameCount?: number): string[] {
   const lines: string[] = [];
   
   lines.push(debugLine('DEBUG', 'TROPHY REPORT', '', '', '', '', '', ''));
   lines.push(debugLine('Players', String(players.length), '', '', '', '', '', ''));
-  lines.push(debugLine('Max Trophies', `${maxTrophies} (ceil(${players.length} / 3))`, '', '', '', '', '', ''));
+  lines.push(debugLine('Min Trophies', `${minTrophies} (ceil(${players.length} / 3))`, '', '', '', '', '', ''));
   lines.push('');
   
   if (isClubMode) {
@@ -34,8 +34,8 @@ export function buildDebugHeader(players: PlayerData[], maxTrophies: number, isC
   } else if (miniGameCount !== undefined) {
     lines.push(debugLine('Mode', 'Mini-Game Tournament', '', '', '', '', '', ''));
     lines.push(debugLine('Mini-games played', String(miniGameCount), '', '', '', '', '', ''));
-    lines.push(debugLine('Award 2nd place', `t=${maxTrophies} > m=${miniGameCount} ? ${maxTrophies > miniGameCount}`, '', '', '', '', '', ''));
-    lines.push(debugLine('Award grade 1st', `t=${maxTrophies} > 2*m=${2 * miniGameCount} ? ${maxTrophies > 2 * miniGameCount}`, '', '', '', '', '', ''));
+    lines.push(debugLine('Award 2nd place', `t=${minTrophies} > m=${miniGameCount} ? ${minTrophies > miniGameCount}`, '', '', '', '', '', ''));
+    lines.push(debugLine('Award grade 1st', `t=${minTrophies} > 2*m=${2 * miniGameCount} ? ${minTrophies > 2 * miniGameCount}`, '', '', '', '', '', ''));
     lines.push('');
   }
   

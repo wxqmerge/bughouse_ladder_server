@@ -1,6 +1,6 @@
 DEBUG	TROPHY REPORT						
 Players	50						
-Max Trophies	17 (ceil(50 / 3))						
+Min Trophies	17 (ceil(50 / 3))						
 
 Mode	Mini-Game Tournament						
 Mini-games played	6						
