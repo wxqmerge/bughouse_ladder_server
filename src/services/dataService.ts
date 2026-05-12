@@ -13,7 +13,7 @@ import {
   getPlayers as storageGetPlayers,
   savePlayers as storageSavePlayers,
 } from './storageService';
-import { loadUserSettings } from './userSettingsStorage';
+import { loadUserSettings, saveUserSettings } from './userSettingsStorage';
 
 export enum DataServiceMode {
   LOCAL = 'LOCAL',
@@ -1062,7 +1062,7 @@ class DataService {
 }
 
 // Determine the appropriate mode based on user settings or environment configuration
-function determineMode(): DataServiceConfig {
+async function determineMode(): Promise<DataServiceConfig> {
   // Priority 1: User settings (from localStorage) - allows per-user server configuration
   const userSettings = loadUserSettings();
   if (userSettings.server && userSettings.server.trim()) {
@@ -1082,12 +1082,37 @@ function determineMode(): DataServiceConfig {
     };
   }
 
-  // No server configured - use LOCAL mode
+  // Priority 2: Try same-origin auto-detection
+  try {
+    const origin = window.location.origin;
+    const response = await fetch(`${origin}/api/ladder`, { method: 'HEAD', signal: AbortSignal.timeout(3000) });
+    const serverUp = response.ok || response.status === 404 || response.status === 401 || response.status === 403;
+    
+    if (serverUp) {
+      console.log('[DataService] Same-origin auto-detected:', origin);
+      const normalized = origin.replace(/\/$/, '');
+      saveUserSettings({ server: normalized, apiKey: '', debugMode: false });
+      return {
+        mode: DataServiceMode.SERVER,
+        serverUrl: normalized,
+      };
+    }
+  } catch (e) {
+    console.log('[DataService] Same-origin detection failed, falling back to local mode');
+  }
+
+  // Priority 3: Local mode
   console.log('[DataService] Using LOCAL mode (no server configured)');
   return {
     mode: DataServiceMode.LOCAL,
   };
 }
 
-// Create singleton instance with appropriate mode
-export const dataService = new DataService(determineMode());
+// Legacy export for backward compatibility - will be updated after async detection
+export const dataService = new DataService({ mode: DataServiceMode.LOCAL });
+
+// Initialize the singleton on module load (fire-and-forget)
+determineMode().then(config => {
+  dataService.updateConfig(config);
+  console.log('[DataService] Auto-initialization complete:', config.mode, config.serverUrl || '');
+});

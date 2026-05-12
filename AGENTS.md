@@ -66,10 +66,18 @@ Uses "Fetch-Before-Save" pattern. Merge priority (highest to lowest):
 - `.env` is gitignored. Never commit.
 
 ### Frontend URL-Based Configuration
-- `?config=1&server=URL&key=KEY`: Connect to server with API key.
+- `?config=1&server=URL&key=KEY`: Connect to server with API key (overrides auto-detection).
 - `?config=2`: Reset to LOCAL mode (localStorage only).
 - `?config=3&file=URL`: Load remote `.tab`/`.xls` file.
 - URL params are cleared via `history.replaceState` after applying.
+
+### Auto-Detect Server URL
+When no manual server config exists, the app auto-detects the server from `window.location.origin`:
+1. Tries `HEAD /api/ladder` with 3s timeout
+2. If server responds → saves origin to localStorage, enters SERVER mode
+3. If failed → falls back to LOCAL mode
+4. Works because frontend and backend share the same origin per subdomain (nginx proxy)
+5. Splash screen and Settings dialog pre-populate with current origin
 
 ### Drag & Drop
 `.tab`, `.xls`, or `.txt` files can be dropped on the splash screen to load locally (no server needed).

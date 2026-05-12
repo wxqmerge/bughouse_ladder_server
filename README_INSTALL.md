@@ -368,19 +368,23 @@ nohup NODE_ENV=production node dist/index.js > server.log 2>&1 &
 
 ### Client-Side Server Configuration
 
-Users can configure the application in three ways:
+Users can configure the application in four ways:
 
-#### Method 1: Settings Dialog (Interactive)
+#### Method 1: Auto-Detect (Default, v1.1.9+)
+
+When no manual config exists, the app auto-detects the server from `window.location.origin` via `HEAD /api/ladder` (3s timeout). Works because frontend and backend share the same origin per subdomain. No user action needed — just open the app.
+
+#### Method 2: Settings Dialog (Interactive)
 
 1. Open the application
 2. Click **Operations → Settings**
-3. Enter server URL (e.g., `your-domain.com:3000` or `http://localhost:3000`)
+3. The server URL field is pre-filled with your current location
 4. Optionally enter API key — user key allows editing, admin key grants full admin access
 5. Click **Save** - page reloads with new configuration
 
-#### Method 2: URL-Based Setup (One-Click)
+#### Method 3: URL-Based Setup (One-Click)
 
-Share a single URL with users to auto-configure everything:
+Share a single URL with users to auto-configure everything (overrides auto-detect):
 
 | Config | URL Format | Purpose |
 |--------|------------|---------|
@@ -393,7 +397,7 @@ Share a single URL with users to auto-configure everything:
 http://your-domain.com/?config=1&server=http://your-server:port&key=your-api-key-here
 ```
 
-#### Method 3: Drag & Drop (Local Files)
+#### Method 4: Drag & Drop (Local Files)
 
 On the splash screen, drag a `.tab`, `.xls`, or `.txt` file onto the drop zone. No server needed — loads directly into local mode.
 

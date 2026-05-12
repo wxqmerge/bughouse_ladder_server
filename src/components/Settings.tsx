@@ -70,7 +70,8 @@ export default function Settings({
     
     // Load user server settings
     const userSettings = loadUserSettings();
-    setServerUrl(normalizeServerUrl(userSettings.server) || '');
+    const detectedOrigin = window.location.origin;
+    setServerUrl(normalizeServerUrl(userSettings.server) || detectedOrigin);
     setApiKey(userSettings.apiKey || '');
     setDebugMode(userSettings.debugMode || false);
     

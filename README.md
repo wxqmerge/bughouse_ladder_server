@@ -88,11 +88,20 @@ bughouse_ladder_server/
 
 ## Configuration Methods
 
+### Auto-Detect Server URL (Default)
+
+When no manual config exists, the app auto-detects the server from `window.location.origin`:
+1. Tries `HEAD /api/ladder` with 3s timeout
+2. If server responds → enters SERVER mode
+3. If failed → falls back to LOCAL mode
+
+Works because frontend and backend share the same origin per subdomain (nginx proxy).
+
 ### URL-Based Setup (One-Click)
 
 | Config | URL Format | Purpose |
 |--------|------------|---------|
-| Server + key | `?config=1&server=http://host:port&key=yourkey` | Connect to server |
+| Server + key | `?config=1&server=http://host:port&key=yourkey` | Connect to server (overrides auto-detect) |
 | Local mode | `?config=2` | Reset to local mode |
 | Remote file | `?config=3&file=http://host/file.tab` | Fetch and load .tab/.xls |
 

@@ -65,12 +65,16 @@ When multiple clients connect to the same server, only one can hold admin mode a
 
 ## Server Configuration
 
+### Auto-Detect (Default)
+
+When no manual config exists, the app auto-detects the server from `window.location.origin` via `HEAD /api/ladder` (3s timeout). Works because frontend and backend share the same origin per subdomain.
+
 ### Settings Dialog
 
 Access: **Operations → Settings** (always available, even without admin mode).
 
-1. Enter server URL (e.g., `http://localhost:3000` or `https://ladder.example.com`)
-2. Optionally enter API key
+1. The server URL field is pre-filled with your current location
+2. Modify if needed, optionally enter API key
 3. Click **Save** — page reloads with new configuration
 
 ### Connection Modes
@@ -78,11 +82,11 @@ Access: **Operations → Settings** (always available, even without admin mode).
 | Mode | Description | Use Case |
 |------|-------------|----------|
 | **Local** | Browser localStorage only | Testing, offline use |
-| **Server** | Connects to production server | Shared data access |
+| **Server** | Connects to production server (auto-detected) | Shared data access |
 
 ### Quick Setup via URL
 
-Share a single URL to auto-configure any client:
+Share a single URL to auto-configure any client (overrides auto-detect):
 
 ```
 http://your-domain.com/?config=1&server=http://your-server:port&key=your-api-key-here
