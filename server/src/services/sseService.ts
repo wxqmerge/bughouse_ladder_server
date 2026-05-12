@@ -7,6 +7,7 @@ interface SSEClient {
 
 let clients: SSEClient[] = [];
 let eventCounter = 0;
+let heartbeatInterval: NodeJS.Timeout | null = null;
 
 export function addSSEClient(res: Response): void {
   const client: SSEClient = { res, lastEventId: '0' };
@@ -24,38 +25,61 @@ export function addSSEClient(res: Response): void {
   });
 }
 
-export function broadcastSSEEvent(event: string, data: unknown, filterClientId?: string): void {
-  eventCounter++;
-  const id = String(eventCounter);
-  const payload = JSON.stringify(data);
-  const message = `id: ${id}\nevent: ${event}\ndata: ${payload}\n\n`;
-  
-  const activeClients: SSEClient[] = [];
-  
-  for (const client of clients) {
-    if (filterClientId && client.res.locals?.clientId !== filterClientId) {
-      // Skip the client that made the change (they already have their data)
-      continue;
+export function startHeartbeat(intervalMs: number = 30000): void {
+  if (heartbeatInterval) return;
+  heartbeatInterval = setInterval(() => {
+    for (const client of clients) {
+      try {
+        if (!client.res.writableEnded) {
+          client.res.write(':\n\n');
+        }
+      } catch (err) {
+        // Ignore
+      }
     }
-    
-    try {
-      const retryId = client.lastEventId ? `\nretry: 3000` : '';
-      const lastId = client.lastEventId ? `\nid: ${client.lastEventId}` : '';
-      
-      // If client disconnected, remove them
-      if (client.res.writableEnded) {
+  }, intervalMs);
+}
+
+export function stopHeartbeat(): void {
+  if (heartbeatInterval) {
+    clearInterval(heartbeatInterval);
+    heartbeatInterval = null;
+  }
+}
+
+export function broadcastSSEEvent(event: string, data: unknown, filterClientId?: string): void {
+  try {
+    eventCounter++;
+    const id = String(eventCounter);
+    const payload = JSON.stringify(data);
+    const message = `id: ${id}\nevent: ${event}\ndata: ${payload}\n\n`;
+
+    const activeClients: SSEClient[] = [];
+
+    for (const client of clients) {
+      if (filterClientId && client.res.locals?.clientId !== filterClientId) {
+        // Skip the client that made the change (they already have their data)
         continue;
       }
-      
-      client.res.write(message);
-      client.lastEventId = id;
-      activeClients.push(client);
-    } catch {
-      // Client disconnected, skip
+
+      try {
+        // If client disconnected, remove them
+        if (client.res.writableEnded) {
+          continue;
+        }
+
+        client.res.write(message);
+        client.lastEventId = id;
+        activeClients.push(client);
+      } catch {
+        // Client disconnected, skip
+      }
     }
+
+    clients = activeClients;
+  } catch (error) {
+    console.error('[SSE] Error broadcasting event:', error);
   }
-  
-  clients = activeClients;
 }
 
 export function getSSEClientCount(): number {
