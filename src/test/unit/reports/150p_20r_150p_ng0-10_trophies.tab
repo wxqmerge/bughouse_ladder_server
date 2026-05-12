@@ -2,127 +2,132 @@ DEBUG	TROPHY REPORT
 Players	152						
 Min Trophies	51 (ceil(152 / 3))						
 
-TOP 5 OVERALL	BY RATING						
-Rank	Player	Gr	Rating	Games Played			
-1	Linda Anderson	11	1746	15			
-2	Donna Adams	10	1743	12			
-3	Charles Green	8	1740	17			
-4	Jennifer Perez	10	1722	14			
-5	Joseph Walker	9	1701	11			
+TOP 5 OVERALL	BY RATING (eligible only)						
+1	Linda Anderson	11	1746			19	
+2	Donna Adams	10	1743			18	
+3	Charles Green	8	1740			23	
+4	Jennifer Perez	10	1722			18	
+5	Joseph Walker	9	1701			15	
 
--
+Top Ineligible							
+147	Dorothy Robinson	11	1662			17	
 
-TOP 5	Gr 13						
-Rank	Player	Gr	Rating	Games Played			
-1	Kimberly Nelson	13	1553	15			
-2	Paul Taylor	13	1552	15			
-3	Patricia Rodriguez	13	1546	16			
-4	Brian Miller	13	1432	16			
-5	Donna Roberts	13	1281	15			
 
-TOP 5	Gr 12						
-Rank	Player	Gr	Rating	Games Played			
-1	Patricia Robinson	12	1641	10			
-2	Anthony Baker	12	1603	17			
-3	Mary Hall	12	1559	12			
-4	Amanda Anderson	12	1393	12			
-5	George Smith	12	1321	17			
+Gr 13							
+1	Kimberly Nelson	13	1553			17	
+2	Paul Taylor	13	1552			24	
+3	Patricia Rodriguez	13	1546			23	
+4	Brian Miller	13	1432			20	
+5	Donna Roberts	13	1281			20	
 
--
+Gr 12							
+1	Patricia Robinson	12	1641			17	
+2	Anthony Baker	12	1603			22	
+3	Mary Hall	12	1559			16	
+4	Amanda Anderson	12	1393			18	
+5	George Smith	12	1321			23	
 
-TOP 5	Gr 11						
-Rank	Player	Gr	Rating	Games Played			
-1	Linda Anderson	11	1746	15			
-2	Dorothy Robinson	11	1662	12			
-3	Anthony Scott	11	1651	12			
-4	Andrew Roberts	11	1639	17			
-5	Matthew Allen	11	1528	12			
+Top Ineligible							
+68	Michael Baker	12	841			25	
 
-TOP 5	Gr 10						
-Rank	Player	Gr	Rating	Games Played			
-1	Donna Adams	10	1743	12			
-2	Jennifer Perez	10	1722	14			
-3	Patricia Nguyen	10	1649	18			
-4	Joseph Gonzalez	10	1179	16			
-5	Charles Taylor	10	1174	20			
+Gr 11							
+1	Linda Anderson	11	1746			19	
+2	Anthony Scott	11	1651			15	
+3	Andrew Roberts	11	1639			21	
+4	Matthew Allen	11	1528			17	
+5	Ashley Thomas	11	1443			24	
 
-TOP 5	Gr 9						
-Rank	Player	Gr	Rating	Games Played			
-1	Joseph Walker	9	1701	11			
-2	David Nelson	9	1566	16			
-3	Thomas Anderson	9	1315	21			
-4	Robert Allen	9	1307	13			
-5	Elizabeth Johnson	9	1294	19			
+Top Ineligible							
+147	Dorothy Robinson	11	1662			17	
 
-TOP 5	Gr 8						
-Rank	Player	Gr	Rating	Games Played			
-1	Charles Green	8	1740	17			
-2	Lisa Roberts	8	1655	12			
-3	Mary Sanchez	8	1581	9			
-4	Brian Sanchez	8	1544	16			
-5	Karen Sanchez	8	1495	11			
+Gr 10							
+1	Donna Adams	10	1743			18	
+2	Jennifer Perez	10	1722			18	
+3	Patricia Nguyen	10	1649			22	
+4	Joseph Gonzalez	10	1179			24	
+5	Charles Taylor	10	1174			27	
 
--
+Top Ineligible							
+74	Paul Hill	10	955			25	
 
-TOP 5	Gr 7						
-Rank	Player	Gr	Rating	Games Played			
-1	Carol Jackson	7	1630	18			
-2	Patricia Hill	7	1428	18			
-3	John Torres	7	1267	13			
-4	Kimberly Green	7	1228	10			
-5	Lisa Martin	7	1167	22			
+Gr 9							
+1	Joseph Walker	9	1701			15	
+2	David Nelson	9	1566			20	
+3	Thomas Anderson	9	1315			25	
+4	Robert Allen	9	1307			18	
+5	Barbara Flores	9	1195			19	
 
--
+Top Ineligible							
+108	Elizabeth Johnson	9	1294			24	
 
-TOP 5	Gr 6						
-Rank	Player	Gr	Rating	Games Played			
-1	James Brown	6	1668	9			
-2	Kimberly Baker	6	1179	8			
-3	Nancy White	6	1136	11			
-4	Jennifer Wilson	6	1101	14			
-5	Betty Walker	6	1032	20			
+Gr 8							
+1	Charles Green	8	1740			23	
+2	Lisa Roberts	8	1655			18	
+3	Mary Sanchez	8	1581			16	
+4	Brian Sanchez	8	1544			21	
+5	Karen Sanchez	8	1495			18	
 
-TOP 5	Gr 5						
-Rank	Player	Gr	Rating	Games Played			
-1	Thomas Rivera	5	1691	14			
-2	David Allen	5	1658	9			
-3	Deborah Jackson	5	1458	17			
-4	Emily Thompson	5	1454	12			
-5	Linda Johnson	5	1337	14			
+Top Ineligible							
+76	John Taylor	8	882			26	
 
-Mode	Club Ladder (no mini-game files)						
+Gr 7							
+1	Carol Jackson	7	1630			24	
+2	Patricia Hill	7	1428			23	
+3	Kimberly Green	7	1228			16	
+4	Lisa Martin	7	1167			25	
+5	Daniel King	7	1096			23	
+
+Top Ineligible							
+112	John Torres	7	1267			21	
+
+Gr 6							
+1	James Brown	6	1668			13	
+2	Kimberly Baker	6	1179			12	
+3	Nancy White	6	1136			21	
+4	Jennifer Wilson	6	1101			22	
+5	Betty Walker	6	1032			23	
+
+Top Ineligible							
+56	Linda Anderson	6	702			21	
+
+Gr 5							
+1	Thomas Rivera	5	1691			20	
+2	David Allen	5	1658			16	
+3	Deborah Jackson	5	1458			24	
+4	Emily Thompson	5	1454			17	
+5	Linda Johnson	5	1337			20	
 
 AWARDED TROPHIES
 Rank	Player	Trophy Type	Mini-Game/Grade	Gr	Rating	Total Games	Games Played
-1	Linda Anderson	1st Place	Club Ladder	11	1746	15	15
-2	Donna Adams	2nd Place	Club Ladder	10	1743	12	12
-3	Charles Green	3rd Place	Club Ladder	8	1740	17	17
-4	Anthony Hernandez	Most Games	Club Ladder	8	1291	24	24
+1	Linda Anderson	1st Place	Club Ladder	11	1746	19	19
+2	Donna Adams	2nd Place	Club Ladder	10	1743	18	18
+3	Charles Green	3rd Place	Club Ladder	8	1740	23	23
+4	Susan Miller	Most Games	Club Ladder	7	819	29	29
 
-5	Kimberly Nelson	1st Place	Gr 13	13	1553	15	15
-6	Patricia Robinson	1st Place	Gr 12	12	1641	10	10
-7	Dorothy Robinson	1st Place	Gr 11	11	1662	12	12
-8	Jennifer Perez	1st Place	Gr 10	10	1722	14	14
-9	Joseph Walker	1st Place	Gr 9	9	1701	11	11
-10	Lisa Roberts	1st Place	Gr 8	8	1655	12	12
-11	Carol Jackson	1st Place	Gr 7	7	1630	18	18
-12	James Brown	1st Place	Gr 6	6	1668	9	9
-13	Thomas Rivera	1st Place	Gr 5	5	1691	14	14
-14	Paul Taylor	2nd Place	Gr 13	13	1552	15	15
-15	Anthony Baker	2nd Place	Gr 12	12	1603	17	17
-16	Anthony Scott	2nd Place	Gr 11	11	1651	12	12
-17	Patricia Nguyen	2nd Place	Gr 10	10	1649	18	18
-18	David Nelson	2nd Place	Gr 9	9	1566	16	16
-19	Mary Sanchez	2nd Place	Gr 8	8	1581	9	9
-20	Patricia Hill	2nd Place	Gr 7	7	1428	18	18
-21	Kimberly Baker	2nd Place	Gr 6	6	1179	8	8
-22	David Allen	2nd Place	Gr 5	5	1658	9	9
-23	Patricia Rodriguez	3rd Place	Gr 13	13	1546	16	16
-24	Mary Hall	3rd Place	Gr 12	12	1559	12	12
-25	Andrew Roberts	3rd Place	Gr 11	11	1639	17	17
-26	Joseph Gonzalez	3rd Place	Gr 10	10	1179	16	16
-27	Thomas Anderson	3rd Place	Gr 9	9	1315	21	21
-28	Brian Sanchez	3rd Place	Gr 8	8	1544	16	16
-29	John Torres	3rd Place	Gr 7	7	1267	13	13
-30	Nancy White	3rd Place	Gr 6	6	1136	11	11
-31	Deborah Jackson	3rd Place	Gr 5	5	1458	17	17
+5	Kimberly Nelson	1st Place	Gr 13	13	1553	17	17
+6	Patricia Robinson	1st Place	Gr 12	12	1641	17	17
+7	Anthony Scott	1st Place	Gr 11	11	1651	15	15
+8	Jennifer Perez	1st Place	Gr 10	10	1722	18	18
+9	Joseph Walker	1st Place	Gr 9	9	1701	15	15
+10	Lisa Roberts	1st Place	Gr 8	8	1655	18	18
+11	Carol Jackson	1st Place	Gr 7	7	1630	24	24
+12	James Brown	1st Place	Gr 6	6	1668	13	13
+13	Thomas Rivera	1st Place	Gr 5	5	1691	20	20
+14	Paul Taylor	2nd Place	Gr 13	13	1552	24	24
+15	Anthony Baker	2nd Place	Gr 12	12	1603	22	22
+16	Andrew Roberts	2nd Place	Gr 11	11	1639	21	21
+17	Patricia Nguyen	2nd Place	Gr 10	10	1649	22	22
+18	David Nelson	2nd Place	Gr 9	9	1566	20	20
+19	Mary Sanchez	2nd Place	Gr 8	8	1581	16	16
+20	Patricia Hill	2nd Place	Gr 7	7	1428	23	23
+21	Kimberly Baker	2nd Place	Gr 6	6	1179	12	12
+22	David Allen	2nd Place	Gr 5	5	1658	16	16
+23	Patricia Rodriguez	3rd Place	Gr 13	13	1546	23	23
+24	Mary Hall	3rd Place	Gr 12	12	1559	16	16
+25	Matthew Allen	3rd Place	Gr 11	11	1528	17	17
+26	Joseph Gonzalez	3rd Place	Gr 10	10	1179	24	24
+27	Thomas Anderson	3rd Place	Gr 9	9	1315	25	25
+28	Brian Sanchez	3rd Place	Gr 8	8	1544	21	21
+29	Kimberly Green	3rd Place	Gr 7	7	1228	16	16
+30	Nancy White	3rd Place	Gr 6	6	1136	21	21
+31	Deborah Jackson	3rd Place	Gr 5	5	1458	24	24
