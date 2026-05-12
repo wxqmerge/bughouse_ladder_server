@@ -22,7 +22,8 @@ import {
 import { loadUserSettings, loadConfigFromUrl } from "./services/userSettingsStorage";
 import { dataService, DataServiceMode } from "./services/dataService";
 import { miniGameStore } from "./services/miniGameLocalStorage";
-import { clearTournamentState } from "./services/storageService";
+import { clearTournamentState, getSettings, saveSettings } from "./services/storageService";
+import { saveUserSettings, type UserSettings } from "./services/userSettingsStorage";
 import { checkMigrationNeeded, storeCurrentMode } from "./utils/migrationUtils";
 import {
   savePlayers,
@@ -431,6 +432,12 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
     }
   };
 
+  const handleSaveSettingsForAction = (settings: { showRatings: boolean[]; debugLevel: number; kFactor: number }, userSettings: UserSettings) => {
+    saveSettings(settings);
+    saveUserSettings(userSettings);
+    console.log('[App] Settings saved silently for action.');
+  };
+
   const handleTitleSwitch = async (newTitle: string) => {
     const currentTitle = getProjectName();
     const currentIsMiniGame = isMiniGameTitle(currentTitle);
@@ -664,6 +671,7 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
           onGenerateTrophies={isAdmin ? handleGenerateTrophies : undefined}
           isTournamentActive={isMiniGameTitle(getProjectName())}
           isAdmin={isAdmin}
+          onSaveBeforeAction={handleSaveSettingsForAction}
         />
       )}
     </>
