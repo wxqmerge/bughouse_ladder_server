@@ -5678,14 +5678,18 @@ export default function LadderForm({
       
       {/* Toast notification */}
       {toastMessage && (
-        <div style={{
-          position: 'fixed', bottom: '20px', right: '20px',
-          backgroundColor: '#10b981', color: 'white',
-          padding: '0.75rem 1.5rem', borderRadius: '0.5rem',
-          zIndex: 9999, fontSize: '0.875rem', fontWeight: '600',
-          boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-          animation: 'fadeInOut 2s ease-in-out'
-        }}>
+        <div
+          onClick={() => setToastMessage(null)}
+          style={{
+            position: 'fixed', bottom: '20px', right: '20px',
+            backgroundColor: '#10b981', color: 'white',
+            padding: '0.75rem 1.5rem', borderRadius: '0.5rem',
+            zIndex: 9999, fontSize: '0.875rem', fontWeight: '600',
+            boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+            animation: 'fadeInOut 2s ease-in-out',
+            cursor: 'pointer',
+          }}
+        >
           {toastMessage}
         </div>
       )}

@@ -568,18 +568,24 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
   return (
     <>
       {urlConfigApplied && (
-        <div style={{
-          backgroundColor: '#fef3c7',
-          border: '1px solid #f59e0b',
-          borderRadius: '0.5rem',
-          padding: '1rem 1.5rem',
-          marginBottom: '1rem',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '1rem',
-        }}>
-          <div>
+        <div
+          onClick={() => setUrlConfigApplied(false)}
+          style={{
+            backgroundColor: '#fef3c7',
+            border: '1px solid #f59e0b',
+            borderRadius: '0.5rem',
+            padding: '1rem 1.5rem',
+            marginBottom: '1rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '1rem',
+            cursor: 'pointer',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+          >
             <p style={{ margin: 0, fontWeight: 600, color: '#92400e' }}>
               URL configuration applied
             </p>
@@ -588,8 +594,8 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
             </p>
           </div>
           <button
-            onClick={() => {
-              setUrlConfigApplied(false);
+            onClick={(e) => {
+              e.stopPropagation();
               setShowSettings(true);
             }}
             style={{
