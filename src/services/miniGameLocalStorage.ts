@@ -327,11 +327,22 @@ export const miniGameStore: MiniGameStore = {
 
         debugLines.push(sharedDebugLine('MINI-GAME PLAYERS', '(after 5 recalcs)', '', '', '', '', '', ''));
         
+        // Sync trophyEligible from club ladder (source of truth) to each mini-game file
+        const clubEligibleMap = new Map<string, boolean>();
+        for (const p of players) {
+          clubEligibleMap.set(`${p.firstName} ${p.lastName}`, p.trophyEligible);
+        }
         // Build MiniGameData array for shared trophy generation
         const miniGameDataList: MiniGameData[] = [];
         for (const fileName of existingFiles) {
           const data = await this.readMiniGameFile(fileName);
           if (!data || data.players.length === 0) continue;
+          for (const p of data.players) {
+            const key = `${p.firstName} ${p.lastName}`;
+            if (clubEligibleMap.has(key)) {
+              p.trophyEligible = clubEligibleMap.get(key)!;
+            }
+          }
           
           const playersWithGames = data.players.filter(p => {
             if (!p.gameResults) return false;

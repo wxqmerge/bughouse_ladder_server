@@ -23,7 +23,7 @@ async function main() {
   lines.push(debugLine('Min Trophies', minTrophies + ' (ceil(' + players.length + ' / 3))', '', '', '', '', '', ''));
   lines.push('');
 
-  if (debugLevel >= 1) {
+ if (debugLevel >= 1) {
     const sortedByRating = [...players].sort((a, b) => b.nRating - a.nRating);
     lines.push(debugLine('TOP 5 OVERALL', 'BY RATING', '', '', '', '', '', ''));
     lines.push(debugLine('Rank', 'Player', 'Gr', 'Rating', 'Games Played', '', '', ''));
@@ -31,6 +31,10 @@ async function main() {
       const p = sortedByRating[i];
       const g = (p.num_games || 0) + (p.gameResults || []).filter(r => r && r !== '' && r !== '_').length;
       lines.push(debugLine(i + 1, p.firstName + ' ' + p.lastName, p.grade, p.nRating, g));
+    }
+    const ineligibleOverall = players.filter(p => p.trophyEligible === false).sort((a, b) => b.nRating - a.nRating).slice(0, 1);
+    if (ineligibleOverall.length > 0) {
+      lines.push('-');
     }
     lines.push('');
 
@@ -43,6 +47,10 @@ async function main() {
         const p = gradePlayers[i];
         const g = (p.num_games || 0) + (p.gameResults || []).filter(r => r && r !== '' && r !== '_').length;
         lines.push(debugLine(i + 1, p.firstName + ' ' + p.lastName, p.grade, p.nRating, g));
+      }
+      const ineligibleGrade = players.filter(p => p.grade === grade && p.trophyEligible === false).sort((a, b) => b.nRating - a.nRating).slice(0, 1);
+      if (ineligibleGrade.length > 0) {
+        lines.push('-');
       }
       lines.push('');
     }
