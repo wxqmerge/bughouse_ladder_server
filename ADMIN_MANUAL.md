@@ -471,6 +471,9 @@ The following endpoints require an admin API key.
 |--------|----------|-------------|
 | `POST` | `/api/admin/upload` | Upload .tab/.xls file |
 | `GET` | `/api/admin/export` | Export as .tab file |
+| `GET` | `/api/admin/backups` | List available backups |
+| `POST` | `/api/admin/backups/restore/:filename` | Restore a specific backup |
+| `DELETE` | `/api/admin/backups/:filename` | Delete a specific backup |
 | `POST` | `/api/admin/tournament/save-mini-game` | Save mini-game file |
 | `GET` | `/api/admin/tournament/read-mini-game` | Read mini-game file |
 | `POST` | `/api/admin/tournament/write-mini-game` | Write mini-game file |
@@ -479,9 +482,6 @@ The following endpoints require an admin API key.
 | `GET` | `/api/admin/tournament/trophies` | Generate trophy report |
 | `POST` | `/api/admin/tournament/import` | Import mini-game files |
 | `POST` | `/api/admin/tournament/clear-mini-games` | Clear all mini-game files |
+| `POST` | `/api/admin/tournament/add-player-to-mini-games` | Add player to all mini-game files |
 | `GET` | `/api/admin/tournament/check-mini-games` | Check which mini-game files have data |
 | `GET` | `/api/admin/export-mini-data` | Export all data TAB files (ZIP) |
-| `GET` | `/api/admin/backups` | List available backups |
-| `POST` | `/api/admin/backups/restore/:filename` | Restore a specific backup |
-| `DELETE` | `/api/admin/backups/:filename` | Delete a specific backup |
-| `GET` | `/api/admin/stats` | Server statistics |
