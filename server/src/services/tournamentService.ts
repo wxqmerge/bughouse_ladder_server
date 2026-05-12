@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { log as loggerLog } from '../utils/logger.js';
 import { readLadderFile, writeLadderFile, generateTabContent, PlayerData, LadderData, withTiming, ensureDataDirectory } from './dataService.js';
+import { MiniGameData } from '../../../shared/types/index.js';
 import { calculateRatings, processGameResults } from '../../../shared/utils/hashUtils.js';
 import {
   copyPlayersToTarget as sharedCopyPlayersToTarget,
@@ -11,7 +12,6 @@ import {
   generateMiniGameTrophies as sharedGenerateMiniGameTrophies,
   debugLine as sharedDebugLine,
   clubLadderGamesPlayed,
-  MiniGameData,
 } from '../../../shared/utils/trophyGeneration.js';
 import {
   buildDebugHeader,

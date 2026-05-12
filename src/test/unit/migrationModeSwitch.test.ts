@@ -1,24 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { PlayerData } from '../../../shared/types';
-
-const createPlayer = (overrides: Partial<PlayerData>): PlayerData => ({
-  rank: 1,
-  group: 'A',
-  lastName: 'Smith',
-  firstName: 'John',
-  rating: 1200,
-  nRating: 1200,
-  trophyEligible: true,
-  grade: '4',
-  num_games: 0,
-  attendance: 0,
-  info: '',
-  phone: '',
-  school: '',
-  room: '',
-  gameResults: Array(31).fill(null),
-  ...overrides,
-});
+import { createTestPlayer } from '../shared/factories';
 
 // Mock localStorage and sessionStorage
 const mockLocalStorage: Record<string, string> = {};
@@ -127,9 +109,9 @@ describe('Migration - Mode Switching (Local <-> Server)', () => {
       storeCurrentMode('local');
 
       const players = [
-        createPlayer({ rank: 1, lastName: 'Player1' }),
-        createPlayer({ rank: 2, lastName: 'Player2' }),
-        createPlayer({ rank: 3, lastName: 'Player3' }),
+        createTestPlayer({ rank: 1, lastName: 'Player1' }),
+        createTestPlayer({ rank: 2, lastName: 'Player2' }),
+        createTestPlayer({ rank: 3, lastName: 'Player3' }),
       ];
       setLocalPlayers(players);
       setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugMode: false });
@@ -147,16 +129,16 @@ describe('Migration - Mode Switching (Local <-> Server)', () => {
       storeCurrentMode('local');
 
       const localPlayers = [
-        createPlayer({ rank: 1, lastName: 'Local1' }),
-        createPlayer({ rank: 2, lastName: 'Local2' }),
+        createTestPlayer({ rank: 1, lastName: 'Local1' }),
+        createTestPlayer({ rank: 2, lastName: 'Local2' }),
       ];
       setLocalPlayers(localPlayers);
       setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugMode: false });
 
       const serverPlayers = [
-        createPlayer({ rank: 1, lastName: 'Server1' }),
-        createPlayer({ rank: 2, lastName: 'Server2' }),
-        createPlayer({ rank: 3, lastName: 'Server3' }),
+        createTestPlayer({ rank: 1, lastName: 'Server1' }),
+        createTestPlayer({ rank: 2, lastName: 'Server2' }),
+        createTestPlayer({ rank: 3, lastName: 'Server3' }),
       ];
       mockGetPlayers.mockResolvedValue(serverPlayers);
 
@@ -198,7 +180,7 @@ describe('Migration - Mode Switching (Local <-> Server)', () => {
 
     it('should use actualMode parameter instead of detecting from settings', async () => {
       storeCurrentMode('local');
-      setLocalPlayers([createPlayer({ rank: 1, lastName: 'Player1' })]);
+      setLocalPlayers([createTestPlayer({ rank: 1, lastName: 'Player1' })]);
       setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugMode: false });
 
       // With actualMode='local', no migration needed (matches last mode)
@@ -214,11 +196,11 @@ describe('Migration - Mode Switching (Local <-> Server)', () => {
     it('should show correct player count matching MigrationDialog display', async () => {
       storeCurrentMode('local');
       const players = [
-        createPlayer({ rank: 1, lastName: 'A' }),
-        createPlayer({ rank: 2, lastName: 'B' }),
-        createPlayer({ rank: 3, lastName: 'C' }),
-        createPlayer({ rank: 4, lastName: 'D' }),
-        createPlayer({ rank: 5, lastName: 'E' }),
+        createTestPlayer({ rank: 1, lastName: 'A' }),
+        createTestPlayer({ rank: 2, lastName: 'B' }),
+        createTestPlayer({ rank: 3, lastName: 'C' }),
+        createTestPlayer({ rank: 4, lastName: 'D' }),
+        createTestPlayer({ rank: 5, lastName: 'E' }),
       ];
       setLocalPlayers(players);
       setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugMode: false });
@@ -259,7 +241,7 @@ describe('Migration - Mode Switching (Local <-> Server)', () => {
   describe('checkMigrationNeeded - mode transitions', () => {
     it('should handle multiple mode switches correctly', async () => {
       storeCurrentMode('local');
-      setLocalPlayers([createPlayer({ rank: 1, lastName: 'P1' })]);
+      setLocalPlayers([createTestPlayer({ rank: 1, lastName: 'P1' })]);
       setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugMode: false });
 
       let result = await checkMigrationNeeded('server');
@@ -293,20 +275,20 @@ describe('Migration - Mode Switching (Local <-> Server)', () => {
     it('should show correct counts for the Mode Change Detected dialog', async () => {
       storeCurrentMode('local');
       const players = [
-        createPlayer({ rank: 1, lastName: 'Anderson', firstName: 'Alice', rating: 1500 }),
-        createPlayer({ rank: 2, lastName: 'Baker', firstName: 'Bob', rating: 1400 }),
-        createPlayer({ rank: 3, lastName: 'Clark', firstName: 'Carol', rating: 1300 }),
-        createPlayer({ rank: 4, lastName: 'Davis', firstName: 'Dave', rating: 1200 }),
-        createPlayer({ rank: 5, lastName: 'Evans', firstName: 'Eve', rating: 1100 }),
-        createPlayer({ rank: 6, lastName: 'Frost', firstName: 'Frank', rating: 1000 }),
-        createPlayer({ rank: 7, lastName: 'Green', firstName: 'Grace', rating: 900 }),
-        createPlayer({ rank: 8, lastName: 'Hill', firstName: 'Henry', rating: 800 }),
-        createPlayer({ rank: 9, lastName: 'Ivanov', firstName: 'Ira', rating: 700 }),
-        createPlayer({ rank: 10, lastName: 'Jones', firstName: 'Jane', rating: 1600 }),
-        createPlayer({ rank: 11, lastName: 'Kim', firstName: 'Ken', rating: 600 }),
-        createPlayer({ rank: 12, lastName: 'Lee', firstName: 'Lisa', rating: 500 }),
-        createPlayer({ rank: 13, lastName: 'Moore', firstName: 'Mike', rating: 400 }),
-        createPlayer({ rank: 14, lastName: 'Nolan', firstName: 'Nancy', rating: 300 }),
+        createTestPlayer({ rank: 1, lastName: 'Anderson', firstName: 'Alice', rating: 1500 }),
+        createTestPlayer({ rank: 2, lastName: 'Baker', firstName: 'Bob', rating: 1400 }),
+        createTestPlayer({ rank: 3, lastName: 'Clark', firstName: 'Carol', rating: 1300 }),
+        createTestPlayer({ rank: 4, lastName: 'Davis', firstName: 'Dave', rating: 1200 }),
+        createTestPlayer({ rank: 5, lastName: 'Evans', firstName: 'Eve', rating: 1100 }),
+        createTestPlayer({ rank: 6, lastName: 'Frost', firstName: 'Frank', rating: 1000 }),
+        createTestPlayer({ rank: 7, lastName: 'Green', firstName: 'Grace', rating: 900 }),
+        createTestPlayer({ rank: 8, lastName: 'Hill', firstName: 'Henry', rating: 800 }),
+        createTestPlayer({ rank: 9, lastName: 'Ivanov', firstName: 'Ira', rating: 700 }),
+        createTestPlayer({ rank: 10, lastName: 'Jones', firstName: 'Jane', rating: 1600 }),
+        createTestPlayer({ rank: 11, lastName: 'Kim', firstName: 'Ken', rating: 600 }),
+        createTestPlayer({ rank: 12, lastName: 'Lee', firstName: 'Lisa', rating: 500 }),
+        createTestPlayer({ rank: 13, lastName: 'Moore', firstName: 'Mike', rating: 400 }),
+        createTestPlayer({ rank: 14, lastName: 'Nolan', firstName: 'Nancy', rating: 300 }),
       ];
       setLocalPlayers(players);
       setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugMode: false });
@@ -334,7 +316,7 @@ describe('Migration - Mode Switching (Local <-> Server)', () => {
 
     it('should handle single player scenario', async () => {
       storeCurrentMode('local');
-      setLocalPlayers([createPlayer({ rank: 1, lastName: 'Solo' })]);
+      setLocalPlayers([createTestPlayer({ rank: 1, lastName: 'Solo' })]);
       setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugMode: false });
 
       const result = await checkMigrationNeeded('server');
@@ -347,12 +329,12 @@ describe('Migration - Mode Switching (Local <-> Server)', () => {
   describe('detectRankNameMismatches', () => {
     it('should detect mismatches between local and server players', () => {
       const localPlayers = [
-        createPlayer({ rank: 1, lastName: 'LocalPlayer', firstName: 'Local' }),
-        createPlayer({ rank: 2, lastName: 'SameName', firstName: 'Different' }),
+        createTestPlayer({ rank: 1, lastName: 'LocalPlayer', firstName: 'Local' }),
+        createTestPlayer({ rank: 2, lastName: 'SameName', firstName: 'Different' }),
       ];
       const serverPlayers = [
-        createPlayer({ rank: 1, lastName: 'ServerPlayer', firstName: 'Server' }),
-        createPlayer({ rank: 2, lastName: 'SameName', firstName: 'Different' }),
+        createTestPlayer({ rank: 1, lastName: 'ServerPlayer', firstName: 'Server' }),
+        createTestPlayer({ rank: 2, lastName: 'SameName', firstName: 'Different' }),
       ];
 
       const result = detectRankNameMismatches(localPlayers, serverPlayers);
@@ -371,8 +353,8 @@ describe('Migration - Mode Switching (Local <-> Server)', () => {
 
   describe('applyMigration', () => {
     it('should store players under ladder_players key when using server strategy', async () => {
-      setLocalPlayers([createPlayer({ rank: 1, lastName: 'Local' })]);
-      const serverPlayers = [createPlayer({ rank: 1, lastName: 'Server' })];
+      setLocalPlayers([createTestPlayer({ rank: 1, lastName: 'Local' })]);
+      const serverPlayers = [createTestPlayer({ rank: 1, lastName: 'Server' })];
       mockGetPlayers.mockResolvedValue(serverPlayers);
 
       await applyMigration('use-server');
@@ -383,8 +365,8 @@ describe('Migration - Mode Switching (Local <-> Server)', () => {
 
     it('should store players when using local strategy', async () => {
       const localPlayers = [
-        createPlayer({ rank: 1, lastName: 'Local1' }),
-        createPlayer({ rank: 2, lastName: 'Local2' }),
+        createTestPlayer({ rank: 1, lastName: 'Local1' }),
+        createTestPlayer({ rank: 2, lastName: 'Local2' }),
       ];
       setLocalPlayers(localPlayers);
 
@@ -398,12 +380,12 @@ describe('Migration - Mode Switching (Local <-> Server)', () => {
 
     it('should store merged players when using custom strategy', async () => {
       const localPlayers = [
-        createPlayer({ rank: 1, lastName: 'Local', gameResults: ['W', null, 'L'] }),
-        createPlayer({ rank: 3, lastName: 'Local3' }),
+        createTestPlayer({ rank: 1, lastName: 'Local', gameResults: ['W', null, 'L'] }),
+        createTestPlayer({ rank: 3, lastName: 'Local3' }),
       ];
       const serverPlayers = [
-        createPlayer({ rank: 1, lastName: 'Server', gameResults: [null, 'W', null] }),
-        createPlayer({ rank: 2, lastName: 'Server2' }),
+        createTestPlayer({ rank: 1, lastName: 'Server', gameResults: [null, 'W', null] }),
+        createTestPlayer({ rank: 2, lastName: 'Server2' }),
       ];
       setLocalPlayers(localPlayers);
       mockGetPlayers.mockResolvedValue(serverPlayers);
@@ -418,7 +400,7 @@ describe('Migration - Mode Switching (Local <-> Server)', () => {
     });
 
     it('should store current mode as server after migration', async () => {
-      setLocalPlayers([createPlayer({ rank: 1, lastName: 'P1' })]);
+      setLocalPlayers([createTestPlayer({ rank: 1, lastName: 'P1' })]);
 
       await applyMigration('use-local');
 

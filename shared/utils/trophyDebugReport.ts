@@ -3,13 +3,8 @@
  * Used by both server (tournamentStore) and tests to generate consistent debug output
  */
 
-import { PlayerData } from '../types/index.js';
+import { PlayerData, MiniGameData } from '../types/index.js';
 import { debugLine, clubLadderGamesPlayed, formatPlayerName } from './trophyGeneration.js';
-
-export interface MiniGameData {
-  fileName: string;
-  players: PlayerData[];
-}
 
 /**
  * Sync trophyEligible from club ladder (source of truth) to each mini-game file.

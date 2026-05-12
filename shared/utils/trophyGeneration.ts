@@ -3,12 +3,7 @@
  * Used by both server (tournamentStore) and client (miniGameStore)
  */
 
-import { PlayerData, LadderData } from '../types/index.js';
-
-export interface MiniGameData {
-  fileName: string;
-  players: PlayerData[];
-}
+import { PlayerData, LadderData, MiniGameData } from '../types/index.js';
 
 export interface TrophyReportResult {
   success: boolean;
@@ -117,61 +112,53 @@ export function generateClubLadderTrophies(players: PlayerData[], minTrophies: n
     return true;
   }
 
- // Step 1: Award 1st place overall - first eligible by rating
-  for (const p of sortedPlayers) {
-    if (p.trophyEligible === false) continue;
-    const g = clubLadderGamesPlayed(p);
-    if (addTrophy({
-      rank: trophies.length + 1,
-      player: formatPlayerName(p),
-      gr: p.grade,
-      rating: p.nRating,
-      trophyType: '1st Place',
-      miniGameOrGrade: 'Club Ladder',
-      gamesPlayed: g,
-      totalGames: g,
-    })) {
-      break;
+  function awardOverallPlace(placeName: string) {
+    for (const p of sortedPlayers) {
+      if (p.trophyEligible === false) continue;
+      const g = clubLadderGamesPlayed(p);
+      if (addTrophy({
+        rank: trophies.length + 1,
+        player: formatPlayerName(p),
+        gr: p.grade,
+        rating: p.nRating,
+        trophyType: placeName,
+        miniGameOrGrade: 'Club Ladder',
+        gamesPlayed: g,
+        totalGames: g,
+      })) {
+        break;
+      }
     }
   }
 
-  // Step 2: Award 2nd place overall - next eligible by rating
-  for (const p of sortedPlayers) {
-    if (p.trophyEligible === false) continue;
-    const g = clubLadderGamesPlayed(p);
-    if (addTrophy({
-      rank: trophies.length + 1,
-      player: formatPlayerName(p),
-      gr: p.grade,
-      rating: p.nRating,
-      trophyType: '2nd Place',
-      miniGameOrGrade: 'Club Ladder',
-      gamesPlayed: g,
-      totalGames: g,
-    })) {
-      break;
+  function awardGradePlace(placeName: string) {
+    const gradeGroups = [...new Set(players.map(p => p.grade).filter(Boolean))].sort((a, b) => parseInt(b) - parseInt(a));
+    for (const grade of gradeGroups) {
+      const gradePlayers = players.filter(p => p.grade === grade && p.trophyEligible !== false).sort((a, b) => b.nRating - a.nRating);
+      for (const p of gradePlayers) {
+        const g = clubLadderGamesPlayed(p);
+        if (addTrophy({
+          rank: trophies.length + 1,
+          player: formatPlayerName(p),
+          gr: grade,
+          rating: p.nRating,
+          trophyType: placeName,
+          miniGameOrGrade: `Gr ${grade}`,
+          gamesPlayed: g,
+          totalGames: g,
+        })) {
+          break;
+        }
+      }
     }
   }
 
-  // Step 3: Award 3rd place overall - next eligible by rating
-  for (const p of sortedPlayers) {
-    if (p.trophyEligible === false) continue;
-    const g = clubLadderGamesPlayed(p);
-    if (addTrophy({
-      rank: trophies.length + 1,
-      player: formatPlayerName(p),
-      gr: p.grade,
-      rating: p.nRating,
-      trophyType: '3rd Place',
-      miniGameOrGrade: 'Club Ladder',
-      gamesPlayed: g,
-      totalGames: g,
-    })) {
-      break;
-    }
-  }
+  // Steps 1-3: Award 1st, 2nd, 3rd place overall
+  awardOverallPlace('1st Place');
+  awardOverallPlace('2nd Place');
+  awardOverallPlace('3rd Place');
 
-  // Step 4: Award most games - first eligible by total games (num_games + current)
+  // Step 4: Award most games
   const sortedByGames = [...players].filter(p => p.trophyEligible !== false).sort((a, b) => clubLadderGamesPlayed(b) - clubLadderGamesPlayed(a));
   for (const p of sortedByGames) {
     const g = clubLadderGamesPlayed(p);
@@ -189,76 +176,15 @@ export function generateClubLadderTrophies(players: PlayerData[], minTrophies: n
     }
   }
 
-  // Step 5: Award grade 1st place if t > 4
+  // Steps 5-7: Award grade places
   if (minTrophies > 4) {
-    const gradeGroups = [...new Set(players.map(p => p.grade).filter(Boolean))].sort((a, b) => parseInt(b) - parseInt(a));
-    
-    for (const grade of gradeGroups) {
-      const gradePlayers = players.filter(p => p.grade === grade && p.trophyEligible !== false).sort((a, b) => b.nRating - a.nRating);
-      for (const p of gradePlayers) {
-        const g = clubLadderGamesPlayed(p);
-        if (addTrophy({
-          rank: trophies.length + 1,
-          player: formatPlayerName(p),
-          gr: grade,
-          rating: p.nRating,
-          trophyType: '1st Place',
-          miniGameOrGrade: `Gr ${grade}`,
-          gamesPlayed: g,
-          totalGames: g,
-        })) {
-          break;
-        }
-      }
-    }
+    awardGradePlace('1st Place');
   }
-
-  // Step 6: Award grade 2nd place if any trophies remain
   if (trophies.length < minTrophies) {
-    const gradeGroups = [...new Set(players.map(p => p.grade).filter(Boolean))].sort((a, b) => parseInt(b) - parseInt(a));
-    
-    for (const grade of gradeGroups) {
-      const gradePlayers = players.filter(p => p.grade === grade && p.trophyEligible !== false).sort((a, b) => b.nRating - a.nRating);
-      for (const p of gradePlayers) {
-        const g = clubLadderGamesPlayed(p);
-        if (addTrophy({
-          rank: trophies.length + 1,
-          player: formatPlayerName(p),
-          gr: grade,
-          rating: p.nRating,
-          trophyType: '2nd Place',
-          miniGameOrGrade: `Gr ${grade}`,
-          gamesPlayed: g,
-          totalGames: g,
-        })) {
-          break;
-        }
-      }
-    }
+    awardGradePlace('2nd Place');
   }
-
-  // Step 7: Award grade 3rd place if any trophies remain
   if (trophies.length < minTrophies) {
-    const gradeGroups = [...new Set(players.map(p => p.grade).filter(Boolean))].sort((a, b) => parseInt(b) - parseInt(a));
-    
-    for (const grade of gradeGroups) {
-      const gradePlayers = players.filter(p => p.grade === grade && p.trophyEligible !== false).sort((a, b) => b.nRating - a.nRating);
-      for (const p of gradePlayers) {
-        const g = clubLadderGamesPlayed(p);
-        if (addTrophy({
-          rank: trophies.length + 1,
-          player: formatPlayerName(p),
-          gr: grade,
-          rating: p.nRating,
-          trophyType: '3rd Place',
-          miniGameOrGrade: `Gr ${grade}`,
-          gamesPlayed: g,
-          totalGames: g,
-        })) {
-          break;
-        }
-      }
-    }
+    awardGradePlace('3rd Place');
   }
 
   return trophies;
