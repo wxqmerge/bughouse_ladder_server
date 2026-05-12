@@ -959,7 +959,7 @@ class DataService {
       const content = lines.join('\n') + '\n';
       return new Blob([content], { type: 'text/tab-separated-values' });
     } else {
-      const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/trophies`, {
+      const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/trophies?debugLevel=${debugLevel}`, {
         headers: this.getAuthHeaders(),
       });
 
