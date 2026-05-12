@@ -42,6 +42,17 @@ export function buildDebugHeader(players: PlayerData[], minTrophies: number, isC
   return lines;
 }
 
+function mgdPlayersTotalGames(player: PlayerData, miniGameDataList: MiniGameData[]): number {
+  let total = 0;
+  for (const mgd of miniGameDataList) {
+    const games = mgd.players.find(p => p.rank === player.rank);
+    if (games?.gameResults) {
+      total += games.gameResults.filter(r => r && r !== '' && r !== '_').length;
+    }
+  }
+  return total;
+}
+
 /**
  * Build the mini-game player debug section
  */
@@ -50,6 +61,7 @@ export function buildMiniGamePlayerSection(miniGameDataList: MiniGameData[]): st
   
   lines.push(debugLine('MINI-GAME PLAYERS', '(after 5 recalcs)', '', '', '', '', '', ''));
   
+  const allIneligible: PlayerData[] = [];
   for (const mgd of miniGameDataList) {
     const playersWithGames = mgd.players.filter((p: PlayerData) => {
       if (!p.gameResults) return false;
@@ -76,6 +88,22 @@ export function buildMiniGamePlayerSection(miniGameDataList: MiniGameData[]): st
         lines.push(debugLine(String(p.rank), `${p.firstName} ${p.lastName}`, p.grade, String(p.nRating), '', '', String(games), ''));
       }
     }
+    
+    for (const p of mgd.players) {
+      if (p.trophyEligible === false && !allIneligible.find(a => a.rank === p.rank)) {
+        allIneligible.push(p);
+      }
+    }
+  }
+  
+  if (allIneligible.length > 0) {
+    lines.push('');
+    lines.push(debugLine('Top Ineligible Overall', '', '', '', '', '', '', ''));
+    const topIneligible = allIneligible.sort((a, b) => b.nRating - a.nRating).slice(0, 1);
+    for (const p of topIneligible) {
+      const totalGames = mgdPlayersTotalGames(p, miniGameDataList);
+      lines.push(debugLine(String(p.rank), `${p.firstName} ${p.lastName}`, p.grade, String(p.nRating), '', '', String(totalGames), ''));
+    }
   }
   
   return lines;
@@ -97,7 +125,12 @@ export function buildClubLadderPlayerSection(players: PlayerData[], debugLevel: 
     
     const overallIneligible = players.filter(p => p.trophyEligible === false).sort((a, b) => b.nRating - a.nRating).slice(0, 1);
     if (overallIneligible.length > 0) {
-      lines.push('-');
+      lines.push('');
+      lines.push(debugLine('Top Ineligible', '', '', '', '', '', '', ''));
+      for (const p of overallIneligible) {
+        const games = clubLadderGamesPlayed(p);
+        lines.push(debugLine(String(p.rank), `${p.firstName} ${p.lastName}`, p.grade, String(p.nRating), '', '', String(games), ''));
+      }
     }
     
     lines.push('');

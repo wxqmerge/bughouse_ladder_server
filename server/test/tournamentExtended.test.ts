@@ -17,7 +17,7 @@ import {
 } from '../src/services/tournamentService';
 import { debugLine } from '../../shared/utils/trophyGeneration';
 import { calculateRatings, repopulateGameResults, processGameResults } from '../../shared/utils/hashUtils';
-import { buildDebugHeader, buildMiniGamePlayerSection, buildTrophiesSection, buildTrophyReportString } from '../../shared/utils/trophyDebugReport';
+import { buildDebugHeader, buildClubLadderPlayerSection, buildMiniGamePlayerSection, buildTrophiesSection, buildTrophyReportString } from '../../shared/utils/trophyDebugReport';
 import type { MatchData } from '../../shared/types';
 import { mulberry32, determineResult, generateBatchGames, cleanInvalidResults } from '../../src/test/shared/stressTestUtils';
 
@@ -728,11 +728,11 @@ describe('Mini-game trophy stress test — club ladder mode', () => {
     const trophyReportLines: string[] = [];
     
     // Debug section (matches server generateTrophyReport debug output)
-    trophyReportLines.push(debugLine('DEBUG', 'TROPHY REPORT', '', '', '', '', '', ''));
-    trophyReportLines.push(debugLine('Players', String(players.length), '', '', '', '', '', ''));
-    trophyReportLines.push(debugLine('Min Trophies', `${minTrophies} (ceil(${players.length} / 3))`, '', '', '', '', '', ''));
-    trophyReportLines.push('');
-    trophyReportLines.push(debugLine('Mode', 'Club Ladder (no mini-game files)', '', '', '', '', '', ''));
+    const headerLines = buildDebugHeader(players, minTrophies, true);
+    trophyReportLines.push(...headerLines);
+    
+    const clubPlayerLines = buildClubLadderPlayerSection(players, 3);
+    trophyReportLines.push(...clubPlayerLines);
     
     trophyReportLines.push('');
     trophyReportLines.push('AWARDED TROPHIES');
