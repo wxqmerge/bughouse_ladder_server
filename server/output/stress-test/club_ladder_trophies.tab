@@ -3,6 +3,85 @@ Players	50
 Min Trophies	17 (ceil(50 / 3))						
 
 Mode	Club Ladder (no mini-game files)						
+TOP 5 OVERALL	(by rating, eligible only)						
+26	 Player26	9	1736			30	
+19	 Player19	5	1730			28	
+6	 Player6	12	1706			30	
+33	 Player33	5	1651			29	
+13	 Player13	5	1647			28	
+
+Top Ineligible							
+20	 Player20	10	1875			30	
+
+TOP 5 PER GRADE							
+
+Gr 13							
+8	 Player8	13	1372			29	
+47	 Player47	13	994			30	
+
+Gr 12							
+6	 Player6	12	1706			30	
+36	 Player36	12	1387			24	
+25	 Player25	12	1381			30	
+42	 Player42	12	1330			30	
+
+Top Ineligible							
+16	 Player16	12	1672			29	
+
+Gr 11							
+17	 Player17	11	1382			30	
+4	 Player4	11	1204			28	
+34	 Player34	11	804			28	
+
+Top Ineligible							
+44	 Player44	11	1826			30	
+
+Gr 10							
+10	 Player10	10	1325			27	
+
+Top Ineligible							
+20	 Player20	10	1875			30	
+
+Gr 9							
+26	 Player26	9	1736			30	
+15	 Player15	9	1640			28	
+48	 Player48	9	1366			30	
+22	 Player22	9	1189			29	
+46	 Player46	9	1049			28	
+
+Top Ineligible							
+39	 Player39	9	868			27	
+
+Gr 8							
+38	 Player38	8	1455			28	
+40	 Player40	8	1375			30	
+5	 Player5	8	1075			26	
+
+Top Ineligible							
+18	 Player18	8	1516			28	
+
+Gr 7							
+12	 Player12	7	1209			25	
+
+Gr 6							
+21	 Player21	6	1576			28	
+30	 Player30	6	1231			27	
+35	 Player35	6	1138			30	
+24	 Player24	6	1081			26	
+31	 Player31	6	1049			30	
+
+Top Ineligible							
+11	 Player11	6	1610			29	
+
+Gr 5							
+19	 Player19	5	1730			28	
+33	 Player33	5	1651			29	
+13	 Player13	5	1647			28	
+27	 Player27	5	1430			28	
+7	 Player7	5	1309			30	
+
+Top Ineligible							
+2	 Player2	5	1335			30	
 
 AWARDED TROPHIES
 Rank	Player	Trophy Type	Mini-Game/Grade	Gr	Rating	Total Games	Games Played
