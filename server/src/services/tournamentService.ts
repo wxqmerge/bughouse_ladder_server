@@ -19,6 +19,7 @@ import {
   buildClubLadderPlayerSection,
   buildTrophiesSection,
   buildTrophyReportString,
+  syncEligibilityFromClubLadder,
 } from '../../../shared/utils/trophyDebugReport.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -357,24 +358,15 @@ export async function generateTrophyReport(debugLevel: number = 3): Promise<{
         loggerLog('[TOURNAMENT]', `Recalculated ${fileName} (5 passes)`);
       }
 
-      // Sync trophyEligible from club ladder (source of truth) to each mini-game file
-      const clubEligibleMap = new Map<string, boolean>();
-      for (const p of players) {
-        clubEligibleMap.set(`${p.firstName} ${p.lastName}`, p.trophyEligible);
-      }
       // Build MiniGameData array for shared trophy generation
       const miniGameDataList: MiniGameData[] = [];
       for (const fileName of existingFiles) {
         const data = await readMiniGameFile(fileName);
         if (!data || data.players.length === 0) continue;
-        for (const p of data.players) {
-          const key = `${p.firstName} ${p.lastName}`;
-          if (clubEligibleMap.has(key)) {
-            p.trophyEligible = clubEligibleMap.get(key)!;
-          }
-        }
         miniGameDataList.push({ fileName, players: data.players });
       }
+      // Sync trophyEligible from club ladder (source of truth) to each mini-game file
+      syncEligibilityFromClubLadder(players, miniGameDataList);
       
       const miniGameLines = buildMiniGamePlayerSection(miniGameDataList);
       debugLines.push(...miniGameLines);

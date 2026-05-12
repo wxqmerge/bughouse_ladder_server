@@ -126,8 +126,8 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
           if (mode !== 'local' && mode !== 'server_down') {
             console.log('[APP] Initializing data sync...');
             await dataService.initializeHash();
-            console.log('[APP] Starting data polling (5.5 second interval)');
-            dataService.startPolling(5500);
+            console.log('[APP] Starting data polling (60 second interval)');
+            dataService.startPolling(60000);
             
             // Start SSE for real-time updates (polling remains as fallback)
             dataService.startSSE();
@@ -214,7 +214,7 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
         if (oldMode === 'local' && newMode === 'server') {
           console.log('[MODE CHANGE] Local -> Server: fetching fresh data');
           dataService.initializeHash().then(async () => {
-            dataService.startPolling(5500);
+            dataService.startPolling(60000);
             dataService.startSSE();
             if (refreshPlayersRef.current) {
               console.log('[MODE CHANGE] Calling refreshPlayersRef.current()');
