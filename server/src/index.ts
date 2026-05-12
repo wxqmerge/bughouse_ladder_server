@@ -24,7 +24,7 @@ import { errorHandler } from './middleware/errorHandler.js';
 import { initializeDefaultLadder } from './services/dataService.js';
 import { generatePerformanceReport, clearSlowOperations } from './utils/performance.js';
 import { getWriteHealth } from './services/dataService.js';
-import { addSSEClient, getSSEClientCount } from './services/sseService.js';
+import { addSSEClient, getSSEClientCount, startHeartbeat } from './services/sseService.js';
 
 const app: Application = express();
 const PORT = process.env.PORT || 3000;
@@ -226,11 +226,14 @@ app.use(errorHandler);
 async function startServer() {
   try {
     await initializeDefaultLadder();
-    app.listen(PORT, () => {
-      const host = '0.0.0.0';
-      const serverUrl = `http://localhost:${PORT}`;
-      
-      console.log('\n========================================');
+     app.listen(PORT, () => {
+       const host = '0.0.0.0';
+       const serverUrl = `http://localhost:${PORT}`;
+       
+       startHeartbeat();
+
+       console.log('\n========================================');
+
       console.log('  BUGHOUSE CHESS LADDER SERVER');
       console.log('========================================\n');
       console.log(`✓ Server running on port ${PORT}`);
