@@ -1022,16 +1022,20 @@ class DataService {
       const store = this.getStore();
       return store.checkMiniGameFilesWith();
     } else {
-      const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/check-mini-games`, {
-        headers: this.getAuthHeaders(),
-      });
+      try {
+        const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/check-mini-games`, {
+          headers: this.getAuthHeaders(),
+        });
 
-      if (!response.ok) {
-        throw new Error('Failed to check mini-game files');
+        if (!response.ok) {
+          return [];
+        }
+
+        const data = await response.json();
+        return data.data.files;
+      } catch {
+        return [];
       }
-
-      const data = await response.json();
-      return data.data.files;
     }
   }
 

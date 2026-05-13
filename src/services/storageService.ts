@@ -622,14 +622,10 @@ export async function isAdminLocked(): Promise<boolean> {
 
 export async function checkWritePermission(): Promise<boolean> {
   const url = getServerUrl();
-  if (!url) return true;
+  if (!url) { console.log('[CHECK-WRITE] no server URL → true'); return true; }
   const settings = loadUserSettings();
-  // Server mode without key → view only
-  if (!settings.apiKey || !settings.apiKey.trim()) return false;
-  const headers: Record<string, string> = { 'X-API-Key': settings.apiKey.trim() };
-  try {
-    const res = await fetch(`${url}/api/ladder`, { method: 'PUT', headers, body: JSON.stringify({ players: [] }) });
-    return res.ok;
-  } catch { return false; }
+  if (!settings.apiKey || !settings.apiKey.trim()) { console.log('[CHECK-WRITE] no API key → false'); return false; }
+  console.log('[CHECK-WRITE] has API key → true');
+  return true;
 }
 
