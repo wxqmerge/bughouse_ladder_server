@@ -125,16 +125,36 @@ fi
 echo "[8/9] Fixing systemd service file if needed..."
 SERVICE_FILE="/etc/systemd/system/$SERVICE.service"
 if [ -f "$SERVICE_FILE" ]; then
-    if grep -q '^EnvironmentFile=' "$SERVICE_FILE"; then
-        echo "  Service file already has EnvironmentFile."
-        grep '^EnvironmentFile=' "$SERVICE_FILE" | while read -r line; do echo "    $line"; done
+    # Check if EnvironmentFile exists and is in the correct section ([Service])
+    HAS_ENV_FILE=$(grep -c '^EnvironmentFile=' "$SERVICE_FILE" || true)
+    if [ "$HAS_ENV_FILE" -gt 0 ]; then
+        # Check if it's inside [Service] section (between [Service] and [Install])
+        SERVICE_SECTION=$(sed -n '/^\[Service\]/,/^$/p' "$SERVICE_FILE")
+        if echo "$SERVICE_SECTION" | grep -q '^EnvironmentFile='; then
+            echo "  EnvironmentFile is correctly placed in [Service] section."
+            grep '^EnvironmentFile=' "$SERVICE_FILE" | while read -r line; do echo "    $line"; done
+        else
+            echo "  WARNING: EnvironmentFile found but NOT in [Service] section — fixing..."
+            sudo sh -c "sed -i '/^EnvironmentFile=/d' $SERVICE_FILE"
+            echo "  Removed misplaced EnvironmentFile line(s)"
+            ENV_FILE="$DIR/server/.env"
+            if [ -f "$ENV_FILE" ]; then
+                EXEC_LINE=$(grep -n '^ExecStart=' "$SERVICE_FILE" | head -1 | cut -d: -f1)
+                if [ -n "$EXEC_LINE" ] && [ "$EXEC_LINE" -gt 1 ]; then
+                    INSERT_LINE=$((EXEC_LINE - 1))
+                    echo "  Inserting EnvironmentFile at line $INSERT_LINE (before ExecStart)"
+                    sudo sh -c "sed -i '${INSERT_LINE}a EnvironmentFile=$ENV_FILE' $SERVICE_FILE"
+                    echo "  Injected EnvironmentFile into [Service] section"
+                else
+                    echo "  ERROR: Could not find ExecStart line in $SERVICE_FILE"
+                fi
+            fi
+        fi
     else
-        echo "  Fixing: injecting EnvironmentFile into [Service] section of $SERVICE_FILE"
+        echo "  No EnvironmentFile found — adding it."
         ENV_FILE="$DIR/server/.env"
         if [ -f "$ENV_FILE" ]; then
             echo "  EnvironmentFile=$ENV_FILE"
-            # Find the line number of ExecStart and insert EnvironmentFile just before it
-            # This guarantees it's inside [Service]
             EXEC_LINE=$(grep -n '^ExecStart=' "$SERVICE_FILE" | head -1 | cut -d: -f1)
             if [ -n "$EXEC_LINE" ] && [ "$EXEC_LINE" -gt 1 ]; then
                 INSERT_LINE=$((EXEC_LINE - 1))
@@ -150,10 +170,10 @@ if [ -f "$SERVICE_FILE" ]; then
         else
             echo "  WARNING: $ENV_FILE not found"
         fi
-        echo "  Reloading systemd daemon..."
-        if ! sudo -n systemctl daemon-reload 2>&1; then
-            echo "  WARNING: systemctl daemon-reload failed."
-        fi
+    fi
+    echo "  Reloading systemd daemon..."
+    if ! sudo -n systemctl daemon-reload 2>&1; then
+        echo "  WARNING: systemctl daemon-reload failed."
     fi
 else
     echo "  WARNING: $SERVICE_FILE not found"
