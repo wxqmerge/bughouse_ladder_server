@@ -15,6 +15,14 @@ export const ADMIN_API_KEY = process.env.ADMIN_API_KEY || '';
 // API Key for user write operations (optional - if not set, all writes allowed when no admin key)
 export const USER_API_KEY = process.env.USER_API_KEY || '';
 
+function getAdminKey() {
+  return process.env.ADMIN_API_KEY || '';
+}
+
+function getUserKey() {
+  return process.env.USER_API_KEY || '';
+}
+
 /**
  * Middleware to verify user API key for write operations.
  * Allows requests through if EITHER the user key matches OR the admin key matches.
@@ -28,13 +36,13 @@ export function requireUserKey(
   const apiKey = req.headers['x-api-key'] as string;
 
   // Admin key always grants access (admins can do everything)
-  if (ADMIN_API_KEY && apiKey === ADMIN_API_KEY) {
+  if (getAdminKey() && apiKey === getAdminKey()) {
     next();
     return;
   }
 
   // If user key is configured, validate it
-  if (USER_API_KEY) {
+  if (getUserKey()) {
     if (!apiKey) {
       if (process.env.NODE_ENV !== 'production') {
         console.log(`[USER_AUTH] 401 - Missing API key | IP: ${req.ip} | Path: ${req.path}`);
@@ -46,7 +54,7 @@ export function requireUserKey(
       return;
     }
 
-    if (apiKey !== USER_API_KEY) {
+    if (apiKey !== getUserKey()) {
       console.log(`[USER_AUTH] 401 - Invalid API key | IP: ${req.ip} | Path: ${req.path}`);
       res.status(401).json({
         success: false,
@@ -67,7 +75,8 @@ export function requireAdminKey(
   next: NextFunction
 ): void {
   // In production, admin key is mandatory - reject if not configured
-  if (process.env.NODE_ENV === 'production' && !ADMIN_API_KEY) {
+  const adminKey = getAdminKey();
+  if (process.env.NODE_ENV === 'production' && !adminKey) {
     console.log(`[ADMIN_AUTH] 403 - ADMIN_API_KEY not configured in production | IP: ${req.ip} | Path: ${req.path}`);
     res.status(403).json({
       success: false,
@@ -77,7 +86,7 @@ export function requireAdminKey(
   }
   
   // In dev mode, if no API key configured, allow all requests
-  if (!ADMIN_API_KEY) {
+  if (!adminKey) {
     next();
     return;
   }
@@ -95,7 +104,7 @@ export function requireAdminKey(
 
   // Use timing-safe comparison to prevent timing attacks
   try {
-    const keyBuffer = Buffer.from(ADMIN_API_KEY, 'utf-8');
+    const keyBuffer = Buffer.from(adminKey, 'utf-8');
     const providedBuffer = Buffer.from(apiKey, 'utf-8');
     
     // If lengths differ, crypto.timingSafeEqual will throw, so handle gracefully
