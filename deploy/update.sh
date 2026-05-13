@@ -133,12 +133,19 @@ if [ -f "$SERVICE_FILE" ]; then
         ENV_FILE="$DIR/server/.env"
         if [ -f "$ENV_FILE" ]; then
             echo "  EnvironmentFile=$ENV_FILE"
-            # Insert EnvironmentFile right after the line containing Environment=NODE_ENV
-            # This ensures it's inside [Service] and before ExecStart
-            if ! sudo sh -c "sed -i '/^Environment=NODE_ENV/a EnvironmentFile=$ENV_FILE' $SERVICE_FILE" 2>&1; then
-                echo "  ERROR: Failed to modify $SERVICE_FILE"
+            # Find the line number of ExecStart and insert EnvironmentFile just before it
+            # This guarantees it's inside [Service]
+            EXEC_LINE=$(grep -n '^ExecStart=' "$SERVICE_FILE" | head -1 | cut -d: -f1)
+            if [ -n "$EXEC_LINE" ] && [ "$EXEC_LINE" -gt 1 ]; then
+                INSERT_LINE=$((EXEC_LINE - 1))
+                echo "  Inserting at line $INSERT_LINE (before ExecStart at line $EXEC_LINE)"
+                if ! sudo sh -c "sed -i '${INSERT_LINE}a EnvironmentFile=$ENV_FILE' $SERVICE_FILE" 2>&1; then
+                    echo "  ERROR: Failed to modify $SERVICE_FILE"
+                else
+                    echo "  Injected EnvironmentFile into [Service] section"
+                fi
             else
-                echo "  Injected EnvironmentFile into [Service] section"
+                echo "  ERROR: Could not find ExecStart line in $SERVICE_FILE"
             fi
         else
             echo "  WARNING: $ENV_FILE not found"
