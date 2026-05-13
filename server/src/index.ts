@@ -4,6 +4,12 @@ import dotenv from 'dotenv';
 dotenv.config({ path: '.env' });
 dotenv.config({ path: '../.env' });
 
+// Debug: log all loaded env vars
+console.log('[ENV] NODE_ENV:', process.env.NODE_ENV);
+console.log('[ENV] ADMIN_API_KEY:', process.env.ADMIN_API_KEY ? '(set, length=' + process.env.ADMIN_API_KEY.length + ')' : '(empty/MISSING)');
+console.log('[ENV] USER_API_KEY:', process.env.USER_API_KEY ? '(set, length=' + process.env.USER_API_KEY.length + ')' : '(empty/MISSING)');
+console.log('[ENV] PORT:', process.env.PORT);
+
 // Fail fast in production if API keys aren't configured
 if (process.env.NODE_ENV === 'production' && (!process.env.ADMIN_API_KEY || !process.env.USER_API_KEY)) {
   console.error('[FATAL] Missing required API keys in production.');
