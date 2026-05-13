@@ -17,7 +17,7 @@ echo "To trace live logs: sudo journalctl -u $SERVICE -f"
 echo ""
 
 # 1. Stash any local changes
-echo "[1/7] Stashing local changes..."
+echo "[1/8] Stashing local changes..."
 if ! git diff --quiet 2>/dev/null; then
     if git stash; then
         echo "  Changes stashed."
@@ -31,7 +31,7 @@ else
 fi
 
 # 2. Pull latest code
-echo "[2/7] Pulling latest code..."
+echo "[2/8] Pulling latest code..."
 if ! git pull; then
     echo "  ERROR: git pull failed. Restoring stash..."
     git stash pop 2>/dev/null || true
@@ -39,8 +39,37 @@ if ! git pull; then
     exit 1
 fi
 
-# 3. Clean stale build artifacts
-echo "[3/7] Cleaning stale build artifacts..."
+# 3. Validate API keys are configured
+echo "[3/8] Validating API keys..."
+ENV_FILE="$DIR/server/.env"
+if [ ! -f "$ENV_FILE" ]; then
+    echo "  ERROR: $ENV_FILE not found."
+    echo "  API keys (USER_API_KEY and ADMIN_API_KEY) are required for production."
+    echo "  Copy server/.env.example to server/.env and set your keys."
+    exit 1
+fi
+if grep -q '^USER_API_KEY=' "$ENV_FILE"; then
+    USER_KEY=$(grep '^USER_API_KEY=' "$ENV_FILE" | head -1 | cut -d= -f2- | tr -d '[:space:]')
+else
+    USER_KEY=""
+fi
+if grep -q '^ADMIN_API_KEY=' "$ENV_FILE"; then
+    ADMIN_KEY=$(grep '^ADMIN_API_KEY=' "$ENV_FILE" | head -1 | cut -d= -f2- | tr -d '[:space:]')
+else
+    ADMIN_KEY=""
+fi
+if [ -z "$USER_KEY" ] || [ -z "$ADMIN_KEY" ]; then
+    echo "  ERROR: API keys must be set in server/.env."
+    if [ -z "$USER_KEY" ]; then echo "    - USER_API_KEY is not set"; fi
+    if [ -z "$ADMIN_KEY" ]; then echo "    - ADMIN_API_KEY is not set"; fi
+    echo "  Deploy aborted. Set both keys and try again."
+    exit 1
+fi
+echo "  USER_API_KEY:    (set)"
+echo "  ADMIN_API_KEY:   (set)"
+
+# 4. Clean stale build artifacts
+echo "[4/8] Cleaning stale build artifacts..."
 if [ -d "dist" ]; then
     rm -rf dist
     echo "  Removed dist/"
@@ -55,8 +84,8 @@ if [ -d "shared/utils" ]; then
     echo "  Removed stale shared/utils/*.js"
 fi
 
-# 4. Install dependencies (no --production: we need devDeps for building)
-echo "[4/6] Installing dependencies..."
+# 5. Install dependencies (no --production: we need devDeps for building)
+echo "[5/8] Installing dependencies..."
 if [ -f "package.json" ]; then
     if ! npm install; then
         echo "  ERROR: Frontend npm install failed."
@@ -64,16 +93,16 @@ if [ -f "package.json" ]; then
     fi
 fi
 
-# 5. Build frontend
-echo "[5/6] Building frontend..."
+# 6. Build frontend
+echo "[6/8] Building frontend..."
 if ! npm run build; then
     echo "  ERROR: Frontend build failed."
     echo "  Aborting. Check build output above."
     exit 1
 fi
 
-# 6. Build server
-echo "[6/6] Building server..."
+# 7. Build server
+echo "[7/8] Building server..."
 if [ -d "server" ] && [ -f "server/package.json" ]; then
     if ! (cd server && npm install); then
         echo "  ERROR: Server npm install failed."
@@ -92,8 +121,8 @@ else
     echo "  Skipped (no server directory)."
 fi
 
-# 7. Restart service
-echo "[7/7] Restarting service: $SERVICE"
+# 8. Restart service
+echo "[8/8] Restarting service: $SERVICE"
 if ! sudo -n systemctl restart "$SERVICE" 2>&1; then
     echo "  ERROR: systemctl restart failed."
     echo "  If this says 'sudo: a password is required', you need passwordless sudo."

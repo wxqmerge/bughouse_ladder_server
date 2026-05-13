@@ -25,16 +25,6 @@ export function requireUserKey(
   res: Response,
   next: NextFunction
 ): void {
-  // In production, if no API keys are configured, reject all writes (view-only mode)
-  if (process.env.NODE_ENV === 'production' && !USER_API_KEY && !ADMIN_API_KEY) {
-    console.log(`[USER_AUTH] 403 - No API keys configured in production (view-only mode) | IP: ${req.ip} | Path: ${req.path}`);
-    res.status(403).json({
-      success: false,
-      error: { message: 'Server is in view-only mode. Contact your administrator.' },
-    });
-    return;
-  }
-
   const apiKey = req.headers['x-api-key'] as string;
 
   // Admin key always grants access (admins can do everything)
