@@ -84,6 +84,8 @@ Access: **Operations → Settings** (always available, even without admin mode).
 | **Local** | Browser localStorage only | Testing, offline use |
 | **Server** | Connects to production server (auto-detected) | Shared data access |
 
+**Production servers require an API key.** Without a valid key, the client runs in view-only mode (blue menu bar, all edit operations disabled). Admin mode is also disabled without an admin key.
+
 ### Quick Setup via URL
 
 Share a single URL to auto-configure any client (overrides auto-detect):

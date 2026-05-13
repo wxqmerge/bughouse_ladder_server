@@ -32,11 +32,11 @@ Drag a `.tab`, `.xls`, or `.txt` file onto the splash screen (no server needed).
 
 | Key Status | What You Can Do |
 |-----------|-----------------|
-| No key / wrong key | View data only (read-only) |
+| No key / wrong key | View data only (read-only, blue menu bar) |
 | Valid user key | Enter games and save results |
 | Admin key | Full access including admin features |
 
-See [SECURITY.md](./SECURITY.md) for key generation details.
+Production servers require an API key. Without one, the client runs in view-only mode with all edit operations disabled. See [SECURITY.md](./SECURITY.md) for key generation details.
 
 ---
 
