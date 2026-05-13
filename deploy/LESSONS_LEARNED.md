@@ -1,5 +1,9 @@
 # Lessons Learned
 
+## 0. ES module imports are hoisted — dotenv must run before any module that reads `process.env`
+
+In ES modules, `import` statements are evaluated before any top-level code runs. If `auth.middleware.ts` imports `process.env.ADMIN_API_KEY` at the module level, it captures an empty string because `dotenv.config()` hasn't run yet. The fix: read `process.env` dynamically via a function called at request time, not at module load time.
+
 ## 1. TypeScript `rootDir` inference is a silent trap
 
 With `module: "NodeNext"`, TypeScript infers `rootDir` from absolute file paths. On Windows, `D:\server\src\index.ts` produces `dist/server/src/` instead of `dist/`. Always set `rootDir` explicitly in `tsconfig.json`, or add a post-build flatten step.
