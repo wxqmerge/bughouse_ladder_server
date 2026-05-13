@@ -124,36 +124,23 @@ fi
 # 8. Fix systemd service file if needed (add EnvironmentFile)
 echo "[8/9] Fixing systemd service file if needed..."
 SERVICE_FILE="/etc/systemd/system/$SERVICE.service"
-echo "  SERVICE=$SERVICE"
-echo "  SERVICE_FILE=$SERVICE_FILE"
-echo "  DIR=$DIR"
 if [ -f "$SERVICE_FILE" ]; then
     if grep -q '^EnvironmentFile=' "$SERVICE_FILE"; then
         echo "  Service file already has EnvironmentFile."
         grep '^EnvironmentFile=' "$SERVICE_FILE" | while read -r line; do echo "    $line"; done
     else
         echo "  Fixing: adding EnvironmentFile to $SERVICE_FILE"
-        WORK_DIR=$(grep '^WorkingDirectory=' "$SERVICE_FILE" | head -1 | cut -d= -f2-)
-        echo "  WorkingDirectory=$WORK_DIR"
-        if [ -n "$WORK_DIR" ]; then
-            BASE_DIR=$(dirname "$(dirname "$WORK_DIR")")
-            ENV_FILE="$BASE_DIR/server/.env"
-            echo "  Computed ENV_FILE=$ENV_FILE"
-            if [ -f "$ENV_FILE" ]; then
-                echo "  EnvironmentFile=$ENV_FILE" >> "$SERVICE_FILE"
-                echo "  Added: EnvironmentFile=$ENV_FILE"
+        # The .env is at $DIR/server/.env (DIR is the project root)
+        ENV_FILE="$DIR/server/.env"
+        if [ -f "$ENV_FILE" ]; then
+            echo "  Adding: EnvironmentFile=$ENV_FILE"
+            if ! sudo sh -c "echo 'EnvironmentFile=$ENV_FILE' >> $SERVICE_FILE" 2>&1; then
+                echo "  ERROR: Failed to write to $SERVICE_FILE"
             else
-                echo "  WARNING: $ENV_FILE not found"
-                echo "  Trying alternative: $DIR/server/.env"
-                if [ -f "$DIR/server/.env" ]; then
-                    echo "  EnvironmentFile=$DIR/server/.env" >> "$SERVICE_FILE"
-                    echo "  Added: EnvironmentFile=$DIR/server/.env"
-                else
-                    echo "  ERROR: No .env file found anywhere"
-                fi
+                echo "  Added EnvironmentFile to service file"
             fi
         else
-            echo "  WARNING: Could not determine WorkingDirectory"
+            echo "  WARNING: $ENV_FILE not found"
         fi
         echo "  Reloading systemd daemon..."
         if ! sudo -n systemctl daemon-reload 2>&1; then
@@ -162,8 +149,6 @@ if [ -f "$SERVICE_FILE" ]; then
     fi
 else
     echo "  WARNING: $SERVICE_FILE not found"
-    echo "  Checking /etc/systemd/system/*.service for $SERVICE:"
-    ls -la /etc/systemd/system/*$SERVICE* 2>/dev/null || echo "    (none found)"
 fi
 
 # 9. Restart service
