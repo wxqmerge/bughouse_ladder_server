@@ -4,6 +4,15 @@ import dotenv from 'dotenv';
 dotenv.config({ path: '.env' });
 dotenv.config({ path: '../.env' });
 
+// Fail fast in production if API keys aren't configured
+if (process.env.NODE_ENV === 'production' && (!process.env.ADMIN_API_KEY || !process.env.USER_API_KEY)) {
+  console.error('[FATAL] Missing required API keys in production.');
+  console.error('  ADMIN_API_KEY:', process.env.ADMIN_API_KEY ? 'set' : 'MISSING');
+  console.error('  USER_API_KEY:', process.env.USER_API_KEY ? 'set' : 'MISSING');
+  console.error('  Set both keys in server/.env and restart the service.');
+  process.exit(1);
+}
+
 import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -27,6 +36,7 @@ import { getWriteHealth } from './services/dataService.js';
 import { addSSEClient, getSSEClientCount, startHeartbeat } from './services/sseService.js';
 
 const app: Application = express();
+
 const PORT = process.env.PORT || 3000;
 const isProduction = process.env.NODE_ENV === 'production';
 
