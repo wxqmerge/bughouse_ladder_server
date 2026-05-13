@@ -168,6 +168,8 @@ sleep 2
 if sudo systemctl is-active --quiet "$SERVICE"; then
     echo ""
     echo "=== Update complete. $SERVICE is running. ==="
+    echo ""
+    echo "To trace live logs: sudo journalctl -u $SERVICE -f"
 else
     echo ""
     echo "=== WARNING: $SERVICE is NOT running! Check status: ==="
