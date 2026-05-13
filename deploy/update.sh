@@ -121,7 +121,7 @@ else
     echo "  Skipped (no server directory)."
 fi
 
-# 8. Fix systemd service file if needed (add EnvironmentFile)
+# 8. Fix systemd service file if needed (add EnvironmentFile inside [Service])
 echo "[8/9] Fixing systemd service file if needed..."
 SERVICE_FILE="/etc/systemd/system/$SERVICE.service"
 if [ -f "$SERVICE_FILE" ]; then
@@ -129,15 +129,16 @@ if [ -f "$SERVICE_FILE" ]; then
         echo "  Service file already has EnvironmentFile."
         grep '^EnvironmentFile=' "$SERVICE_FILE" | while read -r line; do echo "    $line"; done
     else
-        echo "  Fixing: adding EnvironmentFile to $SERVICE_FILE"
-        # The .env is at $DIR/server/.env (DIR is the project root)
+        echo "  Fixing: injecting EnvironmentFile into [Service] section of $SERVICE_FILE"
         ENV_FILE="$DIR/server/.env"
         if [ -f "$ENV_FILE" ]; then
-            echo "  Adding: EnvironmentFile=$ENV_FILE"
-            if ! sudo sh -c "echo 'EnvironmentFile=$ENV_FILE' >> $SERVICE_FILE" 2>&1; then
-                echo "  ERROR: Failed to write to $SERVICE_FILE"
+            echo "  EnvironmentFile=$ENV_FILE"
+            # Insert EnvironmentFile right after the line containing Environment=NODE_ENV
+            # This ensures it's inside [Service] and before ExecStart
+            if ! sudo sh -c "sed -i '/^Environment=NODE_ENV/a EnvironmentFile=$ENV_FILE' $SERVICE_FILE" 2>&1; then
+                echo "  ERROR: Failed to modify $SERVICE_FILE"
             else
-                echo "  Added EnvironmentFile to service file"
+                echo "  Injected EnvironmentFile into [Service] section"
             fi
         else
             echo "  WARNING: $ENV_FILE not found"
