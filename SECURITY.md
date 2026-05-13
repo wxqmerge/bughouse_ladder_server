@@ -10,14 +10,14 @@
 |----------|-------------|---------|
 | `NODE_ENV` | Must be `production` | `production` |
 | `CORS_ORIGINS` | Allowed frontend domains, comma-separated | `https://your-domain.com` |
+| `ADMIN_API_KEY` | Protects admin endpoints (`/api/admin/*`) | `a1b2c3d4e5f6...` |
+| `USER_API_KEY` | Protects write operations (PUT/POST/DELETE) | `f6e5d4c3b2a1...` |
 
 ### Optional
 
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `PORT` | Server port | `3000` |
-| `USER_API_KEY` | Protects write operations (PUT/POST/DELETE) | None (open) |
-| `ADMIN_API_KEY` | Protects admin endpoints (`/api/admin/*`) | None (open) |
 
 ### Example Production `.env`
 
@@ -25,9 +25,11 @@
 PORT=3000
 NODE_ENV=production
 CORS_ORIGINS=https://your-domain.com
-USER_API_KEY=a1b2c3d4e5f6...
-ADMIN_API_KEY=f6e5d4c3b2a1...
+ADMIN_API_KEY=a1b2c3d4e5f6...
+USER_API_KEY=f6e5d4c3b2a1...
 ```
+
+**Both `ADMIN_API_KEY` and `USER_API_KEY` are required in production. The server will refuse to start if either is missing.**
 
 ### Single-Key Mode
 
@@ -48,7 +50,8 @@ ADMIN_API_KEY=my-shared-key
 
 **Notes:**
 - Admin key grants all permissions (admin + write). User key only allows write operations.
-- If no keys are configured, all operations are allowed (local/dev mode).
+- In production, both keys are required — the server refuses to start without them.
+- In development (`NODE_ENV` not set to `production`), no keys are required and all operations are allowed.
 - If `ADMIN_API_KEY` is set but `USER_API_KEY` is not, admin key also works for writes.
 
 ## Security Features
@@ -91,9 +94,9 @@ Prevents XSS attacks by restricting script sources to `'self'`. Configured `conn
 
 - [ ] Set `NODE_ENV=production`
 - [ ] Set `CORS_ORIGINS` to your domain(s) (required)
+- [ ] Generate `ADMIN_API_KEY` (required in production)
+- [ ] Generate `USER_API_KEY` (required in production)
 - [ ] Configure SSL/TLS via nginx or reverse proxy (see [README_INSTALL.md](./README_INSTALL.md))
-- [ ] Generate `USER_API_KEY` if write protection needed
-- [ ] Generate `ADMIN_API_KEY` if admin endpoints protected
 - [ ] Enable firewall rules
 
 ## Network Security
