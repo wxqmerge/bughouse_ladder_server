@@ -9,6 +9,7 @@ Group=www-data
 WorkingDirectory=/var/www/bughouse-ladder/deploy/instances/dev-ladder
 Environment=NODE_ENV=production
 Environment=PORT=3000
+EnvironmentFile=/var/www/bughouse-ladder/server/.env
 ExecStart=/usr/bin/node dist/index.js
 Restart=always
 RestartSec=10

@@ -17,7 +17,7 @@ echo "To trace live logs: sudo journalctl -u $SERVICE -f"
 echo ""
 
 # 1. Stash any local changes
-echo "[1/8] Stashing local changes..."
+echo "[1/9] Stashing local changes..."
 if ! git diff --quiet 2>/dev/null; then
     if git stash; then
         echo "  Changes stashed."
@@ -31,7 +31,7 @@ else
 fi
 
 # 2. Pull latest code
-echo "[2/8] Pulling latest code..."
+echo "[2/9] Pulling latest code..."
 if ! git pull; then
     echo "  ERROR: git pull failed. Restoring stash..."
     git stash pop 2>/dev/null || true
@@ -40,7 +40,7 @@ if ! git pull; then
 fi
 
 # 3. Validate API keys are configured
-echo "[3/8] Validating API keys..."
+echo "[3/9] Validating API keys..."
 ENV_FILE="$DIR/server/.env"
 if [ ! -f "$ENV_FILE" ]; then
     echo "  ERROR: $ENV_FILE not found."
@@ -69,7 +69,7 @@ echo "  USER_API_KEY:    (set)"
 echo "  ADMIN_API_KEY:   (set)"
 
 # 4. Clean stale build artifacts
-echo "[4/8] Cleaning stale build artifacts..."
+echo "[4/9] Cleaning stale build artifacts..."
 if [ -d "dist" ]; then
     rm -rf dist
     echo "  Removed dist/"
@@ -85,7 +85,7 @@ if [ -d "shared/utils" ]; then
 fi
 
 # 5. Install dependencies (no --production: we need devDeps for building)
-echo "[5/8] Installing dependencies..."
+echo "[5/9] Installing dependencies..."
 if [ -f "package.json" ]; then
     if ! npm install; then
         echo "  ERROR: Frontend npm install failed."
@@ -94,7 +94,7 @@ if [ -f "package.json" ]; then
 fi
 
 # 6. Build frontend
-echo "[6/8] Building frontend..."
+echo "[6/9] Building frontend..."
 if ! npm run build; then
     echo "  ERROR: Frontend build failed."
     echo "  Aborting. Check build output above."
@@ -102,7 +102,7 @@ if ! npm run build; then
 fi
 
 # 7. Build server
-echo "[7/8] Building server..."
+echo "[7/9] Building server..."
 if [ -d "server" ] && [ -f "server/package.json" ]; then
     if ! (cd server && npm install); then
         echo "  ERROR: Server npm install failed."
@@ -121,8 +121,45 @@ else
     echo "  Skipped (no server directory)."
 fi
 
-# 8. Restart service
-echo "[8/8] Restarting service: $SERVICE"
+# 8. Fix systemd service file if needed (add EnvironmentFile)
+echo "[8/9] Fixing systemd service file if needed..."
+SERVICE_FILE="/etc/systemd/system/$SERVICE.service"
+if [ -f "$SERVICE_FILE" ]; then
+    if ! grep -q '^EnvironmentFile=' "$SERVICE_FILE"; then
+        echo "  Fixing: adding EnvironmentFile to $SERVICE_FILE"
+        # Determine the base directory (parent of deploy/instances/xxx)
+        # The .env is at: base/server/.env
+        # WorkingDirectory is: base/deploy/instances/$SERVICE
+        # So we need: base/server/.env
+        WORK_DIR=$(grep '^WorkingDirectory=' "$SERVICE_FILE" | head -1 | cut -d= -f2-)
+        if [ -n "$WORK_DIR" ]; then
+            # WorkingDirectory = /var/www/bughouse-ladder/deploy/instances/$SERVICE
+            # Base = /var/www/bughouse-ladder
+            BASE_DIR=$(dirname "$(dirname "$WORK_DIR")")
+            ENV_FILE="$BASE_DIR/server/.env"
+            if [ -f "$ENV_FILE" ]; then
+                echo "  EnvironmentFile=$ENV_FILE" >> "$SERVICE_FILE"
+                echo "  Added: EnvironmentFile=$ENV_FILE"
+            else
+                echo "  WARNING: $ENV_FILE not found, skipping EnvironmentFile"
+            fi
+        else
+            echo "  WARNING: Could not determine WorkingDirectory, skipping fix"
+        fi
+        # Reload systemd to pick up service file changes
+        echo "  Reloading systemd daemon..."
+        if ! sudo -n systemctl daemon-reload 2>&1; then
+            echo "  WARNING: systemctl daemon-reload failed."
+        fi
+    else
+        echo "  Service file already has EnvironmentFile."
+    fi
+else
+    echo "  WARNING: $SERVICE_FILE not found, skipping fix."
+fi
+
+# 9. Restart service
+echo "[9/9] Restarting service: $SERVICE"
 if ! sudo -n systemctl restart "$SERVICE" 2>&1; then
     echo "  ERROR: systemctl restart failed."
     echo "  If this says 'sudo: a password is required', you need passwordless sudo."
