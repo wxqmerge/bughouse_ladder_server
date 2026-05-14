@@ -99,14 +99,19 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
         setUrlConfigApplied(true);
       }
 
-      // Step 2: Initialize connection state from localStorage (now has fresh config)
-      await initializeConnectionState();
+      // Step 2: Determine mode and configure dataService
+      const config = await determineMode();
+      dataService.updateConfig(config);
+      console.log('[App] DataService configured:', config.mode, config.serverUrl || '');
 
       // Step 2.5: Wire up miniGameStore for local mode
       if (dataService.getMode() === DataServiceMode.LOCAL) {
         dataService.updateConfig({ miniGameStore });
-        console.log('[APP] Wired up miniGameStore for local mode');
+        console.log('[App] Wired up miniGameStore for local mode');
       }
+
+      // Step 3: Initialize connection state from localStorage (now has fresh config)
+      await initializeConnectionState();
 
       // Step 3: Test server connectivity
       setStatus("Checking server connection...");
@@ -676,6 +681,111 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
       )}
     </>
   );
+}
+
+async function determineMode(): Promise<{ mode: DataServiceMode; serverUrl?: string }> {
+  const userSettings = loadUserSettings();
+  if (userSettings.server && userSettings.server.trim()) {
+    const serverUrl = userSettings.server.trim().replace(/\/$/, '');
+    console.log('[App] Using USER SETTINGS server:', serverUrl);
+    if (serverUrl.includes('localhost') || serverUrl.includes('127.0.0.1')) {
+      return { mode: DataServiceMode.DEVELOPMENT, serverUrl };
+    }
+    return { mode: DataServiceMode.SERVER, serverUrl };
+  }
+
+  const origin = window.location.origin;
+  const existingSettings = loadUserSettings();
+  console.log('[App] Auto-detect: origin=', origin, 'stored server=', existingSettings.server || '(none)');
+  
+  let autoDetectedUrl: string | null = null;
+  
+  try {
+    const healthController = new AbortController();
+    const healthTimeoutId = setTimeout(() => healthController.abort(), 3000);
+    const healthResponse = await fetch(`${origin}/health`, { method: 'GET', signal: healthController.signal });
+    clearTimeout(healthTimeoutId);
+    console.log('[App] Auto-detect: /health status=', healthResponse.status, 'ok=', healthResponse.ok);
+    const healthOk = healthResponse.ok || healthResponse.status === 404;
+    
+    const apiController = new AbortController();
+    const apiTimeoutId = setTimeout(() => apiController.abort(), 3000);
+    const apiResponse = await fetch(`${origin}/api/ladder`, { method: 'GET', signal: apiController.signal });
+    clearTimeout(apiTimeoutId);
+    console.log('[App] Auto-detect: /api/ladder status=', apiResponse.status, 'ok=', apiResponse.ok);
+    const apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403;
+    
+    if (healthOk && apiOk) {
+      autoDetectedUrl = origin.replace(/\/$/, '');
+      console.log('[App] Same-origin auto-detected:', autoDetectedUrl);
+    } else {
+      console.log('[App] Same-origin detection FAILED: healthOk=', healthOk, 'apiOk=', apiOk);
+    }
+  } catch (e) {
+    console.log('[App] Same-origin detection threw error:', (e as Error).message);
+  }
+  
+  if (!autoDetectedUrl) {
+    try {
+      const pathname = window.location.pathname;
+      const hostname = window.location.hostname;
+      const match = pathname.match(/^\/([^/]+)\/dist(?:\/.*)?$/);
+      if (match) {
+        const projectName = match[1];
+        const candidateUrl = `https://${projectName}.${hostname}`;
+        console.log('[App] Subdomain candidate from path:', projectName, '→', candidateUrl);
+        
+        const healthController = new AbortController();
+        const healthTimeoutId = setTimeout(() => healthController.abort(), 3000);
+        let healthOk = false;
+        try {
+          const healthResponse = await fetch(`${candidateUrl}/health`, { method: 'GET', signal: healthController.signal });
+          clearTimeout(healthTimeoutId);
+          healthOk = healthResponse.ok || healthResponse.status === 404;
+        } catch {
+          clearTimeout(healthTimeoutId);
+        }
+        
+        if (healthOk) {
+          const apiController = new AbortController();
+          const apiTimeoutId = setTimeout(() => apiController.abort(), 3000);
+          let apiOk = false;
+          let apiStatus = 0;
+          try {
+            const apiResponse = await fetch(`${candidateUrl}/api/ladder`, { method: 'GET', signal: apiController.signal });
+            clearTimeout(apiTimeoutId);
+            apiStatus = apiResponse.status;
+            console.log('[App] Subdomain check: /api/ladder status=', apiStatus);
+            apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403;
+          } catch (e) {
+            clearTimeout(apiTimeoutId);
+            console.log('[App] Subdomain check: /api/ladder error:', (e as Error).message);
+          }
+          
+          if (apiOk) {
+            autoDetectedUrl = candidateUrl;
+            console.log('[App] Subdomain auto-detected:', autoDetectedUrl);
+          } else {
+            console.log('[App] Subdomain detection FAILED: apiOk=', apiOk, 'apiStatus=', apiStatus);
+          }
+        } else {
+          console.log('[App] Subdomain /health check failed');
+        }
+      } else {
+        console.log('[App] No project name found in path:', pathname, '(expected /{project-name}/dist/)');
+      }
+    } catch (e) {
+      console.log('[App] Subdomain detection threw error:', (e as Error).message);
+    }
+  }
+  
+  if (autoDetectedUrl) {
+    saveUserSettings({ server: autoDetectedUrl, apiKey: existingSettings.apiKey, debugMode: false });
+    return { mode: DataServiceMode.SERVER, serverUrl: autoDetectedUrl };
+  }
+
+  console.log('[App] Using LOCAL mode (no server configured)');
+  return { mode: DataServiceMode.LOCAL };
 }
 
 export default App;
