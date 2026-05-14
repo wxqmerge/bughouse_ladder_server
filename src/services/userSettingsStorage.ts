@@ -23,7 +23,7 @@ function getLadderPrefix(): string {
   return 'ladder_' + combined + '_';
 }
 
-function getUserSettingsKey(): string {
+export function getUserSettingsKey(): string {
   return getLadderPrefix() + 'ladder_user_settings';
 }
 

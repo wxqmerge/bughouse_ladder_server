@@ -18,8 +18,10 @@ import {
   onModeChange,
   getProgramMode,
   isLocalMode,
+  isValidServerUrl,
+  validateServerUrl,
 } from "./utils/mode";
-import { loadUserSettings, loadConfigFromUrl } from "./services/userSettingsStorage";
+import { loadUserSettings, loadConfigFromUrl, getUserSettingsKey } from "./services/userSettingsStorage";
 import { dataService, DataServiceMode } from "./services/dataService";
 import { miniGameStore } from "./services/miniGameLocalStorage";
 import { clearTournamentState, getSettings, saveSettings } from "./services/storageService";
@@ -687,51 +689,71 @@ async function determineMode(): Promise<{ mode: DataServiceMode; serverUrl?: str
   const userSettings = loadUserSettings();
   if (userSettings.server && userSettings.server.trim()) {
     const serverUrl = userSettings.server.trim().replace(/\/$/, '');
-    console.log('[App] Using USER SETTINGS server:', serverUrl);
-    if (serverUrl.includes('localhost') || serverUrl.includes('127.0.0.1')) {
-      return { mode: DataServiceMode.DEVELOPMENT, serverUrl };
+    
+    // Validate stored server URL before using it
+    if (!isValidServerUrl(serverUrl)) {
+      console.log('[App] Stored server URL invalid (missing subdomain prefix), clearing and re-running auto-detection');
+      const settings = loadUserSettings();
+      localStorage.setItem(getUserSettingsKey(), JSON.stringify({ server: '', apiKey: settings.apiKey, debugMode: settings.debugMode }));
+    } else {
+      const isValid = await validateServerUrl(serverUrl);
+      if (!isValid) {
+        console.log('[App] Stored server URL unreachable, clearing and re-running auto-detection');
+        const settings = loadUserSettings();
+        localStorage.setItem(getUserSettingsKey(), JSON.stringify({ server: '', apiKey: settings.apiKey, debugMode: settings.debugMode }));
+      } else {
+        console.log('[App] Using USER SETTINGS server:', serverUrl);
+        if (serverUrl.includes('localhost') || serverUrl.includes('127.0.0.1')) {
+          return { mode: DataServiceMode.DEVELOPMENT, serverUrl };
+        }
+        return { mode: DataServiceMode.SERVER, serverUrl };
+      }
     }
-    return { mode: DataServiceMode.SERVER, serverUrl };
   }
 
   const origin = window.location.origin;
   const existingSettings = loadUserSettings();
-  console.log('[App] Auto-detect: origin=', origin, 'stored server=', existingSettings.server || '(none)');
+  const pathname = window.location.pathname;
+  const hostname = window.location.hostname;
+  const subdomainMatch = pathname.match(/^\/([^/]+)\/dist(?:\/.*)?$/);
+  
+  console.log('[App] Auto-detect: origin=', origin, 'subdomainPath=', !!subdomainMatch);
   
   let autoDetectedUrl: string | null = null;
   
-  try {
-    const healthController = new AbortController();
-    const healthTimeoutId = setTimeout(() => healthController.abort(), 3000);
-    const healthResponse = await fetch(`${origin}/health`, { method: 'GET', signal: healthController.signal });
-    clearTimeout(healthTimeoutId);
-    console.log('[App] Auto-detect: /health status=', healthResponse.status, 'ok=', healthResponse.ok);
-    const healthOk = healthResponse.ok || healthResponse.status === 404;
-    
-    const apiController = new AbortController();
-    const apiTimeoutId = setTimeout(() => apiController.abort(), 3000);
-    const apiResponse = await fetch(`${origin}/api/ladder`, { method: 'GET', signal: apiController.signal });
-    clearTimeout(apiTimeoutId);
-    console.log('[App] Auto-detect: /api/ladder status=', apiResponse.status, 'ok=', apiResponse.ok);
-    const apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403 || apiResponse.status === 404;
-    
-    if (healthOk && apiOk) {
-      autoDetectedUrl = origin.replace(/\/$/, '');
-      console.log('[App] Same-origin auto-detected:', autoDetectedUrl);
-    } else {
-      console.log('[App] Same-origin detection FAILED: healthOk=', healthOk, 'apiOk=', apiOk);
+  // Only run same-origin check if NOT in a subdomain path (skip unnecessary requests)
+  if (!subdomainMatch) {
+    try {
+      const healthController = new AbortController();
+      const healthTimeoutId = setTimeout(() => healthController.abort(), 3000);
+      const healthResponse = await fetch(`${origin}/health`, { method: 'GET', signal: healthController.signal });
+      clearTimeout(healthTimeoutId);
+      console.log('[App] Auto-detect: /health status=', healthResponse.status, 'ok=', healthResponse.ok);
+      const healthOk = healthResponse.ok || healthResponse.status === 404;
+      
+      const apiController = new AbortController();
+      const apiTimeoutId = setTimeout(() => apiController.abort(), 3000);
+      const apiResponse = await fetch(`${origin}/api/ladder`, { method: 'GET', signal: apiController.signal });
+      clearTimeout(apiTimeoutId);
+      console.log('[App] Auto-detect: /api/ladder status=', apiResponse.status, 'ok=', apiResponse.ok);
+      // 404 means Express routes aren't registered (invalid server)
+      const apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403;
+      
+      if (healthOk && apiOk) {
+        autoDetectedUrl = origin.replace(/\/$/, '');
+        console.log('[App] Same-origin auto-detected:', autoDetectedUrl);
+      } else {
+        console.log('[App] Same-origin detection FAILED: healthOk=', healthOk, 'apiOk=', apiOk);
+      }
+    } catch (e) {
+      console.log('[App] Same-origin detection threw error:', (e as Error).message);
     }
-  } catch (e) {
-    console.log('[App] Same-origin detection threw error:', (e as Error).message);
   }
   
   if (!autoDetectedUrl) {
     try {
-      const pathname = window.location.pathname;
-      const hostname = window.location.hostname;
-      const match = pathname.match(/^\/([^/]+)\/dist(?:\/.*)?$/);
-      if (match) {
-        const projectName = match[1];
+      if (subdomainMatch) {
+        const projectName = subdomainMatch[1];
         const candidateUrl = `https://${projectName}.${hostname}`;
         console.log('[App] Subdomain candidate from path:', projectName, '→', candidateUrl);
         
@@ -756,7 +778,8 @@ async function determineMode(): Promise<{ mode: DataServiceMode; serverUrl?: str
             clearTimeout(apiTimeoutId);
             apiStatus = apiResponse.status;
             console.log('[App] Subdomain check: /api/ladder status=', apiStatus);
-            apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403 || apiResponse.status === 404;
+            // 404 means Express routes aren't registered (invalid server)
+            apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403;
           } catch (e) {
             clearTimeout(apiTimeoutId);
             console.log('[App] Subdomain check: /api/ladder error:', (e as Error).message);

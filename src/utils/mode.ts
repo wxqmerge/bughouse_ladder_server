@@ -1,4 +1,4 @@
-import { loadUserSettings, saveLastWorkingConfig } from '../services/userSettingsStorage';
+import { loadUserSettings, saveLastWorkingConfig, getUserSettingsKey } from '../services/userSettingsStorage';
 
 // Connection state tracking
 let connectionState: {
@@ -17,6 +17,64 @@ let connectionState: {
 
 let lastSavedServer: string = '';
 let lastSavedApiKey: string = '';
+
+/**
+ * Check if a server URL is valid for this deployment pattern.
+ * https URLs must have a project subdomain prefix (e.g., dc-dojo-ladder.chess4.us).
+ * http URLs (localhost, IP addresses) don't need a prefix.
+ */
+export function isValidServerUrl(url: string, currentHostname?: string): boolean {
+  if (!url || !url.startsWith('http')) return false;
+  
+  try {
+    const parsed = new URL(url);
+    
+    // http URLs (localhost, IP addresses) are always valid
+    if (parsed.protocol === 'http:') return true;
+    
+    // https URLs must have a subdomain prefix
+    if (parsed.protocol === 'https:') {
+      const hostname = parsed.hostname;
+      if (!currentHostname) {
+        currentHostname = window.location.hostname;
+      }
+      // Root domain without prefix is invalid for https
+      if (hostname === currentHostname) return false;
+      // Must be a subdomain of the current hostname
+      if (!hostname.endsWith('.' + currentHostname)) return false;
+      return true;
+    }
+  } catch {
+    return false;
+  }
+  
+  return false;
+}
+
+/**
+ * Validate that a server URL actually responds with API routes.
+ * Returns true only if /api/ladder returns 200 (not 404).
+ */
+export async function validateServerUrl(url: string): Promise<boolean> {
+  if (!url || !url.startsWith('http')) return false;
+  
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    
+    const response = await fetch(`${url}/api/ladder`, {
+      method: 'GET',
+      signal: controller.signal,
+    });
+    
+    clearTimeout(timeoutId);
+    
+    // Must return 200 - 404 means no API routes
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
 
 function shouldSaveLastWorkingConfig(server: string, apiKey: string): boolean {
   return server !== lastSavedServer || apiKey !== lastSavedApiKey;
@@ -45,23 +103,39 @@ export function onModeChange(callback: (newMode: string, oldMode: string) => voi
   * Reads ONLY from localStorage user settings - no env fallback
   */
  export async function initializeConnectionState(): Promise<void> {
-   // Read from localStorage user settings only
-   try {
-     const userSettings = loadUserSettings();
-     if (userSettings.server && userSettings.server.trim()) {
-       connectionState.configuredForServer = true;
-       connectionState.serverUrl = userSettings.server.trim();
-       console.log('[mode.ts] Using USER SETTINGS server:', connectionState.serverUrl);
-       connectionState.serverReachable = null;
-       connectionState.lastCheckTime = Date.now();
-       connectionState.previousMode = null;
-       lastSavedServer = '';
-       lastSavedApiKey = '';
-       return;
-     }
-   } catch (err) {
-     console.error('[mode.ts] Failed to read user settings:', err);
-   }
+ // Read from localStorage user settings only
+    try {
+      const userSettings = loadUserSettings();
+      if (userSettings.server && userSettings.server.trim()) {
+        const serverUrl = userSettings.server.trim();
+        // Validate stored server URL before using it
+        if (!isValidServerUrl(serverUrl)) {
+          console.log('[mode.ts] Stored server URL invalid (missing subdomain prefix), clearing and re-running auto-detection');
+          // Clear the invalid stored URL
+          const settings = loadUserSettings();
+          localStorage.setItem(getUserSettingsKey(), JSON.stringify({ server: '', apiKey: settings.apiKey, debugMode: settings.debugMode }));
+        } else {
+          const isValid = await validateServerUrl(serverUrl);
+          if (!isValid) {
+            console.log('[mode.ts] Stored server URL unreachable, clearing and re-running auto-detection');
+            const settings = loadUserSettings();
+            localStorage.setItem(getUserSettingsKey(), JSON.stringify({ server: '', apiKey: settings.apiKey, debugMode: settings.debugMode }));
+          } else {
+            connectionState.configuredForServer = true;
+            connectionState.serverUrl = serverUrl;
+            console.log('[mode.ts] Using USER SETTINGS server:', connectionState.serverUrl);
+            connectionState.serverReachable = null;
+            connectionState.lastCheckTime = Date.now();
+            connectionState.previousMode = null;
+            lastSavedServer = '';
+            lastSavedApiKey = '';
+            return;
+          }
+        }
+      }
+    } catch (err) {
+      console.error('[mode.ts] Failed to read user settings:', err);
+    }
    
   // No server configured - try same-origin auto-detection
    let autoDetectedUrl: string | null = null;
@@ -148,7 +222,7 @@ export function onModeChange(callback: (newMode: string, oldMode: string) => voi
              clearTimeout(apiTimeoutId);
              apiStatus = apiResponse.status;
              console.log('[mode.ts] Subdomain check: /api/ladder status=', apiStatus);
-             apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403 || apiResponse.status === 404;
+             apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403;
            } catch (e) {
              clearTimeout(apiTimeoutId);
              console.log('[mode.ts] Subdomain check: /api/ladder error:', (e as Error).message);
@@ -244,9 +318,9 @@ export async function testServerConnection(): Promise<boolean> {
     clearTimeout(apiTimeoutId);
     apiStatus = apiResponse.status;
     // /api/ladder GET is public - should return 200 with data
-    // 404 means Express routes aren't registered
+    // 404 means Express routes aren't registered (invalid server)
     // 401/403 means auth is required (still a valid server)
-    apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403 || apiResponse.status === 404;
+    apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403;
     console.log('[mode.ts] testServerConnection: /api/ladder status=', apiStatus);
   } catch (e) {
     clearTimeout(apiTimeoutId);
