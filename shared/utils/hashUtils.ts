@@ -417,9 +417,6 @@ function string2long(
   return parseEntry(game, playersList, scoreList);
 }
 
-let hashArray: string[] = [];
-let hashIndex: number[] = [];
-
 /**
  * Process game results from all players and calculate ratings
  * VB6-inspired implementation with hash table validation

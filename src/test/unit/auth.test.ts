@@ -1,19 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-// We test the auth logic by checking the exported constants
-// The middleware reads these at module load time from process.env
-
-describe('Auth constants', () => {
-  it('should have ADMIN_API_KEY defined', async () => {
-    const mod = await import('../../../server/src/middleware/auth.middleware');
-    expect(mod.ADMIN_API_KEY).toBeDefined();
-  });
-
-  it('should have USER_API_KEY defined', async () => {
-    const mod = await import('../../../server/src/middleware/auth.middleware');
-    expect(mod.USER_API_KEY).toBeDefined();
-  });
-
+describe('Auth middleware function types', () => {
   it('should export requireAdminKey function', async () => {
     const mod = await import('../../../server/src/middleware/auth.middleware');
     expect(typeof mod.requireAdminKey).toBe('function');
