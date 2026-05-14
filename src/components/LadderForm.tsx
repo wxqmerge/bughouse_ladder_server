@@ -376,7 +376,7 @@ export default function LadderForm({
     }
   }, [triggerWalkthrough, setTriggerWalkthrough]);
 
-  // Initialize splash screen state from localStorage
+  // Initialize splash screen state from sessionStorage, localStorage, or pathname auto-detection
   useEffect(() => {
     try {
       // Check for pending remote file load
@@ -400,23 +400,36 @@ export default function LadderForm({
         }
       }
       
-      // Check for auto-detected URL from sessionStorage (highest priority - avoids race condition)
+      // Priority 1: Check sessionStorage for auto-detected URL (from App.tsx determineMode)
       const autoDetectedUrl = sessionStorage.getItem('autoDetectedServerUrl');
       if (autoDetectedUrl) {
         setSplashServerUrl(normalizeServerUrl(autoDetectedUrl));
         setHadExistingUserSettings(false);
         sessionStorage.removeItem('autoDetectedServerUrl');
+        return;
+      }
+      
+      // Priority 2: Synchronous subdomain detection from pathname (no fetch needed)
+      const pathname = window.location.pathname;
+      const hostname = window.location.hostname;
+      const subdomainMatch = pathname.match(/^\/([^/]+)\/dist(?:\/.*)?$/);
+      if (subdomainMatch) {
+        const projectName = subdomainMatch[1];
+        const candidateUrl = `https://${projectName}.${hostname}`;
+        setSplashServerUrl(normalizeServerUrl(candidateUrl));
+        setHadExistingUserSettings(false);
+        return;
+      }
+      
+      // Priority 3: Check localStorage for saved server settings
+      const userSettings = loadUserSettings();
+      if (userSettings.server && userSettings.server.trim()) {
+        setSplashServerUrl(normalizeServerUrl(userSettings.server) || '');
+        setSplashApiKey(userSettings.apiKey || '');
+        setHadExistingUserSettings(true);
       } else {
-        // Check for user settings
-        const userSettings = loadUserSettings();
-        if (userSettings.server && userSettings.server.trim()) {
-          setSplashServerUrl(normalizeServerUrl(userSettings.server) || '');
-          setSplashApiKey(userSettings.apiKey || '');
-          setHadExistingUserSettings(true);
-        } else {
-          // Pre-populate with current origin for auto-detection
-          setSplashServerUrl(window.location.origin);
-        }
+        // Pre-populate with current origin for auto-detection
+        setSplashServerUrl(window.location.origin);
       }
       
       // Check for local player data
@@ -539,9 +552,10 @@ export default function LadderForm({
     useEffect(() => {
       const initializeData = async () => {
         try {
-          // Get server configuration - use splashServerUrl state (may be auto-detected from sessionStorage)
+          // Get server configuration - check sessionStorage first (auto-detected), then state, then localStorage
           const userSettings = loadUserSettings();
-          let serverUrl = splashServerUrl?.trim() || userSettings.server?.trim() || '';
+          const autoDetected = sessionStorage.getItem('autoDetectedServerUrl');
+          let serverUrl = autoDetected?.trim() || splashServerUrl?.trim() || userSettings.server?.trim() || '';
 
         // Load project settings from localStorage
         const projectName = getProjectName();
@@ -679,53 +693,7 @@ export default function LadderForm({
     };
 
     initializeData();
-   }, []);
-
-  // Re-fetch from server when splashServerUrl changes (auto-detected URL from sessionStorage)
-  useEffect(() => {
-    if (!splashServerUrl || players.length > 0 || pendingImport || pendingRestore) return;
-    
-    const fetchFromSplashServer = async () => {
-      try {
-        const isMiniGame = isMiniGameTitle(projectName);
-        const apiUrl = isMiniGame 
-          ? `${splashServerUrl}/api/admin/tournament/read-mini-game?fileName=${titleToFileName(projectName)}`
-          : `${splashServerUrl}/api/ladder`;
-        
-        const response = await fetch(apiUrl, { headers: {} });
-        
-        if (response.ok) {
-          const data = await response.json();
-          const serverPlayers = data.data?.players || [];
-          
-          if (serverPlayers && serverPlayers.length > 0) {
-            const playersWithResults = serverPlayers.map((player: PlayerData) => ({
-              ...player,
-              gameResults: player.gameResults || new Array(31).fill(null),
-            }));
-            
-            playersWithResults.forEach((player: PlayerData) => {
-              player.gameResults?.forEach((result: string | null, round: number) => {
-                if (result && result.endsWith('_')) {
-                  markCellAsSaved(player.rank, round);
-                }
-              });
-            });
-            
-            setPlayers(playersWithResults);
-            setSortBy(null);
-            setRetryErrorMessage(null);
-            console.log('[Splash] Loaded', playersWithResults.length, 'players from auto-detected server');
-            return;
-          }
-        }
-      } catch (err) {
-        console.warn('[Splash] Failed to fetch from auto-detected server:', err);
-      }
-    };
-    
-    fetchFromSplashServer();
-  }, [splashServerUrl, players.length, pendingImport, pendingRestore, projectName]);
+   }, [splashServerUrl]);
 
  const loadPlayers = (file?: File) => {
     const fileToLoad = file || lastFile;
