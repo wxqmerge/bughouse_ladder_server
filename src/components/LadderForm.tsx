@@ -539,9 +539,9 @@ export default function LadderForm({
     useEffect(() => {
       const initializeData = async () => {
         try {
-          // Get server configuration
+          // Get server configuration - use splashServerUrl state (may be auto-detected from sessionStorage)
           const userSettings = loadUserSettings();
-          let serverUrl = userSettings.server?.trim() || '';
+          let serverUrl = splashServerUrl?.trim() || userSettings.server?.trim() || '';
 
         // Load project settings from localStorage
         const projectName = getProjectName();
@@ -679,7 +679,53 @@ export default function LadderForm({
     };
 
     initializeData();
-  }, []);
+   }, []);
+
+  // Re-fetch from server when splashServerUrl changes (auto-detected URL from sessionStorage)
+  useEffect(() => {
+    if (!splashServerUrl || players.length > 0 || pendingImport || pendingRestore) return;
+    
+    const fetchFromSplashServer = async () => {
+      try {
+        const isMiniGame = isMiniGameTitle(projectName);
+        const apiUrl = isMiniGame 
+          ? `${splashServerUrl}/api/admin/tournament/read-mini-game?fileName=${titleToFileName(projectName)}`
+          : `${splashServerUrl}/api/ladder`;
+        
+        const response = await fetch(apiUrl, { headers: {} });
+        
+        if (response.ok) {
+          const data = await response.json();
+          const serverPlayers = data.data?.players || [];
+          
+          if (serverPlayers && serverPlayers.length > 0) {
+            const playersWithResults = serverPlayers.map((player: PlayerData) => ({
+              ...player,
+              gameResults: player.gameResults || new Array(31).fill(null),
+            }));
+            
+            playersWithResults.forEach((player: PlayerData) => {
+              player.gameResults?.forEach((result: string | null, round: number) => {
+                if (result && result.endsWith('_')) {
+                  markCellAsSaved(player.rank, round);
+                }
+              });
+            });
+            
+            setPlayers(playersWithResults);
+            setSortBy(null);
+            setRetryErrorMessage(null);
+            console.log('[Splash] Loaded', playersWithResults.length, 'players from auto-detected server');
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('[Splash] Failed to fetch from auto-detected server:', err);
+      }
+    };
+    
+    fetchFromSplashServer();
+  }, [splashServerUrl, players.length, pendingImport, pendingRestore, projectName]);
 
  const loadPlayers = (file?: File) => {
     const fileToLoad = file || lastFile;
