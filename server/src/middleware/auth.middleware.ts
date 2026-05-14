@@ -9,12 +9,6 @@ export interface AuthRequest extends Request {
   };
 }
 
-// API Key for admin endpoints (optional - if not set, admin endpoints are publicly accessible)
-export const ADMIN_API_KEY = process.env.ADMIN_API_KEY || '';
-
-// API Key for user write operations (optional - if not set, all writes allowed when no admin key)
-export const USER_API_KEY = process.env.USER_API_KEY || '';
-
 function getAdminKey() {
   return process.env.ADMIN_API_KEY || '';
 }
