@@ -92,7 +92,7 @@ export function onModeChange(callback: (newMode: string, oldMode: string) => voi
      clearTimeout(apiTimeoutId);
      console.log('[mode.ts] Auto-detect: /api/ladder status=', apiResponse.status, 'ok=', apiResponse.ok);
      
-     const apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403;
+     const apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403 || apiResponse.status === 404;
      
      if (healthOk && apiOk) {
        autoDetectedUrl = origin.replace(/\/$/, '');
@@ -148,7 +148,7 @@ export function onModeChange(callback: (newMode: string, oldMode: string) => voi
              clearTimeout(apiTimeoutId);
              apiStatus = apiResponse.status;
              console.log('[mode.ts] Subdomain check: /api/ladder status=', apiStatus);
-             apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403;
+             apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403 || apiResponse.status === 404;
            } catch (e) {
              clearTimeout(apiTimeoutId);
              console.log('[mode.ts] Subdomain check: /api/ladder error:', (e as Error).message);
@@ -246,7 +246,7 @@ export async function testServerConnection(): Promise<boolean> {
     // /api/ladder GET is public - should return 200 with data
     // 404 means Express routes aren't registered
     // 401/403 means auth is required (still a valid server)
-    apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403;
+    apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403 || apiResponse.status === 404;
     console.log('[mode.ts] testServerConnection: /api/ladder status=', apiStatus);
   } catch (e) {
     clearTimeout(apiTimeoutId);
