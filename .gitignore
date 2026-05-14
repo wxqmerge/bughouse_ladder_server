@@ -55,3 +55,4 @@ uml-diagram*
 
 # Server output (test reports, stress test files)
 server/output/
+/graphify-out

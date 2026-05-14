@@ -713,7 +713,7 @@ async function determineMode(): Promise<{ mode: DataServiceMode; serverUrl?: str
     const apiResponse = await fetch(`${origin}/api/ladder`, { method: 'GET', signal: apiController.signal });
     clearTimeout(apiTimeoutId);
     console.log('[App] Auto-detect: /api/ladder status=', apiResponse.status, 'ok=', apiResponse.ok);
-    const apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403;
+    const apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403 || apiResponse.status === 404;
     
     if (healthOk && apiOk) {
       autoDetectedUrl = origin.replace(/\/$/, '');
@@ -756,7 +756,7 @@ async function determineMode(): Promise<{ mode: DataServiceMode; serverUrl?: str
             clearTimeout(apiTimeoutId);
             apiStatus = apiResponse.status;
             console.log('[App] Subdomain check: /api/ladder status=', apiStatus);
-            apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403;
+            apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403 || apiResponse.status === 404;
           } catch (e) {
             clearTimeout(apiTimeoutId);
             console.log('[App] Subdomain check: /api/ladder error:', (e as Error).message);
