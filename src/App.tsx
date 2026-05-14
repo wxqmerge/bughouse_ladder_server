@@ -803,6 +803,7 @@ async function determineMode(): Promise<{ mode: DataServiceMode; serverUrl?: str
   }
   
   if (autoDetectedUrl) {
+    sessionStorage.setItem('autoDetectedServerUrl', autoDetectedUrl);
     saveUserSettings({ server: autoDetectedUrl, apiKey: existingSettings.apiKey, debugMode: false });
     return { mode: DataServiceMode.SERVER, serverUrl: autoDetectedUrl };
   }
