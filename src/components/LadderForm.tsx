@@ -400,15 +400,23 @@ export default function LadderForm({
         }
       }
       
-      // Check for user settings
-      const userSettings = loadUserSettings();
-      if (userSettings.server && userSettings.server.trim()) {
-        setSplashServerUrl(normalizeServerUrl(userSettings.server) || '');
-        setSplashApiKey(userSettings.apiKey || '');
-        setHadExistingUserSettings(true);
+      // Check for auto-detected URL from sessionStorage (highest priority - avoids race condition)
+      const autoDetectedUrl = sessionStorage.getItem('autoDetectedServerUrl');
+      if (autoDetectedUrl) {
+        setSplashServerUrl(normalizeServerUrl(autoDetectedUrl));
+        setHadExistingUserSettings(false);
+        sessionStorage.removeItem('autoDetectedServerUrl');
       } else {
-        // Pre-populate with current origin for auto-detection
-        setSplashServerUrl(window.location.origin);
+        // Check for user settings
+        const userSettings = loadUserSettings();
+        if (userSettings.server && userSettings.server.trim()) {
+          setSplashServerUrl(normalizeServerUrl(userSettings.server) || '');
+          setSplashApiKey(userSettings.apiKey || '');
+          setHadExistingUserSettings(true);
+        } else {
+          // Pre-populate with current origin for auto-detection
+          setSplashServerUrl(window.location.origin);
+        }
       }
       
       // Check for local player data
@@ -607,6 +615,9 @@ export default function LadderForm({
             
             // Server returned empty or error - log but continue to localStorage fallback
             console.warn('[INIT]', 'Server fetch failed or empty, falling back to localStorage');
+            if (!hasLocalPlayerData) {
+              setRetryErrorMessage(`Server ${serverUrl} returned no data. Check the URL or load a file.`);
+            }
           } catch (err) {
             console.warn('[INIT]', 'Failed to fetch from server, falling back to localStorage:', err);
           }
@@ -3307,7 +3318,7 @@ export default function LadderForm({
           </div>
           
           {/* Status messages */}
-          {!hadExistingUserSettings && (
+          {splashServerUrl && !hasLocalPlayerData && (
             <p
               style={{
                 marginBottom: "0.5rem",
@@ -3316,10 +3327,22 @@ export default function LadderForm({
                 fontStyle: "italic",
               }}
             >
-              Auto-detected server: {window.location.origin}. Click Connect to use it, or enter a different URL.
+              Auto-detected server: {splashServerUrl}. Click Connect to use it, or enter a different URL.
             </p>
           )}
-          {!hasLocalPlayerData && (
+          {retryErrorMessage && (
+            <p
+              style={{
+                marginBottom: "1rem",
+                fontSize: "0.875rem",
+                color: "#dc2626",
+                fontStyle: "italic",
+              }}
+            >
+              {retryErrorMessage}
+            </p>
+          )}
+          {!hasLocalPlayerData && !retryErrorMessage && (
             <p
               style={{
                 marginBottom: "1rem",
