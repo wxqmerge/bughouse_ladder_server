@@ -409,6 +409,10 @@ export default function LadderForm({
       const autoDetectedUrl = sessionStorage.getItem('autoDetectedServerUrl');
       if (autoDetectedUrl) {
         setSplashServerUrl(normalizeServerUrl(autoDetectedUrl));
+        const userSettings = loadUserSettings();
+        if (userSettings.apiKey && userSettings.apiKey.trim()) {
+          setSplashApiKey(userSettings.apiKey);
+        }
         setHadExistingUserSettings(false);
         sessionStorage.removeItem('autoDetectedServerUrl');
         return;
@@ -422,6 +426,10 @@ export default function LadderForm({
         const projectName = subdomainMatch[1];
         const candidateUrl = `https://${projectName}.${hostname}`;
         setSplashServerUrl(normalizeServerUrl(candidateUrl));
+        const userSettings = loadUserSettings();
+        if (userSettings.apiKey && userSettings.apiKey.trim()) {
+          setSplashApiKey(userSettings.apiKey);
+        }
         setHadExistingUserSettings(false);
         return;
       }
@@ -4120,6 +4128,7 @@ export default function LadderForm({
         onSetZoom={handleSetZoom}
         onOpenSettings={() => setShowSettings?.(true)}
         onAddPlayer={handleAddPlayer}
+        onBulkPaste={handleBulkPaste}
         onEnterGames={handleEnterGamesMenu}
         onRestoreBackup={isAdmin ? () => setShowRestoreBackupDialog(true) : undefined}
         onDeleteHiddenPlayers={isAdmin ? handleDeleteHiddenPlayers : undefined}
