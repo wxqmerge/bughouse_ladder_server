@@ -284,7 +284,7 @@ export default function MenuBar({
            },
          ]
        : []),
-    ...(serverUrl && !hasAdminApiKey
+    ...(serverUrl && !hasAdminApiKey && !isAdmin
       ? []
       : [{
           icon: <Shield size={16} />,
@@ -294,7 +294,7 @@ export default function MenuBar({
             closeAllMenus();
           },
           dataMenuItem: isAdmin ? "Exit Admin Mode" : "Admin Mode",
-          disabled: !writePermission,
+          disabled: !writePermission && !isAdmin,
         }]),
     // Restore Backup - admin only, before Settings
     ...(isAdmin && onRestoreBackup

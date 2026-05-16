@@ -239,13 +239,18 @@ export default function LadderForm({
   const [zoomLevel, setZoomLevel] = useState<
     "50%" | "70%" | "100%" | "140%" | "200%"
   >("100%");
-    const [isAdmin, setIsAdmin] = useState(() => {
-      try {
-        return isAdminMode();
-      } catch {
+ const [isAdmin, setIsAdmin] = useState(() => {
+    try {
+      const serverUrl = getServerUrl();
+      if (serverUrl) {
+        console.log('[INIT] Server configured, not restoring admin mode from localStorage');
         return false;
       }
-    });
+      return isAdminMode();
+    } catch {
+      return false;
+    }
+  });
   const [showOverrideDialog, setShowOverrideDialog] = useState(false);
   const [overrideLockHolder, setOverrideLockHolder] = useState<string | null>(null);
   const [overrideTimeout, setOverrideTimeout] = useState<number>(0);
