@@ -198,7 +198,7 @@ if (Test-PackageCooldown $cooldownType) {
     Write-Host ""
 } else {
     $lastUpdate = Get-TimeSinceLastUpdate
-    Write-Host "  Skipped npm install — package cooldown active (last updated: $lastUpdate)" -ForegroundColor Yellow
+    Write-Host "  Skipped npm install - package cooldown active (last updated: $lastUpdate)" -ForegroundColor Yellow
     Write-Host ""
 }
 
@@ -265,7 +265,7 @@ Write-Host "Server tests complete." -ForegroundColor Green
 Write-Host ""
 
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host " ALL DONE - Build & Tests Passed" -ForegroundColor Green
+Write-Host " ALL DONE - Build and Tests Passed" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Cyan
 }
 finally {
