@@ -159,7 +159,7 @@ export default function MobileMenu({
       label: isAdmin ? "Exit Admin Mode" : "Admin Mode",
       onClick: () => handleItemClick(onToggleAdmin),
       dataMenuItem: isAdmin ? "Exit Admin Mode" : "Admin Mode",
-      disabled: !writePermission,
+      disabled: !writePermission && !isAdmin,
     },
 ...(isAdmin && onAddPlayer
        ? [
