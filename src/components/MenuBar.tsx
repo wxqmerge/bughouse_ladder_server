@@ -507,7 +507,7 @@ export default function MenuBar({
             fileMenuItems,
             "title",
           )}
-          {isAdmin && renderMenuTrigger("Sort", <ListFilter size={16} />, sortMenuItems)}
+          {renderMenuTrigger("Sort", <ListFilter size={16} />, sortMenuItems)}
           {renderMenuTrigger(
             "Operations",
             <SettingsIcon size={16} />,
