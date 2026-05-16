@@ -1,13 +1,178 @@
 #!/bin/bash
 
 # Update and restart the Bughouse Ladder server
-# Usage: ./update.sh [service-name]
+# Usage: ./update.sh [service-name] [--force|--force-critical]
+#   --force          Bypass all cooldowns and force package update
+#   --force-critical Force package update for critical security patches (2-day cooldown)
 
 # Don't exit on error - keep SSH session alive
 # We handle errors manually below
 
-SERVICE="${1:-$(basename "$PWD")}"
+# Parse command-line flags first (before SERVICE assignment)
+FORCE_UPDATE=false
+FORCE_CRITICAL=false
+SERVICE_NAME=""
+
+for arg in "$@"; do
+    case $arg in
+        --force)
+            FORCE_UPDATE=true
+            ;;
+        --force-critical)
+            FORCE_CRITICAL=true
+            ;;
+        -*)
+            echo "Unknown flag: $arg"
+            echo "Usage: $0 [service-name] [--force|--force-critical]"
+            exit 1
+            ;;
+        *)
+            if [ -z "$SERVICE_NAME" ]; then
+                SERVICE_NAME="$arg"
+            fi
+            ;;
+    esac
+done
+
+SERVICE="${SERVICE_NAME:-$(basename "$PWD")}"
 DIR="$(pwd)"
+
+# Dependency cooldown configuration
+# Normal cooldown: 7 days between package updates
+# Critical security patches: 2 days (use --force-critical flag)
+LAST_PACKAGE_UPDATE_FILE="$DIR/.last-package-update"
+PACKAGE_COOLDOWN_NORMAL=604800    # 7 days in seconds
+PACKAGE_COOLDOWN_CRITICAL=172800  # 2 days in seconds
+
+# Check if package cooldown has passed
+# Returns 0 if cooldown passed, 1 if still in cooldown
+check_package_cooldown() {
+    local cooldown_type="${1:-normal}"
+    local cooldown_seconds
+    
+    if [ "$cooldown_type" = "critical" ]; then
+        cooldown_seconds=$PACKAGE_COOLDOWN_CRITICAL
+    else
+        cooldown_seconds=$PACKAGE_COOLDOWN_NORMAL
+    fi
+    
+    if [ ! -f "$LAST_PACKAGE_UPDATE_FILE" ]; then
+        return 0  # Never updated — allow
+    fi
+    
+    if [ "$FORCE_UPDATE" = true ]; then
+        return 0  # Force override
+    fi
+    
+    if [ "$FORCE_CRITICAL" = true ] && [ "$cooldown_type" = "critical" ]; then
+        return 0  # Critical force override
+    fi
+    
+    local last_update
+    last_update=$(stat -c %Y "$LAST_PACKAGE_UPDATE_FILE" 2>/dev/null || echo 0)
+    local now
+    now=$(date +%s)
+    local diff=$((now - last_update))
+    
+    if [ "$diff" -ge "$cooldown_seconds" ]; then
+        return 0  # Cooldown passed
+    fi
+    
+    return 1  # Still in cooldown
+}
+
+# Record the timestamp of the last package update
+record_package_update() {
+    date +%s > "$LAST_PACKAGE_UPDATE_FILE"
+}
+
+# Get human-readable time since last update
+time_since_last_update() {
+    if [ ! -f "$LAST_PACKAGE_UPDATE_FILE" ]; then
+        echo "never"
+        return
+    fi
+    local last_update
+    last_update=$(stat -c %Y "$LAST_PACKAGE_UPDATE_FILE" 2>/dev/null || echo 0)
+    local now
+    now=$(date +%s)
+    local diff=$((now - last_update))
+    local days=$((diff / 86400))
+    local hours=$(( (diff % 86400) / 3600 ))
+    echo "${days}d ${hours}h ago"
+}
+
+# Scan lockfile for packages published within cooldown period
+# Returns 0 if any package is too new, 1 if all packages are old enough
+scan_lockfile_age() {
+    local lockfile="$1"
+    local cooldown_type="${2:-normal}"
+    local cooldown_seconds
+    
+    if [ "$cooldown_type" = "critical" ]; then
+        cooldown_seconds=$PACKAGE_COOLDOWN_CRITICAL
+    else
+        cooldown_seconds=$PACKAGE_COOLDOWN_NORMAL
+    fi
+    
+    if [ ! -f "$lockfile" ]; then
+        return 1  # No lockfile — nothing to scan
+    fi
+    
+    # Extract package names and versions from lockfile
+    local packages
+    packages=$(grep -E '^\s+"(sha512|version|name)":' "$lockfile" | paste - - - | \
+        sed -n 's/.*"name": "\([^"]*\)".*"version": "\([^"]*\)".*"sha512": "\([^"]*\)".*/\1@\3/p' | \
+        sed 's/\/@.*//' | sort -u)
+    
+    if [ -z "$packages" ]; then
+        return 1  # No packages found
+    fi
+    
+    local new_packages=()
+    
+    for pkg in $packages; do
+        # Skip empty lines
+        [ -z "$pkg" ] && continue
+        
+        # Extract package name (format: name@sha512hash)
+        local pkg_name
+        pkg_name=$(echo "$pkg" | cut -d'@' -f1)
+        
+        # Query npm registry for publication date
+        local pub_date
+        pub_date=$(curl -s --max-time 5 "https://registry.npmjs.org/$pkg_name" | \
+            grep -o '"time":{"[^"]*": "[^"]*"}' | \
+            grep -o '"[^"]*": "[^"]*"' | tail -1 | \
+            cut -d'"' -f4)
+        
+        if [ -z "$pub_date" ]; then
+            continue  # Skip if we can't determine publication date
+        fi
+        
+        # Convert publication date to epoch
+        local pkg_epoch
+        pkg_epoch=$(date -d "$pub_date" +%s 2>/dev/null || echo 0)
+        local now
+        now=$(date +%s)
+        local diff=$((now - pkg_epoch))
+        
+        if [ "$diff" -lt "$cooldown_seconds" ] && [ "$diff" -gt 0 ]; then
+            new_packages+=("$pkg_name ($pub_date)")
+        fi
+    done
+    
+    if [ ${#new_packages[@]} -gt 0 ]; then
+        echo "  WARNING: The following packages were published within the cooldown period:"
+        for pkg in "${new_packages[@]}"; do
+            echo "    - $pkg"
+        done
+        echo "  Consider waiting before deploying to avoid supply chain attacks."
+        return 0  # Found new packages
+    fi
+    
+    return 1  # All packages old enough
+}
 
 echo "=== Updating $SERVICE ==="
 echo "Directory: $DIR"
@@ -68,6 +233,27 @@ fi
 echo "  USER_API_KEY:    (set)"
 echo "  ADMIN_API_KEY:   (set)"
 
+# 3.5. Scan lockfile for newly published packages (supply chain protection)
+echo "[3.5/9] Scanning lockfile for newly published packages..."
+new_packages_found=false
+
+if [ -f "package-lock.json" ]; then
+    if scan_lockfile_age "package-lock.json" "normal"; then
+        new_packages_found=true
+    fi
+fi
+
+if [ -f "server/package-lock.json" ]; then
+    if scan_lockfile_age "server/package-lock.json" "normal"; then
+        new_packages_found=true
+    fi
+fi
+
+if [ "$new_packages_found" = false ]; then
+    echo "  All packages are older than the cooldown period."
+fi
+echo ""
+
 # 4. Clean stale build artifacts
 echo "[4/9] Cleaning stale build artifacts..."
 if [ -d "dist" ]; then
@@ -87,9 +273,22 @@ fi
 # 5. Install dependencies (no --production: we need devDeps for building)
 echo "[5/9] Installing dependencies..."
 if [ -f "package.json" ]; then
-    if ! npm install; then
-        echo "  ERROR: Frontend npm install failed."
-        exit 1
+    local cooldown_type="normal"
+    if [ "$FORCE_CRITICAL" = true ]; then
+        cooldown_type="critical"
+        echo "  WARNING: Using critical security patch cooldown (2 days)"
+    fi
+    if check_package_cooldown "$cooldown_type"; then
+        if ! npm install; then
+            echo "  ERROR: Frontend npm install failed."
+            exit 1
+        fi
+        record_package_update
+        echo "  Dependencies installed (packages updated after ${PACKAGE_COOLDOWN_NORMAL} second cooldown)."
+    else
+        local last_update
+        last_update=$(time_since_last_update)
+        echo "  Skipped npm install — package cooldown active (last updated: $last_update)"
     fi
 fi
 
@@ -104,9 +303,17 @@ fi
 # 7. Build server
 echo "[7/9] Building server..."
 if [ -d "server" ] && [ -f "server/package.json" ]; then
-    if ! (cd server && npm install); then
-        echo "  ERROR: Server npm install failed."
-        exit 1
+    local cooldown_type="normal"
+    if [ "$FORCE_CRITICAL" = true ]; then
+        cooldown_type="critical"
+    fi
+    if check_package_cooldown "$cooldown_type"; then
+        if ! (cd server && npm install); then
+            echo "  ERROR: Server npm install failed."
+            exit 1
+        fi
+    else
+        echo "  Skipped server npm install — package cooldown active."
     fi
     if ! (cd server && npm run build); then
         echo "  ERROR: Server build failed."
