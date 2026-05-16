@@ -272,25 +272,24 @@ fi
 
 # 5. Install dependencies (no --production: we need devDeps for building)
 echo "[5/9] Installing dependencies..."
-if [ -f "package.json" ]; then
-    local cooldown_type="normal"
-    if [ "$FORCE_CRITICAL" = true ]; then
-        cooldown_type="critical"
-        echo "  WARNING: Using critical security patch cooldown (2 days)"
-    fi
-    if check_package_cooldown "$cooldown_type"; then
-        if ! npm install; then
-            echo "  ERROR: Frontend npm install failed."
-            exit 1
+   if [ -f "package.json" ]; then
+        cooldown_type="normal"
+        if [ "$FORCE_CRITICAL" = true ]; then
+            cooldown_type="critical"
+            echo "  WARNING: Using critical security patch cooldown (2 days)"
         fi
-        record_package_update
-        echo "  Dependencies installed (packages updated after ${PACKAGE_COOLDOWN_NORMAL} second cooldown)."
-    else
-        local last_update
-        last_update=$(time_since_last_update)
-        echo "  Skipped npm install — package cooldown active (last updated: $last_update)"
+        if check_package_cooldown "$cooldown_type"; then
+            if ! npm install; then
+                echo "  ERROR: Frontend npm install failed."
+                exit 1
+            fi
+            record_package_update
+            echo "  Dependencies installed (packages updated after ${PACKAGE_COOLDOWN_NORMAL} second cooldown)."
+        else
+            last_update=$(time_since_last_update)
+            echo "  Skipped npm install - package cooldown active (last updated: $last_update)"
+        fi
     fi
-fi
 
 # 6. Build frontend
 echo "[6/9] Building frontend..."
@@ -302,12 +301,12 @@ fi
 
 # 7. Build server
 echo "[7/9] Building server..."
-if [ -d "server" ] && [ -f "server/package.json" ]; then
-    local cooldown_type="normal"
-    if [ "$FORCE_CRITICAL" = true ]; then
-        cooldown_type="critical"
-    fi
-    if check_package_cooldown "$cooldown_type"; then
+   if [ -d "server" ] && [ -f "server/package.json" ]; then
+        cooldown_type="normal"
+        if [ "$FORCE_CRITICAL" = true ]; then
+            cooldown_type="critical"
+        fi
+        if check_package_cooldown "$cooldown_type"; then
         if ! (cd server && npm install); then
             echo "  ERROR: Server npm install failed."
             exit 1
