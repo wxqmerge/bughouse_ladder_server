@@ -198,7 +198,7 @@ export function buildTrophiesSection(trophies: any[]): string[] {
   const lines: string[] = [];
   
   lines.push('');
-  lines.push('AWARDED TROPHIES');
+  lines.push('AWARDED TROPHIES\t\t\t\t\t\t\t');
   lines.push('Rank\tPlayer\tTrophy Type\tMini-Game/Grade\tGr\tRating\tTotal Games\tGames Played');
   
   let blankRowInserted = false;
