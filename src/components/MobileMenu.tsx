@@ -23,6 +23,7 @@ interface MobileMenuProps {
   onSetZoom: (level: "50%" | "70%" | "100%" | "140%" | "200%") => void;
   onOpenSettings: () => void;
   onAddPlayer?: () => void;
+  onBulkPaste?: () => void;
   onEnterGames?: () => void;
   onRestoreBackup?: () => void;
   onDeleteHiddenPlayers?: () => void;
@@ -54,6 +55,7 @@ export default function MobileMenu({
   onSetZoom,
   onOpenSettings,
   onAddPlayer,
+  onBulkPaste,
   onEnterGames,
   onRestoreBackup,
   onDeleteHiddenPlayers,
@@ -153,6 +155,12 @@ export default function MobileMenu({
       label: "Enter Games",
       onClick: () => handleItemClick(onEnterGames || (() => {})),
       dataMenuItem: "Enter Games",
+      disabled: !writePermission,
+    },
+    {
+      label: "Paste Multiple Results",
+      onClick: () => handleItemClick(onBulkPaste || (() => {})),
+      dataMenuItem: "Paste Multiple Results",
       disabled: !writePermission,
     },
     {

@@ -24,9 +24,9 @@ describe("MenuBar component", () => {
       render(<MenuBar {...baseProps} isAdmin={false} />);
       
       expect(screen.getByText("File")).toBeInTheDocument();
-      expect(screen.getByText("Operations")).toBeInTheDocument();
-      expect(screen.getByText("View")).toBeInTheDocument();
-      expect(screen.queryByText("Sort")).not.toBeInTheDocument();
+       expect(screen.getByText("Operations")).toBeInTheDocument();
+       expect(screen.getByText("View")).toBeInTheDocument();
+       expect(screen.getByText("Sort")).toBeInTheDocument();
     });
 
     it("should display project name", () => {
@@ -409,15 +409,10 @@ describe("MenuBar component", () => {
 
 
 
-    it("should show File menu but hide Sort when server configured without API key", () => {
+    it("should show File and Sort menus when server configured without API key", () => {
       render(<MenuBar {...baseProps} serverUrl="http://example.com" hasAdminApiKey={false} />);
       expect(screen.getByText("File")).toBeInTheDocument();
-      expect(screen.queryByText("Sort")).not.toBeInTheDocument();
-    });
-
-    it("should hide Sort menu when server configured without API key", () => {
-      render(<MenuBar {...baseProps} serverUrl="http://example.com" hasAdminApiKey={false} />);
-      expect(screen.queryByText("Sort")).not.toBeInTheDocument();
+      expect(screen.getByText("Sort")).toBeInTheDocument();
     });
 
     it("should show File and Sort menus in local mode (no server)", () => {
