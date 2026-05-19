@@ -259,14 +259,13 @@ export function addDelta(op: DeltaOperation): void {
 async function flushDeltas(): Promise<void> {
   if (deltaQueue.length === 0) return;
   const batch = [...deltaQueue];
-  deltaQueue = [];
   try {
     if (dataService.getMode() !== DataServiceMode.LOCAL) {
       await dataService.submitDeltaBatch(batch);
     }
+    deltaQueue = [];
   } catch (error: any) {
     log('[STORAGE]', 'Failed to flush deltas, re-queueing:', error);
-    deltaQueue = [...batch, ...deltaQueue];
   }
 }
 
@@ -278,26 +277,36 @@ export function getPendingDeltaCount(): number {
   return deltaQueue.length;
 }
 
+export function stopDeltaFlushing(): void {
+  if (flushInterval) {
+    clearInterval(flushInterval);
+    flushInterval = null;
+  }
+}
+
 // ==================== PENDING DELETES TRACKING ====================
+
+let deleteChain = Promise.resolve<void>();
 
 export function queueDelete(playerRank: number, round: number): void {
   const key = `${playerRank}:${round}`;
   let deletes = new Set(getJsonArray<string>('ladder_pending_deletes'));
   deletes.add(key);
   setJson('ladder_pending_deletes', [...deletes]);
-  (async () => {
+  deleteChain = deleteChain.then(async () => {
     try {
       const userSettings = loadUserSettings();
       const serverUrl = userSettings.server?.trim();
       if (serverUrl) {
         await fetch(`${serverUrl}/api/ladder/${playerRank}/round/${round}`, { method: 'DELETE' });
-        deletes.delete(key);
-        setJson('ladder_pending_deletes', [...deletes]);
+        const freshDeletes = new Set(getJsonArray<string>('ladder_pending_deletes'));
+        freshDeletes.delete(key);
+        setJson('ladder_pending_deletes', [...freshDeletes]);
       }
     } catch (err) {
       log('[STORAGE]', 'Delete queued for retry:', key);
     }
-  })();
+  });
 }
 
 export function getPendingDeletes(): Set<string> {

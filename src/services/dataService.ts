@@ -60,7 +60,7 @@ class DataService {
   }
 
   // Start polling for updates (in server modes)
-  startPolling(intervalMs: number = 15000): void {
+  startPolling(intervalMs: number = 60000): void {
     this.stopPolling();
     this.pollInterval = setInterval(async () => {
       if (this.isPolling) {
@@ -203,10 +203,12 @@ class DataService {
 
   // Simple hash function for comparing data
   private computeHash(players: PlayerData[]): string {
-    return JSON.stringify(players.map(p => ({
-      rank: p.rank,
-      gameResults: p.gameResults
-    })));
+    return JSON.stringify(
+      players.map(p => ({
+        gameResults: p.gameResults,
+        rank: p.rank,
+      }))
+    );
   }
 
   // Initialize hash from current server state (call once on app start)

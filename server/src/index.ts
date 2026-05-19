@@ -44,7 +44,6 @@ import { addSSEClient, getSSEClientCount, startHeartbeat } from './services/sseS
 const app: Application = express();
 
 const PORT = process.env.PORT || 3000;
-const isProduction = process.env.NODE_ENV === 'production';
 
 // Debug: Show environment variables at startup
 console.log('Environment variables loaded:');
@@ -90,7 +89,7 @@ app.use((req, res, next) => {
 // Rate limiting for authentication endpoints (strict - prevent brute force)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: isProduction ? 20 : 100, // 20 in production, 100 in dev
+  max: 20,
   message: {
     success: false,
     error: { message: 'Too many authentication attempts. Please try again later.' },
@@ -102,7 +101,7 @@ const authLimiter = rateLimit({
 // General API rate limiter (scaled for concurrent clients polling ladder + admin-lock)
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: isProduction ? 5000 : 1000, // 5000 in production (~167 req/min, supports ~100 concurrent clients), 1000 in dev
+  max: 5000, // ~167 req/min, supports ~100 concurrent clients
   message: {
     success: false,
     error: { message: 'Too many requests. Please slow down.' },
@@ -114,7 +113,7 @@ const apiLimiter = rateLimit({
 // Admin lock rate limiter (lenient - status checks happen every 10 seconds)
 const adminLockLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: isProduction ? 1200 : 600, // 20 req/sec in production (~100 concurrent clients polling at 10s), 600 in dev
+  max: 1200, // 20 req/sec (~100 concurrent clients polling at 10s)
   message: { success: false, error: { message: 'Too many admin lock requests.' } },
   standardHeaders: true,
   legacyHeaders: false,
@@ -141,7 +140,7 @@ app.use(cors({
 
 // Security middleware with Content Security Policy
 app.use(helmet({
-  contentSecurityPolicy: isProduction ? {
+  contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'"],
@@ -156,7 +155,7 @@ app.use(helmet({
       formAction: ["'self'"],
       upgradeInsecureRequests: [],
     },
-  } : false,
+  },
 }));
 
 // Parse JSON and URL-encoded bodies with size limits
@@ -175,21 +174,19 @@ app.use((req, res, next) => {
   next();
 });
 
-// Security logging middleware for production
-if (isProduction) {
-  app.use('/api/*', (req, res, next) => {
-    const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
-    const userAgent = req.headers['user-agent']?.substring(0, 50) || 'unknown';
-    
-    // Log suspicious patterns
-    if (req.path.includes('..') || req.path.includes('<script')) {
-      console.log(`[SECURITY] Suspicious request from ${clientIp}: ${req.method} ${req.path}`);
-      console.log(`[SECURITY] User-Agent: ${userAgent}`);
-    }
-    
-    next();
-  });
-}
+// Security logging middleware
+app.use('/api/*', (req, res, next) => {
+  const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
+  const userAgent = req.headers['user-agent']?.substring(0, 50) || 'unknown';
+  
+  // Log suspicious patterns
+  if (req.path.includes('..') || req.path.includes('<script')) {
+    console.log(`[SECURITY] Suspicious request from ${clientIp}: ${req.method} ${req.path}`);
+    console.log(`[SECURITY] User-Agent: ${userAgent}`);
+  }
+  
+  next();
+});
 
 // Health check endpoint
 app.get('/health', (req: Request, res: Response) => {
@@ -257,7 +254,7 @@ async function startServer() {
       console.log(`✓ CORS Origins: ${process.env.CORS_ORIGINS || '*'}`);
       const adminKeySet = !!process.env.ADMIN_API_KEY;
       console.log(`✓ Admin API Key: ${adminKeySet ? 'Enabled' : '⚠️  NOT SET (endpoints unprotected)'}`);
-      console.log(`✓ Rate Limit: ${isProduction ? '5000' : '1000'} req/15min (general API)`);
+      console.log(`✓ Rate Limit: 5000 req/15min (general API)`);
       console.log('');
       
       // Connection instructions for clients
