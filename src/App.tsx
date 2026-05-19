@@ -41,7 +41,10 @@ import {
   replayPendingDeletes,
   clearSettings,
   setPendingNewDay,
+  getPendingDeletes,
+  stopDeltaFlushing,
 } from "./services/storageService";
+import { mergeServerWithLocal } from "./utils/mergeUtils";
 import { getDebugLevel } from "./utils/debug";
 import "./css/index.css";
 
@@ -245,6 +248,7 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
 
     return () => {
       stopPeriodicChecks();
+      stopDeltaFlushing();
 
       const mode = getProgramMode();
       if (mode !== 'local' && mode !== 'server_down') {
@@ -548,31 +552,47 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
       // Replay pending deletes first
       await replayPendingDeletes();
       
-      // Get local players
-      const localPlayers = await getPlayers();
-      
-      // Save to server with wait for confirmation
+      // Fetch latest server state
       const userSettings = loadUserSettings();
       const serverUrl = userSettings.server;
-      if (serverUrl) {
-        const response = await fetch(`${serverUrl}/api/ladder`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ players: localPlayers }),
-        });
+      if (!serverUrl) {
+        alert("No server URL configured.");
+        return;
+      }
+      
+      const serverResponse = await fetch(`${serverUrl}/api/ladder`);
+      if (!serverResponse.ok) {
+        console.error("[Reconnect] Failed to fetch server state:", serverResponse.status);
+        alert("Failed to fetch server state. Please try again.");
+        return;
+      }
+      
+      const serverData = await serverResponse.json();
+      const serverPlayers = serverData?.players || [];
+      
+      // Get local players and merge with server state
+      const localPlayers = await getPlayers();
+      const pendingDeletes = getPendingDeletes();
+      const mergedPlayers = mergeServerWithLocal(serverPlayers, localPlayers, pendingDeletes);
+      
+      // Save merged data to server
+      const response = await fetch(`${serverUrl}/api/ladder`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ players: mergedPlayers }),
+      });
+      
+      if (response.ok) {
+        console.log(`[Reconnect] Pushed ${mergedPlayers.length} players to server`);
         
-        if (response.ok) {
-          console.log(`[Reconnect] Pushed ${localPlayers.length} players to server`);
-          
-          // Clear flags
-          clearLocalChangesFlag();
-          
-          setShowReconnectDialog(false);
-          alert("Successfully synced local changes to server!");
-        } else {
-          console.error("[Reconnect] Failed to push to server:", response.status);
-          alert("Failed to push to server. Please try again.");
-        }
+        // Clear flags
+        clearLocalChangesFlag();
+        
+        setShowReconnectDialog(false);
+        alert("Successfully synced local changes to server!");
+      } else {
+        console.error("[Reconnect] Failed to push to server:", response.status);
+        alert("Failed to push to server. Please try again.");
       }
     } catch (error) {
       console.error("[Reconnect] Error pushing to server:", error);

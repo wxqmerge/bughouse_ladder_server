@@ -2268,7 +2268,10 @@ export default function LadderForm({
 
     console.log(`>>> [CLEAR CELL DEBUG] Cell: ${entryCell.playerRank}:${entryCell.round}, Raw: "${rawCellValue}", Value: "${cellValue}"`);
 
-    // Find all cells with the same value across all players (ignoring trailing underscores)
+    // Find all cells with the same value across all players (ignoring trailing underscores).
+    // This is intentional: duplicate game result strings (e.g., "5W3") in different rounds
+    // typically indicate a data entry error where the same game was recorded multiple times.
+    // Clearing all matching cells is a deduplication feature, not a bug.
     const cellsToClear: { playerRank: number; round: number }[] = [];
     
     for (const player of players) {

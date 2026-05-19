@@ -1346,7 +1346,7 @@ export function repopulateGameResults(
       if (!player) continue;
       const round = findLowestEmptyRound(player);
       if (round >= 0 && normalizedResult) {
-        player.gameResults[round] = normalizedResult + "_";
+        player.gameResults[round] = normalizedResult;
       }
     }
   }
