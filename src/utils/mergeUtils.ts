@@ -15,7 +15,7 @@ export function mergeServerWithLocal(
   localPlayers: PlayerData[],
   pendingDeletes: Set<string> = new Set()
 ): PlayerData[] {
-  return serverPlayers.map((sp) => {
+  const result = serverPlayers.map((sp) => {
     const localPlayer = localPlayers.find((lp) => lp.rank === sp.rank);
     
     if (!localPlayer || !localPlayer.gameResults) {
@@ -43,7 +43,8 @@ export function mergeServerWithLocal(
       const serverConfirmed = serverResult?.endsWith('_') || false;
       
       // Priority: local unconfirmed > server confirmed > server unconfirmed
-      if (localResult && localResult.trim() && !localConfirmed) {
+      // Local unconfirmed only wins if server hasn't already confirmed this cell
+      if (localResult && localResult.trim() && !localConfirmed && !serverConfirmed) {
         mergedGameResults[r] = localResult;
       } else if (serverConfirmed && !localConfirmed) {
         // Keep server confirmed result
@@ -58,4 +59,13 @@ export function mergeServerWithLocal(
       gameResults: mergedGameResults,
     };
   });
+
+  // Append players that exist locally but not on server
+  for (const lp of localPlayers) {
+    if (!serverPlayers.find(sp => sp.rank === lp.rank)) {
+      result.push({ ...lp });
+    }
+  }
+
+  return result;
 }

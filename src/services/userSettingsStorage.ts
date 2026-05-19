@@ -210,7 +210,7 @@ export async function loadConfigFromUrl(): Promise<boolean> {
   }
   
   else {
-    alert(`Unknown config type: ${configType}\n\nUse:\n- ?config=1&server=http://host:port&key=yourkey (server)\n- ?config=3&file=http://host/file.tab (remote file)\n- ?config=2 (reset to local)`);
+    console.warn(`[USER_SETTINGS] Unknown config type: ${configType}. Use ?config=1 (server), ?config=3 (file), or ?config=2 (local).`);
     return false;
   }
 
