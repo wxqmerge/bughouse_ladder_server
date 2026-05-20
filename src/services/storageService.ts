@@ -286,7 +286,7 @@ export function stopDeltaFlushing(): void {
 
 // ==================== PENDING DELETES TRACKING ====================
 
-let deleteChain = Promise.resolve<void>();
+let deleteChain = Promise.resolve();
 
 export function queueDelete(playerRank: number, round: number): void {
   const key = `${playerRank}:${round}`;

@@ -19,7 +19,7 @@ export function syncEligibilityFromClubLadder(
     clubEligibleMap.set(formatPlayerName(p), p.trophyEligible);
   }
   const allIneligible: PlayerData[] = [];
-for (const mgd of miniGameDataList) {
+  for (const mgd of miniGameDataList) {
     for (const p of mgd.players) {
       const key = formatPlayerName(p);
       if (clubEligibleMap.has(key)) {
@@ -29,15 +29,6 @@ for (const mgd of miniGameDataList) {
         if (idx !== -1) {
           mgd.players[idx] = { ...mgd.players[idx], trophyEligible: newEligible };
         }
-        // Use the updated value for the eligibility check
-        if (newEligible === false && !allIneligible.find(a => a.rank === p.rank)) {
-          allIneligible.push(mgd.players[idx]);
-        }
-      } else if (p.trophyEligible === false && !allIneligible.find(a => a.rank === p.rank)) {
-        allIneligible.push(p);
-      }
-    }
-  }
         // Use the updated value for the eligibility check
         if (newEligible === false && !allIneligible.find(a => a.rank === p.rank)) {
           allIneligible.push(mgd.players[idx]);
