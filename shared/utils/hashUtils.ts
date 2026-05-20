@@ -1361,7 +1361,9 @@ export function repopulateGameResults(
       if (!player) continue;
       const round = findLowestEmptyRound(player);
       if (round >= 0 && normalizedResult) {
-        player.gameResults[round] = normalizedResult;
+        // Provisional: add "_" suffix for backward compatibility with callers that expect it (e.g. stress test reports).
+        // Callers that also lock results (e.g. recalculateAndSave) strip trailing "_" and re-add, so double "_" is handled safely.
+        player.gameResults[round] = normalizedResult + "_";
       }
     }
   }

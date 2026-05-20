@@ -1,6 +1,6 @@
 # Bughouse Chess Ladder Server
 
-**Version: 1.2.1**
+**Version: 1.2.2**
 
 A modern client-server implementation of the VB6 Bughouse Chess Ladder application.
 

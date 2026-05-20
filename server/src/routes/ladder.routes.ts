@@ -192,8 +192,9 @@ router.put('/', requireUserKey, writeLimiter, async (req: Request, res: Response
     for (const p of players) {
       if (p.gameResults) {
         for (let r = 0; r < p.gameResults.length; r++) {
-          if (p.gameResults[r] && /[\w]/i.test(p.gameResults[r][2] || '')) {
-            console.log('[SERVER_BULK] P' + p.rank + ' R' + r + ': "' + p.gameResults[r] + '"');
+          const result = p.gameResults[r];
+          if (result && /[\w]/i.test(result[2] || '')) {
+            console.log('[SERVER_BULK] P' + p.rank + ' R' + r + ': "' + result + '"');
           }
         }
       }
