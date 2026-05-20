@@ -187,6 +187,18 @@ router.put('/', requireUserKey, writeLimiter, async (req: Request, res: Response
     }
 
     const ladderData: LadderData = await withTiming(`readLadderFile(bulk)`, readLadderFile);
+
+    // Log game results that contain W/L for bulk save
+    for (const p of players) {
+      if (p.gameResults) {
+        for (let r = 0; r < p.gameResults.length; r++) {
+          if (p.gameResults[r] && /[\w]/i.test(p.gameResults[r][2] || '')) {
+            console.log('[SERVER_BULK] P' + p.rank + ' R' + r + ': "' + p.gameResults[r] + '"');
+          }
+        }
+      }
+    }
+
     ladderData.players = players;
 
     await withTiming(`writeLadderFile(bulk-${players.length})`, () => writeLadderFile(ladderData));
@@ -222,6 +234,8 @@ router.post('/batch', requireUserKey, writeLimiter, async (req: Request, res: Re
     const ladderData = await withTiming(`readLadderFile(batch)`, readLadderFile);
     const results: any[] = [];
 
+    console.log('[SERVER_BATCH] Received deltas:', JSON.stringify(deltas));
+
     for (const delta of deltas) {
       const playerIndex = ladderData.players.findIndex((p: PlayerData) => p.rank === delta.playerRank);
 
@@ -238,7 +252,9 @@ router.post('/batch', requireUserKey, writeLimiter, async (req: Request, res: Re
         player.gameResults.push(null);
       }
 
+      const oldResult = player.gameResults[delta.round];
       player.gameResults[delta.round] = delta.result;
+      console.log('[SERVER_BATCH] Stored P' + delta.playerRank + ' R' + delta.round + ': "' + oldResult + '" -> "' + delta.result + '"');
       ladderData.players[playerIndex] = player;
       results.push({ playerRank: delta.playerRank, round: delta.round, success: true });
     }
