@@ -1257,27 +1257,49 @@ export default function LadderForm({
       const p2Rank = parsedResult.parsedPlayer2Rank || 0;
       const p3Rank = parsedResult.parsedPlayer3Rank || 0;
       const p4Rank = parsedResult.parsedPlayer4Rank || 0;
+      const score1 = parsedResult.parsedScoreList?.[0] ?? 3;
+      const score2 = parsedResult.parsedScoreList?.[1] ?? 0;
       
       const is4Player = p3Rank > 0 && p4Rank > 0;
       const currentPlayerRank = entryCell.playerRank;
       const roundIndex = entryCell.round;
+
+      console.log('[ENTER_GAMES_DEBUG] === ENTRY START ===');
+      console.log('[ENTER_GAMES_DEBUG] Raw correctedString:', correctedString);
+      console.log('[ENTER_GAMES_DEBUG] valueToSave:', valueToSave);
+      console.log('[ENTER_GAMES_DEBUG] parsedPlayer1Rank:', p1Rank, 'parsedPlayer2Rank:', p2Rank, 'parsedPlayer3Rank:', p3Rank, 'parsedPlayer4Rank:', p4Rank);
+      console.log('[ENTER_GAMES_DEBUG] parsedScoreList:', parsedResult.parsedScoreList, 'score1:', score1, 'score2:', score2);
+      console.log('[ENTER_GAMES_DEBUG] currentPlayerRank:', currentPlayerRank, 'roundIndex:', roundIndex);
+      console.log('[ENTER_GAMES_DEBUG] is4Player:', is4Player);
 
       // Helper: fill a player's cell if empty (same round for all players in game)
       const fillCell = (playerRank: number, resultString: string) => {
         const player = players.find((p) => p.rank === playerRank);
         if (player && roundIndex >= 0 && roundIndex < 31) {
           const existingValue = player.gameResults[roundIndex]?.replace(/_+$/, "") || "";
+          console.log('[ENTER_GAMES_DEBUG] fillCell called: playerRank=' + playerRank + ' resultString="' + resultString + '" existingValue="' + existingValue + '"');
           if (!existingValue.trim()) {
             player.gameResults[roundIndex] = resultString;
+            console.log('[ENTER_GAMES_DEBUG] Cell SET: P' + playerRank + ' R' + (roundIndex + 1) + ' = "' + resultString + '"');
             log('[ENTER_GAMES]', 'Filled cell P' + playerRank + ' R' + (roundIndex + 1) + ': "' + resultString + '"');
+          } else {
+            console.log('[ENTER_GAMES_DEBUG] Cell SKIPPED (already filled): P' + playerRank + ' R' + (roundIndex + 1) + ' = "' + existingValue + '"');
           }
+        } else {
+          console.log('[ENTER_GAMES_DEBUG] fillCell SKIPPED: player not found or round out of bounds');
         }
       };
 
       if (is4Player) {
-        // 4-player team game: format is "A:BWC:D" where C is outcome for team A&B
-        const outcomeForTeam1 = valueToSave[3]; // Character at position 3 (0-indexed): "5:6W7:8"[3] = 'W'
+        // 4-player team game: use parsed scores
+        // score1 = team1's result (W=3, L=1, D=2, O=0)
+        // score2 = team2's result (if present, from team2's perspective)
+        const scoreToLetter = (s: number) => s === 0 ? 'O' : s === 1 ? 'L' : s === 2 ? 'D' : 'W';
+        const swapScore = (s: number) => s === 1 ? 3 : s === 3 ? 1 : s;
         
+        const outcomeForTeam1 = scoreToLetter(score1);
+        const outcomeForTeam2 = score2 > 0 ? scoreToLetter(score2) : scoreToLetter(swapScore(score1));
+
         // Determine which team current player is on
         let isCurrentPlayerOnTeam1 = false;
         if (currentPlayerRank === p1Rank || currentPlayerRank === p2Rank) {
@@ -1287,8 +1309,7 @@ export default function LadderForm({
         }
         
         // Did current player's team win?
-        // In a team game, all teammates share the same W/L/D result
-        const currentTeamWon = isCurrentPlayerOnTeam1 ? (outcomeForTeam1 === "W") : (outcomeForTeam1 === "L");
+        const currentTeamWon = isCurrentPlayerOnTeam1 ? (outcomeForTeam1 === "W") : (outcomeForTeam2 === "W");
         
         // Outcome from each team's perspective
         const outcomeForTeam1TheirView = currentTeamWon ? "W" : "L";
@@ -1297,6 +1318,9 @@ export default function LadderForm({
         // Build result strings for each team (all teammates get same result)
         const resultForTeam1 = `${p1Rank}:${p2Rank}${outcomeForTeam1TheirView}${p3Rank}:${p4Rank}`;
         const resultForTeam2 = `${p1Rank}:${p2Rank}${outcomeForTeam2TheirView}${p3Rank}:${p4Rank}`;
+
+        console.log('[ENTER_GAMES_DEBUG] 4P: score1=' + score1 + '(' + outcomeForTeam1 + ') score2=' + score2 + '(' + outcomeForTeam2 + ')');
+        console.log('[ENTER_GAMES_DEBUG] 4P: resultForTeam1="' + resultForTeam1 + '" resultForTeam2="' + resultForTeam2 + '"');
 
         // Fill cells for ALL players in the game (including current player)
         fillCell(p1Rank, resultForTeam1);
@@ -1308,20 +1332,26 @@ export default function LadderForm({
         addDelta({ type: 'GAME_RESULT', playerRank: p3Rank, round: roundIndex, result: resultForTeam2 });
         addDelta({ type: 'GAME_RESULT', playerRank: p4Rank, round: roundIndex, result: resultForTeam2 });
       } else {
-        // 2-player game: format is "AWB" where A vs B, outcome is A's result
-        const outcome = valueToSave[1]; // Character at position 1: "5W3"[1] = 'W'
+        // 2-player game: use parsed score
+        // score1 = player 1's result (W=3, L=1, D=2, O=0)
+        const scoreToLetter = (s: number) => s === 0 ? 'O' : s === 1 ? 'L' : s === 2 ? 'D' : 'W';
+        const swapScore = (s: number) => s === 1 ? 3 : s === 3 ? 1 : s;
+        
+        const outcomeForP1 = scoreToLetter(score1);
+        const outcomeForP2 = scoreToLetter(swapScore(score1));
         
         // Determine if current player is player 1 or player 2 in the entry
         const isCurrentPlayerP1 = currentPlayerRank === p1Rank;
-        const currentPlayerWon = isCurrentPlayerP1 ? (outcome === "W") : (outcome === "L");
-        
-        // Outcomes from each player's perspective
-        const outcomeForP1 = currentPlayerWon ? "W" : "L";
-        const outcomeForP2 = currentPlayerWon ? "L" : "W";
+        const currentPlayerOutcome = isCurrentPlayerP1 ? outcomeForP1 : outcomeForP2;
+        const currentPlayerWon = currentPlayerOutcome === "W";
 
         // Build result strings
         const resultForP1 = `${p1Rank}${outcomeForP1}${p2Rank}`;
         const resultForP2 = `${p1Rank}${outcomeForP2}${p2Rank}`;
+
+        console.log('[ENTER_GAMES_DEBUG] 2P: score1=' + score1 + '(' + outcomeForP1 + ') outcomeForP2=' + outcomeForP2);
+        console.log('[ENTER_GAMES_DEBUG] 2P: isCurrentPlayerP1=' + isCurrentPlayerP1 + ' currentPlayerWon=' + currentPlayerWon);
+        console.log('[ENTER_GAMES_DEBUG] 2P: resultForP1="' + resultForP1 + '" resultForP2="' + resultForP2 + '"');
 
         // Fill cells for BOTH players (including current player)
         fillCell(p1Rank, resultForP1);
@@ -1329,6 +1359,7 @@ export default function LadderForm({
         addDelta({ type: 'GAME_RESULT', playerRank: p1Rank, round: roundIndex, result: resultForP1 });
         addDelta({ type: 'GAME_RESULT', playerRank: p2Rank, round: roundIndex, result: resultForP2 });
       }
+      console.log('[ENTER_GAMES_DEBUG] === ENTRY END ===');
     }
 
     // Store current cell position to find next empty cell after recalc
@@ -1686,13 +1717,40 @@ export default function LadderForm({
           console.log(`Total results after repopulation: ${totalAfterRepop}`);
         }
 
+        console.log('[RECALC_DEBUG] [ADMIN] === RECALC START ===');
+        console.log('[RECALC_DEBUG] [ADMIN] Input matches count:', matches.length);
+        console.log('[RECALC_DEBUG] [ADMIN] Input matches:', JSON.stringify(matches.map(m => ({p1:m.player1, p2:m.player2, p3:m.player3, p4:m.player4, s1:m.score1, s2:m.score2}))));
+        
         const calculatedPlayers = calculateRatings(processedPlayers, matches).players;
         const normalizedPlayers = normalizePlayersAttendance(normalizePlayersTrophy(calculatedPlayers));
+
+        console.log('[RECALC_DEBUG] [ADMIN] After calculateRatings + normalize:');
+        for (const p of normalizedPlayers) {
+          const filled = (p.gameResults || []).filter((r, i) => r && r.trim() && r.trim() !== '');
+          if (filled.length > 0) {
+            console.log('[RECALC_DEBUG] [ADMIN] P' + p.rank + ' results:', filled.map((r, i) => 'R' + i + '=' + r));
+          }
+        }
+
+        // Lock all game results with "_" suffix to mark as confirmed
+        const lockedPlayers = normalizedPlayers.map(p => ({
+          ...p,
+          gameResults: (p.gameResults || []).map(r => r && r.trim() ? `${r.replace(/_+$/, '')}_` : r),
+        }));
+
+        console.log('[RECALC_DEBUG] [ADMIN] After locking:');
+        for (const p of lockedPlayers) {
+          const filled = (p.gameResults || []).filter((r, i) => r && r.trim() && r.trim() !== '');
+          if (filled.length > 0) {
+            console.log('[RECALC_DEBUG] [ADMIN] P' + p.rank + ' locked:', filled.map((r, i) => 'R' + i + '=' + r));
+          }
+        }
+        console.log('[RECALC_DEBUG] [ADMIN] === RECALC END ===');
 
         // Save with waitForServer=true to wait for server confirmation
         (window as any).__ladder_setStatus?.('Saving to server...');
         log('[RECALC]', 'Saving to server...');
-        const saveResult = await savePlayers(normalizedPlayers, true);
+        const saveResult = await savePlayers(lockedPlayers, true);
         
         if (saveResult.success) {
           if (saveResult.serverSynced) {
@@ -1707,7 +1765,7 @@ export default function LadderForm({
           log('[RECALC]', '⚠ Server save issue:', saveResult.error);
         }
         
-        setPlayers(normalizedPlayers);
+        setPlayers(lockedPlayers);
         log('[RECALC]', 'Recalculate_Save complete');
         (window as any).__ladder_setStatus?.(null);
         return;
@@ -1744,14 +1802,50 @@ export default function LadderForm({
         console.log(`Matches to process: ${matches.length}`);
       }
 
+   console.log('[RECALC_DEBUG] === RECALC START ===');
+    console.log('[RECALC_DEBUG] Input matches count:', matches.length);
+    console.log('[RECALC_DEBUG] Input matches:', JSON.stringify(matches.map(m => ({p1:m.player1, p2:m.player2, p3:m.player3, p4:m.player4, s1:m.score1, s2:m.score2}))));
+    
     const processedPlayers = repopulateGameResults(players, matches, 31, playerResultsByMatch);
-       const calculatedPlayers = calculateRatings(processedPlayers, matches).players;
-       const normalizedPlayers = normalizePlayersAttendance(normalizePlayersTrophy(calculatedPlayers));
+    
+    console.log('[RECALC_DEBUG] After repopulateGameResults:');
+    for (const p of processedPlayers) {
+      const filled = (p.gameResults || []).filter((r, i) => r && r.trim() && r.trim() !== '');
+      if (filled.length > 0) {
+        console.log('[RECALC_DEBUG] P' + p.rank + ' results:', filled.map((r, i) => 'R' + i + '=' + r));
+      }
+    }
+    
+    const calculatedPlayers = calculateRatings(processedPlayers, matches).players;
+    const normalizedPlayers = normalizePlayersAttendance(normalizePlayersTrophy(calculatedPlayers));
 
-       // Push full table to server
-       (window as any).__ladder_setStatus?.('Saving to server...');
-       log('[RECALC]', 'Pushing full table to server...');
-       await savePlayers(normalizedPlayers, true);
+    console.log('[RECALC_DEBUG] After calculateRatings + normalize:');
+    for (const p of normalizedPlayers) {
+      const filled = (p.gameResults || []).filter((r, i) => r && r.trim() && r.trim() !== '');
+      if (filled.length > 0) {
+        console.log('[RECALC_DEBUG] P' + p.rank + ' results:', filled.map((r, i) => 'R' + i + '=' + r));
+      }
+    }
+
+    // Lock all game results with "_" suffix to mark as confirmed
+    const lockedPlayers = normalizedPlayers.map(p => ({
+      ...p,
+      gameResults: (p.gameResults || []).map(r => r && r.trim() ? `${r.replace(/_+$/, '')}_` : r),
+    }));
+
+    console.log('[RECALC_DEBUG] After locking:');
+    for (const p of lockedPlayers) {
+      const filled = (p.gameResults || []).filter((r, i) => r && r.trim() && r.trim() !== '');
+      if (filled.length > 0) {
+        console.log('[RECALC_DEBUG] P' + p.rank + ' locked:', filled.map((r, i) => 'R' + i + '=' + r));
+      }
+    }
+    console.log('[RECALC_DEBUG] === RECALC END ===');
+
+    // Push full table to server
+    (window as any).__ladder_setStatus?.('Saving to server...');
+    log('[RECALC]', 'Pushing full table to server...');
+    await savePlayers(lockedPlayers, true);
        clearLocalChangesFlag();
        clearPendingDeletes();
 

@@ -311,6 +311,8 @@ function parseEntry(
   scoreList[0] = RESULT_STRING.indexOf(results[0]);
   scoreList[1] = results[1] ? RESULT_STRING.indexOf(results[1]) : 0;
 
+  console.log('[PARSE_DEBUG] parseEntry input="' + myText + '" -> players=[' + playersList[0] + ',' + playersList[1] + ',' + playersList[2] + ',' + playersList[3] + '] scores=[' + scoreList[0] + '(' + RESULT_STRING[scoreList[0]] + '),' + scoreList[1] + '(' + (scoreList[1] > 0 ? RESULT_STRING[scoreList[1]] : 'none') + ')] results=[' + (results[0] || 'none') + ',' + (results[1] || 'none') + ']');
+
   // VB6 Line: 251-258 - Normalize player order
   // Store original values before normalization for display
   playersList[5] = playersList[0];
@@ -1281,19 +1283,32 @@ export function repopulateGameResults(
 
       const score1Letter = scoreCodeToLetter(normScore1);
 
+      console.log('[REPOPULATE_DEBUG] 4P Match: p1=' + m.player1 + ' p2=' + m.player2 + ' p3=' + m.player3 + ' p4=' + m.player4 + ' s1=' + m.score1 + '(' + scoreCodeToLetter(m.score1) + ') s2=' + m.score2 + '(' + (m.score2 > 0 ? scoreCodeToLetter(m.score2) : 'none') + ')');
+      console.log('[REPOPULATE_DEBUG] 4P norm=' + norm.join(',') + ' pairsSwapped=' + pairsSwapped + ' normScore1=' + normScore1 + '(' + scoreCodeToLetter(normScore1) + ') normScore2=' + normScore2 + '(' + (normScore2 > 0 ? scoreCodeToLetter(normScore2) : 'none') + ')');
+
       if (m.score2 > 0) {
         const score2Letter = scoreCodeToLetter(normScore2);
-        return `${norm[0]}:${norm[1]}${score1Letter}${score2Letter}${norm[2]}:${norm[3]}`;
+        const result = `${norm[0]}:${norm[1]}${score1Letter}${score2Letter}${norm[2]}:${norm[3]}`;
+        console.log('[REPOPULATE_DEBUG] 4P result=' + result);
+        return result;
       }
-      return `${norm[0]}:${norm[1]}${score1Letter}${norm[2]}:${norm[3]}`;
+      const result = `${norm[0]}:${norm[1]}${score1Letter}${norm[2]}:${norm[3]}`;
+      console.log('[REPOPULATE_DEBUG] 4P result=' + result);
+      return result;
     } else {
       const norm = normalize2Player(m.player1, m.player2);
       const scoreLetter = scoreCodeToLetter(m.score1);
+      console.log('[REPOPULATE_DEBUG] 2P Match: p1=' + m.player1 + ' p2=' + m.player2 + ' s1=' + m.score1 + '(' + scoreLetter + ') s2=' + m.score2 + '(' + (m.score2 > 0 ? scoreCodeToLetter(m.score2) : 'none') + ')');
+      console.log('[REPOPULATE_DEBUG] 2P norm=' + norm.join(',') + ' scoreLetter=' + scoreLetter);
       if (m.score2 > 0) {
         const scoreLetter2 = scoreCodeToLetter(m.score2);
-        return `${norm[0]}${scoreLetter}${scoreLetter2}${norm[1]}`;
+        const result = `${norm[0]}${scoreLetter}${scoreLetter2}${norm[1]}`;
+        console.log('[REPOPULATE_DEBUG] 2P result=' + result);
+        return result;
       }
-      return `${norm[0]}${scoreLetter}${norm[1]}`;
+      const result = `${norm[0]}${scoreLetter}${norm[1]}`;
+      console.log('[REPOPULATE_DEBUG] 2P result=' + result);
+      return result;
     }
   };
 
@@ -1435,6 +1450,8 @@ export function updatePlayerGameData(
   const parsedPlayer2Rank = parsedPlayersList[6];
   const parsedPlayer3Rank = parsedPlayersList[7];
   const parsedPlayer4Rank = parsedPlayersList[8];
+
+  console.log('[UPDATE_DEBUG] updatePlayerGameData input="' + input + '" addUnderscore=' + addUnderscore + ' -> resultString="' + resultString + '" p1=' + parsedPlayer1Rank + ' p2=' + parsedPlayer2Rank + ' p3=' + parsedPlayer3Rank + ' p4=' + parsedPlayer4Rank + ' scores=[' + parsedScoreList[0] + ',' + parsedScoreList[1] + ']');
 
   return {
     isValid: true,
