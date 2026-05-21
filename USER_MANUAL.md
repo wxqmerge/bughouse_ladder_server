@@ -195,6 +195,7 @@ Errors are checked when you:
 | 7 | Missing player 4 | Complete format: `1:2W3:4` |
 | 9 | Player rank exceeds 200 | Use valid rank within range |
 | 10 | Conflicting results | Check all players' records |
+| 11 | Player rank does not exist | Add the player first |
 
 ### Common Scenarios
 

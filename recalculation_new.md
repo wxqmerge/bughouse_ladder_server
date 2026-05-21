@@ -7,18 +7,17 @@
 
 | VB6 Function | TS Function | Location |
 |---|---|---|
-| `recalc()` | [`calculateRatings()`](shared/utils/hashUtils.ts:1163) | `shared/utils/hashUtils.ts` |
+| `recalc()` | [`calculateRatings()`](shared/utils/hashUtils.ts:1108) | `shared/utils/hashUtils.ts` |
 | `formula()` | [`formula()`](shared/utils/hashUtils.ts:113) | `shared/utils/hashUtils.ts` |
-| `parse_entry()` | [`parseEntry()`](shared/utils/hashUtils.ts:173) | `shared/utils/hashUtils.ts` |
-| `entry2string()` | [`entry2string()`](shared/utils/hashUtils.ts:137) | `shared/utils/hashUtils.ts` |
-| `string2long()` | [`string2long()`](shared/utils/hashUtils.ts:405) | `shared/utils/hashUtils.ts` |
-| `long2string()` | [`long2string()`](shared/utils/hashUtils.ts:417) | `shared/utils/hashUtils.ts` |
-| `DataHash()` | inline in [`processGameResults()`](shared/utils/hashUtils.ts:481) | `shared/utils/hashUtils.ts` |
-| `reset_hash()` | inline in [`processNewDayTransformations()`](shared/utils/constants.ts:45) | `shared/utils/constants.ts` |
-| `player2row()` | inline in [`processGameResults()`](shared/utils/hashUtils.ts:481) | `shared/utils/hashUtils.ts` |
-| `isvalid()` | `playedToday.has()` in [`calculateRatings()`](shared/utils/hashUtils.ts:1163) | `shared/utils/hashUtils.ts` |
+| `parse_entry()` | [`parseEntry()`](shared/utils/hashUtils.ts:161) | `shared/utils/hashUtils.ts` |
+| `entry2string()` | [`entry2string()`](shared/utils/hashUtils.ts:125) | `shared/utils/hashUtils.ts` |
+| `string2long()` | [`string2long()`](shared/utils/hashUtils.ts:414) | `shared/utils/hashUtils.ts` |
+| `DataHash()` | inline in [`processGameResults()`](shared/utils/hashUtils.ts:426) | `shared/utils/hashUtils.ts` |
+| `reset_hash()` | inline in [`processNewDayTransformations()`](shared/utils/constants.ts:69) | `shared/utils/constants.ts` |
+| `player2row()` | inline in [`processGameResults()`](shared/utils/hashUtils.ts:426) | `shared/utils/hashUtils.ts` |
+| `isvalid()` | `playedToday.has()` in [`calculateRatings()`](shared/utils/hashUtils.ts:1108) | `shared/utils/hashUtils.ts` |
 | `result_string` | `RESULT_STRING` constant | `shared/utils/hashUtils.ts` |
-| `processNewDayTransformations()` | [`processNewDayTransformations()`](shared/utils/constants.ts:44) | `shared/utils/constants.ts` |
+| `processNewDayTransformations()` | [`processNewDayTransformations()`](shared/utils/constants.ts:69) | `shared/utils/constants.ts` |
 
 ---
 
@@ -341,4 +340,4 @@ A1(1200)+A2(1200) vs B1(1000)+B2(1000), split (each won 1):
 
 ### 6.5 Regression Tests
 
-All 468 tests pass (2 skipped).
+All 470 tests accounted for (468 passed, 2 skipped).
