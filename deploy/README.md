@@ -42,7 +42,6 @@ nano .env
 
 Set at minimum:
 - `PORT=<port>` — backend port
-- `DOMAIN=your-domain.com` — public domain
 - `ADMIN_API_KEY=<key>` — admin access key (required in production)
 - `USER_API_KEY=<key>` — user write key (required in production)
 
@@ -55,7 +54,7 @@ cd /var/www/html/dev-ladder
 sudo ./deploy/manage_versions.sh add
 ```
 
-Requires root — checks that you're running as sudo and that `server/.env` contains `PORT`, `DOMAIN`, `ADMIN_API_KEY`, and `USER_API_KEY` (all required in production).
+Requires root — checks that you're running as sudo and that `server/.env` contains `PORT`, `ADMIN_API_KEY`, and `USER_API_KEY` (all required in production).
 
 This creates:
 - Nginx config at `/etc/nginx/sites-available/dev-ladder.your-domain.com.conf`

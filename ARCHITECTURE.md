@@ -148,6 +148,7 @@ subscribe(callback): Unsubscribe  // Subscribe to data changes
 **SSE Events:**
 | Event | Trigger |
 |-------|---------|
+| `connected` | SSE connection established |
 | `playerUpdated` | Single player PUT |
 | `cellCleared` | Cell DELETE |
 | `ladderUpdated` | Bulk PUT |

@@ -17,13 +17,6 @@ npm test              # Watch mode
 npm run test:coverage # Coverage report
 ```
 
-Expected output:
-```
-Test Files  30 passed (30)
- Tests      468 passed | 2 skipped (470)
-Duration    ~Zs
-```
-
 ### Server Only
 ```bash
 cd server && npm run test:run   # Run once
@@ -31,23 +24,6 @@ cd server && npm test            # Watch mode
 ```
 
 Server tests use `node` environment. Client tests use `jsdom`.
-
----
-
-## Running Tests
-
-### All Tests (Root) — Client + Server
-```bash
-npm run test:run      # Run once (CI mode)
-npm test              # Watch mode
-npm run test:coverage # Coverage report
-```
-
-### Server Only
-```bash
-cd server && npm run test:run   # Run once
-cd server && npm test            # Watch mode
-```
 
 ### Server Tournament Tests
 ```bash
@@ -122,60 +98,65 @@ server/
 
 ## Current Test Coverage
 
-**Total: 561 tests** across client and server. **All passed.**
+**Total: 551 tests** across client and server. **All passed.**
 
 ### Test Count Breakdown (v1.2.2)
 
 | Category | Tests | Notes |
 |----------|-------|-------|
-| Client unit tests | ~350 | Rating formula, stress tests, normalization, conflict detection, settings, admin lock, etc. |
-| Client component tests | ~75 | LadderForm, MenuBar, Settings gating |
-| Server tests | ~136 | Admin lock, auth, backup, tournament, mini-games |
+| Client unit tests | 452 | Rating formula, stress tests, normalization, conflict detection, settings, admin lock, etc. |
+| Client component tests | 56 | LadderForm, MenuBar |
+| Server tests | 99 | Admin lock, auth, backup, tournament |
 
-### Client Unit Tests
-
-| File | Tests | Passed | Description |
-|------|-------|--------|-------------|
-| `newDay.test.ts` | 19 | 19 | Title progression and new day processing |
-| `migration.test.ts` | 13 | 13 | Local ↔ Server data migration |
-| `auth.test.ts` | 10 | 10 | Auth middleware exports + file extension validation |
-| `ratingFormula.test.ts` | 9 | 7 (+2 skipped) | Elo rating formula calculations |
-| `utils.test.ts` | 4 | 4 | Error message utilities |
-| `simple.test.ts` | 1 | 1 | Basic smoke test |
-| `calculateRatings.test.ts` | 30 | 30 | Rating calculation: blending, Elo, 4p, dual results, double-pass |
-| `ratingStressTest.test.ts` | 28 | 28 | Tournament simulation: 20/50/100/150 players, 2p/4p, ng0/mixed/ng20 |
-| `optimizeBlendingFactor.test.ts` | 1 | 1 | Single-factor blending factor optimization sweep |
-| `optimize2D.test.ts` | 1 | 1 | 2D grid optimization (blending factor × perf multiplier scale) |
-| `normalize4Player.test.ts` | 18 | 18 | 4-player normalization: pair swaps, pair reordering, equal values, conflict equivalence |
-| `normalize2Player.test.ts` | 11 | 11 | 2-player normalization: ascending sort, equal values, conflict equivalence |
-| `conflictDetection.test.ts` | 25 | 25 | Entry parsing (2p/4p formats), 2p vs 2p conflicts, 4p vs 4p conflicts, cross-type prevention |
-| `batchFlush.test.ts` | 9 | 9 | Batch buffer: state management, nested batches, getPlayers during batch, New Day flush sequence |
-| `nRatingDefault.test.ts` | 12 | 12 | nRating defaults to 1 via `Math.abs(value || 1)` for all falsy cases (0, null, undefined, "") |
-| `normalizeServerUrl.test.ts` | 17 | 17 | Whitespace trimming, protocol prefix, backslash normalization |
-| `saveUserSettings.test.ts` | 17 | 17 | Server URL normalization, API key preservation, debugMode, round-trip persistence |
-| `kFactorBounds.test.ts` | 18 | 18 | Clamping <1→1, >100→100, Settings input simulation |
-| `debugLevelBounds.test.ts` | 16 | 16 | Clamping <0→0, >20→20, Settings input simulation |
-| `exportFilename.test.ts` | 13 | 13 | First word extraction from project name (space-delimited) |
-| `settingsPersistence.test.ts` | 11 | 11 | localStorage key prefix, isolation, user settings key |
-| `adminLockOverride.test.ts` | 18 | 18 | Lock state detection, override dialog, refresh/release/notification |
-| `adminStateFlow.test.ts` | 12 | 12 | LadderForm → App → Settings prop propagation |
-| `restoreBackup.test.ts` | 24 | 24 | File reading, backup list, restore confirmation, filename format, dialog UI |
-
-### Client Component Tests (75 passed)
+### Client Unit Tests (452 passed)
 
 | File | Tests | Description |
 |------|-------|-------------|
-| `LadderForm.test.tsx` | 3 | Component rendering tests |
-| `MenuBar.test.tsx` | 59 | MenuBar component rendering, menu items, admin/user mode visibility |
+| `newDay.test.ts` | 24 | Title progression and new day processing |
+| `migration.test.ts` | 13 | Local ↔ Server data migration |
+| `auth.test.ts` | 8 | Auth middleware exports + file extension validation |
+| `ratingFormula.test.ts` | 7 | Elo rating formula calculations |
+| `utils.test.ts` | 4 | Error message utilities |
+| `simple.test.ts` | 1 | Basic smoke test |
+| `calculateRatings.test.ts` | 33 | Rating calculation: blending, Elo, 4p, dual results, double-pass |
+| `ratingStressTest.test.ts` | 28 | Tournament simulation: 20/50/100/150 players, 2p/4p, ng0/mixed/ng20 |
+| `optimizeBlendingFactor.test.ts` | 1 | Single-factor blending factor optimization sweep |
+| `optimize2D.test.ts` | 1 | 2D grid optimization (blending factor × perf multiplier scale) |
+| `normalize4Player.test.ts` | 18 | 4-player normalization: pair swaps, pair reordering, equal values, conflict equivalence |
+| `normalize2Player.test.ts` | 11 | 2-player normalization: ascending sort, equal values, conflict equivalence |
+| `conflictDetection.test.ts` | 25 | Entry parsing (2p/4p formats), 2p vs 2p conflicts, 4p vs 4p conflicts, cross-type prevention |
+| `batchFlush.test.ts` | 9 | Batch buffer: state management, nested batches, getPlayers during batch, New Day flush sequence |
+| `nRatingDefault.test.ts` | 12 | nRating defaults to 1 via `Math.abs(value || 1)` for all falsy cases (0, null, undefined, "") |
+| `normalizeServerUrl.test.ts` | 17 | Whitespace trimming, protocol prefix, backslash normalization |
+| `saveUserSettings.test.ts` | 18 | Server URL normalization, API key preservation, debugMode, round-trip persistence |
+| `kFactorBounds.test.ts` | 18 | Clamping <1→1, >100→100, Settings input simulation |
+| `debugLevelBounds.test.ts` | 16 | Clamping <0→0, >20→20, Settings input simulation |
+| `exportFilename.test.ts` | 13 | First word extraction from project name (space-delimited) |
+| `settingsPersistence.test.ts` | 19 | localStorage key prefix, isolation, user settings key |
+| `adminLockOverride.test.ts` | 18 | Lock state detection, override dialog, refresh/release/notification |
+| `adminStateFlow.test.ts` | 12 | LadderForm → App → Settings prop propagation |
+| `restoreBackup.test.ts` | 24 | File reading, backup list, restore confirmation, filename format, dialog UI |
+| `miniGameSwitching.test.ts` | 5 | Mini-game tab switching and state management |
+| `migrationModeSwitch.test.ts` | 21 | Migration mode switching between local and server |
+| `storageService_delta.test.ts` | 4 | Delta-based storage operations |
+
+### Client Component Tests (56 passed)
+
+| File | Tests | Description |
+|------|-------|-------------|
+| `LadderForm.test.tsx` | 2 | Component rendering tests |
+| `MenuBar.test.tsx` | 54 | MenuBar component rendering, menu items, admin/user mode visibility |
 | `settingsAdminGating.test.tsx` | 13 | Settings admin gating: Configuration/Actions hidden in user mode, Server Connection always visible |
 
-### Server Tests (58 passed)
+### Server Tests (99 passed)
 
 | File | Tests | Description |
 |------|-------|-------------|
 | `adminLock.test.ts` | 22 | Admin lock acquire/release/force/refresh/status/workflows |
-| `authRoutes.test.ts` | 9 | Auth middleware constants, exports, and function signatures |
+| `authRoutes.test.ts` | 2 | Auth middleware constants, exports, and function signatures |
 | `backup.test.ts` | 27 | Backup system: create, list, restore, delete, rotate, full workflow |
+| `tournament.test.ts` | 22 | Tournament export: copy players, merge results, file operations |
+| `tournamentExtended.test.ts` | 26 | Tournament extended: trophy generation, mini-game management, club ladder |
 
 ---
 
@@ -310,7 +291,7 @@ describe('MyComponent', () => {
 
 ### What Changed
 
-The test suite expanded from **231 → 470 tests** (+239) across two waves:
+The test suite expanded from **236 → 470 tests** (+234) across two waves:
 
 **Wave 1 (+88 tests):** Bug fix coverage for recent fixes
 | Area | Tests | What's Covered |
@@ -321,7 +302,7 @@ The test suite expanded from **231 → 470 tests** (+239) across two waves:
 | **UI gating** | 13 | Settings admin vs user mode panel visibility |
 | **Player defaults** | 12 | nRating defaults to 1 (not 0) for new players |
 
-**Wave 2 (+151 tests):** Input validation, state flow, and integration
+**Wave 2 (+146 tests):** Input validation, state flow, and integration
 | Area | Tests | What's Covered |
 |------|-------|----------------|
 | **Server URL normalization** | 17 | Whitespace trimming, protocol prefix, backslash normalization |

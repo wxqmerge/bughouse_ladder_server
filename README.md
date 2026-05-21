@@ -139,7 +139,6 @@ Drag a `.tab`, `.xls`, or `.txt` file onto the splash screen to load it directly
 |--------|----------|------|-------------|
 | `POST` | `/api/games/submit` | User/Admin key | Submit game result |
 | `POST` | `/api/games/batch` | User/Admin key | Batch submit games |
-| `GET` | `/api/games/player/:rank` | None | Get player's game results |
 
 ---
 

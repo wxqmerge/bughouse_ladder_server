@@ -123,7 +123,7 @@ After loading, the system parses player data, validates result strings, calculat
 
 ### Multi-Client Synchronization
 
-In server mode, changes are synchronized automatically via 5-second polling with change detection. See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full sync algorithm and diagrams.
+In server mode, changes are synchronized automatically via SSE (primary, <100ms) with 60-second polling fallback. See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full sync algorithm and diagrams.
 
 ---
 
@@ -225,20 +225,6 @@ Access: Sort menu (Admin mode required)
 
 **Note:** Sorting is display-only — does not change actual rank assignments.
 
-### Sorting Players
-
-Access: Sort menu (Admin mode required)
-
-| Option | Description | Use Case |
-|--------|-------------|----------|
-| By Rank | Numerical order (1, 2, 3...) | Default view |
-| By Last Name | Alphabetical by surname | Finding specific players |
-| By First Name | Alphabetical by given name | Alternative lookup |
-| By New Rating | Highest to lowest | Current standings |
-| By Previous Rating | Highest to lowest old rating | Comparing changes |
-
-**Note:** Sorting is display-only — does not change actual rank assignments.
-
 ---
 
 ## Rating Calculation
@@ -280,7 +266,7 @@ This ensures consistency even if the field contains mixed or malformed entries l
 
 ### What Changes
 
-1. **Title Progression** — BG_Game → Bishop_Game → Pillar_Game → Kings_Cross → Pawn_Game → Queen_Game → (cycles)
+1. **Title Progression** — BG_Game → Bishop_Game → Pillar_Game → Kings_Cross → Pawn_Game → Queen_Game → Bughouse → (cycles)
 2. **Rating Finalization** — "New Rating" moves to "Previous Rating", nRating resets to 0, calculations start fresh
 3. **Game Results Cleared** — all game result cells are cleared
 4. **Attendance Tracking** — reset to 0 if player had games; incremented by 1 if absent

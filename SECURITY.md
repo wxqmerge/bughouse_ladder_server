@@ -9,7 +9,6 @@
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `NODE_ENV` | Must be `production` | `production` |
-| `CORS_ORIGINS` | Allowed frontend domains, comma-separated | `https://your-domain.com` |
 | `ADMIN_API_KEY` | Protects admin endpoints (`/api/admin/*`) | `a1b2c3d4e5f6...` |
 | `USER_API_KEY` | Protects write operations (PUT/POST/DELETE) | `f6e5d4c3b2a1...` |
 
@@ -18,6 +17,9 @@
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `PORT` | Server port | `3000` |
+| `CORS_ORIGINS` | Allowed frontend domains, comma-separated | `*` (all origins) |
+| `TAB_FILE_PATH` | Path to ladder data file | `./data/ladder.tab` |
+| `REQUEST_SIZE_LIMIT` | Max request body size | `1mb` |
 
 ### Example Production `.env`
 
@@ -27,6 +29,7 @@ NODE_ENV=production
 CORS_ORIGINS=https://your-domain.com
 ADMIN_API_KEY=a1b2c3d4e5f6...
 USER_API_KEY=f6e5d4c3b2a1...
+TAB_FILE_PATH=./data/ladder.tab
 ```
 
 **Both `ADMIN_API_KEY` and `USER_API_KEY` are required in production. The server will refuse to start if either is missing.**
@@ -76,11 +79,14 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 ### 3. Rate Limiting
 
-| Scope | Production | Development |
-|-------|-----------|-------------|
-| Write endpoints (ladder/games/admin) | 30 req / 15 min | 100 req / 15 min |
-| General API | 100 req / 15 min | 1000 req / 15 min |
-| Admin lock (status checks) | 600 req / 1 min | 600 req / 1 min |
+| Scope | Limit |
+|-------|-------|
+| Auth endpoints (`/api/auth`) | 20 req / 15 min |
+| Write endpoints (ladder/games) | 500 req / 15 min |
+| General API | 5000 req / 15 min |
+| Admin lock (status checks) | 1200 req / 1 min |
+
+Rate limits are the same in development and production.
 
 ### 4. Helmet.js Security Headers
 
@@ -93,7 +99,7 @@ Prevents XSS attacks by restricting script sources to `'self'`. Configured `conn
 ## Production Checklist
 
 - [ ] Set `NODE_ENV=production`
-- [ ] Set `CORS_ORIGINS` to your domain(s) (required)
+- [ ] Set `CORS_ORIGINS` to your domain(s) (recommended, defaults to `*`)
 - [ ] Generate `ADMIN_API_KEY` (required in production)
 - [ ] Generate `USER_API_KEY` (required in production)
 - [ ] Configure SSL/TLS via nginx or reverse proxy (see [README_INSTALL.md](./README_INSTALL.md))

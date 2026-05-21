@@ -360,7 +360,7 @@ nohup NODE_ENV=production node dist/index.js > server.log 2>&1 &
 |----------|-----------|-------------|
 | `PORT` | No | Server port (default: 3000) |
 | `NODE_ENV` | Yes | Set to `production` |
-| `CORS_ORIGINS` | **Yes** | Your domain(s) (e.g., `https://your-domain.com`), comma-separated |
+| `CORS_ORIGINS` | No | Your domain(s) (e.g., `https://your-domain.com`), comma-separated (default: `*`) |
 | `TAB_FILE_PATH` | No | Path to ladder data file (default: `./data/ladder.tab`) |
 | `REQUEST_SIZE_LIMIT` | No | Max request body size (default: `1mb`) |
 | `USER_API_KEY` | Optional | API key for write operations (PUT/POST/DELETE) |
