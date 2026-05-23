@@ -1598,57 +1598,77 @@ export default function LadderForm({
      log('[RECALC]', 'Starting recalculate_and_save');
 
    // Check for pending New Day operation (set by App.tsx before calling recalculate)
-    const pendingNewDayData = getPendingNewDay();
-    if (pendingNewDayData) {
-      console.log(
-        `>>> [RECALC COMPLETE] Pending New Day detected: ${JSON.stringify(pendingNewDayData)}`,
-      );
-      try {
-        const pendingNewDay = pendingNewDayData;
-        const reRank = pendingNewDay.reRank === true;
-          console.log(`>>> [NEW DAY] Processing with reRank=${reRank}`);
+     const pendingNewDayData = getPendingNewDay();
+     if (pendingNewDayData) {
+       console.log(
+         `>>> [RECALC COMPLETE] Pending New Day detected: ${JSON.stringify(pendingNewDayData)}`,
+       );
+       try {
+         const pendingNewDay = pendingNewDayData;
+         const reRank = pendingNewDay.reRank === true;
+           console.log(`>>> [NEW DAY] Processing with reRank=${reRank}`);
 
-          // Get current title and determine next title for mini-games
-          const currentTitle = getProjectName();
-          console.log(`>>> [NEW DAY] Current title from storage: "${currentTitle}"`);
-          console.log(`>>> [NEW DAY] Next title will be: "${getNextTitle(currentTitle)}"`);
+           // Get current title and determine next title for mini-games
+           const currentTitle = getProjectName();
+           console.log(`>>> [NEW DAY] Current title from storage: "${currentTitle}"`);
+           console.log(`>>> [NEW DAY] Next title will be: "${getNextTitle(currentTitle)}"`);
 
+           // Start batch mode
+           startBatch();
 
-         // Fix rank issues before New Day transformations
-           let playersToTransform = normalizePlayersAttendance(normalizePlayersTrophy(players));
-           if (reRank) {
-             playersToTransform = fixPlayerRanks(playersToTransform);
+           // Extract matches from current UI state
+           const newDayResult = checkGameErrors();
+           if (newDayResult.rankBlockingErrors && newDayResult.rankBlockingErrors.length > 0) {
+             console.log(`=== RECALC PAUSED === Rank blocking errors detected`);
+             alert('Rank Errors:\n\n' + newDayResult.rankBlockingErrors.join('\n') + '\n\nPlease fix ranks before recalculating.');
+             clearPendingNewDay();
+             return;
            }
-         // Apply New Day transformations
-             const finalPlayers = processNewDayTransformations(
-               playersToTransform,
-               reRank,
+
+           // Repopulate game results from matches, then calculate ratings
+           const processedPlayers = repopulateGameResults(
+             players,
+             newDayResult.matches,
+             31,
+             newDayResult.playerResultsByMatch,
+           );
+           const calculatedPlayers = calculateRatings(processedPlayers, newDayResult.matches).players;
+
+          // Fix rank issues before New Day transformations
+            let playersToTransform = normalizePlayersAttendance(normalizePlayersTrophy(calculatedPlayers));
+            if (reRank) {
+              playersToTransform = fixPlayerRanks(playersToTransform);
+            }
+          // Apply New Day transformations
+              const finalPlayers = processNewDayTransformations(
+                playersToTransform,
+                reRank,
+              );
+
+            await savePlayers(finalPlayers);
+           setProjectNameStorage(getNextTitle(currentTitle));
+           clearPendingNewDay();
+           clearSettings();
+
+           if (shouldLog(10)) {
+             console.log(
+               `New Day complete - Title: ${getNextTitle(currentTitle)}, ReRank: ${reRank}\n`,
              );
+           }
 
-           await savePlayers(finalPlayers);
-          setProjectNameStorage(getNextTitle(currentTitle));
-          clearPendingNewDay();
-          clearSettings();
+          setPlayers(finalPlayers);
 
-          if (shouldLog(10)) {
-            console.log(
-              `New Day complete - Title: ${getNextTitle(currentTitle)}, ReRank: ${reRank}\n`,
-            );
-          }
+           // Flush batch buffer to server before reload
+           await endBatch();
 
-         setPlayers(finalPlayers);
-
-          // Flush batch buffer to server before reload
-          await endBatch();
-
-          // Reload to apply changes
-          window.location.reload();
-          return;
-        } catch (err) {
-          console.error("Failed to process pending New Day (recalculateAndSave):", err);
-          clearPendingNewDay();
-        }
-      }
+           // Reload to apply changes
+           window.location.reload();
+           return;
+         } catch (err) {
+           console.error("Failed to process pending New Day (recalculateAndSave):", err);
+           clearPendingNewDay();
+         }
+       }
 
      // Admin mode: fetch fresh server data, merge with local, then push back atomically
       if (isAdmin) {
