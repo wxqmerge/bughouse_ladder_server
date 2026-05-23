@@ -50,9 +50,13 @@ export default function RestoreBackupDialog({
       const userSettings = loadUserSettings();
       const serverUrl = (userSettings.server || "").trim();
       
+      const restoreHeaders: Record<string, string> = { "Content-Type": "application/json" };
+      if (userSettings.apiKey && userSettings.apiKey.trim()) {
+        restoreHeaders['X-API-Key'] = userSettings.apiKey.trim();
+      }
       const response = await fetch(`${serverUrl}/api/admin/backups/restore/${encodeURIComponent(filename)}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: restoreHeaders,
       });
 
       if (!response.ok) return;
@@ -84,9 +88,13 @@ export default function RestoreBackupDialog({
         return;
       }
 
-      const response = await fetch(`${serverUrl}/api/admin/backups`, {
-        headers: { "Content-Type": "application/json" },
-      });
+      const listHeaders: Record<string, string> = { "Content-Type": "application/json" };
+        if (userSettings.apiKey && userSettings.apiKey.trim()) {
+          listHeaders['X-API-Key'] = userSettings.apiKey.trim();
+        }
+        const response = await fetch(`${serverUrl}/api/admin/backups`, {
+          headers: listHeaders,
+        });
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
@@ -126,10 +134,14 @@ export default function RestoreBackupDialog({
       const userSettings = loadUserSettings();
       const serverUrl = (userSettings.server || "").trim();
 
-      const response = await fetch(`${serverUrl}/api/admin/backups/${filename}`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-      });
+      const deleteHeaders: Record<string, string> = { "Content-Type": "application/json" };
+        if (userSettings.apiKey && userSettings.apiKey.trim()) {
+          deleteHeaders['X-API-Key'] = userSettings.apiKey.trim();
+        }
+        const response = await fetch(`${serverUrl}/api/admin/backups/${filename}`, {
+          method: "DELETE",
+          headers: deleteHeaders,
+        });
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);

@@ -10,6 +10,8 @@ import {
   calculateRatings,
   repopulateGameResults,
   updatePlayerGameData,
+  scoreCodeToLetter,
+  swapScore,
 } from "../utils/hashUtils";
 import { MINI_GAMES, MINI_GAMES_WITH_BUGHOUSE, processNewDayTransformations, isMiniGameTitle, titleToFileName, getNextTitle } from "../utils/constants";
 import { dataService } from "../services/dataService";
@@ -544,6 +546,17 @@ export default function LadderForm({
       setAdminMode(isAdmin);
     }, [isAdmin]);
 
+  // Listen for "Enter Admin Mode" request from Settings dialog
+    useEffect(() => {
+      const handler = () => {
+        if (!isAdmin) {
+          handleToggleAdmin();
+        }
+      };
+      window.addEventListener('enter-admin-mode', handler);
+      return () => window.removeEventListener('enter-admin-mode', handler);
+    }, [isAdmin]);
+
   // Override dialog: Timer countdown
   useEffect(() => {
     if (!showOverrideDialog || overrideTimeout <= 0) return;
@@ -599,9 +612,13 @@ export default function LadderForm({
               ? `${serverUrl}/api/admin/tournament/read-mini-game?fileName=${titleToFileName(projectName)}`
               : `${serverUrl}/api/ladder`;
             
-            const response = await fetch(apiUrl, {
-              headers: {},
-            });
+            const initHeaders: Record<string, string> = {};
+              if (splashApiKey && splashApiKey.trim()) {
+                initHeaders['X-API-Key'] = splashApiKey.trim();
+              }
+              const response = await fetch(apiUrl, {
+                headers: initHeaders,
+              });
             
             if (response.ok) {
               // Save this as the last working config
@@ -905,8 +922,15 @@ export default function LadderForm({
       const formData = new FormData();
       formData.append('file', pendingImport.file);
 
+      const userSettings = loadUserSettings();
+      const headers: Record<string, string> = {};
+      if (userSettings.apiKey && userSettings.apiKey.trim()) {
+        headers['X-API-Key'] = userSettings.apiKey.trim();
+      }
+
       const response = await fetch(`${serverUrl}/api/admin/upload`, {
         method: 'POST',
+        headers,
         body: formData,
       });
 
@@ -975,9 +999,13 @@ export default function LadderForm({
       
       if (serverUrl) {
         // Restore the backup on server first
+        const restoreHeaders: Record<string, string> = { "Content-Type": "application/json" };
+        if (userSettings.apiKey && userSettings.apiKey.trim()) {
+          restoreHeaders['X-API-Key'] = userSettings.apiKey.trim();
+        }
         const restoreResponse = await fetch(`${serverUrl}/api/admin/backups/restore/${encodeURIComponent(filename)}`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: restoreHeaders,
         });
         
         if (!restoreResponse.ok) {
@@ -1294,11 +1322,8 @@ export default function LadderForm({
         // 4-player team game: use parsed scores
         // score1 = team1's result (W=3, L=1, D=2, O=0)
         // score2 = team2's result (if present, from team2's perspective)
-        const scoreToLetter = (s: number) => s === 0 ? 'O' : s === 1 ? 'L' : s === 2 ? 'D' : 'W';
-        const swapScore = (s: number) => s === 1 ? 3 : s === 3 ? 1 : s;
-        
-        const outcomeForTeam1 = scoreToLetter(score1);
-        const outcomeForTeam2 = score2 > 0 ? scoreToLetter(score2) : scoreToLetter(swapScore(score1));
+        const outcomeForTeam1 = scoreCodeToLetter(score1);
+        const outcomeForTeam2 = score2 > 0 ? scoreCodeToLetter(score2) : scoreCodeToLetter(swapScore(score1));
 
         // Determine which team current player is on
         let isCurrentPlayerOnTeam1 = false;
@@ -1334,11 +1359,8 @@ export default function LadderForm({
       } else {
         // 2-player game: use parsed score
         // score1 = player 1's result (W=3, L=1, D=2, O=0)
-        const scoreToLetter = (s: number) => s === 0 ? 'O' : s === 1 ? 'L' : s === 2 ? 'D' : 'W';
-        const swapScore = (s: number) => s === 1 ? 3 : s === 3 ? 1 : s;
-        
-        const outcomeForP1 = scoreToLetter(score1);
-        const outcomeForP2 = scoreToLetter(swapScore(score1));
+        const outcomeForP1 = scoreCodeToLetter(score1);
+        const outcomeForP2 = scoreCodeToLetter(swapScore(score1));
         
         // Determine if current player is player 1 or player 2 in the entry
         const isCurrentPlayerP1 = currentPlayerRank === p1Rank;

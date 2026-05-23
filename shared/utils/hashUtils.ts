@@ -70,7 +70,7 @@ export const SORT_OPTIONS = {
 /**
  * Convert a score code (0=O, 1=L, 2=D, 3=W) to its letter representation.
  */
-function scoreCodeToLetter(code: number): string {
+export function scoreCodeToLetter(code: number): string {
   return code === 0 ? "O" : code === 1 ? "L" : code === 2 ? "D" : "W";
 }
 
@@ -78,7 +78,7 @@ function scoreCodeToLetter(code: number): string {
  * Swap a score code from one side's perspective to the other.
  * O stays O, L becomes W, D stays D, W becomes L.
  */
-function swapScore(code: number): number {
+export function swapScore(code: number): number {
   if (code === 0) return 0;
   if (code === 1) return 3;
   if (code === 2) return 2;

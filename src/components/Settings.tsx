@@ -13,6 +13,7 @@ import {
   Eye,
   Server,
   Key,
+  Shield,
 } from "lucide-react";
 import "../css/index.css";
 import { getSettings, saveSettings } from "../services/storageService";
@@ -793,6 +794,39 @@ export default function Settings({
             </label>
           </div>
         </div>
+
+  {!isAdmin && apiKey && (
+          <div style={{ marginTop: "1.5rem" }}>
+            <button
+              onClick={() => {
+                saveUserSettings({
+                  server: serverUrl.trim(),
+                  apiKey: apiKey.trim(),
+                  debugMode: debugMode,
+                });
+                window.dispatchEvent(new CustomEvent('enter-admin-mode'));
+              }}
+              style={{
+                width: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "0.5rem",
+                padding: "0.75rem",
+                backgroundColor: "#7c3aed",
+                color: "white",
+                border: "none",
+                borderRadius: "0.25rem",
+                cursor: "pointer",
+                fontSize: "0.875rem",
+                fontWeight: "500",
+              }}
+            >
+              <Shield size={16} />
+              Enter Admin Mode
+            </button>
+          </div>
+        )}
 
         <div style={{ display: "flex", gap: "1rem", marginTop: "2rem" }}>
           <button onClick={onClose}>Cancel</button>
