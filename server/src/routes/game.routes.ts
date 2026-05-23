@@ -15,12 +15,6 @@ const router = Router();
 // All game processing logic will be imported from shared in a separate file
 // For now, we'll use basic validation
 
-interface GameResult {
-  playerRank: number;
-  round: number;
-  result: string;
-}
-
 // Submit a single game result (requires user or admin API key)
 router.post('/submit', requireUserKey, writeLimiter, async (req: Request, res: Response): Promise<void> => {
   try {

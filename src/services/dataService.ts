@@ -105,79 +105,22 @@ class DataService {
       console.log('[DataService] SSE connection established');
     };
     
-    this.sseEventSource.addEventListener('connected', (e: any) => {
+this.sseEventSource.addEventListener('connected', (e: any) => {
       console.log('[DataService] SSE: connected event received');
     });
-    
-    this.sseEventSource.addEventListener('playerUpdated', () => {
-      console.log('[DataService] SSE: playerUpdated');
-      this.notifySubscribers();
-    });
-    
-    this.sseEventSource.addEventListener('cellCleared', () => {
-      console.log('[DataService] SSE: cellCleared');
-      this.notifySubscribers();
-    });
-    
-    this.sseEventSource.addEventListener('ladderUpdated', () => {
-      console.log('[DataService] SSE: ladderUpdated');
-      this.notifySubscribers();
-    });
-    
-    this.sseEventSource.addEventListener('deltasSubmitted', () => {
-      console.log('[DataService] SSE: deltasSubmitted');
-      this.notifySubscribers();
-    });
-    
-    this.sseEventSource.addEventListener('gameSubmitted', () => {
-      console.log('[DataService] SSE: gameSubmitted');
-      this.notifySubscribers();
-    });
-    
-    this.sseEventSource.addEventListener('gamesSubmitted', () => {
-      console.log('[DataService] SSE: gamesSubmitted');
-      this.notifySubscribers();
-    });
-    
-    this.sseEventSource.addEventListener('miniGameSaved', () => {
-      console.log('[DataService] SSE: miniGameSaved');
-      this.notifySubscribers();
-    });
-    
-    this.sseEventSource.addEventListener('miniGameWritten', () => {
-      console.log('[DataService] SSE: miniGameWritten');
-      this.notifySubscribers();
-    });
-    
-    this.sseEventSource.addEventListener('playersCopied', () => {
-      console.log('[DataService] SSE: playersCopied');
-      this.notifySubscribers();
-    });
-    
-    this.sseEventSource.addEventListener('playerAdded', () => {
-      console.log('[DataService] SSE: playerAdded');
-      this.notifySubscribers();
-    });
-    
-    this.sseEventSource.addEventListener('miniGamesCleared', () => {
-      console.log('[DataService] SSE: miniGamesCleared');
-      this.notifySubscribers();
-    });
-    
-    this.sseEventSource.addEventListener('miniGamesImported', () => {
-      console.log('[DataService] SSE: miniGamesImported');
-      this.notifySubscribers();
-    });
-    
-    this.sseEventSource.addEventListener('fileUploaded', () => {
-      console.log('[DataService] SSE: fileUploaded');
-      this.notifySubscribers();
-    });
-    
-    this.sseEventSource.addEventListener('backupRestored', () => {
-      console.log('[DataService] SSE: backupRestored');
-      this.notifySubscribers();
-    });
+
+    const sseEvents = [
+      'playerUpdated', 'cellCleared', 'ladderUpdated', 'deltasSubmitted',
+      'gameSubmitted', 'gamesSubmitted', 'miniGameSaved', 'miniGameWritten',
+      'playersCopied', 'playerAdded', 'miniGamesCleared', 'miniGamesImported',
+      'fileUploaded', 'backupRestored',
+    ];
+    for (const eventName of sseEvents) {
+      this.sseEventSource.addEventListener(eventName, () => {
+        console.log(`[DataService] SSE: ${eventName}`);
+        this.notifySubscribers();
+      });
+    }
     
     this.sseEventSource.onerror = (error) => {
       this.sseConnected = false;

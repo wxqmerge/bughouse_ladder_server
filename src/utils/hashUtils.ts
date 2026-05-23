@@ -16,7 +16,9 @@ export {
   validateGameResult,
   updatePlayerGameData,
   normalize4Player,
-  normalize2Player
+  normalize2Player,
+  scoreCodeToLetter,
+  swapScore,
 } from "../../shared/utils/hashUtils";
 
 // Re-export types for backward compatibility

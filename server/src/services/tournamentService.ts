@@ -2,7 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { log as loggerLog } from '../utils/logger.js';
-import { readLadderFile, writeLadderFile, generateTabContent, PlayerData, LadderData, withTiming, ensureDataDirectory } from './dataService.js';
+import { readLadderFile, writeLadderFile, generateTabContent, PlayerData, LadderData, withTiming, ensureDataDirectory, getDataDir } from './dataService.js';
 import { MiniGameData } from '../../../shared/types/index.js';
 import { calculateRatings, processGameResults } from '../../../shared/utils/hashUtils.js';
 import {
@@ -79,15 +79,14 @@ let tournamentState: TournamentState = {
   startedAt: '',
 };
 
-const TOURNAMENT_STATE_FILE = path.join(
-  path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data/ladder.tab')),
-  'tournament_state.json'
-);
+function getTournamentStateFile(): string {
+  return path.join(getDataDir(), 'tournament_state.json');
+}
 
 // Load tournament state from file
 export async function loadTournamentState(): Promise<TournamentState> {
   try {
-    const content = await fs.readFile(TOURNAMENT_STATE_FILE, 'utf-8');
+    const content = await fs.readFile(getTournamentStateFile(), 'utf-8');
     tournamentState = JSON.parse(content);
     loggerLog('[TOURNAMENT]', `Loaded tournament state: ${JSON.stringify(tournamentState)}`);
   } catch {
@@ -103,9 +102,9 @@ export async function loadTournamentState(): Promise<TournamentState> {
 // Save tournament state to file
 export async function saveTournamentState(): Promise<void> {
   try {
-    const dataDir = path.dirname(TOURNAMENT_STATE_FILE);
+    const dataDir = getDataDir();
     await fs.mkdir(dataDir, { recursive: true });
-    await fs.writeFile(TOURNAMENT_STATE_FILE, JSON.stringify(tournamentState, null, 2), 'utf-8');
+    await fs.writeFile(getTournamentStateFile(), JSON.stringify(tournamentState, null, 2), 'utf-8');
     loggerLog('[TOURNAMENT]', `Saved tournament state: ${JSON.stringify(tournamentState)}`);
   } catch (error) {
     loggerLog('[TOURNAMENT]', `Failed to save tournament state: ${(error as Error).message}`);
@@ -146,7 +145,7 @@ export function isTournamentActive(): boolean {
 
 // Get mini-game file path for a given file name
 export function getMiniGameFilePath(fileName: string): string {
-  const dataDir = path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data/ladder.tab'));
+  const dataDir = getDataDir();
   return path.join(dataDir, fileName);
 }
 
@@ -176,7 +175,7 @@ export const generateMiniGameTrophies = sharedGenerateMiniGameTrophies;
 
 // Get list of existing mini-game files
 export async function getExistingMiniGameFiles(): Promise<string[]> {
-  const dataDir = path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data/ladder.tab'));
+  const dataDir = getDataDir();
   const existingFiles: string[] = [];
 
   for (const fileName of MINI_GAME_FILES) {
@@ -194,7 +193,7 @@ export async function getExistingMiniGameFiles(): Promise<string[]> {
 
 // Clear all mini-game files
 export async function clearMiniGames(): Promise<{ deletedCount: number }> {
-  const dataDir = path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data/ladder.tab'));
+  const dataDir = getDataDir();
   let deletedCount = 0;
 
   for (const fileName of MINI_GAME_FILES) {
@@ -220,7 +219,7 @@ export async function hasMiniGameFiles(): Promise<boolean> {
 
 // Check which mini-game files have data (more than just header)
 export async function checkMiniGameFilesWith(): Promise<string[]> {
-  const dataDir = path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data/ladder.tab'));
+  const dataDir = getDataDir();
   const filesWithData: string[] = [];
   
   for (const fileName of MINI_GAME_FILES) {
@@ -244,7 +243,7 @@ export async function checkMiniGameFilesWith(): Promise<string[]> {
 // Export all mini-game files as ZIP
 export async function exportTournamentFiles(): Promise<{ success: boolean; message: string; files?: string[] }> {
   try {
-    const dataDir = path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data/ladder.tab'));
+    const dataDir = getDataDir();
     const files: string[] = [];
 
     for (const fileName of MINI_GAME_FILES) {
@@ -461,7 +460,7 @@ export const tournamentStore: MiniGameStore = {
       }
       
       try {
-        const dataDir = path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data/ladder.tab'));
+        const dataDir = getDataDir();
         const filePath = path.join(dataDir, fileName);
         await fs.writeFile(filePath, fileContent + '\n', 'utf-8');
         imported.push(fileName);

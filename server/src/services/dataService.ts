@@ -47,6 +47,11 @@ const BACKUP_DIR = process.env.BACKUP_DIR
 
 const MAX_BACKUPS = 20;
 
+// Get the data directory path (evaluates env var dynamically for test compatibility)
+export function getDataDir(): string {
+  return path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data/ladder.tab'));
+}
+
 // Write health tracking
 export interface WriteHealth {
   lastWriteTime: string;

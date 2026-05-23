@@ -4,7 +4,7 @@ import path from 'path';
 import fs from 'fs/promises';
 import archiver from 'archiver';
 import { requireAdminKey } from '../middleware/auth.middleware.js';
-import { readLadderFile, writeLadderFile, ensureDataDirectory, PlayerData, generateTabContent, createBackup, rotateBackups, withTiming, getBackupList, restoreBackup, deleteBackup } from '../services/dataService.js';
+import { readLadderFile, writeLadderFile, ensureDataDirectory, PlayerData, generateTabContent, createBackup, rotateBackups, withTiming, getBackupList, restoreBackup, deleteBackup, getDataDir } from '../services/dataService.js';
 import { log } from '../utils/logger.js';
 import { broadcastSSEEvent } from '../services/sseService.js';
 
@@ -458,7 +458,7 @@ router.get('/tournament/trophies', async (req: Request, res: Response): Promise<
     }
 
     // Save trophy file to server
-    const dataDir = path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data'));
+    const dataDir = getDataDir();
     const dateStr = new Date().toISOString().split('T')[0];
     const trophyFileName = result.isClubMode ? `club_ladder_trophies_${dateStr}.tab` : `tournament_trophies_${dateStr}.tab`;
     const trophyFilePath = path.join(dataDir, trophyFileName);
@@ -511,7 +511,7 @@ router.post('/tournament/import', async (req: Request, res: Response): Promise<v
 // Clear all mini-game files
 router.post('/tournament/clear-mini-games', async (req: Request, res: Response): Promise<void> => {
   try {
-    const dataDir = path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data'));
+    const dataDir = getDataDir();
     let deletedCount = 0;
     
     for (const fileName of MINI_GAME_FILES) {
@@ -598,7 +598,7 @@ async function createZipBuffer(files: string[]): Promise<Buffer> {
     archive.on('end', () => resolve(Buffer.concat(chunks)));
     archive.on('error', (err) => reject(err));
     
-    const dataDir = path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data'));
+    const dataDir = getDataDir();
     
     for (const file of files) {
       const filePath = path.join(dataDir, file);
@@ -612,7 +612,7 @@ async function createZipBuffer(files: string[]): Promise<Buffer> {
 // Export all data TAB files (ladder + mini-games) into a zip
 router.get('/export-mini-data', async (req: Request, res: Response): Promise<void> => {
   try {
-    const dataDir = path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data'));
+    const dataDir = getDataDir();
     const files = ['ladder.tab'];
     
     for (const miniGameFile of MINI_GAME_FILES) {

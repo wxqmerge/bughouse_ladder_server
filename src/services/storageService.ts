@@ -14,6 +14,15 @@ import { loadUserSettings, normalizeServerUrl } from './userSettingsStorage';
 
 // ==================== UTILITIES ====================
 
+export function buildAuthHeaders(includeContentType = true): Record<string, string> {
+  const settings = loadUserSettings();
+  const headers: Record<string, string> = includeContentType ? { 'Content-Type': 'application/json' } : {};
+  if (settings.apiKey && settings.apiKey.trim()) {
+    headers['X-API-Key'] = settings.apiKey.trim();
+  }
+  return headers;
+}
+
 export function derivePrefixFromLocation(hostname: string, pathname: string): string {
   const host = hostname.replace(/[.\-:]/g, '_');
   const path = pathname
@@ -401,10 +410,7 @@ export async function savePlayers(players: PlayerData[], waitForServer = false, 
   const mode = dataService.getMode();
   const userSettings = loadUserSettings();
   const serverUrl = userSettings.server?.trim() || '';
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (userSettings.apiKey && userSettings.apiKey.trim()) {
-    headers['X-API-Key'] = userSettings.apiKey.trim();
-  }
+  const headers = buildAuthHeaders();
   
   if (mode === DataServiceMode.LOCAL && !serverUrl) {
     setJson('ladder_players', players);
@@ -550,11 +556,7 @@ export async function tryAcquireAdminLock(clientName?: string): Promise<boolean>
   if (!url) return true;
   const id = getClientId();
   const name = clientName || getClientName(id);
-  const settings = loadUserSettings();
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (settings.apiKey && settings.apiKey.trim()) {
-    headers['X-API-Key'] = settings.apiKey.trim();
-  }
+  const headers = buildAuthHeaders();
   try {
     const res = await fetch(`${url}/api/admin-lock/acquire`, { method: 'POST', headers, body: JSON.stringify({ clientId: id, clientName: name }) });
     if (!res.ok) return false;
@@ -568,11 +570,7 @@ export async function forceAcquireAdminLock(clientName?: string): Promise<boolea
   if (!url) return true;
   const id = getClientId();
   const name = clientName || getClientName(id);
-  const settings = loadUserSettings();
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (settings.apiKey && settings.apiKey.trim()) {
-    headers['X-API-Key'] = settings.apiKey.trim();
-  }
+  const headers = buildAuthHeaders();
   try {
     const res = await fetch(`${url}/api/admin-lock/force`, { method: 'POST', headers, body: JSON.stringify({ clientId: id, clientName: name }) });
     if (!res.ok) return false;
@@ -584,33 +582,21 @@ export async function forceAcquireAdminLock(clientName?: string): Promise<boolea
 export async function releaseAdminLock(): Promise<void> {
   const url = getServerUrl();
   if (!url) return;
-  const settings = loadUserSettings();
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (settings.apiKey && settings.apiKey.trim()) {
-    headers['X-API-Key'] = settings.apiKey.trim();
-  }
+  const headers = buildAuthHeaders();
   try { await fetch(`${url}/api/admin-lock/release`, { method: 'POST', headers, body: JSON.stringify({ clientId: getClientId() }) }); } catch {}
 }
 
 export async function refreshAdminLock(): Promise<void> {
   const url = getServerUrl();
   if (!url) return;
-  const settings = loadUserSettings();
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (settings.apiKey && settings.apiKey.trim()) {
-    headers['X-API-Key'] = settings.apiKey.trim();
-  }
+  const headers = buildAuthHeaders();
   try { await fetch(`${url}/api/admin-lock/refresh`, { method: 'POST', headers, body: JSON.stringify({ clientId: getClientId() }) }); } catch {}
 }
 
 export async function getAdminLockInfo(): Promise<{ locked: boolean; holderId?: string; holderName?: string; expiresAt?: number; serverReachable?: boolean; adminBlocked?: boolean }> {
   const url = getServerUrl();
   if (!url) return { locked: false, serverReachable: true };
-  const settings = loadUserSettings();
-  const headers: Record<string, string> = {};
-  if (settings.apiKey && settings.apiKey.trim()) {
-    headers['X-API-Key'] = settings.apiKey.trim();
-  }
+  const headers = buildAuthHeaders(false);
   try {
     const res = await fetch(`${url}/api/admin-lock/status`, { headers });
     if (res.status === 401 || res.status === 403) {
