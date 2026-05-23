@@ -1294,15 +1294,15 @@ export default function ErrorDialog({
                 <button
                    type="button"
                    onClick={handleEnterRecalculateSave}
-                   disabled={!currentInputValue.trim()}
+                   disabled={!currentInputValue.trim() || (parseStatus !== null && !parseStatus.isValid)}
                    style={{
                      padding: "0.5rem 1rem",
-                     background: !currentInputValue.trim()
+                     background: (!currentInputValue.trim() || (parseStatus !== null && !parseStatus.isValid))
                        ? "#9ca3af"
                        : "#10b981",
                      border: "none",
                      borderRadius: "0.25rem",
-                     cursor: !currentInputValue.trim()
+                     cursor: (!currentInputValue.trim() || (parseStatus !== null && !parseStatus.isValid))
                        ? "not-allowed"
                        : "pointer",
                      fontSize: "0.875rem",

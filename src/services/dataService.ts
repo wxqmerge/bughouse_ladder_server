@@ -937,29 +937,29 @@ class DataService {
     }
   }
 
-  async generateTrophyReport(debugLevel: number = 3): Promise<Blob> {
+  async generateTrophyReport(debugLevel: number = 3): Promise<{ blob: Blob; isClubMode: boolean }> {
     if (this.config.mode === DataServiceMode.LOCAL) {
       const store = this.getStore();
       const players = await this.getLocalPlayers();
       const result = await store.generateTrophyReport(players, debugLevel);
-      
+
       if (!result.success) {
         throw new Error(result.message);
       }
 
       const lines: string[] = [];
-      
+
       if (result.debugInfo) {
         lines.push(result.debugInfo);
         lines.push('');
       }
-      
+
       if (result.trophiesSection) {
         lines.push(...result.trophiesSection);
       }
-      
+
       const content = lines.join('\n') + '\n';
-      return new Blob([content], { type: 'text/tab-separated-values' });
+      return { blob: new Blob([content], { type: 'text/tab-separated-values' }), isClubMode: !!result.isClubMode };
     } else {
       const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/trophies?debugLevel=${debugLevel}`, {
         headers: this.getAuthHeaders(),
@@ -969,7 +969,7 @@ class DataService {
         throw new Error('Failed to generate trophy report');
       }
 
-      return response.blob();
+      return { blob: await response.blob(), isClubMode: false };
     }
   }
 

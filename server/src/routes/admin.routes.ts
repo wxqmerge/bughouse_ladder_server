@@ -459,14 +459,15 @@ router.get('/tournament/trophies', async (req: Request, res: Response): Promise<
 
     // Save trophy file to server
     const dataDir = path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data'));
-    const trophyFileName = `tournament_trophies_${new Date().toISOString().split('T')[0]}.tab`;
+    const dateStr = new Date().toISOString().split('T')[0];
+    const trophyFileName = result.isClubMode ? `club_ladder_trophies_${dateStr}.tab` : `tournament_trophies_${dateStr}.tab`;
     const trophyFilePath = path.join(dataDir, trophyFileName);
     const tabContent = generateTrophyTabContent(result.trophies!, result.isClubMode, result.debugInfo, result.trophiesSection);
     await fs.writeFile(trophyFilePath, tabContent, 'utf-8');
     log('[ADMIN]', `Trophy report saved: ${trophyFileName}`);
     
     res.setHeader('Content-Type', 'text/tab-separated-values');
-    res.setHeader('Content-Disposition', `attachment; filename="tournament_trophies_${new Date().toISOString().split('T')[0]}.tab"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${trophyFileName}"`);
     res.send(tabContent);
   } catch (error) {
     console.error('Generate trophies error:', error);
