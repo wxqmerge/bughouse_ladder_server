@@ -10,6 +10,43 @@ import {
 
 const router = Router();
 
+/**
+ * Get admin lock status (public endpoint - no auth required)
+ * GET /api/admin-lock/status
+ * Returns structured info so the client can distinguish:
+ * - server has no admin key configured
+ * - client didn't send a valid key
+ * - lock is held by another client
+ */
+router.get('/status', (req: Request, res: Response) => {
+  const adminKeySet = !!process.env.ADMIN_API_KEY;
+  const providedKey = req.headers['x-api-key'] as string;
+  const hasValidKey = adminKeySet && providedKey === process.env.ADMIN_API_KEY;
+
+  const info = getAdminLockInfo();
+
+  const base = {
+    adminConfigured: adminKeySet,
+    hasValidKey,
+    locked: info.locked,
+  };
+
+  if (info.locked) {
+    return res.json({
+      ...base,
+      lock: {
+        clientId: info.lock?.clientId,
+        clientName: info.lock?.clientName,
+        ipAddress: info.lock?.ipAddress,
+        acquiredAt: info.lock?.acquiredAt,
+      },
+      expiresAt: info.expiresAt,
+    });
+  }
+
+  res.json(base);
+});
+
 // Admin lock endpoints require admin authentication
 router.use(requireAdminKey);
 
@@ -116,31 +153,6 @@ router.post('/refresh', (req: Request, res: Response) => {
   res.json({
     success: result,
     message: result ? 'Lock refreshed' : 'Lock not held by this client',
-  });
-});
-
-/**
- * Get admin lock status
- * GET /api/admin-lock/status
- */
-router.get('/status', (req: Request, res: Response) => {
-  const info = getAdminLockInfo();
-
-  if (!info.locked) {
-    return res.json({
-      locked: false,
-    });
-  }
-
-  res.json({
-    locked: true,
-    lock: {
-      clientId: info.lock?.clientId,
-      clientName: info.lock?.clientName,
-      ipAddress: info.lock?.ipAddress,
-      acquiredAt: info.lock?.acquiredAt,
-    },
-    expiresAt: info.expiresAt,
   });
 });
 

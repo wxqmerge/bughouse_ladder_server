@@ -320,6 +320,11 @@ export async function generateTrophyReport(debugLevel: number = 3): Promise<{
     let trophies: any[] = [];
     const debugLines: string[] = [];
 
+    // Debug: log player ratings before trophy generation
+    const zeroNRating = players.filter(p => p.nRating === 0).length;
+    const zeroRating = players.filter(p => p.rating === 0).length;
+    loggerLog('[TROPHIES]', `${players.length} players, ${zeroNRating} with nRating=0, ${zeroRating} with rating=0, mode=${isClubMode ? 'club' : 'tournament'}`);
+
     if (debugLevel <= 4) {
       const headerLines = buildDebugHeader(players, minTrophies, isClubMode, undefined, debugLevel);
       debugLines.push(...headerLines);
