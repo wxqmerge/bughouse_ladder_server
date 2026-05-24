@@ -20,6 +20,7 @@ export function buildAuthHeaders(includeContentType = true): Record<string, stri
   if (settings.apiKey && settings.apiKey.trim()) {
     headers['X-API-Key'] = settings.apiKey.trim();
   }
+  console.log('[AUTH-HEADERS] apiKey present:', !!settings.apiKey?.trim(), 'keys:', Object.keys(headers));
   return headers;
 }
 
@@ -351,10 +352,12 @@ let batchBuffer: PlayerData[] | null = null;
 export function startBatch(): void {
   if (batchOperationCount === 0) batchBuffer = getJsonArray<PlayerData>('ladder_players');
   batchOperationCount++;
+  console.log('[BATCH] startBatch → count=', batchOperationCount);
 }
 
 export async function endBatch(): Promise<void> {
   batchOperationCount--;
+  console.log('[BATCH] endBatch → count=', batchOperationCount);
   if (batchOperationCount === 0 && batchBuffer !== null) {
     await commitBatchBuffer();
     batchBuffer = null;
@@ -559,10 +562,15 @@ export async function tryAcquireAdminLock(clientName?: string): Promise<boolean>
   const headers = buildAuthHeaders();
   try {
     const res = await fetch(`${url}/api/admin-lock/acquire`, { method: 'POST', headers, body: JSON.stringify({ clientId: id, clientName: name }) });
+    console.log('[ADMIN-LOCK] acquire response:', res.status, res.ok ? 'ok' : 'FAIL');
     if (!res.ok) return false;
     const data = await res.json();
+    console.log('[ADMIN-LOCK] acquire data:', JSON.stringify(data));
     return data.success;
-  } catch { return false; }
+  } catch (e) {
+    console.log('[ADMIN-LOCK] acquire error:', e);
+    return false;
+  }
 }
 
 export async function forceAcquireAdminLock(clientName?: string): Promise<boolean> {
@@ -593,21 +601,40 @@ export async function refreshAdminLock(): Promise<void> {
   try { await fetch(`${url}/api/admin-lock/refresh`, { method: 'POST', headers, body: JSON.stringify({ clientId: getClientId() }) }); } catch {}
 }
 
-export async function getAdminLockInfo(): Promise<{ locked: boolean; holderId?: string; holderName?: string; expiresAt?: number; serverReachable?: boolean; adminBlocked?: boolean }> {
+export async function getAdminLockInfo(): Promise<{ locked: boolean; holderId?: string; holderName?: string; expiresAt?: number; serverReachable?: boolean; adminBlocked?: boolean; missingKey?: boolean }> {
   const url = getServerUrl();
   if (!url) return { locked: false, serverReachable: true };
   const headers = buildAuthHeaders(false);
+  console.log('[ADMIN-LOCK-STATUS] requesting status...');
   try {
     const res = await fetch(`${url}/api/admin-lock/status`, { headers });
-    if (res.status === 401 || res.status === 403) {
-      return { locked: false, serverReachable: true, adminBlocked: true };
-    }
-    if (!res.ok) {
+    console.log('[ADMIN-LOCK-STATUS] response:', res.status);
+
+    if (!res.ok && res.status !== 401 && res.status !== 403) {
       return { locked: false, serverReachable: false };
     }
+
     const data = await res.json();
-    return data.locked ? { locked: true, holderId: data.lock?.clientId, holderName: data.lock?.clientName, expiresAt: data.expiresAt, serverReachable: true } : { locked: false, serverReachable: true };
-  } catch { return { locked: false, serverReachable: false }; }
+    console.log('[ADMIN-LOCK-STATUS] data:', JSON.stringify(data));
+
+    // Server has no admin key configured at all
+    if (data.adminConfigured === false) {
+      return { locked: false, serverReachable: true, adminBlocked: true };
+    }
+
+    // Client didn't send a valid key
+    if (data.hasValidKey === false) {
+      return { locked: false, serverReachable: true, missingKey: true };
+    }
+
+    // Authenticated — normal lock info
+    return data.locked
+      ? { locked: true, holderId: data.lock?.clientId, holderName: data.lock?.clientName, expiresAt: data.expiresAt, serverReachable: true }
+      : { locked: false, serverReachable: true };
+  } catch (e) {
+    console.log('[ADMIN-LOCK-STATUS] fetch error:', e);
+    return { locked: false, serverReachable: false };
+  }
 }
 
 export async function isAdminLocked(): Promise<boolean> {

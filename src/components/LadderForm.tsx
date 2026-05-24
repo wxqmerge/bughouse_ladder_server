@@ -52,6 +52,7 @@ import {
   getClientId, 
   getServerUrl,
   isAdminMode,
+  isInBatch,
   setAdminMode,
   clearAdminMode,
   getPendingNewDay,
@@ -214,7 +215,7 @@ interface LadderFormProps {
   setShowSettings?: (show: boolean) => void;
   triggerWalkthrough?: boolean;
   setTriggerWalkthrough?: (show: boolean) => void;
-  onSetRecalculateRef?: (ref: () => void) => void;
+  onSetRecalculateRef?: (ref: () => Promise<boolean>) => void;
   onSetRefreshPlayersRef?: (ref: () => void) => void;
   onAdminChange?: (isAdmin: boolean) => void;
   showServerDownBlocking?: boolean;
@@ -1431,7 +1432,7 @@ export default function LadderForm({
     setEnterGamesError(null);
   };
 
-  const recalculateRatings = async () => {
+ const recalculateRatings = async (): Promise<boolean> => {
     console.log(`>>> [BUTTON PRESSED] Recalculate Ratings - ${players.length} players, isAdmin=${isAdmin}`);
 
     try {
@@ -1452,7 +1453,7 @@ export default function LadderForm({
       if (result.rankBlockingErrors && result.rankBlockingErrors.length > 0) {
         console.log(`=== RECALC PAUSED === Rank blocking errors detected`);
         alert('Rank Errors:\n\n' + result.rankBlockingErrors.join('\n') + '\n\nPlease fix ranks before recalculating.');
-        return;
+        return false;
       }
 
       // Fix rank warnings (missing/duplicate ranks) before New Day + ReRank
@@ -1478,7 +1479,7 @@ export default function LadderForm({
       // If there are errors, show the error dialog and return early
       if (result.hasErrors && result.errors.length > 0) {
         console.log(`=== RECALC PAUSED === Found ${result.errors.length} errors - showing error dialog`);
-        return;
+        return false;
       }
 
       let matches: MatchData[] = result.matches;
@@ -1529,7 +1530,9 @@ export default function LadderForm({
           console.log(
             `>>> [NEW DAY] Current title from storage: "${currentTitle}"`,
           );
-          console.log(`>>> [NEW DAY] Next title will be: "${getNextTitle(currentTitle)}"`);
+          console.log(
+            `>>> [NEW DAY] Next title will be: "${getNextTitle(currentTitle)}"`,
+          );
 
       // Apply New Day transformations
          const finalPlayers = processNewDayTransformations(
@@ -1537,28 +1540,29 @@ export default function LadderForm({
            reRank,
          );
 
-            await savePlayers(finalPlayers);
-           setProjectNameStorage(getNextTitle(currentTitle));
-           clearPendingNewDay();
-           clearSettings();
+           await savePlayers(finalPlayers);
+          setProjectNameStorage(getNextTitle(currentTitle));
+          clearPendingNewDay();
+          clearSettings();
 
-           if (shouldLog(10)) {
-             console.log(
-               `New Day complete - Title: ${getNextTitle(currentTitle)}, ReRank: ${reRank}\n`,
-             );
-           }
+          if (shouldLog(10)) {
+            console.log(
+              `New Day complete - Title: ${getNextTitle(currentTitle)}, ReRank: ${reRank}\n`,
+            );
+          }
 
-          setPlayers(finalPlayers);
+         setPlayers(finalPlayers);
 
           // Flush batch buffer to server before reload
           await endBatch();
 
           // Reload to apply changes
           window.location.reload();
-          return;
+          return true;
         } catch (err) {
           console.error("Failed to process pending New Day:", err);
           clearPendingNewDay();
+          return false;
         }
       }
 
@@ -1576,11 +1580,13 @@ export default function LadderForm({
       
       console.log('[RECALC] Recalculate complete.');
       (window as any).__ladder_setStatus?.(null);
+      return true;
     } catch (err) {
       console.error('[RECALC] ERROR:', err);
       console.error('[RECALC] Stack:', err instanceof Error ? err.stack : 'N/A');
       (window as any).__ladder_setStatus?.('Recalculate failed - see console');
       setTimeout(() => (window as any).__ladder_setStatus?.(null), 5000);
+      return false;
     }
   };
 
@@ -3238,6 +3244,7 @@ export default function LadderForm({
   };
 
   const handleToggleAdmin = async () => {
+    console.log('[ADMIN-TOGGLE] Called, isAdmin=', isAdmin, 'inBatch=', isInBatch());
     if (shouldLog(10)) {
       console.log(">>> [MENU ACTION] Toggle admin mode");
     }
@@ -3249,6 +3256,7 @@ export default function LadderForm({
       
       // Local mode: no server configured, always allow immediately
       const serverUrl = getServerUrl();
+      console.log('[ADMIN-TOGGLE] serverUrl=', serverUrl);
       if (!serverUrl) {
         console.log('[ADMIN_LOCK] Local mode - entering admin mode directly');
         setIsAdmin(true);
@@ -3257,6 +3265,7 @@ export default function LadderForm({
       
       // Check server version
       const versionsMatch = await checkServerVersion();
+      console.log('[ADMIN-TOGGLE] versionsMatch=', versionsMatch);
       if (!versionsMatch) {
         setShowVersionWarningDialog(true);
         return;
@@ -3264,10 +3273,17 @@ export default function LadderForm({
       
       // Server mode: check lock status
       const lockInfo = await getAdminLockInfo();
+      console.log('[ADMIN-TOGGLE] lockInfo=', JSON.stringify(lockInfo));
       
       // Check if server is blocking admin access (no API key configured)
       if (lockInfo.adminBlocked) {
         alert("Admin mode is not available:\n\nThe server does not have an admin API key configured. Contact your server administrator to set ADMIN_API_KEY in the server environment.");
+        return;
+      }
+      
+      // Client didn't send a valid API key
+      if (lockInfo.missingKey) {
+        alert("Admin mode requires an API key.\n\nPlease enter your API key in Settings (View → Settings) and try again.");
         return;
       }
       
@@ -3287,14 +3303,21 @@ export default function LadderForm({
       
       // Try to acquire lock normally first
       const acquired = await tryAcquireAdminLock();
+      console.log('[ADMIN-TOGGLE] tryAcquireAdminLock result=', acquired);
       if (acquired) {
         setIsAdmin(true);
       } else {
         // Acquisition failed - check what's happening and offer force acquire
         const lockInfo2 = await getAdminLockInfo();
+        console.log('[ADMIN-TOGGLE] lockInfo2 (after acquire fail)=', JSON.stringify(lockInfo2));
         
         if (lockInfo2.adminBlocked) {
           alert("Admin mode is not available:\n\nThe server does not have an admin API key configured. Contact your server administrator to set ADMIN_API_KEY in the server environment.");
+          return;
+        }
+        
+        if (lockInfo2.missingKey) {
+          alert("Admin mode requires an API key.\n\nPlease enter your API key in Settings (View → Settings) and try again.");
           return;
         }
         
@@ -3899,12 +3922,16 @@ export default function LadderForm({
                       setIsAdmin(true);
                       return;
                     }
-                    const lockInfo = await getAdminLockInfo();
-                    if (lockInfo.adminBlocked) {
-                      alert("Admin mode is not available:\n\nThe server does not have an admin API key configured. Contact your server administrator to set ADMIN_API_KEY in the server environment.");
-                      return;
-                    }
-                    if (lockInfo.serverReachable === false) {
+           const lockInfo = await getAdminLockInfo();
+                     if (lockInfo.adminBlocked) {
+                       alert("Admin mode is not available:\n\nThe server does not have an admin API key configured. Contact your server administrator to set ADMIN_API_KEY in the server environment.");
+                       return;
+                     }
+                     if (lockInfo.missingKey) {
+                       alert("Admin mode requires an API key.\n\nPlease enter your API key in Settings (View → Settings) and try again.");
+                       return;
+                     }
+                     if (lockInfo.serverReachable === false) {
                       alert("Cannot reach admin server. Please check:\n\n- Server URL is correct\n- Server is running\n- Network connection is active\n\nServer: " + serverUrl);
                       return;
                     }
@@ -3919,6 +3946,10 @@ export default function LadderForm({
                       setIsAdmin(true);
                     } else {
                       const lockInfo2 = await getAdminLockInfo();
+                      if (lockInfo2.missingKey) {
+                        alert("Admin mode requires an API key.\n\nPlease enter your API key in Settings (View → Settings) and try again.");
+                        return;
+                      }
                       if (lockInfo2.serverReachable === false) {
                         alert("Cannot reach admin server. Please check your connection.");
                         return;

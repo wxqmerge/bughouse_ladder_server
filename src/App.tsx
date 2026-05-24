@@ -72,7 +72,7 @@ function App() {
 const [urlConfigApplied, setUrlConfigApplied] = useState(false);
   const [status, setStatus] = useState<string | null>("Initializing...");
   const [currentMode, setCurrentMode] = useState<'local' | 'server_down' | 'server' | null>(null);
-  const recalculateRef = useRef<(() => void) | undefined>(undefined);
+  const recalculateRef = useRef<(() => Promise<boolean>) | undefined>(undefined);
   const refreshPlayersRef = useRef<(() => void) | undefined>(undefined);
 
   // Cache bust: reload if build timestamp differs from last visit
@@ -434,11 +434,25 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
   };
 
   const handleGenerateTrophies = async () => {
+    console.log('[TROPHIES] Starting, isAdmin=', isAdmin);
+    // Run recalculate_and_save first to ensure data is current
+    if (recalculateRef.current) {
+      const success = await recalculateRef.current();
+      console.log('[TROPHIES] recalculate result=', success);
+      if (!success) {
+        console.log('[TROPHIES] Recalculate failed - aborting trophy generation');
+        return;
+      }
+    } else {
+      console.warn('[TROPHIES] Recalculate ref not available, proceeding without recalculation');
+    }
+
     try {
       const { blob, isClubMode } = await dataService.generateTrophyReport(getDebugLevel());
       const dateStr = new Date().toISOString().split('T')[0];
       const fileName = isClubMode ? `club_ladder_trophies_${dateStr}.tab` : `tournament_trophies_${dateStr}.tab`;
       downloadBlob(blob, fileName);
+      console.log('[TROPHIES] Downloaded:', fileName);
     } catch (error) {
       console.error('Failed to generate trophies:', error);
       alert('Failed to generate trophies: ' + (error as Error).message);
@@ -478,7 +492,7 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
     setTriggerWalkthrough(true);
   };
 
-  const handleSetRecalculateRef = (ref: () => void) => {
+  const handleSetRecalculateRef = (ref: () => Promise<boolean>) => {
     recalculateRef.current = ref;
   };
 

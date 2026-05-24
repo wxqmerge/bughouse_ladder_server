@@ -99,10 +99,18 @@ export function clubLadderGamesPlayed(player: PlayerData): number {
   return (player.num_games || 0) + countGames(player.gameResults);
 }
 
+/**
+ * Get effective rating for sorting. After a new day, nRating is reset to 0
+ * but the previous rating is preserved in the `rating` field.
+ */
+function effectiveRating(player: PlayerData): number {
+  return player.nRating || player.rating || 0;
+}
+
 export function generateClubLadderTrophies(players: PlayerData[], minTrophies: number): any[] {
   const trophies: any[] = [];
   const seenPlayers = new Set<string>();
-  const sortedPlayers = [...players].sort((a, b) => b.nRating - a.nRating);
+  const sortedPlayers = [...players].sort((a, b) => effectiveRating(b) - effectiveRating(a));
 
   function addTrophy(trophy: any) {
     const key = `${trophy.player}`;
@@ -120,7 +128,7 @@ export function generateClubLadderTrophies(players: PlayerData[], minTrophies: n
         rank: trophies.length + 1,
         player: formatPlayerName(p),
         gr: p.grade,
-        rating: p.nRating,
+        rating: effectiveRating(p),
         trophyType: placeName,
         miniGameOrGrade: 'Club Ladder',
         gamesPlayed: g,
@@ -134,16 +142,16 @@ export function generateClubLadderTrophies(players: PlayerData[], minTrophies: n
   function awardGradePlace(placeName: string) {
     const gradeGroups = [...new Set(players.map(p => p.grade).filter(Boolean))].sort((a, b) => parseInt(b) - parseInt(a));
     for (const grade of gradeGroups) {
-      const gradePlayers = players.filter(p => p.grade === grade && p.trophyEligible !== false).sort((a, b) => b.nRating - a.nRating);
+      const gradePlayers = players.filter(p => p.grade === grade && p.trophyEligible !== false).sort((a, b) => effectiveRating(b) - effectiveRating(a));
       for (const p of gradePlayers) {
         const g = clubLadderGamesPlayed(p);
         if (addTrophy({
           rank: trophies.length + 1,
           player: formatPlayerName(p),
           gr: grade,
-          rating: p.nRating,
-          trophyType: placeName,
-          miniGameOrGrade: `Gr ${grade}`,
+      rating: effectiveRating(p),
+           trophyType: placeName,
+           miniGameOrGrade: `Gr ${grade}`,
           gamesPlayed: g,
           totalGames: g,
         })) {
@@ -166,7 +174,7 @@ export function generateClubLadderTrophies(players: PlayerData[], minTrophies: n
       rank: trophies.length + 1,
       player: formatPlayerName(p),
       gr: p.grade,
-      rating: p.nRating,
+      rating: effectiveRating(p),
       trophyType: 'Most Games',
       miniGameOrGrade: 'Club Ladder',
       gamesPlayed: g,
@@ -244,7 +252,7 @@ export function generateMiniGameTrophies(
         return p.gameResults.some(r => r && r !== '' && r !== '_');
       });
 
-      const sortedPlayers = playersWithGames.sort((a, b) => b.nRating - a.nRating);
+      const sortedPlayers = playersWithGames.sort((a, b) => effectiveRating(b) - effectiveRating(a));
       for (const p of sortedPlayers) {
         const playerName = formatPlayerName(p);
         if (seenPlayers.has(playerName)) continue;
@@ -255,7 +263,7 @@ export function generateMiniGameTrophies(
           rank: trophies.length + 1,
           player: playerName,
           gr: p.grade,
-          rating: p.nRating,
+          rating: effectiveRating(p),
           trophyType: place === 1 ? '1st Place' : place === 2 ? '2nd Place' : `${place}rd Place`,
           miniGameOrGrade: fileName.replace('.tab', ''),
           gamesPlayed: miniGameGames,
