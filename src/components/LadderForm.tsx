@@ -1308,7 +1308,12 @@ export default function LadderForm({
           const existingValue = player.gameResults[roundIndex]?.replace(/_+$/, "") || "";
           console.log('[ENTER_GAMES_DEBUG] fillCell called: playerRank=' + playerRank + ' resultString="' + resultString + '" existingValue="' + existingValue + '"');
           if (!existingValue.trim()) {
-            player.gameResults[roundIndex] = resultString;
+            setPlayers((prev) => prev.map((p) => {
+              if (p.rank !== playerRank) return p;
+              const newResults = [...(p.gameResults || new Array(31).fill(null))];
+              newResults[roundIndex] = resultString;
+              return { ...p, gameResults: newResults };
+            }));
             console.log('[ENTER_GAMES_DEBUG] Cell SET: P' + playerRank + ' R' + (roundIndex + 1) + ' = "' + resultString + '"');
             log('[ENTER_GAMES]', 'Filled cell P' + playerRank + ' R' + (roundIndex + 1) + ': "' + resultString + '"');
           } else {
@@ -1467,8 +1472,6 @@ export default function LadderForm({
               const fixedPlayers = fixPlayerRanks(players);
               console.log(`[RECALC] Fixed ${players.length} players to ${fixedPlayers.length} (removed duplicates)`);
               setPlayers(fixedPlayers);
-              players.length = 0;
-              players.push(...fixedPlayers);
             }
           } catch {
             // ignore
@@ -2846,7 +2849,7 @@ export default function LadderForm({
     }
 
     const updatedPlayers = (() => {
-      const playersCopy = players.map((p) => ({ ...p }));
+      const playersCopy = players.map((p) => ({ ...p, gameResults: p.gameResults ? [...p.gameResults] : new Array(31).fill(null) }));
       for (const result of results) {
         const playerIndex = playersCopy.findIndex(
           (p) => p.rank === result.cellOwnerRank,
@@ -3073,16 +3076,14 @@ export default function LadderForm({
     const rows = text.split('\n').filter((r: string) => r.trim());
     if (rows.length <= 1) return;
     e.preventDefault();
-    const updatedPlayers = [...players];
-    const playerIdx = updatedPlayers.findIndex((p: PlayerData) => p.rank === playerRank);
-    if (playerIdx < 0) return;
-    const targetPlayer = updatedPlayers[playerIdx];
-    const newResults = [...(targetPlayer.gameResults || new Array(31).fill(null))];
+    const newResults = [...(players.find((p: PlayerData) => p.rank === playerRank)?.gameResults || new Array(31).fill(null))];
     for (let i = 0; i < rows.length && (startRound + i) < 31; i++) {
       newResults[startRound + i] = rows[i].trim() || null;
     }
-    targetPlayer.gameResults = newResults;
-    setPlayers(updatedPlayers);
+    setPlayers(prev => prev.map((p) => {
+      if (p.rank !== playerRank) return p;
+      return { ...p, gameResults: newResults };
+    }));
   };
 
   const handleDeleteHiddenPlayers = () => {
@@ -4855,16 +4856,10 @@ export default function LadderForm({
                                     const value = (e.target.textContent || "").replace(/\n/g, "");
                                     const val = parseInt(value) || 0;
                                     e.target.textContent = String(Math.abs(val));
-                                    setPlayers((prevPlayers) => {
-                                      const updatedPlayers = [...prevPlayers];
-                                      const targetPlayer = updatedPlayers.find(
-                                        (p) => p.rank === player.rank,
-                                      );
-                                      if (!targetPlayer) return prevPlayers;
-                                      targetPlayer.nRating = Math.abs(val);
-                                      targetPlayer.trophyEligible = true;
-                                      return updatedPlayers;
-                                    });
+                                 setPlayers((prevPlayers) => prevPlayers.map((p) => {
+                                       if (p.rank !== player.rank) return p;
+                                       return { ...p, nRating: Math.abs(val), trophyEligible: true };
+                                     }));
                                   }}
                             onPaste={(e) => {
                                 const text = e.clipboardData.getData('text').trim();
@@ -4872,16 +4867,10 @@ export default function LadderForm({
                                   return;
                                 }
                                 e.preventDefault();
-                                setPlayers((prevPlayers) => {
-                                  const updatedPlayers = [...prevPlayers];
-                                  const targetPlayer = updatedPlayers.find(
-                                    (p) => p.rank === player.rank,
-                                  );
-                                  if (!targetPlayer) return prevPlayers;
-                                  targetPlayer.nRating = parseInt(text) || 0;
-                                  targetPlayer.trophyEligible = true;
-                                  return updatedPlayers;
-                                });
+                            setPlayers((prevPlayers) => prevPlayers.map((p) => {
+                                   if (p.rank !== player.rank) return p;
+                                   return { ...p, nRating: parseInt(text) || 0, trophyEligible: true };
+                                 }));
                               }}
                           onKeyDown={(e) => {
                                    if (e.key === "Enter") {
@@ -4930,65 +4919,53 @@ export default function LadderForm({
                                    suppressContentEditableWarning={true}
                                    data-cell={`player-${player.rank}-6`}
                                    style={{ cursor: "text" }}
-                                   onPaste={(e) => {
-                                     const text = e.clipboardData.getData('text').trim();
-                                     e.preventDefault();
-                                     setPlayers((prevPlayers) => {
-                                       const updatedPlayers = [...prevPlayers];
-                                       const targetPlayer = updatedPlayers.find((p) => p.rank === player.rank);
-                                       if (!targetPlayer) return prevPlayers;
-                                       targetPlayer.trophyEligible = normalizeTrophy(text);
-                                        return updatedPlayers;
-                                      });
-                                    }}
-                                  onKeyDown={(e) => {
-                                       if (e.key === "Enter") {
+                                onPaste={(e) => {
+                                      const text = e.clipboardData.getData('text').trim();
+                                      e.preventDefault();
+                                      setPlayers((prevPlayers) => prevPlayers.map((p) => {
+                                        if (p.rank !== player.rank) return p;
+                                        return { ...p, trophyEligible: normalizeTrophy(text) };
+                                      }));
+                                     }}
+                                   onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                          e.preventDefault();
+                                          const current = e.currentTarget as HTMLElement;
+                                          const value = (current.textContent || "").trim();
+                                          setPlayers((prevPlayers) => prevPlayers.map((p) => {
+                                            if (p.rank !== player.rank) return p;
+                                            return { ...p, trophyEligible: normalizeTrophy(value) };
+                                          }));
+                                          current.blur();
+                                          setTimeout(() => {
+                                            moveFocusDown(current);
+                                          }, 10);
+                                        } else if (e.key === "Tab") {
+                                          e.preventDefault();
+                                          const current = e.currentTarget as HTMLElement;
+                                          const value = (current.textContent || "").trim();
+                                          setPlayers((prevPlayers) => prevPlayers.map((p) => {
+                                            if (p.rank !== player.rank) return p;
+                                            return { ...p, trophyEligible: normalizeTrophy(value) };
+                                          }));
+                                          current.blur();
+                                          setTimeout(() => {
+                                            const targetCol = e.shiftKey ? 5 : 7;
+                                            const targetCell = document.querySelector(`[data-cell="player-${player.rank}-${targetCol}"]`) as HTMLElement;
+                                            if (targetCell) targetCell.focus();
+                                          }, 10);
+                                        } else if (e.key === "Escape") {
                                          e.preventDefault();
-                                         const current = e.currentTarget as HTMLElement;
-                                         const value = (current.textContent || "").trim();
-                                         setPlayers((prevPlayers) => {
-                                           const updatedPlayers = [...prevPlayers];
-                                           const targetPlayer = updatedPlayers.find((p) => p.rank === player.rank);
-                                           if (!targetPlayer) return prevPlayers;
-                                           targetPlayer.trophyEligible = normalizeTrophy(value);
-                                           return updatedPlayers;
-                                         });
-                                         current.blur();
-                                         setTimeout(() => {
-                                           moveFocusDown(current);
-                                         }, 10);
-                                       } else if (e.key === "Tab") {
-                                         e.preventDefault();
-                                         const current = e.currentTarget as HTMLElement;
-                                         const value = (current.textContent || "").trim();
-                                         setPlayers((prevPlayers) => {
-                                           const updatedPlayers = [...prevPlayers];
-                                           const targetPlayer = updatedPlayers.find((p) => p.rank === player.rank);
-                                           if (!targetPlayer) return prevPlayers;
-                                           targetPlayer.trophyEligible = normalizeTrophy(value);
-                                           return updatedPlayers;
-                                         });
-                                         current.blur();
-                                         setTimeout(() => {
-                                           const targetCol = e.shiftKey ? 5 : 7;
-                                           const targetCell = document.querySelector(`[data-cell="player-${player.rank}-${targetCol}"]`) as HTMLElement;
-                                           if (targetCell) targetCell.focus();
-                                         }, 10);
-                                       } else if (e.key === "Escape") {
-                                        e.preventDefault();
-                                        e.currentTarget.blur();
-                                      }
-                                    }}
-                                    onBlur={(e) => {
-                                      const value = (e.target.textContent || "").trim();
-                                      setPlayers((prevPlayers) => {
-                                        const updatedPlayers = [...prevPlayers];
-                                        const targetPlayer = updatedPlayers.find((p) => p.rank === player.rank);
-                                        if (!targetPlayer) return prevPlayers;
-                                        targetPlayer.trophyEligible = normalizeTrophy(value);
-                                        return updatedPlayers;
-                                      });
-                                    }}
+                                         e.currentTarget.blur();
+                                       }
+                                     }}
+                                     onBlur={(e) => {
+                                       const value = (e.target.textContent || "").trim();
+                                       setPlayers((prevPlayers) => prevPlayers.map((p) => {
+                                         if (p.rank !== player.rank) return p;
+                                         return { ...p, trophyEligible: normalizeTrophy(value) };
+                                       }));
+                                     }}
                                  >
                                    {player.trophyEligible !== false ? "+" : "-"}
                                  </span>
@@ -5031,27 +5008,12 @@ export default function LadderForm({
                                  } else {
                                    e.target.textContent = value;
                                  }
-                                 setPlayers((prevPlayers) => {
-                                   const updatedPlayers = [...prevPlayers];
-                                   const targetPlayer = updatedPlayers.find(
-                                     (p) => p.rank === player.rank,
-                                   );
-                                   if (!targetPlayer) return prevPlayers;
-                                   switch (field) {
-                                     case "group": targetPlayer.group = value; break;
-                                     case "lastName": targetPlayer.lastName = value; break;
-                                     case "firstName": targetPlayer.firstName = value; break;
-                                     case "rating": targetPlayer.rating = parseInt(value) || 0; break;
-                                     case "grade": targetPlayer.grade = value; break;
-                                     case "num_games": targetPlayer.num_games = parseInt(value) || 0; break;
-                                     case "attendance": targetPlayer.attendance = parseInt(value) || 0; break;
-                                     case "phone": targetPlayer.phone = value; break;
-                                     case "info": targetPlayer.info = value; break;
-                                     case "school": targetPlayer.school = value; break;
-                                     case "room": targetPlayer.room = value; break;
-                                   }
-                                   return updatedPlayers;
-                                 });
+                           setPlayers((prevPlayers) => prevPlayers.map((p) => {
+                                    if (p.rank !== player.rank) return p;
+                                    const numericFields = ["rating", "nRating", "num_games", "attendance"];
+                                    const parsedValue = numericFields.includes(field) ? parseInt(value) || 0 : value;
+                                    return { ...p, [field]: parsedValue };
+                                  }));
                                }}
                             onPaste={(e) => {
                               const text = e.clipboardData.getData('text');
@@ -5166,20 +5128,15 @@ export default function LadderForm({
                                     e.currentTarget.blur();
                                   }
                                 }}
-                                onBlur={(e) => {
-                                  const value = e.target.textContent || "";
-                                  setPlayers((prevPlayers) => {
-                                    const updatedPlayers = [...prevPlayers];
-                                    const targetPlayer = players.find(
-                                      (p) => p.rank === player.rank,
-                                    );
-                                    if (!targetPlayer) return prevPlayers;
-                                    const newResults = [...(targetPlayer.gameResults || new Array(31).fill(null))];
-                                    newResults[gCol] = value.trim() || null;
-                                    targetPlayer.gameResults = newResults;
-                                    return updatedPlayers;
-                                  });
-                                }}
+                               onBlur={(e) => {
+                                   const value = e.target.textContent || "";
+                                   setPlayers((prevPlayers) => prevPlayers.map((p) => {
+                                     if (p.rank !== player.rank) return p;
+                                     const newResults = [...(p.gameResults || new Array(31).fill(null))];
+                                     newResults[gCol] = value.trim() || null;
+                                     return { ...p, gameResults: newResults };
+                                   }));
+                                 }}
                              >
                                  {displayValue}
                                </span>
@@ -5233,20 +5190,15 @@ export default function LadderForm({
                                      e.currentTarget.blur();
                                    }
                                  }}
-                               onBlur={(e) => {
-                                 const value = e.target.textContent || "";
-                                 setPlayers((prevPlayers) => {
-                                   const updatedPlayers = [...prevPlayers];
-                                   const targetPlayer = updatedPlayers.find(
-                                     (p) => p.rank === player.rank,
-                                   );
-                                   if (!targetPlayer) return prevPlayers;
-                                   const newResults = [...(targetPlayer.gameResults || new Array(31).fill(null))];
-                                   newResults[gCol] = value.trim() || null;
-                                   targetPlayer.gameResults = newResults;
-                                   return updatedPlayers;
-                                 });
-                               }}
+                           onBlur={(e) => {
+                                  const value = e.target.textContent || "";
+                                  setPlayers((prevPlayers) => prevPlayers.map((p) => {
+                                    if (p.rank !== player.rank) return p;
+                                    const newResults = [...(p.gameResults || new Array(31).fill(null))];
+                                    newResults[gCol] = value.trim() || null;
+                                    return { ...p, gameResults: newResults };
+                                  }));
+                                }}
                              >
                                {displayValue}{tempResult}
                              </span>
