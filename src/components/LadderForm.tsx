@@ -619,17 +619,17 @@ export default function LadderForm({
           (window as any).__ladder_setStatus?.(`Connecting to ${serverUrl}...`);
           try {
             const isMiniGame = isMiniGameTitle(projectName);
-            const hasApiKey = !!(splashApiKey && splashApiKey.trim());
+            const hasApiKey = !!(splashApiKey && splashApiKey.trim()) || !!(userSettings.apiKey && userSettings.apiKey.trim());
             // Skip mini-game fetch if no API key (admin endpoint requires auth)
             if (!(isMiniGame && !hasApiKey)) {
               const apiUrl = isMiniGame
                 ? `${serverUrl}/api/admin/tournament/read-mini-game?fileName=${titleToFileName(projectName)}`
                 : `${serverUrl}/api/ladder`;
 
-              const initHeaders: Record<string, string> = {};
-              if (hasApiKey) {
-                initHeaders['X-API-Key'] = splashApiKey!.trim();
-              }
+             const initHeaders: Record<string, string> = {};
+               if (hasApiKey) {
+                 initHeaders['X-API-Key'] = (splashApiKey || userSettings.apiKey || '').trim();
+               }
               const response = await fetch(apiUrl, {
                 headers: initHeaders,
               });
