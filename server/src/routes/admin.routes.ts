@@ -6,6 +6,7 @@ import archiver from 'archiver';
 import { requireAdminKey } from '../middleware/auth.middleware.js';
 import { readLadderFile, writeLadderFile, ensureDataDirectory, PlayerData, generateTabContent, createBackup, rotateBackups, withTiming, getBackupList, restoreBackup, deleteBackup, getDataDir } from '../services/dataService.js';
 import { log } from '../utils/logger.js';
+import { sanitizeFileName, validatePlayersArray } from '../utils/validation.js';
 import { broadcastSSEEvent } from '../services/sseService.js';
 
 import {
@@ -224,7 +225,7 @@ router.delete('/backups/:filename', async (req: Request, res: Response): Promise
 // Save mini-game file (called on New-Day during tournament mode)
 router.post('/tournament/save-mini-game', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { fileName } = req.body;
+    const fileName = typeof req.body?.fileName === 'string' ? sanitizeFileName(req.body.fileName) : null;
     
     if (!fileName || !MINI_GAME_FILES.includes(fileName)) {
       res.status(400).json({
@@ -331,8 +332,8 @@ router.get('/tournament/read-mini-game', async (req: Request, res: Response): Pr
 // Write mini-game file (for tournament mode - ladder form writes to mini-game file)
 router.post('/tournament/write-mini-game', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { fileName, players } = req.body;
-    
+    const fileName = typeof req.body?.fileName === 'string' ? sanitizeFileName(req.body.fileName) : null;
+
     if (!fileName || !MINI_GAME_FILES.includes(fileName)) {
       res.status(400).json({
         success: false,
@@ -341,13 +342,7 @@ router.post('/tournament/write-mini-game', async (req: Request, res: Response): 
       return;
     }
 
-    if (!players || !Array.isArray(players)) {
-      res.status(400).json({
-        success: false,
-        error: { message: 'Invalid players data' },
-      });
-      return;
-    }
+    const players = validatePlayersArray(req.body?.players);
 
     await writeMiniGameFile(fileName, {
       header: [],
@@ -373,7 +368,7 @@ router.post('/tournament/write-mini-game', async (req: Request, res: Response): 
 // Copy players to new mini-game file
 router.post('/tournament/copy-players', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { fileName } = req.body;
+    const fileName = typeof req.body?.fileName === 'string' ? sanitizeFileName(req.body.fileName) : null;
     
     if (!fileName || !MINI_GAME_FILES.includes(fileName)) {
       res.status(400).json({
@@ -543,15 +538,15 @@ router.post('/tournament/clear-mini-games', async (req: Request, res: Response):
 // Add player to all mini-game files
 router.post('/tournament/add-player-to-mini-games', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { player } = req.body;
-    
-    if (!player) {
+    const playerPayload = req.body?.player;
+    if (!playerPayload || typeof playerPayload !== 'object' || Array.isArray(playerPayload)) {
       res.status(400).json({
         success: false,
         error: { message: 'Player data required' },
       });
       return;
     }
+    const player = validatePlayersArray([playerPayload])[0];
     
     await addPlayerToAllMiniGames(player);
     

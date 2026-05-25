@@ -10,6 +10,11 @@ import {
 } from '../services/dataService.js';
 import { log, logError } from '../utils/logger.js';
 import { broadcastSSEEvent } from '../services/sseService.js';
+import {
+  validatePlayerUpdatePayload,
+  validatePlayersArray,
+  validateDeltasArray,
+} from '../utils/validation.js';
 
 const router = Router();
 
@@ -93,13 +98,12 @@ router.put('/:rank', requireUserKey, writeLimiter, async (req: Request, res: Res
       return;
     }
 
-    // Update player fields (full access for local use)
-    const updatedPlayer = { ...ladderData.players[playerIndex] };
-    Object.keys(req.body).forEach(key => {
-      if (key !== 'rank') {
-        (updatedPlayer as any)[key] = req.body[key];
-      }
-    });
+    // Validate and sanitize incoming payload against PlayerData allowlist
+    const validated = validatePlayerUpdatePayload(req.body);
+    const updatedPlayer: PlayerData = { ...ladderData.players[playerIndex], ...validated };
+    if (validated.gameResults) {
+      updatedPlayer.gameResults = validated.gameResults;
+    }
 
     ladderData.players[playerIndex] = updatedPlayer;
     await writeLadderFile(ladderData);
@@ -176,15 +180,15 @@ router.delete('/:rank/round/:roundIndex', requireUserKey, writeLimiter, async (r
 // Bulk update players (requires user or admin API key)
 router.put('/', requireUserKey, writeLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
-    const { players } = req.body as { players: PlayerData[] };
-    
-    if (!players || !Array.isArray(players)) {
+    if (!req.body || typeof req.body !== 'object' || !('players' in req.body)) {
       res.status(400).json({
         success: false,
         error: { message: 'Invalid players data' },
       });
       return;
     }
+
+    const players = validatePlayersArray((req.body as { players: unknown }).players);
 
     const ladderData: LadderData = await withTiming(`readLadderFile(bulk)`, readLadderFile);
 
@@ -222,9 +226,7 @@ router.put('/', requireUserKey, writeLimiter, async (req: Request, res: Response
 // Batch update game results (requires user or admin API key)
 router.post('/batch', requireUserKey, writeLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
-    const { deltas } = req.body as { deltas: Array<{ playerRank: number; round: number; result: string }> };
-
-    if (!deltas || !Array.isArray(deltas)) {
+    if (!req.body || typeof req.body !== 'object' || !('deltas' in req.body)) {
       res.status(400).json({
         success: false,
         error: { message: 'Invalid deltas data' },
@@ -232,8 +234,10 @@ router.post('/batch', requireUserKey, writeLimiter, async (req: Request, res: Re
       return;
     }
 
+    const deltas = validateDeltasArray((req.body as { deltas: unknown }).deltas);
+
     const ladderData = await withTiming(`readLadderFile(batch)`, readLadderFile);
-    const results: any[] = [];
+    const results: Array<{ playerRank: number; round?: number; success?: boolean; error?: string }> = [];
 
     console.log('[SERVER_BATCH] Received deltas:', JSON.stringify(deltas));
 

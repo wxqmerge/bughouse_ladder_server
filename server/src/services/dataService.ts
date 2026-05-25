@@ -36,7 +36,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Server version (read from package.json)
-export const serverVersion = JSON.parse(fsSync.readFileSync(path.join(__dirname, '../../package.json'), 'utf-8')).version;
+let parsedVersion: string;
+try {
+  parsedVersion = JSON.parse(fsSync.readFileSync(path.join(__dirname, '../../package.json'), 'utf-8')).version || '0.0.0';
+} catch {
+  parsedVersion = '0.0.0';
+}
+export const serverVersion = parsedVersion;
 
 // Define TAB_FILE_PATH before any function that uses it
 const TAB_FILE_PATH = process.env.TAB_FILE_PATH 

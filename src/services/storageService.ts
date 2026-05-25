@@ -45,9 +45,19 @@ function buildKey(keyName: string): string {
 export function getJson<T = any>(keyName: string): T | null {
   try {
     const data = localStorage.getItem(buildKey(keyName));
-    return data ? JSON.parse(data) : null;
+    if (!data) return null;
+    const parsed = JSON.parse(data);
+    // Validate that we got the expected type
+    if (keyName === 'ladder_players' && !Array.isArray(parsed)) {
+      log('[STORAGE]', `Corrupt data for key "${keyName}" (expected array, got ${typeof parsed}) — clearing`);
+      localStorage.removeItem(buildKey(keyName));
+      return null;
+    }
+    return parsed as T;
   } catch (error) {
     log('[STORAGE]', `Failed to parse JSON for key "${keyName}":`, error);
+    // Clear corrupt data so it doesn't block future operations
+    localStorage.removeItem(buildKey(keyName));
     return null;
   }
 }
@@ -74,7 +84,13 @@ export function getJsonArray<T = any>(keyName: string): T[] {
  */
 export function getLocalPlayers(): PlayerData[] {
   const data = getJson<PlayerData[]>('ladder_players');
-  return Array.isArray(data) ? data : [];
+  if (!Array.isArray(data)) return [];
+  // Validate each player has required fields
+  return data.filter((p: unknown): p is PlayerData => {
+    if (!p || typeof p !== 'object') return false;
+    const obj = p as Record<string, unknown>;
+    return typeof obj.rank === 'number' && typeof obj.lastName === 'string' && typeof obj.firstName === 'string';
+  });
 }
 
 /**
