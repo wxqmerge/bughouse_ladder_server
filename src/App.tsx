@@ -43,6 +43,7 @@ import {
   setPendingNewDay,
   getPendingDeletes,
   stopDeltaFlushing,
+  buildAuthHeaders,
 } from "./services/storageService";
 import { mergeServerWithLocal } from "./utils/mergeUtils";
 import { getDebugLevel } from "./utils/debug";
@@ -506,19 +507,21 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
     try {
       // Replay pending deletes first
       await replayPendingDeletes();
-      
+
       // Fetch fresh data from server
       const userSettings = loadUserSettings();
       const serverUrl = userSettings.server;
       if (serverUrl) {
-        const response = await fetch(`${serverUrl}/api/ladder`);
+        const response = await fetch(`${serverUrl}/api/ladder`, {
+          headers: buildAuthHeaders(false),
+        });
         if (response.ok) {
           const data = await response.json();
           const serverPlayers = data.data?.players || [];
-          
+
           // Get local players for merge
           const localPlayers = await getPlayers();
-          
+
           // Simple merge: keep server as base, preserve local unconfirmed entries
           const mergedPlayers = serverPlayers.map((sp: any) => {
             const localPlayer = localPlayers.find((lp: any) => lp.rank === sp.rank);
@@ -536,23 +539,23 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
             }
             return sp;
           });
-          
+
           // Save merged data
           startBatch();
           await savePlayers(mergedPlayers);
           await endBatch();
-          
+
           // Clear flags
           clearLocalChangesFlag();
-          
+
           console.log(`[Reconnect] Pulled and merged ${serverPlayers.length} players from server`);
           setShowReconnectDialog(false);
-          
+
           // Reload to apply changes
           window.location.reload();
         } else {
           console.error("[Reconnect] Failed to pull from server:", response.status);
-          alert("Failed to pull from server. Please try again.");
+          alert(`Failed to pull from server (HTTP ${response.status}). Please try again.`);
         }
       }
     } catch (error) {
@@ -567,7 +570,7 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
     try {
       // Replay pending deletes first
       await replayPendingDeletes();
-      
+
       // Fetch latest server state
       const userSettings = loadUserSettings();
       const serverUrl = userSettings.server;
@@ -575,40 +578,42 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
         alert("No server URL configured.");
         return;
       }
-      
-      const serverResponse = await fetch(`${serverUrl}/api/ladder`);
+
+      const serverResponse = await fetch(`${serverUrl}/api/ladder`, {
+        headers: buildAuthHeaders(false),
+      });
       if (!serverResponse.ok) {
         console.error("[Reconnect] Failed to fetch server state:", serverResponse.status);
-        alert("Failed to fetch server state. Please try again.");
+        alert(`Failed to fetch server state (HTTP ${serverResponse.status}). Please try again.`);
         return;
       }
-      
+
       const serverData = await serverResponse.json();
       const serverPlayers = serverData?.players || [];
-      
+
       // Get local players and merge with server state
       const localPlayers = await getPlayers();
       const pendingDeletes = getPendingDeletes();
       const mergedPlayers = mergeServerWithLocal(serverPlayers, localPlayers, pendingDeletes);
-      
+
       // Save merged data to server
       const response = await fetch(`${serverUrl}/api/ladder`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: buildAuthHeaders(),
         body: JSON.stringify({ players: mergedPlayers }),
       });
-      
+
       if (response.ok) {
         console.log(`[Reconnect] Pushed ${mergedPlayers.length} players to server`);
-        
+
         // Clear flags
         clearLocalChangesFlag();
-        
+
         setShowReconnectDialog(false);
         alert("Successfully synced local changes to server!");
       } else {
         console.error("[Reconnect] Failed to push to server:", response.status);
-        alert("Failed to push to server. Please try again.");
+        alert(`Failed to push to server (HTTP ${response.status}). Please try again.`);
       }
     } catch (error) {
       console.error("[Reconnect] Error pushing to server:", error);
@@ -765,8 +770,8 @@ async function determineMode(): Promise<{ mode: DataServiceMode; serverUrl?: str
       const healthResponse = await fetch(`${origin}/health`, { method: 'GET', signal: healthController.signal });
       clearTimeout(healthTimeoutId);
       console.log('[App] Auto-detect: /health status=', healthResponse.status, 'ok=', healthResponse.ok);
-      const healthOk = healthResponse.ok || healthResponse.status === 404;
-      
+      const healthOk = healthResponse.ok;
+
       const apiController = new AbortController();
       const apiTimeoutId = setTimeout(() => apiController.abort(), 3000);
       const apiResponse = await fetch(`${origin}/api/ladder`, { method: 'GET', signal: apiController.signal });
@@ -799,7 +804,7 @@ async function determineMode(): Promise<{ mode: DataServiceMode; serverUrl?: str
         try {
           const healthResponse = await fetch(`${candidateUrl}/health`, { method: 'GET', signal: healthController.signal });
           clearTimeout(healthTimeoutId);
-          healthOk = healthResponse.ok || healthResponse.status === 404;
+          healthOk = healthResponse.ok;
         } catch {
           clearTimeout(healthTimeoutId);
         }

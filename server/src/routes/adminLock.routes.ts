@@ -19,32 +19,37 @@ const router = Router();
  * - lock is held by another client
  */
 router.get('/status', (req: Request, res: Response) => {
-  const adminKeySet = !!process.env.ADMIN_API_KEY;
-  const providedKey = req.headers['x-api-key'] as string;
-  const hasValidKey = adminKeySet && providedKey === process.env.ADMIN_API_KEY;
+  try {
+    const adminKeySet = !!process.env.ADMIN_API_KEY;
+    const providedKey = req.headers['x-api-key'] as string;
+    const hasValidKey = adminKeySet && providedKey === process.env.ADMIN_API_KEY;
 
-  const info = getAdminLockInfo();
+    const info = getAdminLockInfo();
 
-  const base = {
-    adminConfigured: adminKeySet,
-    hasValidKey,
-    locked: info.locked,
-  };
+    const base = {
+      adminConfigured: adminKeySet,
+      hasValidKey,
+      locked: info.locked,
+    };
 
-  if (info.locked) {
-    return res.json({
-      ...base,
-      lock: {
-        clientId: info.lock?.clientId,
-        clientName: info.lock?.clientName,
-        ipAddress: info.lock?.ipAddress,
-        acquiredAt: info.lock?.acquiredAt,
-      },
-      expiresAt: info.expiresAt,
-    });
+    if (info.locked) {
+      return res.json({
+        ...base,
+        lock: {
+          clientId: info.lock?.clientId,
+          clientName: info.lock?.clientName,
+          ipAddress: info.lock?.ipAddress,
+          acquiredAt: info.lock?.acquiredAt,
+        },
+        expiresAt: info.expiresAt,
+      });
+    }
+
+    res.json(base);
+  } catch (error) {
+    console.error('[ADMIN-LOCK] Status error:', error);
+    res.status(500).json({ success: false, error: { message: 'Failed to get lock status' } });
   }
-
-  res.json(base);
 });
 
 // Admin lock endpoints require admin authentication
@@ -55,33 +60,38 @@ router.use(requireAdminKey);
  * POST /api/admin-lock/acquire
  */
 router.post('/acquire', (req: Request, res: Response) => {
-  const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
-  const { clientId, clientName } = req.body;
+  try {
+    const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
+    const { clientId, clientName } = req.body;
 
-  if (!clientId || !clientName) {
-    return res.status(400).json({
-      success: false,
-      error: 'Missing clientId or clientName',
-    });
-  }
+    if (!clientId || !clientName) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing clientId or clientName',
+      });
+    }
 
-  const result = tryAcquireAdminLock(clientId, clientName, clientIp);
+    const result = tryAcquireAdminLock(clientId, clientName, clientIp);
 
-  if (result.success) {
-    res.json({
-      success: true,
-      message: 'Lock acquired',
-    });
-  } else {
-    res.status(409).json({
-      success: false,
-      error: 'Lock held by another client',
-      heldBy: {
-        clientId: result.heldBy?.clientId,
-        clientName: result.heldBy?.clientName,
-        acquiredAt: result.heldBy?.acquiredAt,
-      },
-    });
+    if (result.success) {
+      res.json({
+        success: true,
+        message: 'Lock acquired',
+      });
+    } else {
+      res.status(409).json({
+        success: false,
+        error: 'Lock held by another client',
+        heldBy: {
+          clientId: result.heldBy?.clientId,
+          clientName: result.heldBy?.clientName,
+          acquiredAt: result.heldBy?.acquiredAt,
+        },
+      });
+    }
+  } catch (error) {
+    console.error('[ADMIN-LOCK] Acquire error:', error);
+    res.status(500).json({ success: false, error: { message: 'Failed to acquire lock' } });
   }
 });
 
@@ -90,26 +100,31 @@ router.post('/acquire', (req: Request, res: Response) => {
  * POST /api/admin-lock/force
  */
 router.post('/force', (req: Request, res: Response) => {
-  const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
-  const { clientId, clientName } = req.body;
+  try {
+    const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
+    const { clientId, clientName } = req.body;
 
-  if (!clientId || !clientName) {
-    return res.status(400).json({
-      success: false,
-      error: 'Missing clientId or clientName',
+    if (!clientId || !clientName) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing clientId or clientName',
+      });
+    }
+
+    const result = forceAcquireAdminLock(clientId, clientName, clientIp);
+
+    res.json({
+      success: true,
+      message: 'Lock forced',
+      overridden: result.overridden ? {
+        clientId: result.overridden.clientId,
+        clientName: result.overridden.clientName,
+      } : null,
     });
+  } catch (error) {
+    console.error('[ADMIN-LOCK] Force error:', error);
+    res.status(500).json({ success: false, error: { message: 'Failed to force lock' } });
   }
-
-  const result = forceAcquireAdminLock(clientId, clientName, clientIp);
-
-  res.json({
-    success: true,
-    message: 'Lock forced',
-    overridden: result.overridden ? {
-      clientId: result.overridden.clientId,
-      clientName: result.overridden.clientName,
-    } : null,
-  });
 });
 
 /**
@@ -117,21 +132,26 @@ router.post('/force', (req: Request, res: Response) => {
  * POST /api/admin-lock/release
  */
 router.post('/release', (req: Request, res: Response) => {
-  const { clientId } = req.body;
+  try {
+    const { clientId } = req.body;
 
-  if (!clientId) {
-    return res.status(400).json({
-      success: false,
-      error: 'Missing clientId',
+    if (!clientId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing clientId',
+      });
+    }
+
+    const result = releaseAdminLock(clientId);
+
+    res.json({
+      success: result,
+      message: result ? 'Lock released' : 'Lock not held by this client',
     });
+  } catch (error) {
+    console.error('[ADMIN-LOCK] Release error:', error);
+    res.status(500).json({ success: false, error: { message: 'Failed to release lock' } });
   }
-
-  const result = releaseAdminLock(clientId);
-
-  res.json({
-    success: result,
-    message: result ? 'Lock released' : 'Lock not held by this client',
-  });
 });
 
 /**
@@ -139,21 +159,26 @@ router.post('/release', (req: Request, res: Response) => {
  * POST /api/admin-lock/refresh
  */
 router.post('/refresh', (req: Request, res: Response) => {
-  const { clientId } = req.body;
+  try {
+    const { clientId } = req.body;
 
-  if (!clientId) {
-    return res.status(400).json({
-      success: false,
-      error: 'Missing clientId',
+    if (!clientId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing clientId',
+      });
+    }
+
+    const result = refreshAdminLock(clientId);
+
+    res.json({
+      success: result,
+      message: result ? 'Lock refreshed' : 'Lock not held by this client',
     });
+  } catch (error) {
+    console.error('[ADMIN-LOCK] Refresh error:', error);
+    res.status(500).json({ success: false, error: { message: 'Failed to refresh lock' } });
   }
-
-  const result = refreshAdminLock(clientId);
-
-  res.json({
-    success: result,
-    message: result ? 'Lock refreshed' : 'Lock not held by this client',
-  });
 });
 
 export { router };

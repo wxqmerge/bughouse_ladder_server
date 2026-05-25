@@ -8,6 +8,7 @@ interface SSEClient {
 let clients: SSEClient[] = [];
 let eventCounter = 0;
 let heartbeatInterval: NodeJS.Timeout | null = null;
+let lastDisconnectWarning = 0;
 
 export function addSSEClient(res: Response): void {
   const client: SSEClient = { res, lastEventId: '0' };
@@ -73,6 +74,15 @@ export function broadcastSSEEvent(event: string, data: unknown, filterClientId?:
         activeClients.push(client);
       } catch {
         // Client disconnected, skip
+      }
+    }
+
+    const dropped = clients.length - activeClients.length;
+    if (dropped > 0) {
+      const now = Date.now();
+      if (now - lastDisconnectWarning > 10000) {
+        console.log(`[SSE] ${dropped} client(s) disconnected during broadcast`);
+        lastDisconnectWarning = now;
       }
     }
 

@@ -64,7 +64,7 @@ vi.mock('../../services/storageService', () => {
     getClientId: m().mockReturnValue('test-client'),
     getClientName: m().mockReturnValue('Client test'),
     getServerUrl: m().mockReturnValue(null),
-    tryAcquireAdminLock: m().mockResolvedValue(true),
+    tryAcquireAdminLock: m().mockResolvedValue({ acquired: true, reason: 'success' }),
     forceAcquireAdminLock: m().mockResolvedValue(true),
     releaseAdminLock: m().mockResolvedValue(undefined),
     refreshAdminLock: m().mockResolvedValue(undefined),
