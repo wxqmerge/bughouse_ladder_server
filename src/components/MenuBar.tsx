@@ -396,6 +396,7 @@ export default function MenuBar({
             backgroundColor: "white",
             opacity: item.disabled ? 0.5 : 1,
             fontStyle: item.disabled ? "italic" : "normal",
+            fontSize: "inherit",
           }}
           onMouseEnter={(e) => {
             if (!item.disabled) {
@@ -471,8 +472,9 @@ export default function MenuBar({
           cursor: "pointer",
           display: "flex",
           alignItems: "center",
-          gap: "0.5rem",
+          gap: "0.5em",
           borderRadius: "0.25rem",
+          fontSize: "inherit",
         }}
       >
         {icon}
