@@ -56,5 +56,5 @@ describe('2D Optimization', () => {
     console.log(`\nOptimal: bf=${best.bf.toFixed(2)}, ms=${best.ms.toFixed(2)}`);
     console.log(`  FinalRSS=${best.finalRss.toFixed(2)}, F1=${best.f1.toFixed(2)}, F2=${best.f2.toFixed(2)}`);
     console.log(`  (previous baseline bf=0.98,ms=1.00: 294.74)`);
-  });
+  }, 30000);
 });

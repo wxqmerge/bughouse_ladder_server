@@ -260,7 +260,8 @@ export const miniGameStore: MiniGameStore = {
       const debugLines: string[] = [];
 
 if (debugLevel <= 5) {
-          debugLines.push(sharedDebugLine('DEBUG', 'TROPHY REPORT', '', '', '', '', '', ''));
+           console.log('[TEST_DEBUG] Trophy report: generating headers (debugLevel <= 5)');
+           debugLines.push(sharedDebugLine('DEBUG', 'TROPHY REPORT', '', '', '', '', '', ''));
           debugLines.push(sharedDebugLine('Players', String(players.length), '', '', '', '', '', ''));
           debugLines.push(sharedDebugLine('Min Trophies', `${minTrophies} (ceil(${players.length} / 3))`, '', '', '', '', '', ''));
           debugLines.push('');
