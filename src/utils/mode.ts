@@ -148,25 +148,25 @@ export function onModeChange(callback: (newMode: string, oldMode: string) => voi
      const healthTimeoutId = setTimeout(() => healthController.abort(), 3000);
      
      const healthResponse = await fetch(`${origin}/health`, {
-       method: 'GET',
-       signal: healthController.signal,
-     });
-     clearTimeout(healthTimeoutId);
-     console.log('[mode.ts] Auto-detect: /health status=', healthResponse.status, 'ok=', healthResponse.ok);
-     
-     const healthOk = healthResponse.ok || healthResponse.status === 404;
-     
-     const apiController = new AbortController();
-     const apiTimeoutId = setTimeout(() => apiController.abort(), 3000);
-     
-     const apiResponse = await fetch(`${origin}/api/ladder`, {
-       method: 'GET',
-       signal: apiController.signal,
-     });
-     clearTimeout(apiTimeoutId);
-     console.log('[mode.ts] Auto-detect: /api/ladder status=', apiResponse.status, 'ok=', apiResponse.ok);
-     
-     const apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403 || apiResponse.status === 404;
+        method: 'GET',
+        signal: healthController.signal,
+      });
+      clearTimeout(healthTimeoutId);
+      console.log('[mode.ts] Auto-detect: /health status=', healthResponse.status, 'ok=', healthResponse.ok);
+
+      const healthOk = healthResponse.ok;
+
+      const apiController = new AbortController();
+      const apiTimeoutId = setTimeout(() => apiController.abort(), 3000);
+
+      const apiResponse = await fetch(`${origin}/api/ladder`, {
+        method: 'GET',
+        signal: apiController.signal,
+      });
+      clearTimeout(apiTimeoutId);
+      console.log('[mode.ts] Auto-detect: /api/ladder status=', apiResponse.status, 'ok=', apiResponse.ok);
+
+      const apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403;
      
      if (healthOk && apiOk) {
        autoDetectedUrl = origin.replace(/\/$/, '');
@@ -198,12 +198,12 @@ export function onModeChange(callback: (newMode: string, oldMode: string) => voi
          let healthOk = false;
          try {
            const healthResponse = await fetch(`${candidateUrl}/health`, {
-             method: 'GET',
-             signal: healthController.signal,
-           });
-           clearTimeout(healthTimeoutId);
-           console.log('[mode.ts] Subdomain check: /health status=', healthResponse.status);
-           healthOk = healthResponse.ok || healthResponse.status === 404;
+              method: 'GET',
+              signal: healthController.signal,
+            });
+            clearTimeout(healthTimeoutId);
+            console.log('[mode.ts] Subdomain check: /health status=', healthResponse.status);
+            healthOk = healthResponse.ok;
          } catch {
            clearTimeout(healthTimeoutId);
          }
@@ -291,7 +291,7 @@ export async function testServerConnection(): Promise<boolean> {
     });
     clearTimeout(healthTimeoutId);
     healthStatus = healthResponse.status;
-    healthOk = healthResponse.ok || healthResponse.status === 404;
+    healthOk = healthResponse.ok;
     console.log('[mode.ts] testServerConnection: /health status=', healthStatus);
   } catch (e) {
     clearTimeout(healthTimeoutId);

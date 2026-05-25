@@ -27,6 +27,15 @@ export interface DataServiceConfig {
   miniGameStore?: MiniGameStore;
 }
 
+export class ApiError extends Error {
+  public readonly status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
 class DataService {
   private config: DataServiceConfig;
   private pollInterval: ReturnType<typeof setInterval> | null = null;
@@ -90,22 +99,22 @@ class DataService {
     }
   }
 
-  // Start SSE connection for real-time updates
+// Start SSE connection for real-time updates
   startSSE(): void {
     if (this.config.mode === DataServiceMode.LOCAL) return;
-    if (this.sseEventSource) return; // Already connected
-    
+    this.stopSSE(); // Ensure clean state before reconnecting
+
     const url = `${this.getApiUrl()}/api/ladder/events`;
     console.log('[DataService] Connecting to SSE:', url);
-    
+
     this.sseEventSource = new EventSource(url);
-    
+
     this.sseEventSource.onopen = () => {
       this.sseConnected = true;
       console.log('[DataService] SSE connection established');
     };
-    
-this.sseEventSource.addEventListener('connected', (e: any) => {
+
+    this.sseEventSource.addEventListener('connected', (e: any) => {
       console.log('[DataService] SSE: connected event received');
     });
 
@@ -121,11 +130,10 @@ this.sseEventSource.addEventListener('connected', (e: any) => {
         this.notifySubscribers();
       });
     }
-    
+
     this.sseEventSource.onerror = (error) => {
       this.sseConnected = false;
-      console.log('[DataService] SSE connection error - falling back to polling');
-      // EventSource auto-reconnects, but log for visibility
+      console.warn('[DataService] SSE connection error — falling back to polling');
     };
   }
 
@@ -228,7 +236,12 @@ this.sseEventSource.addEventListener('connected', (e: any) => {
         }
         
         if (!response.ok) {
-          console.error(`[DataService] Polling failed: ${response.status}`);
+          if (response.status === 401 || response.status === 403) {
+            console.error('[DataService] Polling auth rejected (HTTP', response.status, ') — API key may be invalid');
+            (window as any).__ladder_authFailed = true;
+          } else {
+            console.error(`[DataService] Polling failed: ${response.status}`);
+          }
           return false;
         }
 
@@ -406,9 +419,7 @@ this.sseEventSource.addEventListener('connected', (e: any) => {
     });
     
     if (!response.ok) {
-      const error = new Error(`Failed to fetch players: ${response.status}`);
-      (error as any).status = response.status;
-      throw error;
+      throw new ApiError(`Failed to fetch players: ${response.status}`, response.status);
     }
 
     const data = await response.json();
@@ -439,9 +450,7 @@ this.sseEventSource.addEventListener('connected', (e: any) => {
     });
 
     if (!response.ok) {
-      const error = new Error(`Failed to update players: ${response.status}`);
-      (error as any).status = response.status;
-      throw error;
+      throw new ApiError(`Failed to update players: ${response.status}`, response.status);
     }
 
     // Update localStorage cache via storageService
@@ -456,9 +465,7 @@ this.sseEventSource.addEventListener('connected', (e: any) => {
     );
 
     if (!response.ok) {
-      const error = new Error(`Failed to fetch mini-game players: ${response.status}`);
-      (error as any).status = response.status;
-      throw error;
+      throw new ApiError(`Failed to fetch mini-game players: ${response.status}`, response.status);
     }
 
     const data = await response.json();
@@ -479,9 +486,7 @@ this.sseEventSource.addEventListener('connected', (e: any) => {
     });
 
     if (!response.ok) {
-      const error = new Error(`Failed to update mini-game players: ${response.status}`);
-      (error as any).status = response.status;
-      throw error;
+      throw new ApiError(`Failed to update mini-game players: ${response.status}`, response.status);
     }
 
     this.notifySubscribers();
@@ -607,9 +612,7 @@ this.sseEventSource.addEventListener('connected', (e: any) => {
       });
 
       if (!response.ok) {
-        const error = new Error(`Failed to submit delta batch: ${response.status}`);
-        (error as any).status = response.status;
-        throw error;
+        throw new ApiError(`Failed to submit delta batch: ${response.status}`, response.status);
       }
 
       this.notifySubscribers();
@@ -624,9 +627,7 @@ this.sseEventSource.addEventListener('connected', (e: any) => {
       });
 
       if (!response.ok) {
-        const error = new Error(`Failed to submit delta batch: ${response.status}`);
-        (error as any).status = response.status;
-        throw error;
+        throw new ApiError(`Failed to submit delta batch: ${response.status}`, response.status);
       }
 
       this.notifySubscribers();

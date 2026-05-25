@@ -303,20 +303,25 @@ export function queueDelete(playerRank: number, round: number): void {
   let deletes = new Set(getJsonArray<string>('ladder_pending_deletes'));
   deletes.add(key);
   setJson('ladder_pending_deletes', [...deletes]);
-  deleteChain = deleteChain.then(async () => {
-    try {
-      const userSettings = loadUserSettings();
-      const serverUrl = userSettings.server?.trim();
-      if (serverUrl) {
-        await fetch(`${serverUrl}/api/ladder/${playerRank}/round/${round}`, { method: 'DELETE' });
-        const freshDeletes = new Set(getJsonArray<string>('ladder_pending_deletes'));
-        freshDeletes.delete(key);
-        setJson('ladder_pending_deletes', [...freshDeletes]);
+  deleteChain = deleteChain
+    .then(async () => {
+      try {
+        const userSettings = loadUserSettings();
+        const serverUrl = userSettings.server?.trim();
+        if (serverUrl) {
+          const headers = buildAuthHeaders();
+          await fetch(`${serverUrl}/api/ladder/${playerRank}/round/${round}`, { method: 'DELETE', headers });
+          const freshDeletes = new Set(getJsonArray<string>('ladder_pending_deletes'));
+          freshDeletes.delete(key);
+          setJson('ladder_pending_deletes', [...freshDeletes]);
+        }
+      } catch (err) {
+        log('[STORAGE]', 'Delete queued for retry:', key);
       }
-    } catch (err) {
-      log('[STORAGE]', 'Delete queued for retry:', key);
-    }
-  });
+    })
+    .catch((_err) => {
+      deleteChain = Promise.resolve();
+    });
 }
 
 export function getPendingDeletes(): Set<string> {
@@ -333,15 +338,29 @@ export async function replayPendingDeletes(): Promise<void> {
   const userSettings = loadUserSettings();
   const serverUrl = userSettings.server?.trim();
   if (!serverUrl) return;
+  const headers = buildAuthHeaders();
+  const failed = new Set<string>();
   for (const key of deletes) {
     const [rankStr, roundStr] = key.split(':');
     try {
-      await fetch(`${serverUrl}/api/ladder/${parseInt(rankStr)}/round/${parseInt(roundStr)}`, { method: 'DELETE' });
+      const res = await fetch(`${serverUrl}/api/ladder/${parseInt(rankStr)}/round/${parseInt(roundStr)}`, { method: 'DELETE', headers });
+      if (!res.ok) {
+        failed.add(key);
+        log('[STORAGE]', `Failed to replay delete ${key}: HTTP ${res.status}`);
+      }
     } catch (err) {
+      failed.add(key);
       log('[STORAGE]', `Failed to replay delete ${key}:`, err);
     }
   }
-  clearPendingDeletes();
+  if (failed.size === 0) {
+    clearPendingDeletes();
+  } else if (failed.size < deletes.size) {
+    setJson('ladder_pending_deletes', [...failed]);
+    log('[STORAGE]', `Partial replay: ${failed.size} deletes remain pending`);
+  } else {
+    log('[STORAGE]', `All ${failed.size} deletes failed — keeping pending queue intact`);
+  }
 }
 
 // ==================== BATCH SYNC MANAGEMENT ====================
@@ -357,10 +376,15 @@ export function startBatch(): void {
   if (batchTimeoutId) clearTimeout(batchTimeoutId);
   batchTimeoutId = setTimeout(() => {
     if (batchOperationCount > 0) {
-      console.error('[BATCH] Timeout! Batch count stuck at', batchOperationCount, '— resetting');
+      console.error('[BATCH] Timeout! Batch count stuck at', batchOperationCount, '— committing buffer then resetting');
+      if (batchBuffer !== null) {
+        setJson('ladder_players', batchBuffer);
+        log('[STORAGE]', 'Batch timeout: saved buffer to localStorage to avoid data loss');
+      }
       batchOperationCount = 0;
       batchBuffer = null;
       batchTimeoutId = null;
+      markLocalChanges();
     }
   }, 30000);
 }
@@ -402,8 +426,11 @@ async function commitBatchBuffer(): Promise<void> {
     try {
       await dataService.savePlayers(batchBuffer);
       clearTimeout(timeoutId);
+      log('[STORAGE]', 'Batch buffer committed to server');
     } catch (error: any) {
       clearTimeout(timeoutId);
+      console.error('[STORAGE][BATCH] Server sync failed — localStorage has data but server is out of sync:', error?.message ?? error);
+      markLocalChanges();
     }
   }
 }
@@ -415,7 +442,13 @@ export async function getPlayers(): Promise<PlayerData[]> {
   if (dataService.getMode() === DataServiceMode.LOCAL) return getJsonArray<PlayerData>('ladder_players');
   try {
     return await dataService.getPlayers();
-  } catch (error) {
+  } catch (error: any) {
+    const status = error?.status ?? 0;
+    if (status === 401 || status === 403) {
+      console.error('[STORAGE][GET] Auth rejected (HTTP', status, ') — API key may be invalid');
+    } else {
+      console.warn('[STORAGE][GET] Server fetch failed, falling back to localStorage:', error?.message ?? error);
+    }
     return getJsonArray<PlayerData>('ladder_players');
   }
 }
@@ -550,9 +583,12 @@ export async function saveToServer(): Promise<{ success: boolean; error?: string
   try {
     const url = dataService.getConfigServerUrl();
     if (!url) return { success: false, error: 'No server URL' };
-    const res = await fetch(`${url}/api/ladder`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ players }) });
-    return res.ok ? { success: true } : { success: false, error: res.statusText };
-  } catch (e: any) { return { success: false, error: e.message }; }
+    const res = await fetch(`${url}/api/ladder`, { method: 'PUT', headers: buildAuthHeaders(), body: JSON.stringify({ players }) });
+    if (!res.ok) {
+      return { success: false, error: `HTTP ${res.status}: ${res.statusText}` };
+    }
+    return { success: true };
+  } catch (e: any) { return { success: false, error: e?.message ?? 'Network error' }; }
 }
 
 // ==================== ADMIN LOCK MANAGEMENT ====================
@@ -572,22 +608,28 @@ export function getServerUrl(): string | null {
   } catch { return null; }
 }
 
-export async function tryAcquireAdminLock(clientName?: string): Promise<boolean> {
+export interface AdminLockResult {
+  acquired: boolean;
+  reason?: 'success' | 'held' | 'server_error' | 'network_error' | 'unreachable';
+}
+
+export async function tryAcquireAdminLock(clientName?: string): Promise<AdminLockResult> {
   const url = getServerUrl();
-  if (!url) return true;
+  if (!url) return { acquired: true, reason: 'success' };
   const id = getClientId();
   const name = clientName || getClientName(id);
   const headers = buildAuthHeaders();
   try {
     const res = await fetch(`${url}/api/admin-lock/acquire`, { method: 'POST', headers, body: JSON.stringify({ clientId: id, clientName: name }) });
     console.log('[ADMIN-LOCK] acquire response:', res.status, res.ok ? 'ok' : 'FAIL');
-    if (!res.ok) return false;
+    if (res.status === 409) return { acquired: false, reason: 'held' };
+    if (!res.ok) return { acquired: false, reason: 'server_error' };
     const data = await res.json();
     console.log('[ADMIN-LOCK] acquire data:', JSON.stringify(data));
-    return data.success;
+    return { acquired: data.success, reason: data.success ? 'success' : 'server_error' };
   } catch (e) {
     console.log('[ADMIN-LOCK] acquire error:', e);
-    return false;
+    return { acquired: false, reason: 'network_error' };
   }
 }
 
@@ -599,24 +641,44 @@ export async function forceAcquireAdminLock(clientName?: string): Promise<boolea
   const headers = buildAuthHeaders();
   try {
     const res = await fetch(`${url}/api/admin-lock/force`, { method: 'POST', headers, body: JSON.stringify({ clientId: id, clientName: name }) });
-    if (!res.ok) return false;
+    if (!res.ok) {
+      console.warn('[ADMIN_LOCK] force acquire failed:', res.status);
+      return false;
+    }
     const data = await res.json();
     return data.success;
-  } catch { return false; }
+  } catch (e) {
+    console.error('[ADMIN_LOCK] force acquire error:', e);
+    return false;
+  }
 }
 
 export async function releaseAdminLock(): Promise<void> {
   const url = getServerUrl();
   if (!url) return;
   const headers = buildAuthHeaders();
-  try { await fetch(`${url}/api/admin-lock/release`, { method: 'POST', headers, body: JSON.stringify({ clientId: getClientId() }) }); } catch {}
+  try {
+    const res = await fetch(`${url}/api/admin-lock/release`, { method: 'POST', headers, body: JSON.stringify({ clientId: getClientId() }) });
+    if (!res.ok && res.status !== 401) {
+      console.warn('[ADMIN_LOCK] release failed:', res.status);
+    }
+  } catch (e) {
+    console.warn('[ADMIN_LOCK] release network error:', (e as Error).message);
+  }
 }
 
 export async function refreshAdminLock(): Promise<void> {
   const url = getServerUrl();
   if (!url) return;
   const headers = buildAuthHeaders();
-  try { await fetch(`${url}/api/admin-lock/refresh`, { method: 'POST', headers, body: JSON.stringify({ clientId: getClientId() }) }); } catch {}
+  try {
+    const res = await fetch(`${url}/api/admin-lock/refresh`, { method: 'POST', headers, body: JSON.stringify({ clientId: getClientId() }) });
+    if (!res.ok && res.status !== 401) {
+      console.warn('[ADMIN_LOCK] refresh failed:', res.status);
+    }
+  } catch (e) {
+    console.warn('[ADMIN_LOCK] refresh network error:', (e as Error).message);
+  }
 }
 
 export async function getAdminLockInfo(): Promise<{ locked: boolean; holderId?: string; holderName?: string; expiresAt?: number; serverReachable?: boolean; adminBlocked?: boolean; missingKey?: boolean }> {
@@ -660,12 +722,31 @@ export async function isAdminLocked(): Promise<boolean> {
   return info.locked;
 }
 
+// Legacy compatibility wrapper
+export async function tryAcquireAdminLockLegacy(clientName?: string): Promise<boolean> {
+  const result = await tryAcquireAdminLock(clientName);
+  return result.acquired;
+}
+
 export async function checkWritePermission(): Promise<boolean> {
   const url = getServerUrl();
-  if (!url) { console.log('[CHECK-WRITE] no server URL → true'); return true; }
+  if (!url) { console.log('[CHECK-WRITE] no server URL → true (local mode)'); return true; }
   const settings = loadUserSettings();
   if (!settings.apiKey || !settings.apiKey.trim()) { console.log('[CHECK-WRITE] no API key → false'); return false; }
-  console.log('[CHECK-WRITE] has API key → true');
-  return true;
+  try {
+    const res = await fetch(`${url}/api/ladder`, {
+      method: 'GET',
+      headers: buildAuthHeaders(false),
+    });
+    if (res.status === 401 || res.status === 403) {
+      console.warn('[CHECK-WRITE] server rejected read — API key likely invalid');
+      return false;
+    }
+    console.log('[CHECK-WRITE] has API key, server reachable (note: GET is public, write not verified)');
+    return true;
+  } catch (e) {
+    console.warn('[CHECK-WRITE] server unreachable, assuming false:', e);
+    return false;
+  }
 }
 

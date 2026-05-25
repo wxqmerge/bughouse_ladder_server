@@ -469,17 +469,19 @@ export default function LadderForm({
     // Server mode - try to re-acquire the lock
     const reacquireAdminLock = async () => {
       try {
-        const acquired = await tryAcquireAdminLock();
-        if (!acquired) {
+        const result = await tryAcquireAdminLock();
+        if (!result.acquired) {
+          if (result.reason === 'network_error' || result.reason === 'server_error') {
+            const lockInfo = await getAdminLockInfo();
+            if (lockInfo.serverReachable === false) {
+              console.warn('[ADMIN_LOCK] Server unreachable, falling back to user mode');
+              setIsAdmin(false);
+              return;
+            }
+          }
           // Check if another user holds the lock
           const lockInfo = await getAdminLockInfo();
-          if (lockInfo.serverReachable === false) {
-            // Server unreachable - fall back to user mode
-            console.warn('[ADMIN_LOCK] Server unreachable, falling back to user mode');
-            setIsAdmin(false);
-            return;
-          }
-          
+
           if (lockInfo.locked && lockInfo.holderId !== getClientId()) {
             // Another user holds it - show override dialog
             setOverrideLockHolder(lockInfo.holderName || "Another user");
@@ -3303,9 +3305,9 @@ export default function LadderForm({
       }
       
       // Try to acquire lock normally first
-      const acquired = await tryAcquireAdminLock();
-      console.log('[ADMIN-TOGGLE] tryAcquireAdminLock result=', acquired);
-      if (acquired) {
+      const result = await tryAcquireAdminLock();
+      console.log('[ADMIN-TOGGLE] tryAcquireAdminLock result=', result);
+      if (result.acquired) {
         setIsAdmin(true);
       } else {
         // Acquisition failed - check what's happening and offer force acquire
@@ -3385,11 +3387,11 @@ export default function LadderForm({
       return;
     }
     
-    const acquired = await tryAcquireAdminLock();
-    if (acquired) {
+   const result = await tryAcquireAdminLock();
+    if (result.acquired) {
       setIsAdmin(true);
     } else {
-                   const lockInfo = await getAdminLockInfo();
+                    const lockInfo = await getAdminLockInfo();
                     if (lockInfo.adminBlocked) {
                       alert("Admin mode is not available:\n\nThe server does not have an admin API key configured. Contact your server administrator to set ADMIN_API_KEY in the server environment.");
                       return;
@@ -3808,8 +3810,8 @@ export default function LadderForm({
                 <button
                   onClick={async () => {
                     setShowOverrideDialog(false);
-                    const acquired = await tryAcquireAdminLock();
-                    if (acquired) {
+                    const result = await tryAcquireAdminLock();
+                    if (result.acquired) {
                       setIsAdmin(true);
                     }
                   }}
@@ -3942,8 +3944,8 @@ export default function LadderForm({
                       setShowOverrideDialog(true);
                       return;
                     }
-                    const acquired = await tryAcquireAdminLock();
-                    if (acquired) {
+                    const result = await tryAcquireAdminLock();
+                    if (result.acquired) {
                       setIsAdmin(true);
                     } else {
                       const lockInfo2 = await getAdminLockInfo();
@@ -4217,8 +4219,8 @@ export default function LadderForm({
               <button
                 onClick={async () => {
                   setShowOverrideDialog(false);
-                  const acquired = await tryAcquireAdminLock();
-                  if (acquired) {
+                  const result = await tryAcquireAdminLock();
+                  if (result.acquired) {
                     setIsAdmin(true);
                   }
                 }}
