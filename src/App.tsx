@@ -71,6 +71,12 @@ function App() {
   const [showServerDownBlocking, setShowServerDownBlocking] = useState(false);
   const [versionMismatch, setVersionMismatch] = useState(false);
 const [urlConfigApplied, setUrlConfigApplied] = useState(false);
+  // Auto-dismiss URL config banner after 5s
+  useEffect(() => {
+    if (!urlConfigApplied) return;
+    const timer = setTimeout(() => setUrlConfigApplied(false), 5000);
+    return () => clearTimeout(timer);
+  }, [urlConfigApplied]);
   const [status, setStatus] = useState<string | null>("Initializing...");
   const [currentMode, setCurrentMode] = useState<'local' | 'server_down' | 'server' | null>(null);
   const recalculateRef = useRef<(() => Promise<boolean>) | undefined>(undefined);
