@@ -88,6 +88,7 @@ export default function MenuBar({
   availableMiniGames = [],
   writePermission = true,
 }: MenuBarProps) {
+  const zoomScale = parseInt(zoomLevel, 10) / 100;
   const serverConfigured = !!(serverUrl && serverUrl.trim());
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [isServerDown, setIsServerDown] = useState(false);
@@ -109,7 +110,7 @@ export default function MenuBar({
 
   const fileMenuItems: MenuItem[] = [
     {
-      icon: <Upload size={16} />,
+      icon: <Upload size={Math.round(16 * zoomScale)} />,
       label: "Load",
       onClick: () => {
         onFileAction?.("load");
@@ -119,7 +120,7 @@ export default function MenuBar({
       disabled: !isAdmin || tournamentMode,
     },
     {
-      icon: <Download size={16} />,
+      icon: <Download size={Math.round(16 * zoomScale)} />,
       label: "Export",
       onClick: () => {
         onFileAction?.("export");
@@ -138,7 +139,7 @@ export default function MenuBar({
     const isDisabled = !isAdmin && isMiniGame && !isAvailable;
     
     return {
-      icon: <Type size={16} />,
+      icon: <Type size={Math.round(16 * zoomScale)} />,
       label: title,
       onClick: () => {
         if (isDisabled) {
@@ -156,7 +157,7 @@ export default function MenuBar({
 
   const sortMenuItems: MenuItem[] = [
     {
-      icon: <Hash size={16} />,
+      icon: <Hash size={Math.round(16 * zoomScale)} />,
       label: "By Rank",
       onClick: () => {
         onSort?.("rank");
@@ -165,7 +166,7 @@ export default function MenuBar({
       dataMenuItem: "By Rank",
     },
     {
-      icon: <Type size={16} />,
+      icon: <Type size={Math.round(16 * zoomScale)} />,
       label: "By Last Name",
       onClick: () => {
         onSort?.("byLastName");
@@ -174,7 +175,7 @@ export default function MenuBar({
       dataMenuItem: "By Last Name",
     },
     {
-      icon: <Type size={16} />,
+      icon: <Type size={Math.round(16 * zoomScale)} />,
       label: "By First Name",
       onClick: () => {
         onSort?.("byFirstName");
@@ -183,7 +184,7 @@ export default function MenuBar({
       dataMenuItem: "By First Name",
     },
     {
-      icon: <TrendingUp size={16} />,
+      icon: <TrendingUp size={Math.round(16 * zoomScale)} />,
       label: "By New Rating",
       onClick: () => {
         onSort?.("nRating");
@@ -192,7 +193,7 @@ export default function MenuBar({
       dataMenuItem: "By New Rating",
     },
     {
-      icon: <History size={16} />,
+      icon: <History size={Math.round(16 * zoomScale)} />,
       label: "By Previous Rating",
       onClick: () => {
         onSort?.("rating");
@@ -204,7 +205,7 @@ export default function MenuBar({
 
  const operationsMenuItems: MenuItem[] = [
     {
-      icon: <RefreshCw size={16} />,
+      icon: <RefreshCw size={Math.round(16 * zoomScale)} />,
       label: "Recalculate_Save",
       onClick: () => {
         onRecalculateRatings?.();
@@ -214,7 +215,7 @@ export default function MenuBar({
       disabled: !writePermission,
     },
     {
-      icon: <AlertTriangle size={16} />,
+      icon: <AlertTriangle size={Math.round(16 * zoomScale)} />,
       label: "Check Errors",
       onClick: () => {
         onCheckErrors?.();
@@ -223,7 +224,7 @@ export default function MenuBar({
       dataMenuItem: "Check Errors",
     },
     {
-      icon: <Type size={16} />,
+      icon: <Type size={Math.round(16 * zoomScale)} />,
       label: "Enter Games",
       onClick: () => {
         onEnterGames?.();
@@ -233,7 +234,7 @@ export default function MenuBar({
       disabled: !writePermission,
     },
     {
-      icon: <ClipboardPaste size={16} />,
+      icon: <ClipboardPaste size={Math.round(16 * zoomScale)} />,
       label: "Paste Multiple Results",
       onClick: () => {
         onBulkPaste?.();
@@ -245,7 +246,7 @@ export default function MenuBar({
     ...(isAdmin && onAddPlayer
       ? [
           {
-            icon: <Plus size={16} />,
+            icon: <Plus size={Math.round(16 * zoomScale)} />,
             label: "Add Player",
             onClick: () => {
               onAddPlayer?.();
@@ -259,7 +260,7 @@ export default function MenuBar({
     ...(isAdmin && onDeleteHiddenPlayers
        ? [
            {
-             icon: <Trash2 size={16} />,
+             icon: <Trash2 size={Math.round(16 * zoomScale)} />,
              label: "Delete Hidden Players",
              onClick: () => {
                onDeleteHiddenPlayers?.();
@@ -273,7 +274,7 @@ export default function MenuBar({
       ...(isAdmin && onAutoLetter
        ? [
            {
-             icon: <Type size={16} />,
+             icon: <Type size={Math.round(16 * zoomScale)} />,
              label: "Auto-Letter",
              onClick: () => {
                onAutoLetter?.();
@@ -287,7 +288,7 @@ export default function MenuBar({
     ...(serverUrl && !hasAdminApiKey && !isAdmin
       ? []
       : [{
-          icon: <Shield size={16} />,
+          icon: <Shield size={Math.round(16 * zoomScale)} />,
           label: isAdmin ? "Exit Admin Mode" : "Admin Mode",
           onClick: () => {
             onToggleAdmin?.();
@@ -300,7 +301,7 @@ export default function MenuBar({
     ...(isAdmin && onRestoreBackup
       ? [
           {
-            icon: <History size={16} />,
+            icon: <History size={Math.round(16 * zoomScale)} />,
             label: "Restore Backup",
             onClick: () => {
               onRestoreBackup?.();
@@ -313,7 +314,7 @@ export default function MenuBar({
       : []),
     // Settings - always accessible, moved to bottom of Operations
     {
-      icon: <SettingsIcon size={16} />,
+      icon: <SettingsIcon size={Math.round(16 * zoomScale)} />,
       label: "Settings",
       onClick: () => {
         onOpenSettings?.();
@@ -325,7 +326,7 @@ export default function MenuBar({
 
   const viewMenuItems: MenuItem[] = [
     {
-      icon: <Minus size={16} />,
+      icon: <Minus size={Math.round(16 * zoomScale)} />,
       label: "Zoom 50%",
       onClick: () => {
         onSetZoom?.("50%");
@@ -334,7 +335,7 @@ export default function MenuBar({
       dataMenuItem: "Zoom 50%",
     },
     {
-      icon: <Minus size={16} />,
+      icon: <Minus size={Math.round(16 * zoomScale)} />,
       label: "Zoom 70%",
       onClick: () => {
         onSetZoom?.("70%");
@@ -343,7 +344,7 @@ export default function MenuBar({
       dataMenuItem: "Zoom 70%",
     },
     {
-      icon: <Eye size={16} />,
+      icon: <Eye size={Math.round(16 * zoomScale)} />,
       label: "Zoom 100%",
       onClick: () => {
         onSetZoom?.("100%");
@@ -352,7 +353,7 @@ export default function MenuBar({
       dataMenuItem: "Zoom 100%",
     },
     {
-      icon: <Plus size={16} />,
+      icon: <Plus size={Math.round(16 * zoomScale)} />,
       label: "Zoom 140%",
       onClick: () => {
         onSetZoom?.("140%");
@@ -361,7 +362,7 @@ export default function MenuBar({
       dataMenuItem: "Zoom 140%",
     },
     {
-      icon: <ZoomIn size={16} />,
+      icon: <ZoomIn size={Math.round(16 * zoomScale)} />,
       label: "Zoom 200%",
       onClick: () => {
         onSetZoom?.("200%");
@@ -386,11 +387,11 @@ export default function MenuBar({
             }
           }}
           style={{
-            padding: "0.75rem 1rem",
+            padding: "0.5em 1em",
             cursor: item.disabled ? "not-allowed" : "pointer",
             display: "flex",
             alignItems: "center",
-            gap: "0.75rem",
+            gap: "0.5em",
             color: item.disabled ? "#9ca3af" : "#374151",
             backgroundColor: "white",
             opacity: item.disabled ? 0.5 : 1,
@@ -466,7 +467,7 @@ export default function MenuBar({
           background: openMenu === menuName ? "#334155" : "transparent",
           color: "white",
           border: "none",
-          padding: "0.5rem 1rem",
+          padding: "0.3em 0.8em",
           cursor: "pointer",
           display: "flex",
           alignItems: "center",
@@ -476,7 +477,7 @@ export default function MenuBar({
       >
         {icon}
         <span>{menuName}</span>
-        <ChevronDown size={14} />
+        <ChevronDown size={Math.round(14 * zoomScale)} />
       </button>
       {renderDropdown(menuName, items, menuType)}
     </div>
@@ -497,23 +498,23 @@ export default function MenuBar({
         <div
           style={{
             display: "flex",
-            gap: "0.5rem",
+         gap: "0.5em",
             flex: 1,
           }}
         >
           {renderMenuTrigger(
             "File",
-            <Folder size={16} />,
+            <Folder size={Math.round(16 * zoomScale)} />,
             fileMenuItems,
             "title",
           )}
-          {renderMenuTrigger("Sort", <ListFilter size={16} />, sortMenuItems)}
+          {renderMenuTrigger("Sort", <ListFilter size={Math.round(16 * zoomScale)} />, sortMenuItems)}
           {renderMenuTrigger(
             "Operations",
-            <SettingsIcon size={16} />,
+            <SettingsIcon size={Math.round(16 * zoomScale)} />,
             operationsMenuItems,
           )}
-          {renderMenuTrigger("View", <ZoomIn size={16} />, viewMenuItems)}
+          {renderMenuTrigger("View", <ZoomIn size={Math.round(16 * zoomScale)} />, viewMenuItems)}
         </div>
 
         {/* Title and player count */}
@@ -522,19 +523,19 @@ export default function MenuBar({
             style={{
               margin: 0,
               color: "white",
-              padding: "0 1rem",
-              fontSize: "0.875rem",
+              padding: "0 1em",
+              fontSize: `${0.875 * ((100 + parseInt(zoomLevel, 10)) / 200)}rem`,
             }}
           >
             {projectName} {getVersionString()}
             {isServerDown && (
               <span style={{
-                marginLeft: '0.5rem',
-                padding: '0.25rem 0.5rem',
+                marginLeft: '0.5em',
+                padding: '0.2em 0.4em',
                 backgroundColor: '#f59e0b',
                 color: '#78350f',
-                borderRadius: '0.25rem',
-                fontSize: '0.75rem',
+                borderRadius: '0.2em',
+                fontSize: '0.85em',
                 fontWeight: '600',
               }}>
                 ⚠️ SERVER DOWN
@@ -543,7 +544,7 @@ export default function MenuBar({
           </h1>
         )}
         {playerCount !== undefined && (
-          <div style={{ padding: "0.75rem 1rem", fontSize: "0.875rem" }}>
+          <div style={{ padding: "0 1em", fontSize: `${0.875 * ((100 + parseInt(zoomLevel, 10)) / 200)}rem` }}>
             <span style={{ color: "rgba(255, 255, 255, 0.7)" }}>
               Total Players
             </span>
