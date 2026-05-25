@@ -148,13 +148,29 @@ export async function loadRemoteFile(fileUrl: string): Promise<{ success: boolea
 }
 
 /**
+ * Remove all ladder-related keys from localStorage for the current prefix.
+ */
+function clearAllLadderData(): void {
+  const prefix = getLadderPrefix();
+  const keysToRemove: string[] = [];
+  for (let i = localStorage.length - 1; i >= 0; i--) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith(prefix)) {
+      keysToRemove.push(key);
+    }
+  }
+  keysToRemove.forEach(key => localStorage.removeItem(key));
+  console.log(`[Config] Cleared ${keysToRemove.length} ladder keys with prefix "${prefix}"`);
+}
+
+/**
  * Load config from URL query params:
  *   ?config=1&server=http://host:port&key=abc123  → server connection
+ *   ?config=2                                      → full reset (clear everything)
  *   ?config=3&file=http://host/file.tab            → remote file load (.tab or .xls)
+ *   ?config=4                                      → force local mode (keep data)
  */
 export async function loadConfigFromUrl(): Promise<boolean> {
-  // Clear console first thing to remove stale logs from previous session
-  console.clear();
   const url = new URL(window.location.href);
   const configParam = url.searchParams.get('config');
   console.log('[loadConfigFromUrl] config param:', configParam, 'forceLocalMode:', localStorage.getItem('forceLocalMode'));
@@ -184,6 +200,18 @@ export async function loadConfigFromUrl(): Promise<boolean> {
     console.log('[Config] Server config loaded from URL:', { server: normalized, hasKey: !!apiKey });
   }
   
+  // Full reset: ?config=2 (clear everything)
+  else if (configType === '2') {
+    console.clear();
+    console.log('[Config] ?config=2: full reset');
+    clearAllLadderData();
+    sessionStorage.clear();
+    localStorage.setItem('forceLocalMode', 'true');
+    console.log('[Config] All data cleared. Reloading...');
+    alert('Full reset complete.\n\nAll ladder data cleared. The app will reload.');
+    setTimeout(() => window.location.reload(), 500);
+  }
+  
   // Remote file load: ?config=3&file=http://host/file.tab
   else if (configType === '3') {
     const fileUrl = url.searchParams.get('file');
@@ -203,23 +231,21 @@ export async function loadConfigFromUrl(): Promise<boolean> {
     }
   }
   
-  // Local mode reset: ?config=2 (no parameters)
-  else if (configType === '2') {
-    console.log('[Config] ?config=2: resetting to local mode');
+  // Force local mode: ?config=4 (disconnect from server, keep data)
+  else if (configType === '4') {
+    console.clear();
+    console.log('[Config] ?config=4: force local mode');
     clearUserSettings();
     clearLastWorkingConfig();
-    sessionStorage.removeItem('pendingFileLoad');
-    sessionStorage.removeItem('pendingFileContent');
-    sessionStorage.removeItem('pendingFileName');
     sessionStorage.removeItem('autoDetectedServerUrl');
     localStorage.setItem('forceLocalMode', 'true');
-    console.log('[Config] forceLocalMode (persistent) set, all storage cleared. Reloading...');
-    alert('Reset to local mode.\n\nThe app will reload to apply.');
+    console.log('[Config] Disconnected from server. Local data preserved. Reloading...');
+    alert('Force local mode.\n\nServer disconnected, auto-detection blocked. Local data preserved. The app will reload.');
     setTimeout(() => window.location.reload(), 500);
   }
   
   else {
-    console.warn(`[USER_SETTINGS] Unknown config type: ${configType}. Use ?config=1 (server), ?config=3 (file), or ?config=2 (local).`);
+    console.warn(`[USER_SETTINGS] Unknown config type: ${configType}. Use ?config=1 (server), ?config=2 (full reset), ?config=3 (file), or ?config=4 (local mode).`);
     return false;
   }
 
@@ -230,5 +256,5 @@ export async function loadConfigFromUrl(): Promise<boolean> {
   url.searchParams.delete('file');
   window.history.replaceState({}, '', url.toString());
 
-  return true;
+ return true;
 }
