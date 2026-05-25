@@ -1,6 +1,6 @@
 # Unit Test Suite
 
-**Version: 1.2.4**
+**Version: 1.2.5**
 
 ## Overview
 
@@ -100,7 +100,7 @@ server/
 
 **Total: 551 tests** across client and server. **All passed.**
 
-### Test Count Breakdown (v1.2.4)
+### Test Count Breakdown
 
 | Category | Tests | Notes |
 |----------|-------|-------|
