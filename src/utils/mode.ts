@@ -126,13 +126,13 @@ export async function initializeConnectionState(): Promise<void> {
           console.log('[mode.ts] Stored server URL invalid (missing subdomain prefix), clearing and re-running auto-detection');
           // Clear the invalid stored URL
           const settings = loadUserSettings();
-          localStorage.setItem(getUserSettingsKey(), JSON.stringify({ server: '', apiKey: settings.apiKey, debugMode: settings.debugMode }));
+          localStorage.setItem(getUserSettingsKey(), JSON.stringify({ server: '', apiKey: settings.apiKey }));
         } else {
           const isValid = await validateServerUrl(serverUrl);
           if (!isValid) {
             console.log('[mode.ts] Stored server URL unreachable, clearing and re-running auto-detection');
             const settings = loadUserSettings();
-            localStorage.setItem(getUserSettingsKey(), JSON.stringify({ server: '', apiKey: settings.apiKey, debugMode: settings.debugMode }));
+localStorage.setItem(getUserSettingsKey(), JSON.stringify({ server: '', apiKey: settings.apiKey }));
           } else {
             connectionState.configuredForServer = true;
             connectionState.serverUrl = serverUrl;

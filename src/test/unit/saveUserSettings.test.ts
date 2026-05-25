@@ -21,7 +21,6 @@ describe('saveUserSettings', () => {
       saveUserSettings({
         server: '  omen.com:3000  ',
         apiKey: '  mykey  ',
-        debugMode: false,
       });
 
       const loaded = loadUserSettings();
@@ -33,7 +32,6 @@ describe('saveUserSettings', () => {
       saveUserSettings({
         server: '',
         apiKey: '',
-        debugMode: false,
       });
 
       const loaded = loadUserSettings();
@@ -44,7 +42,6 @@ describe('saveUserSettings', () => {
       saveUserSettings({
         server: '   ',
         apiKey: '',
-        debugMode: false,
       });
 
       const loaded = loadUserSettings();
@@ -58,7 +55,6 @@ describe('saveUserSettings', () => {
       saveUserSettings({
         server: 'omen.com:3000',
         apiKey: 'my-api-key',
-        debugMode: false,
       });
 
       const loaded = loadUserSettings();
@@ -69,7 +65,6 @@ describe('saveUserSettings', () => {
       saveUserSettings({
         server: 'omen.com:3000',
         apiKey: '',
-        debugMode: false,
       });
 
       const loaded = loadUserSettings();
@@ -80,47 +75,10 @@ describe('saveUserSettings', () => {
       saveUserSettings({
         server: 'omen.com:3000',
         apiKey: 'abc123-xyz_789',
-        debugMode: false,
       });
 
       const loaded = loadUserSettings();
       expect(loaded.apiKey).toBe('abc123-xyz_789');
-    });
-  });
-
-  describe('debugMode persistence', () => {
-    it('should save debugMode true', () => {
-      saveUserSettings({
-        server: 'omen.com:3000',
-        apiKey: '',
-        debugMode: true,
-      });
-
-      const loaded = loadUserSettings();
-      expect(loaded.debugMode).toBe(true);
-    });
-
-    it('should save debugMode false', () => {
-      saveUserSettings({
-        server: 'omen.com:3000',
-        apiKey: '',
-        debugMode: false,
-      });
-
-      const loaded = loadUserSettings();
-      expect(loaded.debugMode).toBe(false);
-    });
-
-    it('should default debugMode to false when not set', () => {
-      // Simulate old localStorage without debugMode field
-      const key = derivePrefixFromLocation('localhost', '/') + 'ladder_user_settings';
-      localStorage.setItem(key, JSON.stringify({
-        server: 'http://omen.com:3000',
-        apiKey: 'test',
-      }));
-
-      const loaded = loadUserSettings();
-      expect(loaded.debugMode).toBe(false);
     });
   });
 
@@ -129,7 +87,6 @@ describe('saveUserSettings', () => {
       saveUserSettings({
         server: 'omen.com:3000',
         apiKey: '',
-        debugMode: false,
       });
 
       const loaded = loadUserSettings();
@@ -140,7 +97,6 @@ describe('saveUserSettings', () => {
       saveUserSettings({
         server: 'https://omen.com:3000',
         apiKey: '',
-        debugMode: false,
       });
 
       const loaded = loadUserSettings();
@@ -151,7 +107,6 @@ describe('saveUserSettings', () => {
       saveUserSettings({
         server: 'omen\\com:3000',
         apiKey: '',
-        debugMode: false,
       });
 
       const loaded = loadUserSettings();
@@ -164,7 +119,6 @@ describe('saveUserSettings', () => {
       const original = {
         server: 'omen.com:3000',
         apiKey: 'test-api-key',
-        debugMode: true,
       };
 
       saveUserSettings(original);
@@ -172,26 +126,22 @@ describe('saveUserSettings', () => {
 
       expect(loaded.server).toBe('http://omen.com:3000');
       expect(loaded.apiKey).toBe('test-api-key');
-      expect(loaded.debugMode).toBe(true);
     });
 
     it('should overwrite previous settings', () => {
       saveUserSettings({
         server: 'first.com:3000',
         apiKey: 'first-key',
-        debugMode: false,
       });
 
       saveUserSettings({
         server: 'second.com:3000',
         apiKey: 'second-key',
-        debugMode: true,
       });
 
       const loaded = loadUserSettings();
       expect(loaded.server).toBe('http://second.com:3000');
       expect(loaded.apiKey).toBe('second-key');
-      expect(loaded.debugMode).toBe(true);
     });
 
     it('should handle missing fields gracefully', () => {
@@ -204,7 +154,6 @@ describe('saveUserSettings', () => {
       const loaded = loadUserSettings();
       expect(loaded.server).toBe('http://omen.com:3000');
       expect(loaded.apiKey).toBe('');
-      expect(loaded.debugMode).toBe(false);
     });
   });
 
@@ -213,7 +162,6 @@ describe('saveUserSettings', () => {
       saveUserSettings({
         server: 'omen.com:3000',
         apiKey: '',
-        debugMode: false,
       });
 
       const key = derivePrefixFromLocation('localhost', '/') + 'ladder_user_settings';
@@ -224,7 +172,6 @@ describe('saveUserSettings', () => {
       saveUserSettings({
         server: 'omen.com:3000',
         apiKey: 'test',
-        debugMode: true,
       });
 
       const key = derivePrefixFromLocation('localhost', '/') + 'ladder_user_settings';
@@ -240,13 +187,11 @@ describe('saveUserSettings', () => {
       localStorage.setItem(omenKey, JSON.stringify({
         server: 'http://omen.com:3000',
         apiKey: 'omen-key',
-        debugMode: true,
       }));
 
       localStorage.setItem(stagingKey, JSON.stringify({
         server: 'http://staging.com:3001',
         apiKey: 'staging-key',
-        debugMode: false,
       }));
 
       // When we load, we get the current location's key (localhost)

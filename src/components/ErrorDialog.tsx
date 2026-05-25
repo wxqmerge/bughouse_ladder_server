@@ -26,7 +26,7 @@ interface ErrorDialogProps {
   onEnterRecalculateSave?: (correctedString: string) => void;
   isAdmin?: boolean;
   onAddPlayer?: () => void;
-  debugMode?: boolean;
+  debugLevel?: number;
 }
 
 /**
@@ -132,7 +132,7 @@ export default function ErrorDialog({
   onEnterRecalculateSave,
   isAdmin = false,
   onAddPlayer,
-  debugMode = false,
+  debugLevel = 3,
 }: ErrorDialogProps) {
   const [correctedResult, setCorrectedResult] = useState<string>(
     existingValue?.replace(/_$/, "") || "",
@@ -822,7 +822,7 @@ export default function ErrorDialog({
               ✓ All game results are valid. No errors found.
             </p>
           )}
-          {(isGameEntry || isEnterGames) && debugMode && (
+          {(isGameEntry || isEnterGames) && debugLevel <= 3 && (
             <p
               style={{
                 fontSize: "0.75rem",
@@ -1055,7 +1055,7 @@ export default function ErrorDialog({
           )}
         </div>
 
-        {debugMode && correctedResult.trim() && parsedGameData && (
+        {debugLevel <= 3 && correctedResult.trim() && parsedGameData && (
           <p
             style={{
               fontSize: "0.75rem",
@@ -1232,7 +1232,7 @@ export default function ErrorDialog({
             placeholder="e.g., 5:6W7:8 for 4-player (pairs separated by colon)"
             autoFocus
           />
-          {debugMode && (
+          {debugLevel <= 3 && (
             <p
               style={{
                 fontSize: "0.75rem",
