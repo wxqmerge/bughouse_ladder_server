@@ -312,7 +312,7 @@ function parseEntry(
   scoreList[0] = RESULT_STRING.indexOf(results[0]);
   scoreList[1] = results[1] ? RESULT_STRING.indexOf(results[1]) : 0;
 
-  if (debugLevel <= 4) {
+  if (debugLevel <= 2) {
     console.log('[PARSE_DEBUG] parseEntry input="' + myText + '" -> players=[' + playersList[0] + ',' + playersList[1] + ',' + playersList[2] + ',' + playersList[3] + '] scores=[' + scoreList[0] + '(' + RESULT_STRING[scoreList[0]] + '),' + scoreList[1] + '(' + (scoreList[1] > 0 ? RESULT_STRING[scoreList[1]] : 'none') + ')] results=[' + (results[0] || 'none') + ',' + (results[1] || 'none') + ']');
   }
 
@@ -850,7 +850,7 @@ function calculateRatingsSinglePass(
   blendingFactor: number = 1,
   perfMultiplierScale: number = 1,
 ): { players: PlayerData[]; currentRating: Map<number, number>; playedToday: Set<number>; matchTraces: MatchDebugTrace[] } {
-  const dbg = new DebugLogger(debugLevel <= 7);
+  const dbg = new DebugLogger(debugLevel <= 2);
   const playersCopy = playersList.map((p) => ({ ...p }));
 
   // Default trophyEligible to true for backward compatibility with old data
@@ -1124,7 +1124,7 @@ export function calculateRatings(
     perfMultiplierScaleOverride?: number;
   },
 ): CalculateRatingsResult {
-  const debugLevel = options?.debugLevel ?? 5;
+  const debugLevel = options?.debugLevel ?? 9;
   const dbg = new DebugLogger(debugLevel <= 7);
   const trace: CalculateRatingsDebugTrace = {
     kFactor: 0,
@@ -1185,8 +1185,8 @@ export function calculateRatings(
     pass1NRating.set(p.rank, p.nRating);
   }
 
-  // Populate trace from pass 1 (for debugLevel <= 7)
-  if (debugLevel <= 7) {
+ // Populate trace from pass 1 (for debugLevel <= 7)
+   if (debugLevel <= 7) {
     for (const p of playersList) {
       trace.init.push({
         rank: p.rank,
@@ -1412,6 +1412,7 @@ export function validateGameResult(input: string): ValidationResultResult {
 export function updatePlayerGameData(
   input: string,
   addUnderscore: boolean = true,
+  debugLevel: number = 9,
 ): UpdatePlayerGameDataResult {
   if (!input.trim()) {
     return {
@@ -1464,7 +1465,9 @@ export function updatePlayerGameData(
   const parsedPlayer3Rank = parsedPlayersList[7];
   const parsedPlayer4Rank = parsedPlayersList[8];
 
-  console.log('[UPDATE_DEBUG] updatePlayerGameData input="' + input + '" addUnderscore=' + addUnderscore + ' -> resultString="' + resultString + '" p1=' + parsedPlayer1Rank + ' p2=' + parsedPlayer2Rank + ' p3=' + parsedPlayer3Rank + ' p4=' + parsedPlayer4Rank + ' scores=[' + parsedScoreList[0] + ',' + parsedScoreList[1] + ']');
+  if (debugLevel <= 2) {
+    console.log('[UPDATE_DEBUG] updatePlayerGameData input="' + input + '" addUnderscore=' + addUnderscore + ' -> resultString="' + resultString + '" p1=' + parsedPlayer1Rank + ' p2=' + parsedPlayer2Rank + ' p3=' + parsedPlayer3Rank + ' p4=' + parsedPlayer4Rank + ' scores=[' + parsedScoreList[0] + ',' + parsedScoreList[1] + ']');
+  }
 
   return {
     isValid: true,

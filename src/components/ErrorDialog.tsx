@@ -404,6 +404,12 @@ export default function ErrorDialog({
   }, [existingValue, error]);
 
   useEffect(() => {
+    if (debugLevel <= 3) {
+      console.log('[TEST_DEBUG] ErrorDialog: debugLevel <= 3, UI extras visible');
+    }
+  }, [debugLevel]);
+
+  useEffect(() => {
     // Focus input when dialog opens (selection handled in onFocus)
     if (justOpened.current && inputRef.current) {
       inputRef.current.focus();

@@ -452,6 +452,7 @@ async function commitBatchBuffer(): Promise<void> {
 // ==================== PLAYER DATA ====================
 
 export async function getPlayers(): Promise<PlayerData[]> {
+  console.log('[TEST_DEBUG] Pull from server started');
   if (isInBatch() && batchBuffer !== null) return batchBuffer;
   if (dataService.getMode() === DataServiceMode.LOCAL) return getJsonArray<PlayerData>('ladder_players');
   try {
@@ -591,6 +592,7 @@ export async function clearAllData(): Promise<void> {
 }
 
 export async function saveToServer(): Promise<{ success: boolean; error?: string }> {
+  console.log('[TEST_DEBUG] Push to server started');
   const players = await getPlayers();
   if (dataService.getMode() === DataServiceMode.LOCAL) return { success: true };
   try {

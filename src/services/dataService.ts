@@ -105,12 +105,14 @@ class DataService {
     this.stopSSE(); // Ensure clean state before reconnecting
 
     const url = `${this.getApiUrl()}/api/ladder/events`;
+    console.log('[TEST_DEBUG] SSE connecting to:', url);
     console.log('[DataService] Connecting to SSE:', url);
 
     this.sseEventSource = new EventSource(url);
 
     this.sseEventSource.onopen = () => {
       this.sseConnected = true;
+      console.log('[TEST_DEBUG] SSE connected');
       console.log('[DataService] SSE connection established');
     };
 
@@ -133,6 +135,7 @@ class DataService {
 
     this.sseEventSource.onerror = (error) => {
       this.sseConnected = false;
+      console.log('[TEST_DEBUG] SSE error:', error);
       console.warn('[DataService] SSE connection error — falling back to polling');
     };
   }

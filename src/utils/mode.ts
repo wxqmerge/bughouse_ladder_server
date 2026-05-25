@@ -1,4 +1,4 @@
-import { loadUserSettings, saveLastWorkingConfig, getUserSettingsKey } from '../services/userSettingsStorage';
+import { loadUserSettings, saveLastWorkingConfig, getUserSettingsKey, getLadderPrefix } from '../services/userSettingsStorage';
 
 // Connection state tracking
 let connectionState: {
@@ -104,6 +104,10 @@ export function onModeChange(callback: (newMode: string, oldMode: string) => voi
   */
 export async function initializeConnectionState(): Promise<void> {
   console.log('[mode.ts] initializeConnectionState: forceLocalMode=', localStorage.getItem('forceLocalMode'));
+  // Debug: show remaining ladder keys on startup (useful after ?config=2)
+  const ladderPrefix = getLadderPrefix();
+  const ladderKeys = Object.keys(localStorage).filter(k => k.startsWith(ladderPrefix));
+  console.log(`[mode.ts] Startup: ${ladderKeys.length} ladder keys in localStorage:`, ladderKeys);
   // Skip auto-detection if user explicitly reset to local mode via ?config=2
     if (localStorage.getItem('forceLocalMode') === 'true') {
       console.log('[mode.ts] Force local mode flag set, skipping auto-detection');
@@ -158,9 +162,10 @@ localStorage.setItem(getUserSettingsKey(), JSON.stringify({ server: '', apiKey: 
      
      // Step 1: Check same-origin first
      const healthController = new AbortController();
-     const healthTimeoutId = setTimeout(() => healthController.abort(), 3000);
-     
-     const healthResponse = await fetch(`${origin}/health`, {
+      const healthTimeoutId = setTimeout(() => healthController.abort(), 3000);
+      console.log('[TEST_DEBUG] Auto-detect: testing /health');
+      
+      const healthResponse = await fetch(`${origin}/health`, {
         method: 'GET',
         signal: healthController.signal,
       });
@@ -182,10 +187,12 @@ localStorage.setItem(getUserSettingsKey(), JSON.stringify({ server: '', apiKey: 
       const apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403;
      
      if (healthOk && apiOk) {
-       autoDetectedUrl = origin.replace(/\/$/, '');
-       console.log('[mode.ts] Same-origin auto-detected:', autoDetectedUrl);
+        autoDetectedUrl = origin.replace(/\/$/, '');
+        console.log('[TEST_DEBUG] Auto-detect: SERVER mode (server reachable)');
+        console.log('[mode.ts] Same-origin auto-detected:', autoDetectedUrl);
      } else {
-       console.log('[mode.ts] Same-origin detection FAILED: healthOk=', healthOk, 'apiOk=', apiOk);
+        console.log('[TEST_DEBUG] Auto-detect: LOCAL mode (/health failed)');
+        console.log('[mode.ts] Same-origin detection FAILED: healthOk=', healthOk, 'apiOk=', apiOk);
      }
    } catch (e) {
      console.log('[mode.ts] Same-origin detection threw error:', (e as Error).message);

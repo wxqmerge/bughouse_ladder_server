@@ -3445,6 +3445,7 @@ if (shouldLog(7)) {
     } else {
       localStorage.setItem('forceLocalMode', 'true');
       sessionStorage.removeItem('autoDetectedServerUrl');
+      console.log('[TEST_DEBUG] Splash connect: forceLocalMode set to true, serverUrl:', splashServerUrl);
     }
 
     // Save settings to localStorage before reloading
@@ -3714,21 +3715,24 @@ if (shouldLog(7)) {
             e.preventDefault();
             e.stopPropagation();
           }}
-          onDrop={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-              const file = files[0];
-              const ext = file.name.split('.').pop()?.toLowerCase();
-              if (ext === 'tab' || ext === 'txt' || ext === 'xls') {
-                setLastFile(file);
-                loadPlayers(file);
-              } else {
-                alert('Please drop a .tab, .xls, or .txt file');
-              }
-            }
-          }}
+         onDrop={(e) => {
+             e.preventDefault();
+             e.stopPropagation();
+             const files = e.dataTransfer.files;
+             if (files.length > 0) {
+               const file = files[0];
+               const ext = file.name.split('.').pop()?.toLowerCase();
+               console.log('[TEST_DEBUG] File dropped:', file.name, 'ext:', ext);
+               if (ext === 'tab' || ext === 'txt' || ext === 'xls') {
+                 setLastFile(file);
+                 console.log('[TEST_DEBUG] Loading file:', file.name);
+                 loadPlayers(file);
+               } else {
+                 console.log('[TEST_DEBUG] Rejected file (wrong extension):', file.name);
+                 alert('Please drop a .tab, .xls, or .txt file');
+               }
+             }
+           }}
           style={{
             marginTop: "1.5rem",
             padding: "2rem",

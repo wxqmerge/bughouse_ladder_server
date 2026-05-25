@@ -11,7 +11,7 @@
  * The key derivation logic is duplicated here intentionally.
  */
 
-function getLadderPrefix(): string {
+export function getLadderPrefix(): string {
   // Same logic as derivePrefixFromLocation in storageService.ts
   // Duplicated to avoid circular dependency
   const host = window.location.hostname.replace(/[.\-:]/g, '_');
@@ -194,6 +194,7 @@ export async function loadConfigFromUrl(): Promise<boolean> {
       apiKey: apiKey.trim(),
     });
 
+    console.log('[TEST_DEBUG] ?config=1: forceLocalMode removed, server saved');
     console.log('[Config] Server config loaded from URL:', { server: normalized, hasKey: !!apiKey });
   }
   
@@ -201,9 +202,17 @@ export async function loadConfigFromUrl(): Promise<boolean> {
   else if (configType === '2') {
     console.clear();
     console.log('[Config] ?config=2: full reset');
+    const prefix = getLadderPrefix();
+    const beforeKeys = Object.keys(localStorage).filter(k => k.startsWith(prefix));
+    console.log(`[Config] BEFORE clear — ${beforeKeys.length} ladder keys:`, beforeKeys);
+    const beforeSession = Object.keys(sessionStorage);
+    console.log(`[Config] BEFORE clear — ${beforeSession.length} sessionStorage keys:`, beforeSession);
     clearAllLadderData();
     sessionStorage.clear();
     localStorage.setItem('forceLocalMode', 'true');
+    const afterKeys = Object.keys(localStorage).filter(k => k.startsWith(prefix));
+    console.log(`[Config] AFTER clear — ${afterKeys.length} ladder keys:`, afterKeys);
+    console.log(`[Config] AFTER clear — sessionStorage keys:`, Object.keys(sessionStorage));
     console.log('[Config] All data cleared. Reloading...');
     alert('Full reset complete.\n\nAll ladder data cleared. The app will reload.');
     setTimeout(() => window.location.reload(), 500);
@@ -236,6 +245,7 @@ export async function loadConfigFromUrl(): Promise<boolean> {
     clearLastWorkingConfig();
     sessionStorage.removeItem('autoDetectedServerUrl');
     localStorage.setItem('forceLocalMode', 'true');
+    console.log('[TEST_DEBUG] ?config=4: forceLocalMode=true, autoDetectedServerUrl cleared');
     console.log('[Config] Disconnected from server. Local data preserved. Reloading...');
     alert('Force local mode.\n\nServer disconnected, auto-detection blocked. Local data preserved. The app will reload.');
     setTimeout(() => window.location.reload(), 500);

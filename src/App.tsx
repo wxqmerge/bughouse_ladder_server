@@ -103,14 +103,18 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
     document.title = formatPrefixToTitle(getKeyPrefix());
   }, []);
 
-  // Load URL-based config, initialize connection state, and test connectivity on mount
-  useEffect(() => {
+ // Load URL-based config, initialize connection state, and test connectivity on mount
+   useEffect(() => {
     const init = async () => {
-      // Step 1: Load URL params (saves server+key to localStorage)
-      const configApplied = await loadConfigFromUrl();
-      if (configApplied) {
-        setUrlConfigApplied(true);
-      }
+       // Step 1: Load URL params (saves server+key to localStorage)
+       const configApplied = await loadConfigFromUrl();
+       if (configApplied) {
+         setUrlConfigApplied(true);
+       }
+       // Debug: show localStorage state on startup
+       const ladderKeys = Object.keys(localStorage).filter(k => k.startsWith('ladder_'));
+       console.log('[TEST_DEBUG] Startup: localStorage has', ladderKeys.length, 'ladder keys:', ladderKeys);
+       console.log('[TEST_DEBUG] Startup: sessionStorage keys:', Object.keys(sessionStorage));
 
       // Step 2: Determine mode and configure dataService
       const config = await determineMode();
@@ -509,6 +513,7 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
   // Handle pulling from server (merge with local changes)
   const handlePullFromServer = async () => {
     console.log("[Reconnect] Pulling from server - merging with local changes");
+    console.log("[TEST_DEBUG] Pull from server started");
     try {
       // Replay pending deletes first
       await replayPendingDeletes();
@@ -571,6 +576,7 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
   // Handle pushing to server (merge local changes with server)
   const handlePushToServer = async () => {
     console.log("[Reconnect] Pushing to server - merging local changes");
+    console.log("[TEST_DEBUG] Push to server started");
     try {
       // Replay pending deletes first
       await replayPendingDeletes();
@@ -758,6 +764,7 @@ localStorage.setItem(getUserSettingsKey(), JSON.stringify({ server: '', apiKey: 
 
   // Skip auto-detection if user explicitly reset to local mode via ?config=2
   if (localStorage.getItem('forceLocalMode') === 'true') {
+    console.log('[TEST_DEBUG] Mode check: forceLocalMode is true, skipping server mode');
     console.log('[App] Force local mode flag set, skipping auto-detection');
     return { mode: DataServiceMode.LOCAL };
   }
@@ -777,6 +784,7 @@ localStorage.setItem(getUserSettingsKey(), JSON.stringify({ server: '', apiKey: 
     try {
       const healthController = new AbortController();
       const healthTimeoutId = setTimeout(() => healthController.abort(), 3000);
+      console.log('[TEST_DEBUG] Auto-detect: testing /health');
       const healthResponse = await fetch(`${origin}/health`, { method: 'GET', signal: healthController.signal });
       clearTimeout(healthTimeoutId);
       console.log('[App] Auto-detect: /health status=', healthResponse.status, 'ok=', healthResponse.ok);
@@ -792,8 +800,10 @@ localStorage.setItem(getUserSettingsKey(), JSON.stringify({ server: '', apiKey: 
       
       if (healthOk && apiOk) {
         autoDetectedUrl = origin.replace(/\/$/, '');
+        console.log('[TEST_DEBUG] Auto-detect: SERVER mode (server reachable)');
         console.log('[App] Same-origin auto-detected:', autoDetectedUrl);
       } else {
+        console.log('[TEST_DEBUG] Auto-detect: LOCAL mode (/health failed)');
         console.log('[App] Same-origin detection FAILED: healthOk=', healthOk, 'apiOk=', apiOk);
       }
     } catch (e) {
@@ -861,6 +871,7 @@ localStorage.setItem(getUserSettingsKey(), JSON.stringify({ server: '', apiKey: 
 
   console.log('[App] Using LOCAL mode (no server configured)');
   localStorage.setItem('forceLocalMode', 'true');
+  console.log('[TEST_DEBUG] App.tsx: forceLocalMode set to true');
   return { mode: DataServiceMode.LOCAL };
 }
 

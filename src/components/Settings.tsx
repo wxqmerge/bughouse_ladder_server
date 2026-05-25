@@ -115,10 +115,12 @@ const savedSettings = getSettings();
     // Clear force local mode when user explicitly connects to a server
     if (userSettings.server && userSettings.server.trim()) {
       localStorage.removeItem('forceLocalMode');
+      console.log('[TEST_DEBUG] Connect: forceLocalMode removed from localStorage');
     } else {
       // User disconnected — prevent auto-detect from re-connecting on reload
       localStorage.setItem('forceLocalMode', 'true');
       sessionStorage.removeItem('autoDetectedServerUrl');
+      console.log('[TEST_DEBUG] Disconnect: forceLocalMode set to true, autoDetectedServerUrl cleared from sessionStorage');
     }
     saveUserSettings(userSettings);
 
@@ -155,9 +157,11 @@ const savedSettings = getSettings();
     // Clear force local mode when user explicitly connects to a server
     if (userSettings.server && userSettings.server.trim()) {
       localStorage.removeItem('forceLocalMode');
+      console.log('[TEST_DEBUG] Connect: forceLocalMode removed from localStorage');
     } else {
       localStorage.setItem('forceLocalMode', 'true');
       sessionStorage.removeItem('autoDetectedServerUrl');
+      console.log('[TEST_DEBUG] Disconnect: forceLocalMode set to true, autoDetectedServerUrl cleared from sessionStorage');
     }
     onSaveBeforeAction?.(settings, userSettings);
   };
