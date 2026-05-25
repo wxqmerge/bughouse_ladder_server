@@ -205,6 +205,7 @@ export async function loadConfigFromUrl(): Promise<boolean> {
     sessionStorage.removeItem('pendingFileLoad');
     sessionStorage.removeItem('pendingFileContent');
     sessionStorage.removeItem('pendingFileName');
+    sessionStorage.removeItem('autoDetectedServerUrl');
     sessionStorage.setItem('forceLocalMode', 'true');
     alert('Reset to local mode.\n\nThe app will reload to apply.');
     setTimeout(() => window.location.reload(), 500);
