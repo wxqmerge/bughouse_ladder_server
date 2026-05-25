@@ -4605,7 +4605,7 @@ export default function LadderForm({
           }}
         >
           <thead>
-            <tr>
+            <tr style={{ fontSize: `${0.875 * ((100 + parseInt(zoomLevel, 10)) / 200)}rem` }}>
               <th
                 key="head-rank"
                 style={{
