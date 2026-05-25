@@ -153,8 +153,12 @@ export async function loadRemoteFile(fileUrl: string): Promise<{ success: boolea
  *   ?config=3&file=http://host/file.tab            → remote file load (.tab or .xls)
  */
 export async function loadConfigFromUrl(): Promise<boolean> {
+  // Clear console first thing to remove stale logs from previous session
+  console.clear();
   const url = new URL(window.location.href);
-  if (!url.searchParams.get('config')) return false;
+  const configParam = url.searchParams.get('config');
+  console.log('[loadConfigFromUrl] config param:', configParam, 'forceLocalMode:', sessionStorage.getItem('forceLocalMode'));
+  if (!configParam) return false;
 
   const configType = url.searchParams.get('config');
   
@@ -200,6 +204,7 @@ export async function loadConfigFromUrl(): Promise<boolean> {
   
   // Local mode reset: ?config=2 (no parameters)
   else if (configType === '2') {
+    console.log('[Config] ?config=2: resetting to local mode');
     clearUserSettings();
     clearLastWorkingConfig();
     sessionStorage.removeItem('pendingFileLoad');
@@ -207,6 +212,7 @@ export async function loadConfigFromUrl(): Promise<boolean> {
     sessionStorage.removeItem('pendingFileName');
     sessionStorage.removeItem('autoDetectedServerUrl');
     sessionStorage.setItem('forceLocalMode', 'true');
+    console.log('[Config] forceLocalMode set, all storage cleared. Reloading...');
     alert('Reset to local mode.\n\nThe app will reload to apply.');
     setTimeout(() => window.location.reload(), 500);
   }

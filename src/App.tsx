@@ -734,6 +734,7 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
 
 async function determineMode(): Promise<{ mode: DataServiceMode; serverUrl?: string }> {
   const userSettings = loadUserSettings();
+  console.log('[determineMode] userSettings.server:', userSettings.server || '(empty)', 'forceLocalMode:', sessionStorage.getItem('forceLocalMode'));
   if (userSettings.server && userSettings.server.trim()) {
     const serverUrl = userSettings.server.trim().replace(/\/$/, '');
 
@@ -760,8 +761,7 @@ async function determineMode(): Promise<{ mode: DataServiceMode; serverUrl?: str
 
   // Skip auto-detection if user explicitly reset to local mode via ?config=2
   if (sessionStorage.getItem('forceLocalMode') === 'true') {
-    console.log('[App] Force local mode flag set, skipping auto-detection');
-    sessionStorage.removeItem('forceLocalMode');
+    console.log('[App] Force local mode flag set, skipping auto-detection (flag cleared by initializeConnectionState)');
     return { mode: DataServiceMode.LOCAL };
   }
 

@@ -588,6 +588,7 @@ export default function LadderForm({
           const userSettings = loadUserSettings();
           const autoDetected = sessionStorage.getItem('autoDetectedServerUrl');
           let serverUrl = autoDetected?.trim() || splashServerUrl?.trim() || userSettings.server?.trim() || '';
+          console.log('[LadderForm] Init: autoDetected=', autoDetected, 'splashServerUrl=', splashServerUrl, 'userSettings.server=', userSettings.server, '→ serverUrl=', serverUrl || '(empty)');
 
         // Load project settings from localStorage
         const projectName = getProjectName();
