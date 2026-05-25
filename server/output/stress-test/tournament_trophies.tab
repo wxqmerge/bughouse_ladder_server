@@ -8,69 +8,70 @@ Award 2nd place	t=17 > m=6 ? true
 Award grade 1st	t=17 > 2*m=12 ? true						
 
 MINI-GAME PLAYERS	(after 5 recalcs)						
+Rank	Player	Gr	Rating		Total Games	Games Played	
 
 Queen_Game							
-15	Deborah Scott	8	1897			13	
-4	Kenneth Harris	9	1849			13	
-42	Kimberly White	7	1803			13	
-17	Robert Campbell	12	1790			13	
-22	Carol Allen	6	1755			13	
+15	Deborah Scott	8	1897		80	13	
+4	Kenneth Harris	9	1849		81	13	
+42	Kimberly White	7	1803		77	13	
+17	Robert Campbell	12	1790		76	13	
+22	Carol Allen	6	1755		77	13	
 
 Top Ineligible							
-9	Melissa Perez	5	1911			13	
+9	Melissa Perez	5	1911		80	13	
 
 Pawn_Game							
-49	Deborah Wright	12	1903			12	
-28	Daniel Carter	7	1848			12	
-43	Susan Smith	10	1827			13	
-18	Kevin Gonzalez	12	1826			12	
-2	Timothy Harris	5	1780			12	
+49	Deborah Wright	12	1903		83	12	
+28	Daniel Carter	7	1848		75	12	
+43	Susan Smith	10	1827		81	13	
+18	Kevin Gonzalez	12	1826		78	12	
+2	Timothy Harris	5	1780		80	12	
 
 Top Ineligible							
-40	Susan Anderson	7	1862			14	
+40	Susan Anderson	7	1862		81	14	
 
 Pillar_Game							
-10	Kevin Torres	5	1920			12	
-18	Emily Thomas	6	1887			14	
-36	Emily White	6	1886			10	
-38	Dorothy Nelson	13	1873			12	
-25	Thomas Torres	6	1696			13	
+10	Kevin Torres	5	1920		81	12	
+18	Emily Thomas	6	1887		78	14	
+36	Emily White	6	1886		72	10	
+38	Dorothy Nelson	13	1873		81	12	
+25	Thomas Torres	6	1696		82	13	
 
 Top Ineligible							
-39	George Allen	9	1845			12	
+39	George Allen	9	1845		75	12	
 
 Bishop_Game							
-43	Joseph Harris	5	1888			14	
-48	Jennifer Baker	6	1841			12	
-31	Amanda Flores	9	1795			14	
-14	Richard Rivera	12	1764			15	
-37	Sarah Davis	8	1753			11	
+43	Joseph Harris	5	1888		81	14	
+48	Jennifer Baker	6	1841		78	12	
+31	Amanda Flores	9	1795		82	14	
+14	Richard Rivera	12	1764		81	15	
+37	Sarah Davis	8	1753		80	11	
 
 Top Ineligible							
-45	George Mitchell	11	1804			13	
+45	George Mitchell	11	1804		79	13	
 
 BG_Game							
-29	Ashley Gomez	8	1905			14	
-33	Timothy Thomas	12	1879			14	
-39	Thomas Davis	6	1727			13	
-20	Emily Robinson	9	1701			14	
-5	Betty Lewis	6	1700			12	
+29	Ashley Gomez	8	1905		79	14	
+33	Timothy Thomas	12	1879		80	14	
+39	Thomas Davis	6	1727		75	13	
+20	Emily Robinson	9	1701		80	14	
+5	Betty Lewis	6	1700		77	12	
 
 Top Ineligible							
-26	Deborah White	7	1879			13	
+26	Deborah White	7	1879		80	13	
 
 bughouse							
-9	Emily Roberts	6	1993			15	
-47	Betty Nelson	8	1879			13	
-12	Robert Wright	13	1862			14	
-38	Michael Baker	8	1813			14	
-27	Brian Lee	6	1713			14	
+9	Emily Roberts	6	1993		80	15	
+47	Betty Nelson	8	1879		79	13	
+12	Robert Wright	13	1862		79	14	
+38	Michael Baker	8	1813		81	14	
+27	Brian Lee	6	1713		82	14	
 
 Top Ineligible							
-3	Michelle Thompson	8	1752			15	
+3	Michelle Thompson	8	1752		84	15	
 
 Top Ineligible Overall							
-9	Melissa Perez	5	1911			80	
+9	Melissa Perez	5	1911		80	80	
 
 AWARDED TROPHIES							
 Rank	Player	Trophy Type	Mini-Game/Grade	Gr	Rating	Total Games	Games Played
