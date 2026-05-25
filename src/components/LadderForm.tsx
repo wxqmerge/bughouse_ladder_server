@@ -612,59 +612,65 @@ export default function LadderForm({
           (window as any).__ladder_setStatus?.(`Connecting to ${serverUrl}...`);
           try {
             const isMiniGame = isMiniGameTitle(projectName);
-            const apiUrl = isMiniGame 
-              ? `${serverUrl}/api/admin/tournament/read-mini-game?fileName=${titleToFileName(projectName)}`
-              : `${serverUrl}/api/ladder`;
-            
-            const initHeaders: Record<string, string> = {};
-              if (splashApiKey && splashApiKey.trim()) {
-                initHeaders['X-API-Key'] = splashApiKey.trim();
+            const hasApiKey = !!(splashApiKey && splashApiKey.trim());
+            // Skip mini-game fetch if no API key (admin endpoint requires auth)
+            if (!(isMiniGame && !hasApiKey)) {
+              const apiUrl = isMiniGame
+                ? `${serverUrl}/api/admin/tournament/read-mini-game?fileName=${titleToFileName(projectName)}`
+                : `${serverUrl}/api/ladder`;
+
+              const initHeaders: Record<string, string> = {};
+              if (hasApiKey) {
+                initHeaders['X-API-Key'] = splashApiKey!.trim();
               }
               const response = await fetch(apiUrl, {
                 headers: initHeaders,
               });
-            
-            if (response.ok) {
-              // Save this as the last working config
-              saveLastWorkingConfig(serverUrl, splashApiKey);
-              
-              const data = await response.json();
-              const serverPlayers = data.data?.players || [];
-              
-              if (serverPlayers && serverPlayers.length > 0) {
-                (window as any).__ladder_setStatus?.(`Loaded ${serverPlayers.length} players from server`);
-                const playersWithResults = serverPlayers.map((player: PlayerData) => ({
-                  ...player,
-                  gameResults: player.gameResults || new Array(31).fill(null),
-                }));
-                
-                // Mark cells as saved if they have underscores
-                playersWithResults.forEach((player: PlayerData) => {
-                  player.gameResults?.forEach((result: string | null, round: number) => {
-                    if (result && result.endsWith('_')) {
-                      markCellAsSaved(player.rank, round);
-                    }
+
+              if (response.ok) {
+                // Save this as the last working config
+                saveLastWorkingConfig(serverUrl, splashApiKey);
+
+                const data = await response.json();
+                const serverPlayers = data.data?.players || [];
+
+                if (serverPlayers && serverPlayers.length > 0) {
+                  (window as any).__ladder_setStatus?.(`Loaded ${serverPlayers.length} players from server`);
+                  const playersWithResults = serverPlayers.map((player: PlayerData) => ({
+                    ...player,
+                    gameResults: player.gameResults || new Array(31).fill(null),
+                  }));
+
+                  // Mark cells as saved if they have underscores
+                  playersWithResults.forEach((player: PlayerData) => {
+                    player.gameResults?.forEach((result: string | null, round: number) => {
+                      if (result && result.endsWith('_')) {
+                        markCellAsSaved(player.rank, round);
+                      }
+                    });
                   });
-                });
-                
-                setPlayers(playersWithResults);
-                setSortBy(null);
-                
-                // Set mini-game file if we're in tournament mode
-                if (isMiniGame) {
-                  dataService.setMiniGameFile(titleToFileName(projectName));
+
+                  setPlayers(playersWithResults);
+                  setSortBy(null);
+
+                  // Set mini-game file if we're in tournament mode
+                  if (isMiniGame) {
+                    dataService.setMiniGameFile(titleToFileName(projectName));
+                  }
+
+                  console.log('[LadderForm]', `Loaded ${playersWithResults.length} players from server`);
+                  (window as any).__ladder_setStatus?.(null);
+                  return;
                 }
-                
-                console.log('[LadderForm]', `Loaded ${playersWithResults.length} players from server`);
-                (window as any).__ladder_setStatus?.(null);
-                return;
               }
-            }
-            
-            // Server returned empty or error - log but continue to localStorage fallback
-            console.warn('[INIT]', 'Server fetch failed or empty, falling back to localStorage');
-            if (!hasLocalPlayerData) {
-              setRetryErrorMessage(`Server ${serverUrl} returned no data. Check the URL or load a file.`);
+
+              // Server returned empty or error - log but continue to localStorage fallback
+              console.warn('[INIT]', 'Server fetch failed or empty, falling back to localStorage');
+              if (!hasLocalPlayerData) {
+                setRetryErrorMessage(`Server ${serverUrl} returned no data. Check the URL or load a file.`);
+              }
+            } else {
+              console.warn('[INIT]', 'Mini-game mode requires API key, skipping server fetch');
             }
           } catch (err) {
             console.warn('[INIT]', 'Failed to fetch from server, falling back to localStorage:', err);
