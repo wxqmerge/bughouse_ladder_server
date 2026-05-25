@@ -2899,6 +2899,15 @@ export default function LadderForm({
     return players.map(p => ({ ...p, attendance: typeof p.attendance === 'number' ? p.attendance : (parseInt(String(p.attendance || '0')) || 0) }));
   };
 
+  const clampGameResults = (input: unknown): (string | null)[] => {
+    const results: (string | null)[] = new Array(31).fill(null);
+    if (!Array.isArray(input)) return results;
+    for (let i = 0; i < Math.min(input.length, 31); i++) {
+      results[i] = input[i] === null || input[i] === undefined ? null : String(input[i]);
+    }
+    return results;
+  };
+
   const createPlayerFromMapped = (mapped: Record<string, string | number>, currentPlayers: PlayerData[]): PlayerData => {
     const lastPlayer = currentPlayers[currentPlayers.length - 1];
     const maxRank = currentPlayers.reduce((max, p) => Math.max(max, p.rank || 0), 0);
@@ -2920,7 +2929,7 @@ export default function LadderForm({
       info: String(mapped.info || '').trim() || lastPlayer?.info || "",
       school: String(mapped.school || '').trim() || lastPlayer?.school || "",
       room: String(mapped.room || '').trim() || lastPlayer?.room || "",
-      gameResults: ((mapped as any).gameResults as (string | null)[]) || new Array(31).fill(null),
+      gameResults: clampGameResults((mapped as any).gameResults),
     };
   };
 
@@ -2957,7 +2966,7 @@ export default function LadderForm({
         }
       });
 
-      (mapped as any).gameResults = gameResults.length ? gameResults : new Array(31).fill(null);
+      (mapped as any).gameResults = gameResults.length ? clampGameResults(gameResults) : new Array(31).fill(null);
 
       const hasNames = String(mapped.lastName || '').trim() && String(mapped.firstName || '').trim();
 
@@ -3063,9 +3072,9 @@ export default function LadderForm({
         const targetPlayer = updatedPlayers[playerIdx];
         if (!targetPlayer) continue;
         if (field === 'rating' || field === 'nRating' || field === 'num_games' || field === 'attendance') {
-          (targetPlayer as any)[field] = parseInt(value) || 0;
-        } else {
-          (targetPlayer as any)[field] = value;
+          (targetPlayer as unknown as Record<string, unknown>)[field] = parseInt(value) || 0;
+        } else if (field in targetPlayer) {
+          (targetPlayer as unknown as Record<string, unknown>)[field] = value;
         }
       }
       col = startCol;
@@ -5324,9 +5333,9 @@ export default function LadderForm({
                                     const field = INLINE_FIELD_ORDER[fieldIndex];
                                     if (field !== "rank") {
                                       if (field === "rating" || field === "nRating" || field === "num_games" || field === "attendance") {
-                                        (newEmptyRow as any)[field] = parseInt(result.remainingCols[j]) || 0;
+                                        (newEmptyRow as unknown as Record<string, unknown>)[field] = parseInt(result.remainingCols[j]) || 0;
                                       } else {
-                                        (newEmptyRow as any)[field] = result.remainingCols[j].trim();
+                                        (newEmptyRow as unknown as Record<string, unknown>)[field] = result.remainingCols[j].trim();
                                       }
                                     }
                                   }
@@ -5349,7 +5358,7 @@ export default function LadderForm({
                                 const firstFilledCol = result.remainingCols.findIndex((c, idx) => {
                                   const field = INLINE_FIELD_ORDER[colIndex + idx];
                                   if (!field || field === "rank") return false;
-                                  return (newEmptyRow as any)[field] && String((newEmptyRow as any)[field]).trim();
+                                  return (newEmptyRow as unknown as Record<string, unknown>)[field] && String((newEmptyRow as unknown as Record<string, unknown>)[field]).trim();
                                 });
                                 const focusCol = firstFilledCol >= 0 ? colIndex + firstFilledCol + 1 : colIndex + 1;
                                 const focusCell = document.querySelector(`[data-empty-cell="${focusCol}"]`) as HTMLElement;

@@ -3,12 +3,7 @@ import { requireUserKey } from '../middleware/auth.middleware.js';
 import { writeLimiter } from '../middleware/rateLimit.middleware.js';
 import { readLadderFile, writeLadderFile, PlayerData, withTiming } from '../services/dataService.js';
 import { broadcastSSEEvent } from '../services/sseService.js';
-
-interface GameResult {
-  playerRank: number;
-  round: number;
-  result: string;
-}
+import { validateGameResult, validateDeltasArray } from '../utils/validation.js';
 
 const router = Router();
 
@@ -18,23 +13,7 @@ const router = Router();
 // Submit a single game result (requires user or admin API key)
 router.post('/submit', requireUserKey, writeLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
-    const { playerRank, round, result } = req.body as GameResult;
-
-    if (!playerRank || !round || !result) {
-      res.status(400).json({
-        success: false,
-        error: { message: 'Missing required fields' },
-      });
-      return;
-    }
-
-    if (typeof playerRank !== 'number' || typeof round !== 'number') {
-      res.status(400).json({
-        success: false,
-        error: { message: 'Invalid data types' },
-      });
-      return;
-    }
+    const { playerRank, round, result } = validateGameResult(req.body);
 
     // Basic validation for result format (will be enhanced with shared validation)
     if (!/^\d[LDW]\d(_)?$/.test(result) && !/^\d:\d[LDW][LDW]?\d:\d(_)?$/.test(result)) {
@@ -89,9 +68,7 @@ router.post('/submit', requireUserKey, writeLimiter, async (req: Request, res: R
 // Submit multiple game results (requires user or admin API key)
 router.post('/batch', requireUserKey, writeLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
-    const { games } = req.body as { games: GameResult[] };
-
-    if (!games || !Array.isArray(games)) {
+    if (!req.body || typeof req.body !== 'object' || !('games' in req.body)) {
       res.status(400).json({
         success: false,
         error: { message: 'Invalid games data' },
@@ -99,12 +76,14 @@ router.post('/batch', requireUserKey, writeLimiter, async (req: Request, res: Re
       return;
     }
 
+    const games = validateDeltasArray((req.body as { games: unknown }).games);
+
     const ladderData = await withTiming(`readLadderFile(batch)`, readLadderFile);
-    const results: any[] = [];
+    const results: Array<{ playerRank: number; round?: number; success?: boolean; error?: string }> = [];
 
     for (const game of games) {
       const playerIndex = ladderData.players.findIndex((p: PlayerData) => p.rank === game.playerRank);
-      
+
       if (playerIndex === -1) {
         results.push({ playerRank: game.playerRank, error: 'Player not found' });
         continue;

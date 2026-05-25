@@ -7,6 +7,7 @@ import {
   refreshAdminLock,
   getAdminLockInfo,
 } from '../services/adminLock.service.js';
+import { validateClientId } from '../utils/validation.js';
 
 const router = Router();
 
@@ -62,12 +63,12 @@ router.use(requireAdminKey);
 router.post('/acquire', (req: Request, res: Response) => {
   try {
     const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
-    const { clientId, clientName } = req.body;
+    const { clientId, clientName } = validateClientId(req.body);
 
-    if (!clientId || !clientName) {
+    if (!clientName) {
       return res.status(400).json({
         success: false,
-        error: 'Missing clientId or clientName',
+        error: 'Missing clientName',
       });
     }
 
@@ -102,12 +103,12 @@ router.post('/acquire', (req: Request, res: Response) => {
 router.post('/force', (req: Request, res: Response) => {
   try {
     const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
-    const { clientId, clientName } = req.body;
+    const { clientId, clientName } = validateClientId(req.body);
 
-    if (!clientId || !clientName) {
+    if (!clientName) {
       return res.status(400).json({
         success: false,
-        error: 'Missing clientId or clientName',
+        error: 'Missing clientName',
       });
     }
 
@@ -133,14 +134,7 @@ router.post('/force', (req: Request, res: Response) => {
  */
 router.post('/release', (req: Request, res: Response) => {
   try {
-    const { clientId } = req.body;
-
-    if (!clientId) {
-      return res.status(400).json({
-        success: false,
-        error: 'Missing clientId',
-      });
-    }
+    const { clientId } = validateClientId(req.body);
 
     const result = releaseAdminLock(clientId);
 
@@ -160,14 +154,7 @@ router.post('/release', (req: Request, res: Response) => {
  */
 router.post('/refresh', (req: Request, res: Response) => {
   try {
-    const { clientId } = req.body;
-
-    if (!clientId) {
-      return res.status(400).json({
-        success: false,
-        error: 'Missing clientId',
-      });
-    }
+    const { clientId } = validateClientId(req.body);
 
     const result = refreshAdminLock(clientId);
 
