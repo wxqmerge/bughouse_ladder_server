@@ -620,9 +620,7 @@ export default function LadderForm({
           try {
             const isMiniGame = isMiniGameTitle(projectName);
             const hasApiKey = !!(splashApiKey && splashApiKey.trim()) || !!(userSettings.apiKey && userSettings.apiKey.trim());
-            // Skip mini-game fetch if no API key (admin endpoint requires auth)
-            if (!(isMiniGame && !hasApiKey)) {
-              const apiUrl = isMiniGame
+            const apiUrl = isMiniGame
                 ? `${serverUrl}/api/admin/tournament/read-mini-game?fileName=${titleToFileName(projectName)}`
                 : `${serverUrl}/api/ladder`;
 
@@ -674,12 +672,9 @@ export default function LadderForm({
               // Server returned empty or error - log but continue to localStorage fallback
               console.warn('[INIT]', 'Server fetch failed or empty, falling back to localStorage');
               if (!hasLocalPlayerData) {
-                setRetryErrorMessage(`Server ${serverUrl} returned no data. Check the URL or load a file.`);
-              }
-            } else {
-              console.warn('[INIT]', 'Mini-game mode requires API key, skipping server fetch');
-            }
-          } catch (err) {
+               setRetryErrorMessage(`Server ${serverUrl} returned no data. Check the URL or load a file.`);
+               }
+             } catch (err) {
             console.warn('[INIT]', 'Failed to fetch from server, falling back to localStorage:', err);
           }
         }
