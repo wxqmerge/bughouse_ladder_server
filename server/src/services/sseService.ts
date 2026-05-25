@@ -48,23 +48,33 @@ export function stopHeartbeat(): void {
   }
 }
 
+const MAX_SSE_PAYLOAD_BYTES = 1024 * 1024; // 1MB hard limit
+
 export function broadcastSSEEvent(event: string, data: unknown, filterClientId?: string): void {
   try {
     eventCounter++;
     const id = String(eventCounter);
-    const payload = JSON.stringify(data);
+    let payload: string;
+    try {
+      payload = JSON.stringify(data);
+    } catch (stringifyErr) {
+      console.error('[SSE] Failed to serialize event data:', stringifyErr);
+      return;
+    }
+    if (Buffer.byteLength(payload, 'utf8') > MAX_SSE_PAYLOAD_BYTES) {
+      console.error('[SSE] Event payload exceeds 1MB limit, dropping event');
+      return;
+    }
     const message = `id: ${id}\nevent: ${event}\ndata: ${payload}\n\n`;
 
     const activeClients: SSEClient[] = [];
 
     for (const client of clients) {
       if (filterClientId && client.res.locals?.clientId !== filterClientId) {
-        // Skip the client that made the change (they already have their data)
         continue;
       }
 
       try {
-        // If client disconnected, remove them
         if (client.res.writableEnded) {
           continue;
         }

@@ -171,27 +171,32 @@ export async function readLadderFile(filePath?: string): Promise<LadderData> {
       loggerLog('[SERVER]', `Wrote repaired file: ${targetPath}`);
     }
     
-    const players: PlayerData[] = [];
-    
+  const players: PlayerData[] = [];
+    const YIELD_INTERVAL = 100;
+
     for (let i = 0; i < dataLines.length; i++) {
+      if (i > 0 && i % YIELD_INTERVAL === 0) {
+        await Promise.resolve();
+      }
+
       const line = dataLines[i];
       const fields = line.split('\t');
-      
+
       // Skip empty rows or footer rows
       if (fields.length < 4 || (!fields[1] && !fields[2])) {
         continue;
       }
-      
+
       const gameResults: (string | null)[] = [];
       for (let r = 0; r < 31; r++) {
         const value = fields[13 + r]?.trim() || '';
         gameResults.push(value || null);
       }
-      
+
       const ratingStr = String(fields[3] || '').trim();
       const isNegRating = ratingStr.startsWith('-');
       const nRateStr = String(fields[5] || '').trim();
-      
+
       players.push({
         rank: parseInt(fields[4], 10) || 0,
         group: fields[0] || '',
@@ -213,7 +218,11 @@ export async function readLadderFile(filePath?: string): Promise<LadderData> {
 
     // Assign sequential ranks to any players with rank 0 (missing/empty rank field)
     let nextRank = 1;
-    for (const player of players) {
+    for (let i = 0; i < players.length; i++) {
+      if (i > 0 && i % YIELD_INTERVAL === 0) {
+        await Promise.resolve();
+      }
+      const player = players[i];
       if (player.rank === 0) {
         player.rank = nextRank;
       } else {
@@ -228,12 +237,20 @@ export async function readLadderFile(filePath?: string): Promise<LadderData> {
   });
 }
 
-export function generateTabContent(ladderData: LadderData): string {
+export async function generateTabContent(ladderData: LadderData): Promise<string> {
   // Output format matches LadderForm export (new LadderForm format with Gms preserved)
-  
+
   const headerLine = `Group\tLast Name\tFirst Name\tRating\tRnk\tN Rate\tGr\tGms\tAttendance\tPhone\tInfo\tSchool\tRoom\t1\t2\t3\t4\t5\t6\t7\t8\t9\t10\t11\t12\t13\t14\t15\t16\t17\t18\t19\t20\t21\t22\t23\t24\t25\t26\t27\t28\t29\t30\t31\tVersion ${serverVersion}`;
-  
-  const playerLines = ladderData.players.map(player => {
+
+  const playerLines: string[] = [];
+  const YIELD_INTERVAL = 100;
+
+  for (let i = 0; i < ladderData.players.length; i++) {
+    if (i > 0 && i % YIELD_INTERVAL === 0) {
+      await Promise.resolve();
+    }
+
+    const player = ladderData.players[i];
     const baseFields = [
       player.group || '', // Group
       player.lastName || '', // Last Name
@@ -249,15 +266,15 @@ export function generateTabContent(ladderData: LadderData): string {
       player.school || '', // School
       player.room || '', // Room
     ];
-    
+
     // Add game result columns (1-31)
     const gameResults = player.gameResults || [];
-    for (let i = 0; i < 31; i++) {
-      baseFields.push(gameResults[i] || '');
+    for (let r = 0; r < 31; r++) {
+      baseFields.push(gameResults[r] || '');
     }
-    
-    return baseFields.join('\t');
-  });
+
+    playerLines.push(baseFields.join('\t'));
+  }
 
   return [headerLine, ...playerLines].join('\n') + '\n';
 }
@@ -282,7 +299,7 @@ export async function writeLadderFile(ladderData: LadderData, filePath?: string)
         }
       }
       
-      const content = generateTabContent(ladderData);
+      const content = await generateTabContent(ladderData);
       await fs.writeFile(targetPath, content, 'utf-8');
       
       writeHealth.lastWriteTime = new Date().toISOString();
