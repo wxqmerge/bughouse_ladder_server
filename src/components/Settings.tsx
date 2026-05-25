@@ -107,6 +107,10 @@ export default function Settings({
       apiKey: apiKey.trim(),
       debugMode: debugMode,
     };
+    // Clear force local mode when user explicitly connects to a server
+    if (userSettings.server && userSettings.server.trim()) {
+      localStorage.removeItem('forceLocalMode');
+    }
     saveUserSettings(userSettings);
     
     // Show confirmation with current mode
@@ -133,6 +137,10 @@ export default function Settings({
       apiKey: apiKey.trim(),
       debugMode: debugMode,
     };
+    // Clear force local mode when user explicitly connects to a server
+    if (userSettings.server && userSettings.server.trim()) {
+      localStorage.removeItem('forceLocalMode');
+    }
     onSaveBeforeAction?.(settings, userSettings);
   };
 
