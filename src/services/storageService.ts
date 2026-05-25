@@ -618,6 +618,7 @@ export function getClientId(): string {
 export function getClientName(clientId: string): string { return `Client ${clientId.substr(-4)}`; }
 
 export function getServerUrl(): string | null {
+  if (localStorage.getItem('forceLocalMode') === 'true') return null;
   try {
     const settings = loadUserSettings();
     return normalizeServerUrl(settings.server || '') || null;
@@ -746,8 +747,7 @@ export async function tryAcquireAdminLockLegacy(clientName?: string): Promise<bo
 
 export async function checkWritePermission(): Promise<boolean> {
   const url = getServerUrl();
-  const forceLocal = localStorage.getItem('forceLocalMode') === 'true';
-  if (!url || forceLocal) { console.log('[CHECK-WRITE] local mode → true'); return true; }
+  if (!url) { console.log('[CHECK-WRITE] no server URL → true (local mode)'); return true; }
   const settings = loadUserSettings();
   if (!settings.apiKey || !settings.apiKey.trim()) { console.log('[CHECK-WRITE] no API key → false'); return false; }
   try {

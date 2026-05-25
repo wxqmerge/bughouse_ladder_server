@@ -3276,11 +3276,10 @@ export default function LadderForm({
     if (!isAdmin) {
       // Attempting to enter admin mode
       
-      // Local mode: no server configured or force local mode, always allow immediately
+      // Local mode: no server configured, always allow immediately
       const serverUrl = getServerUrl();
-      const forceLocal = localStorage.getItem('forceLocalMode') === 'true';
-      console.log('[ADMIN-TOGGLE] serverUrl=', serverUrl, 'forceLocal=', forceLocal);
-      if (!serverUrl || forceLocal) {
+      console.log('[ADMIN-TOGGLE] serverUrl=', serverUrl);
+      if (!serverUrl) {
         console.log('[ADMIN_LOCK] Local mode - entering admin mode directly');
         setIsAdmin(true);
         return;
