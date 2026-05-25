@@ -53,22 +53,22 @@ describe('K-Factor bounds', () => {
     });
 
     it('should handle parseInt result of 0 (empty input)', () => {
-      const input = parseInt('') || 20; // default fallback
+      const input = parseInt('', 10) || 20; // default fallback
       const kFactor = Math.max(1, Math.min(100, input));
       expect(kFactor).toBe(20);
     });
 
     it('should handle parseInt result of NaN (invalid input)', () => {
-      const input = parseInt('abc') || 20; // default fallback
+      const input = parseInt('abc', 10) || 20; // default fallback
       const kFactor = Math.max(1, Math.min(100, input));
       expect(kFactor).toBe(20);
     });
   });
 
   describe('Settings input behavior simulation', () => {
-    // Simulates the onChange handler: Math.max(1, Math.min(100, parseInt(e.target.value) || 20))
+    // Simulates the onChange handler: Math.max(1, Math.min(100, parseInt(e.target.value, 10) || 20))
     function clampKFactor(input: string): number {
-      return Math.max(1, Math.min(100, parseInt(input) || 20));
+      return Math.max(1, Math.min(100, parseInt(input, 10) || 20));
     }
 
     it('should handle empty string input → default 20', () => {

@@ -359,7 +359,7 @@ export async function replayPendingDeletes(): Promise<void> {
   for (const key of deletes) {
     const [rankStr, roundStr] = key.split(':');
     try {
-      const res = await fetch(`${serverUrl}/api/ladder/${parseInt(rankStr)}/round/${parseInt(roundStr)}`, { method: 'DELETE', headers });
+      const res = await fetch(`${serverUrl}/api/ladder/${parseInt(rankStr, 10)}/round/${parseInt(roundStr, 10)}`, { method: 'DELETE', headers });
       if (!res.ok) {
         failed.add(key);
         log('[STORAGE]', `Failed to replay delete ${key}: HTTP ${res.status}`);

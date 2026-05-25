@@ -42,7 +42,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
 // Get single player by rank
 router.get('/:rank', async (req: Request, res: Response): Promise<void> => {
   try {
-    const rank = parseInt(req.params.rank);
+    const rank = parseInt(req.params.rank, 10);
     if (isNaN(rank) || rank < 1) {
       res.status(400).json({
         success: false,
@@ -78,7 +78,7 @@ router.get('/:rank', async (req: Request, res: Response): Promise<void> => {
 // Update player data (requires user or admin API key)
 router.put('/:rank', requireUserKey, writeLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
-    const rank = parseInt(req.params.rank);
+    const rank = parseInt(req.params.rank, 10);
     if (isNaN(rank) || rank < 1) {
       res.status(400).json({
         success: false,
@@ -126,8 +126,8 @@ router.put('/:rank', requireUserKey, writeLimiter, async (req: Request, res: Res
 // Clear a single game result cell (requires user or admin API key)
 router.delete('/:rank/round/:roundIndex', requireUserKey, writeLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
-    const rank = parseInt(req.params.rank);
-    const roundIndex = parseInt(req.params.roundIndex);
+    const rank = parseInt(req.params.rank, 10);
+    const roundIndex = parseInt(req.params.roundIndex, 10);
 
     if (isNaN(rank) || rank < 1 || isNaN(roundIndex) || roundIndex < 0 || roundIndex > 30) {
       res.status(400).json({

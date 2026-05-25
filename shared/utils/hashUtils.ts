@@ -214,7 +214,7 @@ function parseEntry(
             playersList.length > entry &&
             entryString !== ""
           ) {
-            playersList[entry] = parseInt(entryString);
+            playersList[entry] = parseInt(entryString, 10);
             if (playersList[entry] > CONSTANTS.GROWS_MAX) {
               errorNum = 9;
               break;
@@ -230,7 +230,7 @@ function parseEntry(
             playersList.length > entry &&
             entryString !== ""
           ) {
-            playersList[entry] = parseInt(entryString);
+            playersList[entry] = parseInt(entryString, 10);
             if (playersList[entry] > CONSTANTS.GROWS_MAX) {
               errorNum = 9;
               break;
@@ -269,7 +269,7 @@ function parseEntry(
 
   // Store any remaining number at the end of the string
   if (numOrChar === 0 && playersList.length > entry && entryString !== "") {
-    playersList[entry] = parseInt(entryString);
+    playersList[entry] = parseInt(entryString, 10);
     entry++;
     if (playersList[entry - 1] > CONSTANTS.GROWS_MAX) {
       errorNum = 9;

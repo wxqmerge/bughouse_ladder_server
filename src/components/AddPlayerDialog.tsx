@@ -59,7 +59,7 @@ export default function AddPlayerDialog({
       group,
       lastName,
       firstName,
-      rating: rating ? parseInt(rating) : 0,
+      rating: rating ? parseInt(rating, 10) : 0,
       trophyEligible: true,
       grade,
       phone,

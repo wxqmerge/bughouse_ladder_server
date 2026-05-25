@@ -346,7 +346,7 @@ export default function Settings({
                 value={kFactor}
                 onChange={(e) =>
                   setKFactor(
-                    Math.max(1, Math.min(100, parseInt(e.target.value) || 20)),
+                    Math.max(1, Math.min(100, parseInt(e.target.value, 10) || 20)),
                   )
                 }
                 style={{

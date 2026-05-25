@@ -193,16 +193,16 @@ export async function readLadderFile(filePath?: string): Promise<LadderData> {
       const nRateStr = String(fields[5] || '').trim();
       
       players.push({
-        rank: parseInt(fields[4]) || 0,
+        rank: parseInt(fields[4], 10) || 0,
         group: fields[0] || '',
         lastName: fields[1] || '',
         firstName: fields[2] || '',
-        rating: Math.abs(parseInt(ratingStr)) || 0,
-        nRating: Math.abs(parseInt(nRateStr)) || 0,
+        rating: Math.abs(parseInt(ratingStr, 10)) || 0,
+        nRating: Math.abs(parseInt(nRateStr, 10)) || 0,
         trophyEligible: !isNegRating,
         grade: fields[6] || '',
-        num_games: parseInt(fields[7]) || 0,
-        attendance: parseInt(fields[8]) || 0,
+        num_games: parseInt(fields[7], 10) || 0,
+        attendance: parseInt(fields[8], 10) || 0,
         phone: fields[9] || '',
         info: fields[10] || '',
         school: fields[11] || '',

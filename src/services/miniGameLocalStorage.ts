@@ -68,19 +68,19 @@ function parseTabContent(content: string): LadderData {
     const nRateStr = String(cols[5] || "").trim();
 
     const player: PlayerData = {
-      rank: cols[4] ? parseInt(cols[4]) : 0,
+      rank: cols[4] ? parseInt(cols[4], 10) : 0,
       group: cols[0] && cols[0].trim() !== "" ? cols[0].trim() : "",
       lastName: cols[1] !== null ? cols[1] : "",
       firstName: cols[2] !== null ? cols[2] : "",
-      rating: Math.abs(parseInt(ratingStr)) || 0,
-      nRating: Math.abs(parseInt(nRateStr)) || 0,
+      rating: Math.abs(parseInt(ratingStr, 10)) || 0,
+      nRating: Math.abs(parseInt(nRateStr, 10)) || 0,
       trophyEligible: !isNegRating,
       grade: cols[6] !== null ? cols[6] : "N/A",
-      num_games: cols[7] !== null && !isNaN(parseInt(cols[7]))
-        ? parseInt(cols[7])
+      num_games: cols[7] !== null && !isNaN(parseInt(cols[7], 10))
+        ? parseInt(cols[7], 10)
         : 0,
-      attendance: cols[8] !== null && !isNaN(parseInt(cols[8]))
-        ? parseInt(cols[8])
+      attendance: cols[8] !== null && !isNaN(parseInt(cols[8], 10))
+        ? parseInt(cols[8], 10)
         : 0,
       phone: cols[9] !== null ? cols[9] : "",
       info: cols[10] !== null ? cols[10] : "",
