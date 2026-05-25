@@ -21,7 +21,8 @@ body {
 }
 
 #root {
-  min-height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
 }
 
 /* Migration Dialog Styles */

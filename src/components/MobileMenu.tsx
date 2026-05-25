@@ -34,6 +34,8 @@ interface MobileMenuProps {
   onSetTitle?: (title: string) => void;
   availableMiniGames?: string[];
   writePermission?: boolean;
+  serverUrl?: string | null;
+  hasAdminApiKey?: boolean;
 }
 
 interface MenuItem {
@@ -66,6 +68,8 @@ export default function MobileMenu({
   onSetTitle,
   availableMiniGames = [],
   writePermission = true,
+  serverUrl,
+  hasAdminApiKey = false,
 }: MobileMenuProps) {
   if (!isOpen) return null;
 
@@ -139,7 +143,7 @@ export default function MobileMenu({
     },
   ];
 
- const operationsItems: MenuItem[] = [
+const operationsItems: MenuItem[] = [
     {
       label: "Recalculate_Save",
       onClick: () => handleItemClick(onRecalculateRatings),
@@ -163,52 +167,59 @@ export default function MobileMenu({
       dataMenuItem: "Paste Multiple Results",
       disabled: !writePermission,
     },
+    ...(isAdmin && onAddPlayer
+      ? [
+          {
+            label: "Add Player",
+            onClick: () => handleItemClick(onAddPlayer),
+            dataMenuItem: "Add Player",
+            disabled: !writePermission,
+          },
+        ]
+      : []),
+    ...(isAdmin && onDeleteHiddenPlayers
+      ? [
+          {
+            label: "Delete Hidden Players",
+            onClick: () => handleItemClick(onDeleteHiddenPlayers),
+            dataMenuItem: "Delete Hidden Players",
+            disabled: !writePermission,
+          },
+        ]
+      : []),
+    ...(isAdmin && onAutoLetter
+      ? [
+          {
+            label: "Auto-Letter",
+            onClick: () => handleItemClick(onAutoLetter),
+            dataMenuItem: "Auto-Letter",
+            disabled: !writePermission,
+          },
+        ]
+      : []),
+    ...(serverUrl && !hasAdminApiKey && !isAdmin
+      ? []
+      : [{
+          label: isAdmin ? "Exit Admin Mode" : "Admin Mode",
+          onClick: () => handleItemClick(onToggleAdmin),
+          dataMenuItem: isAdmin ? "Exit Admin Mode" : "Admin Mode",
+          disabled: !writePermission && !isAdmin,
+        }]),
+    ...(isAdmin && onRestoreBackup
+      ? [
+          {
+            label: "Restore Backup",
+            onClick: () => handleItemClick(onRestoreBackup),
+            dataMenuItem: "Restore Backup",
+            disabled: !writePermission,
+          },
+        ]
+      : []),
     {
-      label: isAdmin ? "Exit Admin Mode" : "Admin Mode",
-      onClick: () => handleItemClick(onToggleAdmin),
-      dataMenuItem: isAdmin ? "Exit Admin Mode" : "Admin Mode",
-      disabled: !writePermission && !isAdmin,
+      label: "Settings",
+      onClick: () => handleItemClick(onOpenSettings),
+      dataMenuItem: "Settings",
     },
-...(isAdmin && onAddPlayer
-       ? [
-           {
-             label: "Add Player",
-             onClick: () => handleItemClick(onAddPlayer),
-             dataMenuItem: "Add Player",
-             disabled: !writePermission,
-           },
-         ]
-       : []),
-      ...(isAdmin && onDeleteHiddenPlayers
-       ? [
-           {
-             label: "Delete Hidden Players",
-             onClick: () => handleItemClick(onDeleteHiddenPlayers),
-             dataMenuItem: "Delete Hidden Players",
-             disabled: !writePermission,
-           },
-         ]
-       : []),
-      ...(isAdmin && onAutoLetter
-       ? [
-           {
-             label: "Auto-Letter",
-             onClick: () => handleItemClick(onAutoLetter),
-             dataMenuItem: "Auto-Letter",
-             disabled: !writePermission,
-           },
-         ]
-       : []),
-      ...(isAdmin && onRestoreBackup
-       ? [
-           {
-             label: "Restore Backup",
-             onClick: () => handleItemClick(onRestoreBackup),
-             dataMenuItem: "Restore Backup",
-             disabled: !writePermission,
-           },
-         ]
-       : []),
   ];
 
   const viewItems: MenuItem[] = [
@@ -375,50 +386,6 @@ export default function MobileMenu({
             operationsItems,
           )}
           {renderSection("View", <Eye size={18} />, viewItems)}
-
-          <div style={{ marginBottom: "1.5rem" }}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                padding: "0.75rem 1rem",
-                backgroundColor: "#f1f5f9",
-                borderRadius: "0.25rem",
-                fontSize: "0.875rem",
-                fontWeight: "600",
-                color: "#475569",
-              }}
-            >
-              <SettingsIcon size={18} />
-              <span>Configuration</span>
-            </div>
-            <button
-              data-menu="Settings"
-              data-menu-item="Open Settings"
-              onClick={() => handleItemClick(onOpenSettings)}
-              style={{
-                width: "100%",
-                padding: "1rem",
-                textAlign: "left",
-                backgroundColor: "transparent",
-                border: "none",
-                fontSize: "1rem",
-                color: "#374151",
-                cursor: "pointer",
-                borderRadius: "0.25rem",
-                marginTop: "0.25rem",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = "#e2e8f0";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = "transparent";
-              }}
-            >
-              Open Settings
-            </button>
-          </div>
         </div>
       </div>
     </>
