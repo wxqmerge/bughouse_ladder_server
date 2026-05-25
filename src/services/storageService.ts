@@ -746,7 +746,8 @@ export async function tryAcquireAdminLockLegacy(clientName?: string): Promise<bo
 
 export async function checkWritePermission(): Promise<boolean> {
   const url = getServerUrl();
-  if (!url) { console.log('[CHECK-WRITE] no server URL → true (local mode)'); return true; }
+  const forceLocal = localStorage.getItem('forceLocalMode') === 'true';
+  if (!url || forceLocal) { console.log('[CHECK-WRITE] local mode → true'); return true; }
   const settings = loadUserSettings();
   if (!settings.apiKey || !settings.apiKey.trim()) { console.log('[CHECK-WRITE] no API key → false'); return false; }
   try {
