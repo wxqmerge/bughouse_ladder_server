@@ -173,7 +173,7 @@ export function buildClubLadderPlayerSection(players: PlayerData[], debugLevel: 
     
     lines.push('');
     lines.push(debugLine('TOP 5 PER GRADE', '', '', '', '', '', '', ''));
-    const gradeGroups = [...new Set(players.map(p => p.grade).filter(Boolean))].sort((a, b) => parseInt(b) - parseInt(a));
+    const gradeGroups = [...new Set(players.map(p => p.grade).filter(Boolean))].sort((a, b) => parseInt(b, 10) - parseInt(a, 10));
     for (const grade of gradeGroups) {
       const gradePlayers = players.filter(p => p.grade === grade && p.trophyEligible !== false).sort((a, b) => b.nRating - a.nRating).slice(0, 5);
       if (gradePlayers.length === 0) continue;

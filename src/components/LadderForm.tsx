@@ -785,21 +785,21 @@ export default function LadderForm({
         const nRateStr = String(cols[5] || "").trim();
 
         const player: PlayerData = {
-          rank: cols[4] ? parseInt(cols[4]) : 0,
+          rank: cols[4] ? parseInt(cols[4], 10) : 0,
           group: cols[0] && cols[0].trim() !== "" ? cols[0].trim() : "",
           lastName: cols[1] !== null ? cols[1] : "",
           firstName: cols[2] !== null ? cols[2] : "",
-          rating: Math.abs(parseInt(ratingStr)) || 0,
-          nRating: Math.abs(parseInt(nRateStr)) || 0,
+          rating: Math.abs(parseInt(ratingStr, 10)) || 0,
+          nRating: Math.abs(parseInt(nRateStr, 10)) || 0,
           trophyEligible: !isNegRating,
           grade: cols[6] !== null ? cols[6] : "N/A",
           num_games:
-            cols[7] !== null && !isNaN(parseInt(cols[7]))
-              ? parseInt(cols[7])
+            cols[7] !== null && !isNaN(parseInt(cols[7], 10))
+              ? parseInt(cols[7], 10)
               : 0,
           attendance:
-            cols[8] !== null && !isNaN(parseInt(cols[8]))
-              ? parseInt(cols[8])
+            cols[8] !== null && !isNaN(parseInt(cols[8], 10))
+              ? parseInt(cols[8], 10)
               : 0,
           phone: cols[9] !== null ? cols[9] : "",
           info: cols[10] !== null ? cols[10] : "",
@@ -809,7 +809,7 @@ export default function LadderForm({
         };
 
         if (
-          parseInt(String(player.rank)) > 0 &&
+          parseInt(String(player.rank), 10) > 0 &&
           (player.lastName || player.firstName || player.nRating !== 0)
         ) {
           loadedPlayers.push(player);
@@ -2770,7 +2770,7 @@ export default function LadderForm({
       console.log(`>>> [MENU ACTION] Set zoom to ${level}`);
     }
     setZoomLevel(level);
-    const zoomPercent = parseInt(level);
+    const zoomPercent = parseInt(level, 10);
     setZoomLevelStorage(zoomPercent);
   };
 
@@ -2896,7 +2896,7 @@ export default function LadderForm({
   };
 
   const normalizePlayersAttendance = (players: PlayerData[]): PlayerData[] => {
-    return players.map(p => ({ ...p, attendance: typeof p.attendance === 'number' ? p.attendance : (parseInt(String(p.attendance || '0')) || 0) }));
+    return players.map(p => ({ ...p, attendance: typeof p.attendance === 'number' ? p.attendance : (parseInt(String(p.attendance || '0'), 10) || 0) }));
   };
 
   const clampGameResults = (input: unknown): (string | null)[] => {
@@ -2917,14 +2917,14 @@ export default function LadderForm({
       group: String(mapped.group || '').trim() || lastPlayer?.group || "",
       lastName: String(mapped.lastName || '').trim(),
       firstName: String(mapped.firstName || '').trim(),
-    rating: typeof mapped.rating === 'number' ? mapped.rating : (parseInt(String(mapped.rating || '0')) || 1),
-     nRating: typeof mapped.nRating === 'number' ? mapped.nRating : (parseInt(String(mapped.nRating || '0')) || 0),
+   rating: typeof mapped.rating === 'number' ? mapped.rating : (parseInt(String(mapped.rating || '0'), 10) || 1),
+      nRating: typeof mapped.nRating === 'number' ? mapped.nRating : (parseInt(String(mapped.nRating || '0'), 10) || 0),
       trophyEligible: String((mapped as any).trophyEligible || '').trim() === "-"
         ? false
         : (lastPlayer?.trophyEligible !== false),
       grade: String(mapped.grade || '').trim() || lastPlayer?.grade || "",
-      num_games: typeof mapped.num_games === 'number' ? mapped.num_games : (parseInt(String(mapped.num_games || '0')) || 0),
-      attendance: typeof mapped.attendance === 'number' ? mapped.attendance : (parseInt(String(mapped.attendance || '0')) || 0),
+      num_games: typeof mapped.num_games === 'number' ? mapped.num_games : (parseInt(String(mapped.num_games || '0'), 10) || 0),
+      attendance: typeof mapped.attendance === 'number' ? mapped.attendance : (parseInt(String(mapped.attendance || '0'), 10) || 0),
       phone: String(mapped.phone || '').trim() || lastPlayer?.phone || "",
       info: String(mapped.info || '').trim() || lastPlayer?.info || "",
       school: String(mapped.school || '').trim() || lastPlayer?.school || "",
@@ -2962,7 +2962,7 @@ export default function LadderForm({
 
       ['rating', 'nRating', 'num_games', 'attendance'].forEach(f => {
         if (mapped[f]) {
-          mapped[f] = parseInt(String(mapped[f])) || 0;
+          mapped[f] = parseInt(String(mapped[f]), 10) || 0;
         }
       });
 
@@ -2985,11 +2985,11 @@ export default function LadderForm({
   const moveFocusDown = (currentCell: HTMLElement) => {
     const cellId = currentCell.getAttribute('data-cell');
     if (!cellId) return;
-    const playerRank = parseInt(cellId.match(/player-(\d+)/)?.[1] || '0');
+    const playerRank = parseInt(cellId.match(/player-(\d+)/)?.[1] || '0', 10);
     const isGameCell = cellId.includes('-game-');
-    
+
     if (isGameCell) {
-      const gameRound = parseInt(cellId.match(/game-(\d+)/)?.[1] || '0');
+      const gameRound = parseInt(cellId.match(/game-(\d+)/)?.[1] || '0', 10);
       const nextPlayerRank = playerRank + 1;
       if (nextPlayerRank > players.length) return;
       const targetCell = document.querySelector(`[data-cell="player-${nextPlayerRank}-game-${gameRound}"]`) as HTMLElement;
@@ -2997,10 +2997,10 @@ export default function LadderForm({
       return;
     }
     
-    const lastNum = parseInt(cellId.match(/-(\d+)$/)?.[1] || '0');
+    const lastNum = parseInt(cellId.match(/-(\d+)$/)?.[1] || '0', 10);
     const nextPlayerRank = playerRank + 1;
     if (nextPlayerRank > players.length) return;
-    
+
     if (lastNum === 3) {
       const targetCell = document.querySelector(`[data-cell="player-${nextPlayerRank}-2"]`) as HTMLElement;
       if (targetCell) targetCell.focus();
@@ -3013,9 +3013,9 @@ export default function LadderForm({
   const moveFocus = (currentCell: HTMLElement, direction: 'next' | 'prev') => {
     const cellId = currentCell.getAttribute('data-cell');
     if (!cellId) return;
-    const playerRank = parseInt(cellId.match(/player-(\d+)/)?.[1] || '0');
+    const playerRank = parseInt(cellId.match(/player-(\d+)/)?.[1] || '0', 10);
     const isGameCell = cellId.includes('-game-');
-    const gameRound = parseInt(cellId.match(/game-(\d+)/)?.[1] || '0');
+    const gameRound = parseInt(cellId.match(/game-(\d+)/)?.[1] || '0', 10);
     let nextPlayerRank = playerRank;
     let nextCol = 0;
     let nextGameRound = gameRound;
@@ -3034,7 +3034,7 @@ export default function LadderForm({
       if (targetCell) targetCell.focus();
       return;
     }
-    const lastNum = parseInt(cellId.match(/-(\d+)$/)?.[1] || '0');
+    const lastNum = parseInt(cellId.match(/-(\d+)$/)?.[1] || '0', 10);
     nextCol = direction === 'next' ? lastNum + 1 : lastNum - 1;
     if (nextCol >= INLINE_FIELD_ORDER.length) {
       nextPlayerRank = direction === 'next' ? playerRank + 1 : playerRank - 1;
@@ -3072,7 +3072,7 @@ export default function LadderForm({
         const targetPlayer = updatedPlayers[playerIdx];
         if (!targetPlayer) continue;
         if (field === 'rating' || field === 'nRating' || field === 'num_games' || field === 'attendance') {
-          (targetPlayer as unknown as Record<string, unknown>)[field] = parseInt(value) || 0;
+          (targetPlayer as unknown as Record<string, unknown>)[field] = parseInt(value, 10) || 0;
         } else if (field in targetPlayer) {
           (targetPlayer as unknown as Record<string, unknown>)[field] = value;
         }
@@ -4865,7 +4865,7 @@ export default function LadderForm({
                                 data-cell={`player-${player.rank}-5`}
                             onBlur={(e) => {
                                     const value = (e.target.textContent || "").replace(/\n/g, "");
-                                    const val = parseInt(value) || 0;
+                                    const val = parseInt(value, 10) || 0;
                                     e.target.textContent = String(Math.abs(val));
                                  setPlayers((prevPlayers) => prevPlayers.map((p) => {
                                        if (p.rank !== player.rank) return p;
@@ -4880,7 +4880,7 @@ export default function LadderForm({
                                 e.preventDefault();
                             setPlayers((prevPlayers) => prevPlayers.map((p) => {
                                    if (p.rank !== player.rank) return p;
-                                   return { ...p, nRating: parseInt(text) || 0, trophyEligible: true };
+                                   return { ...p, nRating: parseInt(text, 10) || 0, trophyEligible: true };
                                  }));
                               }}
                           onKeyDown={(e) => {
@@ -5014,15 +5014,15 @@ export default function LadderForm({
                                  let value = (e.target.textContent || "").replace(/\n/g, "");
                                  const numericFields = ["rating", "nRating", "num_games", "attendance"];
                                  if (numericFields.includes(field)) {
-                                   const numVal = parseInt(value) || 0;
-                                   e.target.textContent = String(numVal);
-                                 } else {
-                                   e.target.textContent = value;
-                                 }
-                           setPlayers((prevPlayers) => prevPlayers.map((p) => {
-                                    if (p.rank !== player.rank) return p;
-                                    const numericFields = ["rating", "nRating", "num_games", "attendance"];
-                                    const parsedValue = numericFields.includes(field) ? parseInt(value) || 0 : value;
+                                 const numVal = parseInt(value, 10) || 0;
+                                    e.target.textContent = String(numVal);
+                                  } else {
+                                    e.target.textContent = value;
+                                  }
+                            setPlayers((prevPlayers) => prevPlayers.map((p) => {
+                                     if (p.rank !== player.rank) return p;
+                                     const numericFields = ["rating", "nRating", "num_games", "attendance"];
+                                     const parsedValue = numericFields.includes(field) ? parseInt(value, 10) || 0 : value;
                                     return { ...p, [field]: parsedValue };
                                   }));
                                }}
@@ -5333,7 +5333,7 @@ export default function LadderForm({
                                     const field = INLINE_FIELD_ORDER[fieldIndex];
                                     if (field !== "rank") {
                                       if (field === "rating" || field === "nRating" || field === "num_games" || field === "attendance") {
-                                        (newEmptyRow as unknown as Record<string, unknown>)[field] = parseInt(result.remainingCols[j]) || 0;
+                                        (newEmptyRow as unknown as Record<string, unknown>)[field] = parseInt(result.remainingCols[j], 10) || 0;
                                       } else {
                                         (newEmptyRow as unknown as Record<string, unknown>)[field] = result.remainingCols[j].trim();
                                       }
@@ -5447,8 +5447,8 @@ export default function LadderForm({
                           
                           let result: typeof emptyPlayerRow = { ...updated };
                           if (field === "rating" || field === "nRating" || field === "num_games" || field === "attendance") {
-                            const numVal = parseInt(value) || 0;
-                            result = { ...result, [field]: numVal };
+                        const numVal = parseInt(value, 10) || 0;
+                             result = { ...result, [field]: numVal };
                           }
                           
                           console.log('[EMPTY ROW] after update:', JSON.stringify(result));
