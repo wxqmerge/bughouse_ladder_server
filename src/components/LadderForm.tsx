@@ -411,7 +411,7 @@ export default function LadderForm({
       
       // Priority 1: Check sessionStorage for auto-detected URL (from App.tsx determineMode)
       const autoDetectedUrl = sessionStorage.getItem('autoDetectedServerUrl');
-      if (autoDetectedUrl) {
+      if (autoDetectedUrl && localStorage.getItem('forceLocalMode') !== 'true') {
         setSplashServerUrl(normalizeServerUrl(autoDetectedUrl));
         const userSettings = loadUserSettings();
         if (userSettings.apiKey && userSettings.apiKey.trim()) {
@@ -426,7 +426,7 @@ export default function LadderForm({
       const pathname = window.location.pathname;
       const hostname = window.location.hostname;
       const subdomainMatch = pathname.match(/^\/([^/]+)\/dist(?:\/.*)?$/);
-      if (subdomainMatch) {
+      if (subdomainMatch && localStorage.getItem('forceLocalMode') !== 'true') {
         const projectName = subdomainMatch[1];
         const candidateUrl = `https://${projectName}.${hostname}`;
         setSplashServerUrl(normalizeServerUrl(candidateUrl));
@@ -438,17 +438,17 @@ export default function LadderForm({
         return;
       }
       
-      // Priority 3: Check localStorage for saved server settings
+    // Priority 3: Check localStorage for saved server settings
       const userSettings = loadUserSettings();
-      if (userSettings.server && userSettings.server.trim()) {
+      if (localStorage.getItem('forceLocalMode') !== 'true' && userSettings.server && userSettings.server.trim()) {
         setSplashServerUrl(normalizeServerUrl(userSettings.server) || '');
         setSplashApiKey(userSettings.apiKey || '');
         setHadExistingUserSettings(true);
       } else {
        // Pre-populate with current origin for auto-detection (skip if user explicitly reset to local mode)
-         if (localStorage.getItem('forceLocalMode') !== 'true') {
-           setSplashServerUrl(window.location.origin);
-         }
+          if (localStorage.getItem('forceLocalMode') !== 'true') {
+            setSplashServerUrl(window.location.origin);
+          }
       }
       
       // Check for local player data
