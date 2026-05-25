@@ -795,7 +795,7 @@ export default function Settings({
           </div>
         </div>
 
-  {!isAdmin && apiKey && (
+  {!isAdmin && (
           <div style={{ marginTop: "1.5rem" }}>
             <button
               onClick={() => {
