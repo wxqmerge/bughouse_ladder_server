@@ -110,7 +110,7 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
 router.get('/export', async (req: Request, res: Response): Promise<void> => {
   try {
     const ladderData = await readLadderFile();
-    const content = generateTabContent(ladderData);
+    const content = await generateTabContent(ladderData);
 
     res.setHeader('Content-Type', 'text/tab-separated-values');
     res.setHeader('Content-Disposition', `attachment; filename="ladder_${new Date().toISOString().split('T')[0]}.tab"`);
