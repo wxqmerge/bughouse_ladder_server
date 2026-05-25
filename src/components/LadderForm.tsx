@@ -445,8 +445,10 @@ export default function LadderForm({
         setSplashApiKey(userSettings.apiKey || '');
         setHadExistingUserSettings(true);
       } else {
-        // Pre-populate with current origin for auto-detection
-        setSplashServerUrl(window.location.origin);
+        // Pre-populate with current origin for auto-detection (skip if user explicitly reset to local mode)
+        if (sessionStorage.getItem('forceLocalMode') !== 'true') {
+          setSplashServerUrl(window.location.origin);
+        }
       }
       
       // Check for local player data
