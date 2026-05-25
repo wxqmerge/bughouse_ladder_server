@@ -530,6 +530,19 @@ export default function MenuBar({
             }}
           >
             {projectName} {getVersionString()}
+            {!writePermission && (
+              <span style={{
+                marginLeft: '0.5em',
+                padding: '0.2em 0.4em',
+                backgroundColor: '#ef4444',
+                color: 'white',
+                borderRadius: '0.2em',
+                fontSize: '0.85em',
+                fontWeight: '600',
+              }}>
+                VIEW-ONLY
+              </span>
+            )}
             {isServerDown && (
               <span style={{
                 marginLeft: '0.5em',

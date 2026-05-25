@@ -736,7 +736,7 @@ async function determineMode(): Promise<{ mode: DataServiceMode; serverUrl?: str
   const userSettings = loadUserSettings();
   if (userSettings.server && userSettings.server.trim()) {
     const serverUrl = userSettings.server.trim().replace(/\/$/, '');
-    
+
     // Validate stored server URL before using it
     if (!isValidServerUrl(serverUrl)) {
       console.log('[App] Stored server URL invalid (missing subdomain prefix), clearing and re-running auto-detection');
@@ -756,6 +756,13 @@ async function determineMode(): Promise<{ mode: DataServiceMode; serverUrl?: str
         return { mode: DataServiceMode.SERVER, serverUrl };
       }
     }
+  }
+
+  // Skip auto-detection if user explicitly reset to local mode via ?config=2
+  if (sessionStorage.getItem('forceLocalMode') === 'true') {
+    console.log('[App] Force local mode flag set, skipping auto-detection');
+    sessionStorage.removeItem('forceLocalMode');
+    return { mode: DataServiceMode.LOCAL };
   }
 
   const origin = window.location.origin;
