@@ -348,16 +348,34 @@ export async function replayPendingDeletes(): Promise<void> {
 
 let batchOperationCount = 0;
 let batchBuffer: PlayerData[] | null = null;
+let batchTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
 export function startBatch(): void {
   if (batchOperationCount === 0) batchBuffer = getJsonArray<PlayerData>('ladder_players');
   batchOperationCount++;
   console.log('[BATCH] startBatch → count=', batchOperationCount);
+  if (batchTimeoutId) clearTimeout(batchTimeoutId);
+  batchTimeoutId = setTimeout(() => {
+    if (batchOperationCount > 0) {
+      console.error('[BATCH] Timeout! Batch count stuck at', batchOperationCount, '— resetting');
+      batchOperationCount = 0;
+      batchBuffer = null;
+      batchTimeoutId = null;
+    }
+  }, 30000);
 }
 
 export async function endBatch(): Promise<void> {
   batchOperationCount--;
   console.log('[BATCH] endBatch → count=', batchOperationCount);
+  if (batchOperationCount < 0) {
+    console.warn('[BATCH] endBatch called more than startBatch — resetting count to 0');
+    batchOperationCount = 0;
+  }
+  if (batchTimeoutId) {
+    clearTimeout(batchTimeoutId);
+    batchTimeoutId = null;
+  }
   if (batchOperationCount === 0 && batchBuffer !== null) {
     await commitBatchBuffer();
     batchBuffer = null;
