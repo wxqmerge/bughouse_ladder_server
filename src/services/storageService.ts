@@ -322,8 +322,7 @@ export function queueDelete(playerRank: number, round: number): void {
   deleteChain = deleteChain
     .then(async () => {
       try {
-        const userSettings = loadUserSettings();
-        const serverUrl = userSettings.server?.trim();
+        const serverUrl = getServerUrl();
         if (serverUrl) {
           const headers = buildAuthHeaders();
           await fetch(`${serverUrl}/api/ladder/${playerRank}/round/${round}`, { method: 'DELETE', headers });
@@ -351,8 +350,7 @@ export function clearPendingDeletes(): void {
 export async function replayPendingDeletes(): Promise<void> {
   const deletes = getPendingDeletes();
   if (deletes.size === 0) return;
-  const userSettings = loadUserSettings();
-  const serverUrl = userSettings.server?.trim();
+  const serverUrl = getServerUrl();
   if (!serverUrl) return;
   const headers = buildAuthHeaders();
   const failed = new Set<string>();
@@ -478,8 +476,7 @@ export interface SaveResult {
 export async function savePlayers(players: PlayerData[], waitForServer = false, skipServerSync = false): Promise<SaveResult> {
   if (isInBatch()) { batchBuffer = players; return { success: true, serverSynced: false }; }
   const mode = dataService.getMode();
-  const userSettings = loadUserSettings();
-  const serverUrl = userSettings.server?.trim() || '';
+  const serverUrl = getServerUrl() || '';
   const headers = buildAuthHeaders();
   
   if (mode === DataServiceMode.LOCAL && !serverUrl) {

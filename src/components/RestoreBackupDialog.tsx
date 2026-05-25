@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { AlertTriangle, Check, Trash2, Loader2 } from "lucide-react";
 import { loadUserSettings } from "../services/userSettingsStorage";
+import { getServerUrl, buildAuthHeaders } from "../services/storageService";
 
 interface PlayerData {
   rank: number;
@@ -47,10 +48,11 @@ export default function RestoreBackupDialog({
     
     setPreviewLoading(prev => ({ ...prev, [filename]: true }));
     try {
-      const userSettings = loadUserSettings();
-      const serverUrl = (userSettings.server || "").trim();
-      
+      const serverUrl = getServerUrl();
+      if (!serverUrl) return;
+
       const restoreHeaders: Record<string, string> = { "Content-Type": "application/json" };
+      const userSettings = loadUserSettings();
       if (userSettings.apiKey && userSettings.apiKey.trim()) {
         restoreHeaders['X-API-Key'] = userSettings.apiKey.trim();
       }
@@ -80,16 +82,15 @@ export default function RestoreBackupDialog({
     try {
       setLoading(true);
       setError(null);
-      const userSettings = loadUserSettings();
-      const serverUrl = (userSettings.server || "").trim();
-      
+      const serverUrl = getServerUrl();
       if (!serverUrl) {
         setError("No server configured");
         return;
       }
 
       const listHeaders: Record<string, string> = { "Content-Type": "application/json" };
-        if (userSettings.apiKey && userSettings.apiKey.trim()) {
+      const userSettings = loadUserSettings();
+      if (userSettings.apiKey && userSettings.apiKey.trim()) {
           listHeaders['X-API-Key'] = userSettings.apiKey.trim();
         }
         const response = await fetch(`${serverUrl}/api/admin/backups`, {
@@ -131,11 +132,12 @@ export default function RestoreBackupDialog({
 
     setDeleting(filename);
     try {
-      const userSettings = loadUserSettings();
-      const serverUrl = (userSettings.server || "").trim();
+      const serverUrl = getServerUrl();
+      if (!serverUrl) return;
 
       const deleteHeaders: Record<string, string> = { "Content-Type": "application/json" };
-        if (userSettings.apiKey && userSettings.apiKey.trim()) {
+      const userSettings = loadUserSettings();
+      if (userSettings.apiKey && userSettings.apiKey.trim()) {
           deleteHeaders['X-API-Key'] = userSettings.apiKey.trim();
         }
         const response = await fetch(`${serverUrl}/api/admin/backups/${filename}`, {
