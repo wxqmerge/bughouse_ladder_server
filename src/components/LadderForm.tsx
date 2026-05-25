@@ -1516,6 +1516,7 @@ export default function LadderForm({
         matches,
         31,
         playerResultsByMatch,
+        debugMode ? 1 : 5,
       );
 
       let totalAfterRepop = 0;
@@ -1646,13 +1647,14 @@ export default function LadderForm({
              return;
            }
 
-           // Repopulate game results from matches, then calculate ratings
-           const processedPlayers = repopulateGameResults(
-             players,
-             newDayResult.matches,
-             31,
-             newDayResult.playerResultsByMatch,
-           );
+        // Repopulate game results from matches, then calculate ratings
+            const processedPlayers = repopulateGameResults(
+              players,
+              newDayResult.matches,
+              31,
+              newDayResult.playerResultsByMatch,
+              debugMode ? 1 : 5,
+            );
            const calculatedPlayers = calculateRatings(processedPlayers, newDayResult.matches).players;
 
           // Fix rank issues before New Day transformations
@@ -1764,10 +1766,12 @@ export default function LadderForm({
           console.log(`Total existing game results: ${totalExisting}`);
         }
 
-        const processedPlayers = repopulateGameResults(
-          mergePlayers,
-          matches,
-          31,
+    const processedPlayers = repopulateGameResults(
+           mergePlayers,
+           matches,
+           31,
+           playerResultsByMatch,
+           debugMode ? 1 : 5,
           playerResultsByMatch,
         );
 
@@ -1869,7 +1873,7 @@ export default function LadderForm({
     console.log('[RECALC_DEBUG] Input matches count:', matches.length);
     console.log('[RECALC_DEBUG] Input matches:', JSON.stringify(matches.map(m => ({p1:m.player1, p2:m.player2, p3:m.player3, p4:m.player4, s1:m.score1, s2:m.score2}))));
     
-    const processedPlayers = repopulateGameResults(players, matches, 31, playerResultsByMatch);
+    const processedPlayers = repopulateGameResults(players, matches, 31, playerResultsByMatch, debugMode ? 1 : 5);
     
     console.log('[RECALC_DEBUG] After repopulateGameResults:');
     for (const p of processedPlayers) {
@@ -2275,6 +2279,7 @@ export default function LadderForm({
       pendingMatches,
       31,
       pendingPlayerResultsByMatch || undefined,
+      debugMode ? 1 : 5,
     );
     let calculatedPlayers = calculateRatings(processedPlayers, pendingMatches).players;
 
