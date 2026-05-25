@@ -157,7 +157,7 @@ export async function loadConfigFromUrl(): Promise<boolean> {
   console.clear();
   const url = new URL(window.location.href);
   const configParam = url.searchParams.get('config');
-  console.log('[loadConfigFromUrl] config param:', configParam, 'forceLocalMode:', sessionStorage.getItem('forceLocalMode'));
+  console.log('[loadConfigFromUrl] config param:', configParam, 'forceLocalMode:', localStorage.getItem('forceLocalMode'));
   if (!configParam) return false;
 
   const configType = url.searchParams.get('config');
@@ -173,6 +173,7 @@ export async function loadConfigFromUrl(): Promise<boolean> {
     }
 
     const normalized = normalizeServerUrl(serverUrl);
+    localStorage.removeItem('forceLocalMode');
     
     saveUserSettings({
       server: normalized,
@@ -211,8 +212,8 @@ export async function loadConfigFromUrl(): Promise<boolean> {
     sessionStorage.removeItem('pendingFileContent');
     sessionStorage.removeItem('pendingFileName');
     sessionStorage.removeItem('autoDetectedServerUrl');
-    sessionStorage.setItem('forceLocalMode', 'true');
-    console.log('[Config] forceLocalMode set, all storage cleared. Reloading...');
+    localStorage.setItem('forceLocalMode', 'true');
+    console.log('[Config] forceLocalMode (persistent) set, all storage cleared. Reloading...');
     alert('Reset to local mode.\n\nThe app will reload to apply.');
     setTimeout(() => window.location.reload(), 500);
   }
