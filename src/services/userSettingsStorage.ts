@@ -196,6 +196,9 @@ export async function loadConfigFromUrl(): Promise<boolean> {
 
     console.log('[TEST_DEBUG] ?config=1: forceLocalMode removed, server saved');
     console.log('[Config] Server config loaded from URL:', { server: normalized, hasKey: !!apiKey });
+    console.log('[Config] Reloading to apply server config...');
+    alert(`Server configured: ${normalized}\n\nThe app will reload to apply.`);
+    setTimeout(() => window.location.reload(), 500);
   }
   
   // Full reset: ?config=2 (clear everything)
