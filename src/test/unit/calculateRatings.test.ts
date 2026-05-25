@@ -487,8 +487,8 @@ describe('calculateRatings', () => {
     });
   });
 
-  describe('debugMode', () => {
-    it('should return trace object when debugMode is true', () => {
+  describe('debugLevel', () => {
+    it('should return trace object when debugLevel <= 7', () => {
       const players = [
         createPlayer(1, 1500, 15),
         createPlayer(2, 1400, 12),
@@ -498,7 +498,7 @@ describe('calculateRatings', () => {
         createMatch(1, 2, 3), // Player 1 wins
       ];
 
-      const result = calculateRatings(players, matches, { debugMode: true });
+      const result = calculateRatings(players, matches, { debugLevel: 3 });
 
       expect(result.trace).toBeDefined();
       expect(result.trace!.kFactor).toBe(20);
@@ -526,7 +526,7 @@ describe('calculateRatings', () => {
       expect(result.trace!.final[1].nRating).toBe(1393);
     });
 
-    it('should not return trace when debugMode is false', () => {
+    it('should not return trace when debugLevel > 7', () => {
       const players = [
         createPlayer(1, 1500, 15),
         createPlayer(2, 1400, 12),
@@ -536,7 +536,7 @@ describe('calculateRatings', () => {
         createMatch(1, 2, 3),
       ];
 
-      const result = calculateRatings(players, matches);
+      const result = calculateRatings(players, matches, { debugLevel: 9 });
 
       expect(result.trace).toBeUndefined();
     });
@@ -551,7 +551,7 @@ describe('calculateRatings', () => {
         createMatch(1, 2, 3), // Player 1 wins
       ];
 
-      const result = calculateRatings(players, matches, { debugMode: true, blendingFactorOverride: 1, perfMultiplierScaleOverride: 1 });
+      const result = calculateRatings(players, matches, { debugLevel: 3, blendingFactorOverride: 1, perfMultiplierScaleOverride: 1 });
 
       const matchTrace = result.trace!.matches[0];
 
@@ -577,7 +577,7 @@ describe('calculateRatings', () => {
         createMatch(1, 2, 3, 3, 4), // Team 1 (1+2) vs Team 2 (3+4)
       ];
 
-      const result = calculateRatings(players, matches, { debugMode: true });
+      const result = calculateRatings(players, matches, { debugLevel: 3 });
 
       const matchTrace = result.trace!.matches[0];
 
@@ -601,7 +601,7 @@ describe('calculateRatings', () => {
         createMatch(1, 2, 3), // Player 1 wins
       ];
 
-      const result = calculateRatings(players, matches, { debugMode: true, blendingFactorOverride: 1, perfMultiplierScaleOverride: 1 });
+      const result = calculateRatings(players, matches, { debugLevel: 3, blendingFactorOverride: 1, perfMultiplierScaleOverride: 1 });
 
       // Results are averaged between pass 1 and pass 2
       expect(result.pass1NRating).toBeDefined();

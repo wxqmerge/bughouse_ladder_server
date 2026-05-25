@@ -162,6 +162,7 @@ function parseEntry(
   myText: string,
   playersList: number[],
   scoreList: number[],
+  debugLevel: number = 5,
 ): number {
   // VB6 Line: 167-171 - Reset arrays
   playersList[0] = 0;
@@ -311,7 +312,9 @@ function parseEntry(
   scoreList[0] = RESULT_STRING.indexOf(results[0]);
   scoreList[1] = results[1] ? RESULT_STRING.indexOf(results[1]) : 0;
 
-  console.log('[PARSE_DEBUG] parseEntry input="' + myText + '" -> players=[' + playersList[0] + ',' + playersList[1] + ',' + playersList[2] + ',' + playersList[3] + '] scores=[' + scoreList[0] + '(' + RESULT_STRING[scoreList[0]] + '),' + scoreList[1] + '(' + (scoreList[1] > 0 ? RESULT_STRING[scoreList[1]] : 'none') + ')] results=[' + (results[0] || 'none') + ',' + (results[1] || 'none') + ']');
+  if (debugLevel <= 4) {
+    console.log('[PARSE_DEBUG] parseEntry input="' + myText + '" -> players=[' + playersList[0] + ',' + playersList[1] + ',' + playersList[2] + ',' + playersList[3] + '] scores=[' + scoreList[0] + '(' + RESULT_STRING[scoreList[0]] + '),' + scoreList[1] + '(' + (scoreList[1] > 0 ? RESULT_STRING[scoreList[1]] : 'none') + ')] results=[' + (results[0] || 'none') + ',' + (results[1] || 'none') + ']');
+  }
 
   // VB6 Line: 251-258 - Normalize player order
   // Store original values before normalization for display
@@ -415,8 +418,9 @@ function string2long(
   game: string,
   playersList: number[],
   scoreList: number[],
+  debugLevel: number = 5,
 ): number {
-  return parseEntry(game, playersList, scoreList);
+  return parseEntry(game, playersList, scoreList, debugLevel);
 }
 
 /**
@@ -426,6 +430,7 @@ function string2long(
 export function processGameResults(
   playersList: PlayerData[],
   numRounds: number = 31,
+  debugLevel: number = 5,
 ): ProcessResult {
   const results: MatchData[] = [];
   const errors: any[] = [];
@@ -604,7 +609,7 @@ export function processGameResults(
       parsedScoreList[0] = 0;
       parsedScoreList[1] = 0;
 
-      const hashValue = string2long(result, parsedPlayersList, parsedScoreList);
+      const hashValue = string2long(result, parsedPlayersList, parsedScoreList, debugLevel);
 
       if (hashValue < 0) {
         errorCount++;
@@ -825,7 +830,7 @@ export function processGameResults(
 export interface CalculateRatingsResult {
   /** Updated player list */
   players: PlayerData[];
-  /** Debug trace (only present when debugMode is true) */
+  /** Debug trace (only present when debugLevel <= 7) */
   trace?: CalculateRatingsDebugTrace;
   /** Per-pass nRating results (double-pass averaging) */
   pass1NRating?: Map<number, number>;
@@ -840,12 +845,12 @@ function calculateRatingsSinglePass(
   playersList: PlayerData[],
   matches: MatchData[],
   EloKfactor: number,
-  debugMode: boolean,
+  debugLevel: number,
   passLabel?: string,
   blendingFactor: number = 1,
   perfMultiplierScale: number = 1,
 ): { players: PlayerData[]; currentRating: Map<number, number>; playedToday: Set<number>; matchTraces: MatchDebugTrace[] } {
-  const dbg = new DebugLogger(debugMode);
+  const dbg = new DebugLogger(debugLevel <= 7);
   const playersCopy = playersList.map((p) => ({ ...p }));
 
   // Default trophyEligible to true for backward compatibility with old data
@@ -1111,16 +1116,16 @@ export function calculateRatings(
   options?: {
     /** Override K-factor (default: from settings or 20) */
     kFactorOverride?: number;
-    /** When true: prints step-by-step VB6-equivalent trace + returns trace object */
-    debugMode?: boolean;
+    /** When <= 7: prints step-by-step VB6-equivalent trace + returns trace object */
+    debugLevel?: number;
     /** Override blending factor (default: from settings or 0.99) */
     blendingFactorOverride?: number;
     /** Scale factor for 2p perf multiplier (default: 1, effective = 400 * scale) */
     perfMultiplierScaleOverride?: number;
   },
 ): CalculateRatingsResult {
-  const debugMode = options?.debugMode ?? false;
-  const dbg = new DebugLogger(debugMode);
+  const debugLevel = options?.debugLevel ?? 5;
+  const dbg = new DebugLogger(debugLevel <= 7);
   const trace: CalculateRatingsDebugTrace = {
     kFactor: 0,
     init: [],
@@ -1169,7 +1174,7 @@ export function calculateRatings(
     playersList,
     matches,
     kFactor,
-    debugMode,
+    debugLevel,
     "[PASS 1] ",
     blendingFactor,
     perfMultiplierScale,
@@ -1180,8 +1185,8 @@ export function calculateRatings(
     pass1NRating.set(p.rank, p.nRating);
   }
 
-  // Populate trace from pass 1 (for debugMode)
-  if (debugMode) {
+  // Populate trace from pass 1 (for debugLevel <= 7)
+  if (debugLevel <= 7) {
     for (const p of playersList) {
       trace.init.push({
         rank: p.rank,
@@ -1202,7 +1207,7 @@ export function calculateRatings(
     pass1.players,
     matches,
     kFactor,
-    debugMode,
+    debugLevel,
     "[PASS 2] ",
     blendingFactor,
     perfMultiplierScale,
@@ -1228,7 +1233,7 @@ export function calculateRatings(
         dbg.log(`P${p.rank}: did NOT play → nRating = 0`);
       }
 
-      if (debugMode) {
+      if (debugLevel <= 7) {
         trace.final.push({
           rank: p.rank,
           played: pass1.playedToday.has(p.rank),
@@ -1240,7 +1245,7 @@ export function calculateRatings(
 
   return {
     players: pass2.players,
-    trace: debugMode ? trace : undefined,
+    trace: debugLevel <= 7 ? trace : undefined,
     pass1NRating,
     pass2NRating,
   };
@@ -1248,7 +1253,7 @@ export function calculateRatings(
 
 /**
  * Repopulate game results from validated matches
- * @param debugLevel - log level (<=1 shows per-match debug logs)
+ * @param debugLevel - log level (<=3 shows per-match debug logs)
  */
 export function repopulateGameResults(
   playersList: PlayerData[],
@@ -1285,7 +1290,7 @@ export function repopulateGameResults(
 
       const score1Letter = scoreCodeToLetter(normScore1);
 
-      if (debugLevel <= 1) {
+      if (debugLevel <= 3) {
         console.log('[REPOPULATE_DEBUG] 4P Match: p1=' + m.player1 + ' p2=' + m.player2 + ' p3=' + m.player3 + ' p4=' + m.player4 + ' s1=' + m.score1 + '(' + scoreCodeToLetter(m.score1) + ') s2=' + m.score2 + '(' + (m.score2 > 0 ? scoreCodeToLetter(m.score2) : 'none') + ')');
         console.log('[REPOPULATE_DEBUG] 4P norm=' + norm.join(',') + ' pairsSwapped=' + pairsSwapped + ' normScore1=' + normScore1 + '(' + scoreCodeToLetter(normScore1) + ') normScore2=' + normScore2 + '(' + (normScore2 > 0 ? scoreCodeToLetter(normScore2) : 'none') + ')');
       }
@@ -1293,27 +1298,27 @@ export function repopulateGameResults(
       if (m.score2 > 0) {
         const score2Letter = scoreCodeToLetter(normScore2);
         const result = `${norm[0]}:${norm[1]}${score1Letter}${score2Letter}${norm[2]}:${norm[3]}`;
-        if (debugLevel <= 1) console.log('[REPOPULATE_DEBUG] 4P result=' + result);
+        if (debugLevel <= 3) console.log('[REPOPULATE_DEBUG] 4P result=' + result);
         return result;
       }
       const result = `${norm[0]}:${norm[1]}${score1Letter}${norm[2]}:${norm[3]}`;
-      if (debugLevel <= 1) console.log('[REPOPULATE_DEBUG] 4P result=' + result);
+      if (debugLevel <= 3) console.log('[REPOPULATE_DEBUG] 4P result=' + result);
       return result;
     } else {
       const norm = normalize2Player(m.player1, m.player2);
       const scoreLetter = scoreCodeToLetter(m.score1);
-      if (debugLevel <= 1) {
+      if (debugLevel <= 3) {
         console.log('[REPOPULATE_DEBUG] 2P Match: p1=' + m.player1 + ' p2=' + m.player2 + ' s1=' + m.score1 + '(' + scoreLetter + ') s2=' + m.score2 + '(' + (m.score2 > 0 ? scoreCodeToLetter(m.score2) : 'none') + ')');
         console.log('[REPOPULATE_DEBUG] 2P norm=' + norm.join(',') + ' scoreLetter=' + scoreLetter);
       }
       if (m.score2 > 0) {
         const scoreLetter2 = scoreCodeToLetter(m.score2);
         const result = `${norm[0]}${scoreLetter}${scoreLetter2}${norm[1]}`;
-        if (debugLevel <= 1) console.log('[REPOPULATE_DEBUG] 2P result=' + result);
+        if (debugLevel <= 3) console.log('[REPOPULATE_DEBUG] 2P result=' + result);
         return result;
       }
       const result = `${norm[0]}${scoreLetter}${norm[1]}`;
-      if (debugLevel <= 1) console.log('[REPOPULATE_DEBUG] 2P result=' + result);
+      if (debugLevel <= 3) console.log('[REPOPULATE_DEBUG] 2P result=' + result);
       return result;
     }
   };

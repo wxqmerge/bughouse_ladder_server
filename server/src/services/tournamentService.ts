@@ -325,7 +325,7 @@ export async function generateTrophyReport(debugLevel: number = 3): Promise<{
     const zeroRating = players.filter(p => p.rating === 0).length;
     loggerLog('[TROPHIES]', `${players.length} players, ${zeroNRating} with nRating=0, ${zeroRating} with rating=0, mode=${isClubMode ? 'club' : 'tournament'}`);
 
-    if (debugLevel <= 4) {
+    if (debugLevel <= 5) {
       const headerLines = buildDebugHeader(players, minTrophies, isClubMode, undefined, debugLevel);
       debugLines.push(...headerLines);
     }

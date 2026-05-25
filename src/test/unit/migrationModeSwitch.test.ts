@@ -52,7 +52,7 @@ vi.mock('../../../src/services/storageService', () => ({
 vi.mock('../../../src/services/userSettingsStorage', () => ({
   loadUserSettings: () => {
     const data = mockLocalStorage[TEST_PREFIX + 'ladder_user_settings'];
-    return data ? JSON.parse(data) : { server: '', apiKey: '', debugMode: false };
+    return data ? JSON.parse(data) : { server: '', apiKey: '', debugLevel: 5 };
   },
   saveUserSettings: (settings: any) => {
     mockLocalStorage[TEST_PREFIX + 'ladder_user_settings'] = JSON.stringify(settings);
@@ -114,7 +114,7 @@ describe('Migration - Mode Switching (Local <-> Server)', () => {
         createTestPlayer({ rank: 3, lastName: 'Player3' }),
       ];
       setLocalPlayers(players);
-      setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugMode: false });
+      setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugLevel: 5 });
 
       const result = await checkMigrationNeeded('server');
 
@@ -133,7 +133,7 @@ describe('Migration - Mode Switching (Local <-> Server)', () => {
         createTestPlayer({ rank: 2, lastName: 'Local2' }),
       ];
       setLocalPlayers(localPlayers);
-      setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugMode: false });
+      setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugLevel: 5 });
 
       const serverPlayers = [
         createTestPlayer({ rank: 1, lastName: 'Server1' }),
@@ -152,7 +152,7 @@ describe('Migration - Mode Switching (Local <-> Server)', () => {
     it('should NOT require migration when switching from local to server with no local players', async () => {
       storeCurrentMode('local');
       setLocalPlayers([]);
-      setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugMode: false });
+      setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugLevel: 5 });
 
       const result = await checkMigrationNeeded('server');
 
@@ -163,7 +163,7 @@ describe('Migration - Mode Switching (Local <-> Server)', () => {
 
     it('should NOT require migration when mode has not changed', async () => {
       storeCurrentMode('server');
-      setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugMode: false });
+      setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugLevel: 5 });
 
       const result = await checkMigrationNeeded('server');
 
@@ -171,7 +171,7 @@ describe('Migration - Mode Switching (Local <-> Server)', () => {
     });
 
     it('should NOT require migration when no last mode is stored', async () => {
-      setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugMode: false });
+      setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugLevel: 5 });
 
       const result = await checkMigrationNeeded('server');
 
@@ -181,7 +181,7 @@ describe('Migration - Mode Switching (Local <-> Server)', () => {
     it('should use actualMode parameter instead of detecting from settings', async () => {
       storeCurrentMode('local');
       setLocalPlayers([createTestPlayer({ rank: 1, lastName: 'Player1' })]);
-      setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugMode: false });
+      setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugLevel: 5 });
 
       // With actualMode='local', no migration needed (matches last mode)
       const resultWithActual = await checkMigrationNeeded('local');
@@ -203,7 +203,7 @@ describe('Migration - Mode Switching (Local <-> Server)', () => {
         createTestPlayer({ rank: 5, lastName: 'E' }),
       ];
       setLocalPlayers(players);
-      setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugMode: false });
+      setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugLevel: 5 });
 
       const result = await checkMigrationNeeded('server');
 
@@ -215,7 +215,7 @@ describe('Migration - Mode Switching (Local <-> Server)', () => {
   describe('checkMigrationNeeded - server to local', () => {
     it('should NOT require migration when switching from server to local', async () => {
       storeCurrentMode('server');
-      setUserSettings({ server: '', apiKey: '', debugMode: false });
+      setUserSettings({ server: '', apiKey: '', debugLevel: 5 });
 
       const result = await checkMigrationNeeded('local');
       expect(result.needed).toBe(false);
@@ -223,7 +223,7 @@ describe('Migration - Mode Switching (Local <-> Server)', () => {
 
     it('should NOT require migration when switching from server_down to local', async () => {
       storeCurrentMode('server_down');
-      setUserSettings({ server: '', apiKey: '', debugMode: false });
+      setUserSettings({ server: '', apiKey: '', debugLevel: 5 });
 
       const result = await checkMigrationNeeded('local');
       expect(result.needed).toBe(false);
@@ -231,7 +231,7 @@ describe('Migration - Mode Switching (Local <-> Server)', () => {
 
     it('should NOT require migration when switching from local to server_down', async () => {
       storeCurrentMode('local');
-      setUserSettings({ server: '', apiKey: '', debugMode: false });
+      setUserSettings({ server: '', apiKey: '', debugLevel: 5 });
 
       const result = await checkMigrationNeeded('server_down');
       expect(result.needed).toBe(false);
@@ -242,7 +242,7 @@ describe('Migration - Mode Switching (Local <-> Server)', () => {
     it('should handle multiple mode switches correctly', async () => {
       storeCurrentMode('local');
       setLocalPlayers([createTestPlayer({ rank: 1, lastName: 'P1' })]);
-      setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugMode: false });
+      setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugLevel: 5 });
 
       let result = await checkMigrationNeeded('server');
       expect(result.needed).toBe(true);
@@ -250,18 +250,18 @@ describe('Migration - Mode Switching (Local <-> Server)', () => {
 
       storeCurrentMode('server');
 
-      setUserSettings({ server: '', apiKey: '', debugMode: false });
+      setUserSettings({ server: '', apiKey: '', debugLevel: 5 });
       result = await checkMigrationNeeded('local');
       expect(result.needed).toBe(false);
 
-      setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugMode: false });
+      setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugLevel: 5 });
       result = await checkMigrationNeeded('server');
       expect(result.needed).toBe(false);
     });
 
     it('should handle server_down mode transitions', async () => {
       storeCurrentMode('server');
-      setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugMode: false });
+      setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugLevel: 5 });
 
       const result = await checkMigrationNeeded('server_down');
       expect(result.needed).toBe(false);
@@ -291,7 +291,7 @@ describe('Migration - Mode Switching (Local <-> Server)', () => {
         createTestPlayer({ rank: 14, lastName: 'Nolan', firstName: 'Nancy', rating: 300 }),
       ];
       setLocalPlayers(players);
-      setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugMode: false });
+      setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugLevel: 5 });
 
       const result = await checkMigrationNeeded('server');
 
@@ -305,7 +305,7 @@ describe('Migration - Mode Switching (Local <-> Server)', () => {
     it('should show 0 players when local storage is empty', async () => {
       storeCurrentMode('local');
       setLocalPlayers([]);
-      setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugMode: false });
+      setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugLevel: 5 });
 
       const result = await checkMigrationNeeded('server');
 
@@ -317,7 +317,7 @@ describe('Migration - Mode Switching (Local <-> Server)', () => {
     it('should handle single player scenario', async () => {
       storeCurrentMode('local');
       setLocalPlayers([createTestPlayer({ rank: 1, lastName: 'Solo' })]);
-      setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugMode: false });
+      setUserSettings({ server: 'http://localhost:3000', apiKey: '', debugLevel: 5 });
 
       const result = await checkMigrationNeeded('server');
 

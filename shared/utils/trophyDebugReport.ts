@@ -54,20 +54,20 @@ export interface TrophyReportDebug {
 export function buildDebugHeader(players: PlayerData[], minTrophies: number, isClubMode: boolean, miniGameCount?: number, debugLevel: number = 3): string[] {
   const lines: string[] = [];
   
-  if (debugLevel <= 4) {
-    lines.push(debugLine('DEBUG', 'TROPHY REPORT', '', '', '', '', '', ''));
-    lines.push(debugLine('Players', String(players.length), '', '', '', '', '', ''));
-    lines.push(debugLine('Min Trophies', `${minTrophies} (ceil(${players.length} / 3))`, '', '', '', '', '', ''));
-    lines.push('');
-  }
-  
-  if (isClubMode) {
-    if (debugLevel <= 4) {
-      lines.push(debugLine('Mode', 'Club Ladder (no mini-game files)', '', '', '', '', '', ''));
+if (debugLevel <= 5) {
+      lines.push(debugLine('DEBUG', 'TROPHY REPORT', '', '', '', '', '', ''));
+      lines.push(debugLine('Players', String(players.length), '', '', '', '', '', ''));
+      lines.push(debugLine('Min Trophies', `${minTrophies} (ceil(${players.length} / 3))`, '', '', '', '', '', ''));
+      lines.push('');
     }
-  } else if (miniGameCount !== undefined) {
-    if (debugLevel <= 4) {
-      lines.push(debugLine('Mode', 'Mini-Game Tournament', '', '', '', '', '', ''));
+    
+    if (isClubMode) {
+      if (debugLevel <= 5) {
+        lines.push(debugLine('Mode', 'Club Ladder (no mini-game files)', '', '', '', '', '', ''));
+      }
+    } else if (miniGameCount !== undefined) {
+      if (debugLevel <= 5) {
+        lines.push(debugLine('Mode', 'Mini-Game Tournament', '', '', '', '', '', ''));
       lines.push(debugLine('Mini-games played', String(miniGameCount), '', '', '', '', '', ''));
       lines.push(debugLine('Award 2nd place', `t=${minTrophies} > m=${miniGameCount} ? ${minTrophies > miniGameCount}`, '', '', '', '', '', ''));
       lines.push(debugLine('Award grade 1st', `t=${minTrophies} > 2*m=${2 * miniGameCount} ? ${minTrophies > 2 * miniGameCount}`, '', '', '', '', '', ''));
@@ -95,8 +95,8 @@ function mgdPlayersTotalGames(player: PlayerData, miniGameDataList: MiniGameData
 export function buildMiniGamePlayerSection(miniGameDataList: MiniGameData[], debugLevel: number): string[] {
   const lines: string[] = [];
   
-  if (debugLevel <= 4) {
-    lines.push('MINI-GAME PLAYERS\t(after 5 recalcs)\t\t\t\t\t\t');
+if (debugLevel <= 5) {
+      lines.push('MINI-GAME PLAYERS\t(after 5 recalcs)\t\t\t\t\t\t');
     lines.push('Rank\tPlayer\tGr\tRating\t\tTotal Games\tGames Played\t');
     
     const allIneligible: PlayerData[] = [];
@@ -156,8 +156,8 @@ export function buildMiniGamePlayerSection(miniGameDataList: MiniGameData[], deb
 export function buildClubLadderPlayerSection(players: PlayerData[], debugLevel: number): string[] {
   const lines: string[] = [];
   
-  if (debugLevel <= 4) {
-    lines.push('TOP 5 OVERALL\t(by rating, eligible only)\t\t\t\t\t\t');
+if (debugLevel <= 5) {
+      lines.push('TOP 5 OVERALL\t(by rating, eligible only)\t\t\t\t\t\t');
     lines.push('Rank\tPlayer\tGr\tRating\t\tTotal Games\tGames Played\t');
     const sortedOverall = players.filter(p => p.trophyEligible !== false).sort((a, b) => b.nRating - a.nRating).slice(0, 5);
     for (const p of sortedOverall) {

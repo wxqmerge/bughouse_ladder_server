@@ -71,7 +71,7 @@ export interface CalculateRatingsDebugTrace {
 }
 
 /**
- * Debug logger — only prints when debugMode is true.
+ * Debug logger — only prints when debugLevel <= 7.
  * Produces structured output that mirrors VB6 Debug.Print statements.
  */
 export class DebugLogger {

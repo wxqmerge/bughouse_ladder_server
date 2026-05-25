@@ -128,7 +128,7 @@ server/
 | `batchFlush.test.ts` | 9 | Batch buffer: state management, nested batches, getPlayers during batch, New Day flush sequence |
 | `nRatingDefault.test.ts` | 12 | nRating defaults to 1 via `Math.abs(value || 1)` for all falsy cases (0, null, undefined, "") |
 | `normalizeServerUrl.test.ts` | 17 | Whitespace trimming, protocol prefix, backslash normalization |
-| `saveUserSettings.test.ts` | 18 | Server URL normalization, API key preservation, debugMode, round-trip persistence |
+| `saveUserSettings.test.ts` | 18 | Server URL normalization, API key preservation, round-trip persistence |
 | `kFactorBounds.test.ts` | 18 | Clamping <1→1, >100→100, Settings input simulation |
 | `debugLevelBounds.test.ts` | 16 | Clamping <0→0, >20→20, Settings input simulation |
 | `exportFilename.test.ts` | 13 | First word extraction from project name (space-delimited) |
@@ -306,7 +306,7 @@ The test suite expanded from **236 → 470 tests** (+234) across two waves:
 | Area | Tests | What's Covered |
 |------|-------|----------------|
 | **Server URL normalization** | 17 | Whitespace trimming, protocol prefix, backslash normalization |
-| **User settings save/load** | 17 | Whitespace trimming, API key preservation, debugMode, round-trip |
+| **User settings save/load** | 17 | Whitespace trimming, API key preservation, round-trip |
 | **K-Factor bounds** | 18 | Clamping <1→1, >100→100, Settings input simulation |
 | **Debug Level bounds** | 16 | Clamping <0→0, >20→20, Settings input simulation |
 | **Export filename** | 13 | First word extraction from project name (space-delimited) |
@@ -400,7 +400,6 @@ Tests the `normalizeServerUrl` function in `userSettingsStorage.ts`:
 Tests `saveUserSettings` / `loadUserSettings` round-trip:
 - Server URL normalized on save (protocol added, backslashes converted)
 - API key preserved as-is (no trimming)
-- debugMode defaults to `false` when missing from old localStorage
 - Missing fields handled gracefully (old data compatibility)
 - Overwrite behavior verified (last write wins)
 

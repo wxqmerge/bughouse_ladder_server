@@ -30,7 +30,6 @@ export function getUserSettingsKey(): string {
 export interface UserSettings {
   server: string;    // e.g., "omen.com:3000" or "http://localhost:3000" - empty = local mode
   apiKey: string;    // API key for authentication (optional)
-  debugMode: boolean; // Show extra debug info in dialogs (default: false)
 }
 
 export function normalizeServerUrl(input: string): string {
@@ -56,13 +55,12 @@ export const loadUserSettings = (): UserSettings => {
       return {
         server: parsed.server || '',
         apiKey: parsed.apiKey || '',
-        debugMode: parsed.debugMode || false,
       };
     }
   } catch (error) {
     console.error('[UserSettings] Failed to load settings:', error);
   }
-  return { server: '', apiKey: '', debugMode: false };
+  return { server: '', apiKey: '' };
 };
 
 /**
@@ -72,7 +70,7 @@ export const saveUserSettings = (settings: UserSettings): void => {
   try {
     const normalizedServer = normalizeServerUrl(settings.server);
     localStorage.setItem(getUserSettingsKey(), JSON.stringify({ ...settings, server: normalizedServer }));
-    console.log('[UserSettings] Saved settings:', { server: normalizedServer || '(empty)', apiKey: settings.apiKey ? '(set)' : '(empty)', debugMode: settings.debugMode });
+    console.log('[UserSettings] Saved settings:', { server: normalizedServer || '(empty)', apiKey: settings.apiKey ? '(set)' : '(empty)' });
   } catch (error) {
     console.error('[UserSettings] Failed to save settings:', error);
   }
@@ -194,7 +192,6 @@ export async function loadConfigFromUrl(): Promise<boolean> {
     saveUserSettings({
       server: normalized,
       apiKey: apiKey.trim(),
-      debugMode: false,
     });
 
     console.log('[Config] Server config loaded from URL:', { server: normalized, hasKey: !!apiKey });

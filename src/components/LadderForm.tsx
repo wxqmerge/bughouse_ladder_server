@@ -346,7 +346,7 @@ export default function LadderForm({
     backupFilename: string;
   } | null>(null);
   const [currentMode, setCurrentMode] = useState<'local' | 'server_down' | 'server'>('local');
-  const [debugMode, setDebugMode] = useState(false);
+  const [debugLevel, setDebugLevel] = useState(5);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   // Enter Games mode state
   const [enterGamesError, setEnterGamesError] = useState<ValidationResult | null>(null);
@@ -608,8 +608,11 @@ export default function LadderForm({
           setZoomLevel(zoomPercent);
         }
 
-         // Load debug mode from user settings
-         setDebugMode(userSettings.debugMode || false);
+// Load debug level from settings
+          const debugSettings = getSettings();
+          const level = debugSettings?.debugLevel ?? 5;
+          setDebugLevel(level);
+          console.log(`[INIT] debugLevel=${level} (1=all, 3=per-match, 4=parse, 5=trophy, 7=recalc, 9=init/sync)`);
 
         // PRIORITY 1: If server is configured, ALWAYS fetch from server first
         if (serverUrl) {
@@ -1516,7 +1519,7 @@ export default function LadderForm({
         matches,
         31,
         playerResultsByMatch,
-        debugMode ? 1 : 5,
+debugLevel,
       );
 
       let totalAfterRepop = 0;
@@ -1653,7 +1656,7 @@ export default function LadderForm({
               newDayResult.matches,
               31,
               newDayResult.playerResultsByMatch,
-              debugMode ? 1 : 5,
+debugLevel,
             );
            const calculatedPlayers = calculateRatings(processedPlayers, newDayResult.matches).players;
 
@@ -1742,7 +1745,7 @@ export default function LadderForm({
 
         // If there are errors, show the error dialog and return early
         if (result.hasErrors && result.errors.length > 0) {
-          if (shouldLog(5)) {
+          if (shouldLog(7)) {
             console.log(`\n=== RECALC PAUSED ===`);
             console.log(
               `Found ${result.errors.length} errors - showing error dialog`,
@@ -1755,7 +1758,7 @@ export default function LadderForm({
         let playerResultsByMatch: Map<string, PlayerMatchResult[]> | undefined =
           result.playerResultsByMatch;
 
-        if (shouldLog(5)) {
+if (shouldLog(7)) {
           console.log(`\n=== RECALC START ===`);
           console.log(`Matches to process: ${matches.length}`);
           let totalExisting = 0;
@@ -1766,16 +1769,15 @@ export default function LadderForm({
           console.log(`Total existing game results: ${totalExisting}`);
         }
 
-    const processedPlayers = repopulateGameResults(
-           mergePlayers,
-           matches,
-           31,
-           playerResultsByMatch,
-           debugMode ? 1 : 5,
-          playerResultsByMatch,
-        );
+   const processedPlayers = repopulateGameResults(
+             mergePlayers,
+             matches,
+             31,
+             playerResultsByMatch,
+ debugLevel,
+          );
 
-        if (shouldLog(5)) {
+         if (shouldLog(7)) {
           let totalAfterRepop = 0;
           for (const p of processedPlayers) {
             const filled = p.gameResults.filter((r) => r !== null && r !== "");
@@ -1846,7 +1848,7 @@ export default function LadderForm({
       const result = checkGameErrorsWithPlayers(players);
 
       if (result.rankBlockingErrors && result.rankBlockingErrors.length > 0) {
-        if (shouldLog(5)) {
+        if (shouldLog(7)) {
           console.log(`\n=== RECALC PAUSED === Rank blocking errors detected`);
         }
         alert('Rank Errors:\n\n' + result.rankBlockingErrors.join('\n') + '\n\nPlease fix ranks before recalculating.');
@@ -1854,7 +1856,7 @@ export default function LadderForm({
       }
 
       if (result.hasErrors && result.errors.length > 0) {
-        if (shouldLog(5)) {
+        if (shouldLog(7)) {
           console.log(`\n=== RECALC PAUSED ===`);
           console.log(`Found ${result.errors.length} errors - showing error dialog`);
         }
@@ -1864,7 +1866,7 @@ export default function LadderForm({
       let matches: MatchData[] = result.matches;
       let playerResultsByMatch: Map<string, PlayerMatchResult[]> | undefined = result.playerResultsByMatch;
 
-      if (shouldLog(5)) {
+      if (shouldLog(7)) {
         console.log(`\n=== RECALC START ===`);
         console.log(`Matches to process: ${matches.length}`);
       }
@@ -1873,7 +1875,7 @@ export default function LadderForm({
     console.log('[RECALC_DEBUG] Input matches count:', matches.length);
     console.log('[RECALC_DEBUG] Input matches:', JSON.stringify(matches.map(m => ({p1:m.player1, p2:m.player2, p3:m.player3, p4:m.player4, s1:m.score1, s2:m.score2}))));
     
-    const processedPlayers = repopulateGameResults(players, matches, 31, playerResultsByMatch, debugMode ? 1 : 5);
+    const processedPlayers = repopulateGameResults(players, matches, 31, playerResultsByMatch, debugLevel);
     
     console.log('[RECALC_DEBUG] After repopulateGameResults:');
     for (const p of processedPlayers) {
@@ -2279,7 +2281,7 @@ export default function LadderForm({
       pendingMatches,
       31,
       pendingPlayerResultsByMatch || undefined,
-      debugMode ? 1 : 5,
+      debugLevel,
     );
     let calculatedPlayers = calculateRatings(processedPlayers, pendingMatches).players;
 
@@ -3398,7 +3400,7 @@ export default function LadderForm({
     }
     
     // Server mode - save settings and check version
-    saveUserSettings({ server: serverUrl, apiKey: splashApiKey, debugMode: false });
+    saveUserSettings({ server: serverUrl, apiKey: splashApiKey });
     if (splashApiKey.trim()) {
       saveLastWorkingConfig(serverUrl, splashApiKey);
     }
@@ -3436,18 +3438,21 @@ export default function LadderForm({
 
   const handleSplashConnect = () => {
     const trimmedServer = splashServerUrl.trim();
-    
+
     // Clear force local mode when user explicitly connects to a server
     if (trimmedServer) {
       localStorage.removeItem('forceLocalMode');
+    } else {
+      localStorage.setItem('forceLocalMode', 'true');
+      sessionStorage.removeItem('autoDetectedServerUrl');
     }
-    
+
     // Save settings to localStorage before reloading
-    saveUserSettings({ server: trimmedServer, apiKey: splashApiKey, debugMode: false });
+    saveUserSettings({ server: trimmedServer, apiKey: splashApiKey });
     if (trimmedServer) {
       saveLastWorkingConfig(trimmedServer, splashApiKey);
     }
-    
+
     console.log('[Splash] Connecting to server:', trimmedServer || '(local mode)');
     window.location.reload();
   };
@@ -4121,7 +4126,7 @@ export default function LadderForm({
                   console.log('[ServerDownDialog] Proceeding in local mode');
                   if (splashServerUrl.trim()) {
                     saveLastWorkingConfig(splashServerUrl.trim(), splashApiKey);
-                    saveUserSettings({ server: '', apiKey: '', debugMode: false });
+                    saveUserSettings({ server: '', apiKey: '' });
                     console.log('[ServerDownDialog] Saved last working config, clearing server URL for local mode');
                   }
                   onDismissServerDown?.();
@@ -5720,7 +5725,7 @@ export default function LadderForm({
           onUpdatePlayerData={handleUpdatePlayerData}
           isAdmin={isAdmin}
           onAddPlayer={handleAddPlayer}
-          debugMode={debugMode}
+          debugLevel={debugLevel}
         />
       )}
       {entryCell &&
@@ -5751,7 +5756,7 @@ export default function LadderForm({
             onUpdatePlayerData={handleUpdatePlayerData}
             isAdmin={isAdmin}
             onAddPlayer={handleAddPlayer}
-            debugMode={debugMode}
+debugLevel={debugLevel}
           />
         )}
       {currentError && (

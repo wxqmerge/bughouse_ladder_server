@@ -62,28 +62,29 @@ export default function Settings({
   // Server settings state
   const [serverUrl, setServerUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
-  const [debugMode, setDebugMode] = useState(false);
   const [lastWorkingConfig, setLastWorkingConfig] = useState<{ server: string; apiKey: string } | null>(null);
 
   useEffect(() => {
-    const savedSettings = getSettings();
-    if (savedSettings) {
-      try {
-        setShowRatings(savedSettings.showRatings ?? true);
-        setDebugLevel(savedSettings.debugLevel ?? 5);
-        setKFactor(savedSettings.kFactor ?? 20);
-      } catch (err) {
-        console.error("Failed to parse settings:", err);
+const savedSettings = getSettings();
+      if (savedSettings) {
+        try {
+          setShowRatings(savedSettings.showRatings ?? true);
+          const dl = savedSettings.debugLevel ?? 5;
+          setDebugLevel(dl);
+          console.log(`[SETTINGS] debugLevel=${dl} (1=all, 3=per-match, 4=parse, 5=trophy, 7=recalc, 9=init/sync)`);
+          setKFactor(savedSettings.kFactor ?? 20);
+        } catch (err) {
+          console.error("Failed to parse settings:", err);
+        }
       }
-    }
-    
+
     // Load user server settings
     const userSettings = loadUserSettings();
     const detectedOrigin = window.location.origin;
-    setServerUrl(normalizeServerUrl(userSettings.server) || detectedOrigin);
+    const normalized = normalizeServerUrl(userSettings.server);
+    setServerUrl(normalized || detectedOrigin);
     setApiKey(userSettings.apiKey || '');
-    setDebugMode(userSettings.debugMode || false);
-    
+
     const lwc = getLastWorkingConfig();
     if (lwc) {
       setLastWorkingConfig({ ...lwc });
@@ -101,29 +102,39 @@ export default function Settings({
       saveSettings(settings);
     }
 
-    // Save user server settings
+    // Save user server settings - re-read from storage to avoid persisting auto-filled fallback
+    const savedUserSettings = loadUserSettings();
+    const detectedOrigin = window.location.origin;
+    const normalizedSaved = normalizeServerUrl(savedUserSettings.server);
+    const actualServer = serverUrl.trim() !== detectedOrigin ? serverUrl.trim() : (normalizedSaved || '');
+
     const userSettings: UserSettings = {
-      server: serverUrl.trim(),
+      server: actualServer,
       apiKey: apiKey.trim(),
-      debugMode: debugMode,
     };
     // Clear force local mode when user explicitly connects to a server
     if (userSettings.server && userSettings.server.trim()) {
       localStorage.removeItem('forceLocalMode');
+    } else {
+      // User disconnected — prevent auto-detect from re-connecting on reload
+      localStorage.setItem('forceLocalMode', 'true');
+      sessionStorage.removeItem('autoDetectedServerUrl');
     }
     saveUserSettings(userSettings);
-    
+
     // Show confirmation with current mode
     const mode = userSettings.server && userSettings.server.trim()
       ? `Server mode: ${userSettings.server}`
       : 'Local mode';
     alert(`Settings saved successfully!\n\n${mode}`);
-    
-    // Reload to apply server configuration changes
-    setTimeout(() => {
-      console.log('[Settings] Reloading to apply server configuration...');
-      window.location.reload();
-    }, 500);
+
+    // Only reload if server configuration actually changed
+    if (actualServer !== normalizedSaved || apiKey.trim() !== savedUserSettings.apiKey) {
+      setTimeout(() => {
+        console.log('[Settings] Reloading to apply server configuration...');
+        window.location.reload();
+      }, 500);
+    }
   };
 
   const saveForAction = () => {
@@ -132,14 +143,21 @@ export default function Settings({
       debugLevel: debugLevel,
       kFactor: Math.max(1, Math.min(100, kFactor || 20)),
     };
+    const savedUserSettings = loadUserSettings();
+    const detectedOrigin = window.location.origin;
+    const normalizedSaved = normalizeServerUrl(savedUserSettings.server);
+    const actualServer = serverUrl.trim() !== detectedOrigin ? serverUrl.trim() : (normalizedSaved || '');
+
     const userSettings: UserSettings = {
-      server: serverUrl.trim(),
+      server: actualServer,
       apiKey: apiKey.trim(),
-      debugMode: debugMode,
     };
     // Clear force local mode when user explicitly connects to a server
     if (userSettings.server && userSettings.server.trim()) {
       localStorage.removeItem('forceLocalMode');
+    } else {
+      localStorage.setItem('forceLocalMode', 'true');
+      sessionStorage.removeItem('autoDetectedServerUrl');
     }
     onSaveBeforeAction?.(settings, userSettings);
   };
@@ -329,7 +347,7 @@ export default function Settings({
                   marginTop: "0.25rem",
                 }}
               >
-                0=all logs, 5=default, 10+=critical
+                1=all, 3=per-match, 4=parse, 5=trophy, 7=recalc, 9=init/sync only
               </p>
             </div>
 
@@ -776,31 +794,7 @@ export default function Settings({
             </div>
           </div>
           
-          {/* Debug Mode Checkbox */}
-          <div style={{ gridColumn: '1 / -1', marginTop: '0.5rem' }}>
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                fontSize: "0.875rem",
-                color: "#6b7280",
-                cursor: "pointer",
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={debugMode}
-                onChange={(e) => setDebugMode(e.target.checked)}
-                style={{
-                  width: "16px",
-                  height: "16px",
-                  cursor: "pointer",
-                }}
-              />
-              <span>Debug mode (show extra info in dialogs)</span>
-            </label>
-          </div>
+{/* Debug Mode Checkbox */}
         </div>
 
   {!isAdmin && (
@@ -810,7 +804,6 @@ export default function Settings({
                 saveUserSettings({
                   server: serverUrl.trim(),
                   apiKey: apiKey.trim(),
-                  debugMode: debugMode,
                 });
                 window.dispatchEvent(new CustomEvent('enter-admin-mode'));
               }}
