@@ -102,11 +102,25 @@ export function onModeChange(callback: (newMode: string, oldMode: string) => voi
   * Initialize connection state based on configuration
   * Reads ONLY from localStorage user settings - no env fallback
   */
- export async function initializeConnectionState(): Promise<void> {
- // Read from localStorage user settings only
-    try {
-      const userSettings = loadUserSettings();
-      if (userSettings.server && userSettings.server.trim()) {
+export async function initializeConnectionState(): Promise<void> {
+  console.log('[mode.ts] initializeConnectionState: forceLocalMode=', sessionStorage.getItem('forceLocalMode'));
+  // Skip auto-detection if user explicitly reset to local mode via ?config=2
+    if (sessionStorage.getItem('forceLocalMode') === 'true') {
+      console.log('[mode.ts] Force local mode flag set, skipping auto-detection');
+      sessionStorage.removeItem('forceLocalMode');
+      connectionState.configuredForServer = false;
+      connectionState.serverUrl = null;
+      connectionState.serverReachable = null;
+      connectionState.lastCheckTime = Date.now();
+      connectionState.previousMode = null;
+      lastSavedServer = '';
+      lastSavedApiKey = '';
+      return;
+    }
+    // Read from localStorage user settings only
+     try {
+       const userSettings = loadUserSettings();
+       if (userSettings.server && userSettings.server.trim()) {
         const serverUrl = userSettings.server.trim();
         // Validate stored server URL before using it
         if (!isValidServerUrl(serverUrl)) {
