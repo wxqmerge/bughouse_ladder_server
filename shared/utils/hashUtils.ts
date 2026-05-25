@@ -1248,12 +1248,14 @@ export function calculateRatings(
 
 /**
  * Repopulate game results from validated matches
+ * @param debugLevel - log level (<=1 shows per-match debug logs)
  */
 export function repopulateGameResults(
   playersList: PlayerData[],
   matches: MatchData[],
   numRounds: number = 31,
   _playerResultsByMatch?: Map<string, PlayerMatchResult[]>,
+  debugLevel: number = 5,
 ): PlayerData[] {
   const playersCopy = playersList.map((p) => ({
     ...p,
@@ -1283,31 +1285,35 @@ export function repopulateGameResults(
 
       const score1Letter = scoreCodeToLetter(normScore1);
 
-      console.log('[REPOPULATE_DEBUG] 4P Match: p1=' + m.player1 + ' p2=' + m.player2 + ' p3=' + m.player3 + ' p4=' + m.player4 + ' s1=' + m.score1 + '(' + scoreCodeToLetter(m.score1) + ') s2=' + m.score2 + '(' + (m.score2 > 0 ? scoreCodeToLetter(m.score2) : 'none') + ')');
-      console.log('[REPOPULATE_DEBUG] 4P norm=' + norm.join(',') + ' pairsSwapped=' + pairsSwapped + ' normScore1=' + normScore1 + '(' + scoreCodeToLetter(normScore1) + ') normScore2=' + normScore2 + '(' + (normScore2 > 0 ? scoreCodeToLetter(normScore2) : 'none') + ')');
+      if (debugLevel <= 1) {
+        console.log('[REPOPULATE_DEBUG] 4P Match: p1=' + m.player1 + ' p2=' + m.player2 + ' p3=' + m.player3 + ' p4=' + m.player4 + ' s1=' + m.score1 + '(' + scoreCodeToLetter(m.score1) + ') s2=' + m.score2 + '(' + (m.score2 > 0 ? scoreCodeToLetter(m.score2) : 'none') + ')');
+        console.log('[REPOPULATE_DEBUG] 4P norm=' + norm.join(',') + ' pairsSwapped=' + pairsSwapped + ' normScore1=' + normScore1 + '(' + scoreCodeToLetter(normScore1) + ') normScore2=' + normScore2 + '(' + (normScore2 > 0 ? scoreCodeToLetter(normScore2) : 'none') + ')');
+      }
 
       if (m.score2 > 0) {
         const score2Letter = scoreCodeToLetter(normScore2);
         const result = `${norm[0]}:${norm[1]}${score1Letter}${score2Letter}${norm[2]}:${norm[3]}`;
-        console.log('[REPOPULATE_DEBUG] 4P result=' + result);
+        if (debugLevel <= 1) console.log('[REPOPULATE_DEBUG] 4P result=' + result);
         return result;
       }
       const result = `${norm[0]}:${norm[1]}${score1Letter}${norm[2]}:${norm[3]}`;
-      console.log('[REPOPULATE_DEBUG] 4P result=' + result);
+      if (debugLevel <= 1) console.log('[REPOPULATE_DEBUG] 4P result=' + result);
       return result;
     } else {
       const norm = normalize2Player(m.player1, m.player2);
       const scoreLetter = scoreCodeToLetter(m.score1);
-      console.log('[REPOPULATE_DEBUG] 2P Match: p1=' + m.player1 + ' p2=' + m.player2 + ' s1=' + m.score1 + '(' + scoreLetter + ') s2=' + m.score2 + '(' + (m.score2 > 0 ? scoreCodeToLetter(m.score2) : 'none') + ')');
-      console.log('[REPOPULATE_DEBUG] 2P norm=' + norm.join(',') + ' scoreLetter=' + scoreLetter);
+      if (debugLevel <= 1) {
+        console.log('[REPOPULATE_DEBUG] 2P Match: p1=' + m.player1 + ' p2=' + m.player2 + ' s1=' + m.score1 + '(' + scoreLetter + ') s2=' + m.score2 + '(' + (m.score2 > 0 ? scoreCodeToLetter(m.score2) : 'none') + ')');
+        console.log('[REPOPULATE_DEBUG] 2P norm=' + norm.join(',') + ' scoreLetter=' + scoreLetter);
+      }
       if (m.score2 > 0) {
         const scoreLetter2 = scoreCodeToLetter(m.score2);
         const result = `${norm[0]}${scoreLetter}${scoreLetter2}${norm[1]}`;
-        console.log('[REPOPULATE_DEBUG] 2P result=' + result);
+        if (debugLevel <= 1) console.log('[REPOPULATE_DEBUG] 2P result=' + result);
         return result;
       }
       const result = `${norm[0]}${scoreLetter}${norm[1]}`;
-      console.log('[REPOPULATE_DEBUG] 2P result=' + result);
+      if (debugLevel <= 1) console.log('[REPOPULATE_DEBUG] 2P result=' + result);
       return result;
     }
   };
