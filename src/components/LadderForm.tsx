@@ -584,11 +584,12 @@ export default function LadderForm({
     useEffect(() => {
       const initializeData = async () => {
         try {
-          // Get server configuration - check sessionStorage first (auto-detected), then state, then localStorage
+          // Get server configuration - use getServerUrl() which respects forceLocalMode
           const userSettings = loadUserSettings();
           const autoDetected = sessionStorage.getItem('autoDetectedServerUrl');
-          let serverUrl = autoDetected?.trim() || splashServerUrl?.trim() || userSettings.server?.trim() || '';
-          console.log('[LadderForm] Init: autoDetected=', autoDetected, 'splashServerUrl=', splashServerUrl, 'userSettings.server=', userSettings.server, '→ serverUrl=', serverUrl || '(empty)');
+          const storedServerUrl = getServerUrl();
+          let serverUrl = autoDetected?.trim() || splashServerUrl?.trim() || storedServerUrl || '';
+          console.log('[LadderForm] Init: autoDetected=', autoDetected, 'splashServerUrl=', splashServerUrl, 'getServerUrl()=', storedServerUrl, '→ serverUrl=', serverUrl || '(empty)');
 
         // Load project settings from localStorage
         const projectName = getProjectName();
@@ -969,8 +970,7 @@ export default function LadderForm({
     
     (window as any).__ladder_setStatus?.('Restoring from server...');
     try {
-      const userSettings = loadUserSettings();
-      const serverUrl = userSettings.server?.trim();
+      const serverUrl = getServerUrl();
       
       if (serverUrl) {
         const response = await fetch(`${serverUrl}/api/ladder`, {
@@ -1007,9 +1007,9 @@ export default function LadderForm({
     
     (window as any).__ladder_setStatus?.('Restoring from backup...');
     try {
+      const serverUrl = getServerUrl();
       const userSettings = loadUserSettings();
-      const serverUrl = userSettings.server?.trim();
-      
+
       if (serverUrl) {
         // Restore the backup on server first
         const restoreHeaders: Record<string, string> = { "Content-Type": "application/json" };
@@ -1699,7 +1699,7 @@ export default function LadderForm({
         clearAllSaveStatus();
 
         // Fetch fresh data from server before calculating to avoid losing user-reported games
-        const serverUrl = loadUserSettings().server?.trim();
+        const serverUrl = getServerUrl();
         let mergePlayers: PlayerData[] = players;
 
         if (serverUrl) {
@@ -1912,13 +1912,12 @@ export default function LadderForm({
        clearLocalChangesFlag();
        clearPendingDeletes();
 
-       // Pull fresh data back from server to ensure UI matches server exactly
-       log('[RECALC]', 'Pulling fresh data from server...');
-       try {
-         const userSettings = loadUserSettings();
-         const serverUrl = userSettings.server?.trim();
-         
-         if (serverUrl) {
+      // Pull fresh data back from server to ensure UI matches server exactly
+        log('[RECALC]', 'Pulling fresh data from server...');
+        try {
+          const serverUrl = getServerUrl();
+
+          if (serverUrl) {
            const response = await fetch(`${serverUrl}/api/ladder`);
            if (response.ok) {
              const data = await response.json();
@@ -3780,8 +3779,7 @@ export default function LadderForm({
 
   // Server-down blocking dialog - shown at startup when server is unreachable
   if (showServerDownBlocking) {
-    const userSettings = loadUserSettings();
-    let configuredServerUrl = userSettings.server?.trim() || '';
+    let configuredServerUrl = getServerUrl() || '';
 
     return (
       <>
@@ -4514,8 +4512,7 @@ export default function LadderForm({
               onClick={async () => {
                 try {
                   if (window.confirm('Save current mini-game file?')) {
-                    const userSettings = loadUserSettings();
-                    const serverUrl = userSettings.server?.trim();
+                    const serverUrl = getServerUrl();
                     if (serverUrl) {
                       await dataService.saveMiniGameFile(projectName);
                       alert('Mini-game file saved');

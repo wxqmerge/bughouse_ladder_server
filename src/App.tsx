@@ -44,6 +44,7 @@ import {
   getPendingDeletes,
   stopDeltaFlushing,
   buildAuthHeaders,
+  getServerUrl,
 } from "./services/storageService";
 import { mergeServerWithLocal } from "./utils/mergeUtils";
 import { getDebugLevel } from "./utils/debug";
@@ -165,8 +166,7 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
               if (healthCheckPending) return;
               healthCheckPending = true;
               try {
-                const userSettings = loadUserSettings();
-                const serverUrl = userSettings.server?.trim();
+                const serverUrl = getServerUrl();
                 if (!serverUrl) return;
 
                 const response = await fetch(`${serverUrl}/health`);
@@ -318,9 +318,8 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
         
         if (isTournament) {
           try {
-            const userSettings = loadUserSettings();
-            const serverUrl = userSettings.server?.trim();
-            
+            const serverUrl = getServerUrl();
+
             if (serverUrl) {
               await dataService.saveMiniGameFile(currentTitle);
               console.log(`[App] Saved mini-game file: ${currentTitle}`);
@@ -515,8 +514,7 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
       await replayPendingDeletes();
 
       // Fetch fresh data from server
-      const userSettings = loadUserSettings();
-      const serverUrl = userSettings.server;
+      const serverUrl = getServerUrl();
       if (serverUrl) {
         const response = await fetch(`${serverUrl}/api/ladder`, {
           headers: buildAuthHeaders(false),
@@ -578,8 +576,7 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
       await replayPendingDeletes();
 
       // Fetch latest server state
-      const userSettings = loadUserSettings();
-      const serverUrl = userSettings.server;
+      const serverUrl = getServerUrl();
       if (!serverUrl) {
         alert("No server URL configured.");
         return;
