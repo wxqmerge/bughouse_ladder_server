@@ -65,8 +65,9 @@ When no manual server config exists, the app auto-detects from `window.location.
 
 ### Frontend URL-Based Configuration
 - `?config=1&server=URL&key=KEY`: Connect to server with API key.
-- `?config=2`: Reset to LOCAL mode.
+- `?config=2`: Full reset — clear ALL ladder data.
 - `?config=3&file=URL`: Load remote `.tab`/`.xls` file.
+- `?config=4`: Force local mode — disconnect server, block auto-detect, preserve data.
 - URL params are cleared via `history.replaceState` after applying.
 - `.tab`, `.xls`, or `.txt` files can be dropped on the splash screen to load locally.
 

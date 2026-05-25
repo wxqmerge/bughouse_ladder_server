@@ -389,8 +389,9 @@ Share a single URL with users to auto-configure everything (overrides auto-detec
 | Config | URL Format | Purpose |
 |--------|------------|---------|
 | Server + API key | `?config=1&server=http://host:port&key=yourkey` | Full server connection (user or admin key) |
-| Local mode | `?config=2` | Reset to local (no server) |
+| Full reset | `?config=2` | Clear ALL ladder data (players, settings, tournament, everything) |
 | Remote file load | `?config=3&file=http://host/file.tab` | Fetch and load .tab/.xls from URL |
+| Force local mode | `?config=4` | Disconnect server, block auto-detect, preserve local data |
 
 **Example for production deployment:**
 ```

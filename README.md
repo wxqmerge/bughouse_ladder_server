@@ -102,8 +102,9 @@ Works because frontend and backend share the same origin per subdomain (nginx pr
 | Config | URL Format | Purpose |
 |--------|------------|---------|
 | Server + key | `?config=1&server=http://host:port&key=yourkey` | Connect to server (overrides auto-detect) |
-| Local mode | `?config=2` | Reset to local mode |
+| Full reset | `?config=2` | Clear ALL ladder data (players, settings, tournament, everything) |
 | Remote file | `?config=3&file=http://host/file.tab` | Fetch and load .tab/.xls |
+| Force local | `?config=4` | Disconnect server, block auto-detect, preserve local data |
 
 ### Drag & Drop (Local Files)
 
