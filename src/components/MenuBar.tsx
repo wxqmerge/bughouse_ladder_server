@@ -491,7 +491,7 @@ export default function MenuBar({
           alignItems: "center",
           backgroundColor: tournamentMode ? "#166534" : !writePermission ? "#1e40af" : "#1e293b",
           borderBottom: "1px solid #334155",
-          fontSize: getFontSize(zoomLevel),
+          fontSize: `${0.875 * ((100 + parseInt(zoomLevel, 10)) / 200)}rem`,
         }}
       >
         <div
