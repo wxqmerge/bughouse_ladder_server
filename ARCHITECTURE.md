@@ -546,8 +546,9 @@ The app supports one-click configuration via URL parameters:
 | Param | Purpose | Example |
 |-------|---------|---------|
 | `?config=1&server=...&key=...` | Connect to server | Sets server URL + API key (user or admin) in localStorage |
-| `?config=2` | Reset to local mode | Clears all user settings |
+| `?config=2` | Full reset | Clears ALL ladder data (players, settings, tournament, admin, everything) |
 | `?config=3&file=...` | Load remote file | Fetches .tab/.xls file from URL, loads into app |
+| `?config=4` | Force local mode | Disconnects server, blocks auto-detection, preserves local data |
 
 URL params are automatically cleared after application (using `history.replaceState`) so reloads don't re-apply.
 
