@@ -362,6 +362,7 @@ export default function LadderForm({
   const [hiddenPlayersToDelete, setHiddenPlayersToDelete] = useState<PlayerData[]>([]);
   const [currentDeleteIndex, setCurrentDeleteIndex] = useState(0);
   const [deleteAllPlayers, setDeleteAllPlayers] = useState(false);
+  const [showServerDownBanner, setShowServerDownBanner] = useState(true);
   const [rankLoadErrors, setRankLoadErrors] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const latestPendingPlayersRef = useRef<PlayerData[] | null>(null);
@@ -4282,18 +4283,22 @@ export default function LadderForm({
 
       <div style={{ marginTop: "1rem" }}>
       {/* Server down mode indicator */}
-      {currentMode === 'server_down' && (
-        <div style={{
-          backgroundColor: '#fef3c7',
-          border: '1px solid #f59e0b',
-          borderRadius: '0.375rem',
-          padding: '0.75rem 1rem',
-          marginBottom: '1rem',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.5rem',
-          fontSize: getFontSize(zoomLevel),
-        }}>
+      {currentMode === 'server_down' && showServerDownBanner && (
+        <div
+          onClick={() => setShowServerDownBanner(false)}
+          style={{
+            backgroundColor: '#fef3c7',
+            border: '1px solid #f59e0b',
+            borderRadius: '0.375rem',
+            padding: '0.75rem 1rem',
+            marginBottom: '1rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            fontSize: getFontSize(zoomLevel),
+            cursor: 'pointer',
+          }}
+        >
           <span style={{ color: '#92400e', fontWeight: '600' }}>⚠️ Server Down Mode</span>
           <span style={{ color: '#78350f' }}>Only game entry is available. Use Recalculate_Save when server is back online.</span>
         </div>
@@ -4321,6 +4326,8 @@ export default function LadderForm({
         onSetTitle={handleSetTitle}
         availableMiniGames={availableMiniGames}
         writePermission={writePermission}
+        serverUrl={splashServerUrl}
+        hasAdminApiKey={!!splashApiKey}
       />
 
       {/* Version mismatch warning banner */}
@@ -4569,6 +4576,9 @@ export default function LadderForm({
           .desktop-header-hidden {
             display: none !important;
           }
+          .ladder-scroll-container {
+            height: calc(100dvh - 150px) !important;
+          }
         }
         @media (min-width: 768px) {
           .mobile-menu-trigger {
@@ -4577,6 +4587,9 @@ export default function LadderForm({
           .desktop-header-hidden {
             display: flex !important;
           }
+        }
+        .ladder-scroll-container {
+          height: calc(100dvh - 90px);
         }
       `}</style>
 
@@ -4589,9 +4602,9 @@ export default function LadderForm({
       `}</style>
 
       <div
+        className="ladder-scroll-container"
         style={{
           overflow: "auto",
-          maxHeight: "calc(100dvh - 80px)",
           border: "1px solid #cbd5e1",
           borderRadius: "0.5rem",
         }}
