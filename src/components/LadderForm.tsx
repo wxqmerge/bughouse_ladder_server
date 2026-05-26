@@ -13,7 +13,7 @@ import {
 } from "../utils/hashUtils";
 import { MINI_GAMES, MINI_GAMES_WITH_BUGHOUSE, processNewDayTransformations, isMiniGameTitle, titleToFileName, getNextTitle } from "../utils/constants";
 import { dataService } from "../services/dataService";
-import ErrorDialog from "./ErrorDialog";
+import ErrorDialog, { findConflictForEntry } from "./ErrorDialog";
 import AddPlayerDialog from "./AddPlayerDialog";
 import { BulkPasteDialog } from "./BulkPasteDialog";
 import MenuBar from "./MenuBar";
@@ -5735,15 +5735,15 @@ export default function LadderForm({
 debugLevel={debugLevel}
           />
         )}
-      {entryCell &&
-        !isRecalculating &&
-        !isWalkthrough &&
-        walkthroughErrors.length === 0 && (
-          <ErrorDialog
-            key={`${entryCell.playerRank}-${entryCell.round}`}
-            error={null}
-            players={players}
-            mode={isEnterGamesMode ? "enter-games" : "game-entry"}
+{entryCell &&
+         !isRecalculating &&
+         !isWalkthrough &&
+         walkthroughErrors.length === 0 && (
+           <ErrorDialog
+             key={`${entryCell.playerRank}-${entryCell.round}`}
+             error={null}
+             players={players}
+             mode={isEnterGamesMode ? "enter-games" : "game-entry"}
             entryCell={entryCell}
             existingValue={
               players.find((p) => p.rank === entryCell.playerRank)
