@@ -1286,13 +1286,9 @@ function buildPlayerResult(m: MatchData, playerRank: number): string {
     return `${norm[0]}:${norm[1]}${letter}${norm[2]}:${norm[3]}`;
   } else {
     const norm = normalize2Player(m.player1, m.player2);
-    const isPlayer1 = playerRank === m.player1 || playerRank === norm[0];
-
-    // score1 is from player1's perspective
-    let playerScore = m.score1;
-    if (!isPlayer1) {
-      playerScore = swapScore(m.score1);
-    }
+    // score1 is from m.player1's perspective — determine if this player is m.player1
+    const isPlayer1 = playerRank === m.player1;
+    let playerScore = isPlayer1 ? m.score1 : swapScore(m.score1);
     const letter = scoreCodeToLetter(playerScore);
     return `${norm[0]}${letter}${norm[1]}`;
   }
