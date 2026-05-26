@@ -515,22 +515,22 @@ export default function LadderForm({
   }, []); // Run once on init
 
 // Track server URL changes reactively (auto-detect, Settings, etc.)
-   const currentServerUrl = useIntervalCheck(() => getServerUrl(), 5000);
+    const currentServerUrl = useIntervalCheck(() => getServerUrl(), 2000);
 
-  // Check write permissions on mount and when server URL changes
-   useEffect(() => {
-    const checkPermissions = async () => {
-      const canWrite = await checkWritePermission();
-      setWritePermission(canWrite);
-    };
-    checkPermissions();
-  }, [currentServerUrl]);
+   // Track mode changes for UI updates
+    const mode = useIntervalCheck(() => {
+      const m = getProgramMode();
+      return m === 'local' || m === 'server_down' ? m : 'server';
+    }, 10000);
 
-  // Track mode changes for UI updates
-   const mode = useIntervalCheck(() => {
-     const m = getProgramMode();
-     return m === 'local' || m === 'server_down' ? m : 'server';
-   }, 10000);
+  // Check write permissions on mount and when server URL or mode changes
+    useEffect(() => {
+     const checkPermissions = async () => {
+       const canWrite = await checkWritePermission();
+       setWritePermission(canWrite);
+     };
+     checkPermissions();
+   }, [currentServerUrl, mode]);
 
   useEffect(() => {
     setCurrentMode(mode);
