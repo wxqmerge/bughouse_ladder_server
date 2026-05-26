@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { getVisibleTitles } from "../utils/titleMenu";
 import { titleToFileName } from "../utils/constants";
+import { debugClick } from "../utils/debug";
 
 interface MobileMenuProps {
   isOpen: boolean;
@@ -69,7 +70,8 @@ export default function MobileMenu({
 }: MobileMenuProps) {
   if (!isOpen) return null;
 
-  const handleItemClick = (onClick: () => void) => {
+  const handleItemClick = (label: string, onClick: () => void) => {
+    debugClick(`Mobile:${label}`);
     onClick();
     onClose();
   };
@@ -77,13 +79,13 @@ export default function MobileMenu({
   const fileItems: MenuItem[] = [
     {
       label: "Load",
-      onClick: () => handleItemClick(() => onFileAction("load")),
+      onClick: () => handleItemClick("Load", () => onFileAction("load")),
       dataMenuItem: "Load",
       disabled: !isAdmin || tournamentMode,
     },
     {
       label: "Export",
-      onClick: () => handleItemClick(() => onFileAction("export")),
+      onClick: () => handleItemClick("Export", () => onFileAction("export")),
       dataMenuItem: "Export",
     },
   ];
@@ -103,7 +105,7 @@ export default function MobileMenu({
           alert(`"${title}" is not available yet. Only admin can create mini-games.`);
           return;
         }
-        handleItemClick(() => onSetTitle?.(title));
+        handleItemClick(`Title:${title}`, () => onSetTitle?.(title));
       },
       dataMenuItem: `Title-${title}`,
       hasCheckmark: projectName?.toLowerCase() === title.toLowerCase(),
@@ -114,27 +116,27 @@ export default function MobileMenu({
   const sortItems: MenuItem[] = [
     {
       label: "By Rank",
-      onClick: () => handleItemClick(() => onSort("rank")),
+      onClick: () => handleItemClick("Sort:By Rank", () => onSort("rank")),
       dataMenuItem: "By Rank",
     },
     {
       label: "By Last Name",
-      onClick: () => handleItemClick(() => onSort("byLastName")),
+      onClick: () => handleItemClick("Sort:By Last Name", () => onSort("byLastName")),
       dataMenuItem: "By Last Name",
     },
     {
       label: "By First Name",
-      onClick: () => handleItemClick(() => onSort("byFirstName")),
+      onClick: () => handleItemClick("Sort:By First Name", () => onSort("byFirstName")),
       dataMenuItem: "By First Name",
     },
     {
       label: "By New Rating",
-      onClick: () => handleItemClick(() => onSort("nRating")),
+      onClick: () => handleItemClick("Sort:By New Rating", () => onSort("nRating")),
       dataMenuItem: "By New Rating",
     },
     {
       label: "By Previous Rating",
-      onClick: () => handleItemClick(() => onSort("rating")),
+      onClick: () => handleItemClick("Sort:By Previous Rating", () => onSort("rating")),
       dataMenuItem: "By Previous Rating",
     },
   ];
@@ -142,39 +144,39 @@ export default function MobileMenu({
  const operationsItems: MenuItem[] = [
     {
       label: "Recalculate_Save",
-      onClick: () => handleItemClick(onRecalculateRatings),
+      onClick: () => handleItemClick("Recalculate_Save", onRecalculateRatings),
       dataMenuItem: "Recalculate_Save",
       disabled: !writePermission,
     },
     {
       label: "Check Errors",
-      onClick: () => handleItemClick(onCheckErrors),
+      onClick: () => handleItemClick("Check Errors", onCheckErrors),
       dataMenuItem: "Check Errors",
     },
     {
       label: "Enter Games",
-      onClick: () => handleItemClick(onEnterGames || (() => {})),
+      onClick: () => handleItemClick("Enter Games", onEnterGames || (() => {})),
       dataMenuItem: "Enter Games",
       disabled: !writePermission,
     },
     {
       label: "Paste Multiple Results",
-      onClick: () => handleItemClick(onBulkPaste || (() => {})),
+      onClick: () => handleItemClick("Paste Multiple Results", onBulkPaste || (() => {})),
       dataMenuItem: "Paste Multiple Results",
       disabled: !writePermission,
     },
     {
       label: isAdmin ? "Exit Admin Mode" : "Admin Mode",
-      onClick: () => handleItemClick(onToggleAdmin),
+      onClick: () => handleItemClick(isAdmin ? "Exit Admin Mode" : "Admin Mode", onToggleAdmin),
       dataMenuItem: isAdmin ? "Exit Admin Mode" : "Admin Mode",
       disabled: !writePermission && !isAdmin,
     },
 ...(isAdmin && onAddPlayer
        ? [
            {
-             label: "Add Player",
-             onClick: () => handleItemClick(onAddPlayer),
-             dataMenuItem: "Add Player",
+label: "Add Player",
+              onClick: () => handleItemClick("Add Player", onAddPlayer),
+              dataMenuItem: "Add Player",
              disabled: !writePermission,
            },
          ]
@@ -182,9 +184,9 @@ export default function MobileMenu({
       ...(isAdmin && onDeleteHiddenPlayers
        ? [
            {
-             label: "Delete Hidden Players",
-             onClick: () => handleItemClick(onDeleteHiddenPlayers),
-             dataMenuItem: "Delete Hidden Players",
+label: "Delete Hidden Players",
+              onClick: () => handleItemClick("Delete Hidden Players", onDeleteHiddenPlayers),
+              dataMenuItem: "Delete Hidden Players",
              disabled: !writePermission,
            },
          ]
@@ -192,9 +194,9 @@ export default function MobileMenu({
       ...(isAdmin && onAutoLetter
        ? [
            {
-             label: "Auto-Letter",
-             onClick: () => handleItemClick(onAutoLetter),
-             dataMenuItem: "Auto-Letter",
+label: "Auto-Letter",
+              onClick: () => handleItemClick("Auto-Letter", onAutoLetter),
+              dataMenuItem: "Auto-Letter",
              disabled: !writePermission,
            },
          ]
@@ -202,9 +204,9 @@ export default function MobileMenu({
       ...(isAdmin && onRestoreBackup
        ? [
            {
-             label: "Restore Backup",
-             onClick: () => handleItemClick(onRestoreBackup),
-             dataMenuItem: "Restore Backup",
+label: "Restore Backup",
+              onClick: () => handleItemClick("Restore Backup", onRestoreBackup),
+              dataMenuItem: "Restore Backup",
              disabled: !writePermission,
            },
          ]
@@ -214,27 +216,27 @@ export default function MobileMenu({
   const viewItems: MenuItem[] = [
     {
       label: "Zoom 50%",
-      onClick: () => handleItemClick(() => onSetZoom("50%")),
+      onClick: () => handleItemClick("Zoom 50%", () => onSetZoom("50%")),
       dataMenuItem: "Zoom 50%",
     },
     {
       label: "Zoom 70%",
-      onClick: () => handleItemClick(() => onSetZoom("70%")),
+      onClick: () => handleItemClick("Zoom 70%", () => onSetZoom("70%")),
       dataMenuItem: "Zoom 70%",
     },
     {
       label: "Zoom 100%",
-      onClick: () => handleItemClick(() => onSetZoom("100%")),
+      onClick: () => handleItemClick("Zoom 100%", () => onSetZoom("100%")),
       dataMenuItem: "Zoom 100%",
     },
     {
       label: "Zoom 140%",
-      onClick: () => handleItemClick(() => onSetZoom("140%")),
+      onClick: () => handleItemClick("Zoom 140%", () => onSetZoom("140%")),
       dataMenuItem: "Zoom 140%",
     },
     {
       label: "Zoom 200%",
-      onClick: () => handleItemClick(() => onSetZoom("200%")),
+      onClick: () => handleItemClick("Zoom 200%", () => onSetZoom("200%")),
       dataMenuItem: "Zoom 200%",
     },
   ];
@@ -396,7 +398,7 @@ export default function MobileMenu({
             <button
               data-menu="Settings"
               data-menu-item="Open Settings"
-              onClick={() => handleItemClick(onOpenSettings)}
+              onClick={() => handleItemClick("Settings", onOpenSettings)}
               style={{
                 width: "100%",
                 padding: "1rem",

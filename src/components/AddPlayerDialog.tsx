@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { X, UserPlus } from "lucide-react";
 import type { PlayerData } from "../utils/hashUtils";
+import { debugInput } from "../utils/debug";
 
 interface AddPlayerDialogProps {
   isOpen: boolean;
@@ -196,7 +197,7 @@ export default function AddPlayerDialog({
                 type="text"
                 id="group"
                 value={group}
-                onChange={(e) => setGroup(e.target.value)}
+                onChange={(e) => { debugInput("AddPlayer:Group", e.target.value); setGroup(e.target.value); }}
                 style={{
                   width: "100%",
                   padding: "0.5rem",
@@ -226,7 +227,7 @@ export default function AddPlayerDialog({
                 type="text"
                 id="lastName"
                 value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
+                onChange={(e) => { debugInput("AddPlayer:Last Name", e.target.value); setLastName(e.target.value); }}
                 style={{
                   width: "100%",
                   padding: "0.5rem",
@@ -256,7 +257,7 @@ export default function AddPlayerDialog({
                 type="text"
                 id="firstName"
                 value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
+                onChange={(e) => { debugInput("AddPlayer:First Name", e.target.value); setFirstName(e.target.value); }}
                 style={{
                   width: "100%",
                   padding: "0.5rem",
@@ -286,7 +287,7 @@ export default function AddPlayerDialog({
                 type="number"
                 id="rating"
                 value={rating}
-                onChange={(e) => setRating(e.target.value)}
+                onChange={(e) => { debugInput("AddPlayer:Rating", e.target.value); setRating(e.target.value); }}
                 style={{
                   width: "100%",
                   padding: "0.5rem",
@@ -316,7 +317,7 @@ export default function AddPlayerDialog({
                 type="text"
                 id="grade"
                 value={grade}
-                onChange={(e) => setGrade(e.target.value)}
+                onChange={(e) => { debugInput("AddPlayer:Grade", e.target.value); setGrade(e.target.value); }}
                 style={{
                   width: "100%",
                   padding: "0.5rem",
@@ -346,7 +347,7 @@ export default function AddPlayerDialog({
                 type="text"
                 id="phone"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                onChange={(e) => { debugInput("AddPlayer:Phone", e.target.value); setPhone(e.target.value); }}
                 style={{
                   width: "100%",
                   padding: "0.5rem",
@@ -375,7 +376,7 @@ export default function AddPlayerDialog({
                 type="text"
                 id="school"
                 value={school}
-                onChange={(e) => setSchool(e.target.value)}
+                onChange={(e) => { debugInput("AddPlayer:School", e.target.value); setSchool(e.target.value); }}
                 style={{
                   width: "100%",
                   padding: "0.5rem",
@@ -404,7 +405,7 @@ export default function AddPlayerDialog({
                 type="text"
                 id="room"
                 value={room}
-                onChange={(e) => setRoom(e.target.value)}
+                onChange={(e) => { debugInput("AddPlayer:Room", e.target.value); setRoom(e.target.value); }}
                 style={{
                   width: "100%",
                   padding: "0.5rem",
@@ -433,7 +434,7 @@ export default function AddPlayerDialog({
                 type="text"
                 id="info"
                 value={info}
-                onChange={(e) => setInfo(e.target.value)}
+                onChange={(e) => { debugInput("AddPlayer:Info", e.target.value); setInfo(e.target.value); }}
                 style={{
                   width: "100%",
                   padding: "0.5rem",

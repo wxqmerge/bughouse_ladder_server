@@ -4,6 +4,7 @@ import { getVisibleTitles } from "../utils/titleMenu";
 import { getFontSize, getScaledPadding, getScaledGap, getScaledLineHeight } from "../utils/getFontSize";
 import { useIntervalCheck } from "../utils/useIntervalCheck";
 import { titleToFileName } from "../utils/constants";
+import { debugClick } from "../utils/debug";
 import {
   Folder,
   Upload,
@@ -104,6 +105,7 @@ export default function MenuBar({
   };
 
   const toggleMenu = (menuName: string) => {
+    debugClick(`Menu:${menuName}`);
     setOpenMenu(openMenu === menuName ? null : menuName);
   };
 
@@ -112,6 +114,7 @@ export default function MenuBar({
       icon: <Upload size={16} />,
       label: "Load",
       onClick: () => {
+        debugClick("Load");
         onFileAction?.("load");
         closeAllMenus();
       },
@@ -122,6 +125,7 @@ export default function MenuBar({
       icon: <Download size={16} />,
       label: "Export",
       onClick: () => {
+        debugClick("Export");
         onFileAction?.("export");
         closeAllMenus();
       },
@@ -145,6 +149,7 @@ export default function MenuBar({
           alert(`"${title}" is not available yet. Only admin can create mini-games.`);
           return;
         }
+        debugClick(`Title:${title}`);
         onSetTitle?.(title);
         closeAllMenus();
       },
@@ -159,6 +164,7 @@ export default function MenuBar({
       icon: <Hash size={16} />,
       label: "By Rank",
       onClick: () => {
+        debugClick("Sort:By Rank");
         onSort?.("rank");
         closeAllMenus();
       },
@@ -168,6 +174,7 @@ export default function MenuBar({
       icon: <Type size={16} />,
       label: "By Last Name",
       onClick: () => {
+        debugClick("Sort:By Last Name");
         onSort?.("byLastName");
         closeAllMenus();
       },
@@ -177,6 +184,7 @@ export default function MenuBar({
       icon: <Type size={16} />,
       label: "By First Name",
       onClick: () => {
+        debugClick("Sort:By First Name");
         onSort?.("byFirstName");
         closeAllMenus();
       },
@@ -186,6 +194,7 @@ export default function MenuBar({
       icon: <TrendingUp size={16} />,
       label: "By New Rating",
       onClick: () => {
+        debugClick("Sort:By New Rating");
         onSort?.("nRating");
         closeAllMenus();
       },
@@ -195,6 +204,7 @@ export default function MenuBar({
       icon: <History size={16} />,
       label: "By Previous Rating",
       onClick: () => {
+        debugClick("Sort:By Previous Rating");
         onSort?.("rating");
         closeAllMenus();
       },
@@ -207,6 +217,7 @@ export default function MenuBar({
       icon: <RefreshCw size={16} />,
       label: "Recalculate_Save",
       onClick: () => {
+        debugClick("Recalculate_Save");
         onRecalculateRatings?.();
         closeAllMenus();
       },
@@ -217,6 +228,7 @@ export default function MenuBar({
       icon: <AlertTriangle size={16} />,
       label: "Check Errors",
       onClick: () => {
+        debugClick("Check Errors");
         onCheckErrors?.();
         closeAllMenus();
       },
@@ -226,6 +238,7 @@ export default function MenuBar({
       icon: <Type size={16} />,
       label: "Enter Games",
       onClick: () => {
+        debugClick("Enter Games");
         onEnterGames?.();
         closeAllMenus();
       },
@@ -236,6 +249,7 @@ export default function MenuBar({
       icon: <ClipboardPaste size={16} />,
       label: "Paste Multiple Results",
       onClick: () => {
+        debugClick("Paste Multiple Results");
         onBulkPaste?.();
         closeAllMenus();
       },
@@ -246,12 +260,13 @@ export default function MenuBar({
       ? [
           {
             icon: <Plus size={16} />,
-            label: "Add Player",
-            onClick: () => {
-              onAddPlayer?.();
-              closeAllMenus();
-            },
-            dataMenuItem: "Add Player",
+label: "Add Player",
+              onClick: () => {
+                debugClick("Add Player");
+                onAddPlayer?.();
+                closeAllMenus();
+              },
+              dataMenuItem: "Add Player",
             disabled: !writePermission,
           },
         ]
@@ -260,12 +275,13 @@ export default function MenuBar({
        ? [
            {
              icon: <Trash2 size={16} />,
-             label: "Delete Hidden Players",
-             onClick: () => {
-               onDeleteHiddenPlayers?.();
-               closeAllMenus();
-             },
-             dataMenuItem: "Delete Hidden Players",
+label: "Delete Hidden Players",
+              onClick: () => {
+                debugClick("Delete Hidden Players");
+                onDeleteHiddenPlayers?.();
+                closeAllMenus();
+              },
+              dataMenuItem: "Delete Hidden Players",
              disabled: !writePermission,
            },
          ]
@@ -274,12 +290,13 @@ export default function MenuBar({
        ? [
            {
              icon: <Type size={16} />,
-             label: "Auto-Letter",
-             onClick: () => {
-               onAutoLetter?.();
-               closeAllMenus();
-             },
-             dataMenuItem: "Auto-Letter",
+label: "Auto-Letter",
+              onClick: () => {
+                debugClick("Auto-Letter");
+                onAutoLetter?.();
+                closeAllMenus();
+              },
+              dataMenuItem: "Auto-Letter",
              disabled: !writePermission,
            },
          ]
@@ -288,12 +305,13 @@ export default function MenuBar({
       ? []
       : [{
           icon: <Shield size={16} />,
-          label: isAdmin ? "Exit Admin Mode" : "Admin Mode",
-          onClick: () => {
-            onToggleAdmin?.();
-            closeAllMenus();
-          },
-          dataMenuItem: isAdmin ? "Exit Admin Mode" : "Admin Mode",
+label: isAdmin ? "Exit Admin Mode" : "Admin Mode",
+            onClick: () => {
+              debugClick(isAdmin ? "Exit Admin Mode" : "Admin Mode");
+              onToggleAdmin?.();
+              closeAllMenus();
+            },
+            dataMenuItem: isAdmin ? "Exit Admin Mode" : "Admin Mode",
           disabled: !writePermission && !isAdmin,
         }]),
     // Restore Backup - admin only, before Settings
@@ -301,12 +319,13 @@ export default function MenuBar({
       ? [
           {
             icon: <History size={16} />,
-            label: "Restore Backup",
-            onClick: () => {
-              onRestoreBackup?.();
-              closeAllMenus();
-            },
-            dataMenuItem: "Restore Backup",
+label: "Restore Backup",
+              onClick: () => {
+                debugClick("Restore Backup");
+                onRestoreBackup?.();
+                closeAllMenus();
+              },
+              dataMenuItem: "Restore Backup",
             disabled: !writePermission,
           },
         ]
@@ -316,6 +335,7 @@ export default function MenuBar({
       icon: <SettingsIcon size={16} />,
       label: "Settings",
       onClick: () => {
+        debugClick("Settings");
         onOpenSettings?.();
         closeAllMenus();
       },
@@ -328,6 +348,7 @@ export default function MenuBar({
       icon: <Minus size={16} />,
       label: "Zoom 50%",
       onClick: () => {
+        debugClick("Zoom 50%");
         onSetZoom?.("50%");
         closeAllMenus();
       },
@@ -337,6 +358,7 @@ export default function MenuBar({
       icon: <Minus size={16} />,
       label: "Zoom 70%",
       onClick: () => {
+        debugClick("Zoom 70%");
         onSetZoom?.("70%");
         closeAllMenus();
       },
@@ -346,6 +368,7 @@ export default function MenuBar({
       icon: <Eye size={16} />,
       label: "Zoom 100%",
       onClick: () => {
+        debugClick("Zoom 100%");
         onSetZoom?.("100%");
         closeAllMenus();
       },
@@ -355,6 +378,7 @@ export default function MenuBar({
       icon: <Plus size={16} />,
       label: "Zoom 140%",
       onClick: () => {
+        debugClick("Zoom 140%");
         onSetZoom?.("140%");
         closeAllMenus();
       },
@@ -364,6 +388,7 @@ export default function MenuBar({
       icon: <ZoomIn size={16} />,
       label: "Zoom 200%",
       onClick: () => {
+        debugClick("Zoom 200%");
         onSetZoom?.("200%");
         closeAllMenus();
       },

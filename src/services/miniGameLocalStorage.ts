@@ -259,7 +259,7 @@ export const miniGameStore: MiniGameStore = {
       let trophies: any[] = [];
       const debugLines: string[] = [];
 
-      if (debugLevel <= 4) {
+      if (debugLevel <= 5) {
         debugLines.push(sharedDebugLine('DEBUG', 'TROPHY REPORT', '', '', '', '', '', ''));
         debugLines.push(sharedDebugLine('Players', String(players.length), '', '', '', '', '', ''));
         debugLines.push(sharedDebugLine('Min Trophies', `${minTrophies} (ceil(${players.length} / 3))`, '', '', '', '', '', ''));
@@ -267,7 +267,7 @@ export const miniGameStore: MiniGameStore = {
       }
 
       if (isClubMode) {
-        if (debugLevel <= 4) {
+        if (debugLevel <= 5) {
           debugLines.push(sharedDebugLine('Mode', 'Club Ladder (no mini-game files)', '', '', '', '', '', ''));
         }
         
@@ -278,7 +278,7 @@ export const miniGameStore: MiniGameStore = {
       } else {
         const existingFiles = await this.getExistingMiniGameFiles();
         const m = existingFiles.length;
-        if (debugLevel <= 4) {
+        if (debugLevel <= 5) {
           debugLines.push(sharedDebugLine('Mode', 'Mini-Game Tournament', '', '', '', '', '', ''));
           debugLines.push(sharedDebugLine('Mini-games played', String(m), '', '', '', '', '', ''));
           debugLines.push(sharedDebugLine('Award 2nd place', `t=${minTrophies} > m=${m} ? ${minTrophies > m}`, '', '', '', '', '', ''));
@@ -309,7 +309,7 @@ export const miniGameStore: MiniGameStore = {
           });
         }
 
-        if (debugLevel <= 4) {
+        if (debugLevel <= 5) {
           debugLines.push(sharedDebugLine('MINI-GAME PLAYERS', '(after 5 recalcs)', '', '', '', '', '', ''));
         }
         

@@ -321,7 +321,7 @@ export async function generateTrophyReport(debugLevel: number = 3): Promise<{
     let trophies: any[] = [];
     const debugLines: string[] = [];
 
-    if (debugLevel <= 4) {
+    if (debugLevel <= 5) {
       const headerLines = buildDebugHeader(players, minTrophies, isClubMode, undefined, debugLevel);
       debugLines.push(...headerLines);
     }

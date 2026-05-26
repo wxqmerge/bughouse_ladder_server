@@ -3,6 +3,7 @@ import { X, Plus } from "lucide-react";
 import type { ValidationResult, PlayerData } from "../utils/hashUtils";
 import { updatePlayerGameData, normalize4Player, normalize2Player } from "../utils/hashUtils";
 import { getValidationErrorMessage } from "../utils/constants";
+import { debugInput } from "../utils/debug";
 
 interface ErrorDialogProps {
   error: ValidationResult | null;
@@ -26,7 +27,7 @@ interface ErrorDialogProps {
   onEnterRecalculateSave?: (correctedString: string) => void;
   isAdmin?: boolean;
   onAddPlayer?: () => void;
-  debugMode?: boolean;
+  debugLevel?: number;
 }
 
 /**
@@ -132,7 +133,7 @@ export default function ErrorDialog({
   onEnterRecalculateSave,
   isAdmin = false,
   onAddPlayer,
-  debugMode = false,
+  debugLevel = 5,
 }: ErrorDialogProps) {
   const [correctedResult, setCorrectedResult] = useState<string>(
     existingValue?.replace(/_$/, "") || "",
@@ -555,6 +556,7 @@ export default function ErrorDialog({
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    debugInput("ErrorDialog:Corrected Result", e.target.value);
     // Save cursor position before any changes
     const cursorPos = e.target.selectionStart || 0;
 
@@ -828,7 +830,7 @@ export default function ErrorDialog({
               ✓ All game results are valid. No errors found.
             </p>
           )}
-          {(isGameEntry || isEnterGames) && debugMode && (
+          {(isGameEntry || isEnterGames) && debugLevel <= 5 && (
             <p
               style={{
                 fontSize: "0.75rem",
@@ -1061,7 +1063,7 @@ export default function ErrorDialog({
           )}
         </div>
 
-        {debugMode && correctedResult.trim() && parsedGameData && (
+        {debugLevel <= 5 && correctedResult.trim() && parsedGameData && (
           <p
             style={{
               fontSize: "0.75rem",
@@ -1238,7 +1240,7 @@ export default function ErrorDialog({
             placeholder="e.g., 5:6W7:8 for 4-player (pairs separated by colon)"
             autoFocus
           />
-          {debugMode && (
+          {debugLevel <= 5 && (
             <p
               style={{
                 fontSize: "0.75rem",
