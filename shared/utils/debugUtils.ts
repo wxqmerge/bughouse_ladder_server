@@ -1,4 +1,22 @@
 /**
+ * Check if a debug log should fire based on settings.debugLevel from localStorage.
+ * Lower debugLevel number = more verbose. Default threshold=3 (verbose).
+ * Usage: if (shouldLog(3)) console.log('[3]DEBUG-TRACE ...');
+ */
+export function shouldLog(threshold: number): boolean {
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('bughouse_settings') : null;
+    if (raw) {
+      const settings = JSON.parse(raw);
+      const level = settings.debugLevel ?? 5;
+      return level <= threshold;
+    }
+  } catch { /* ignore parse errors */ }
+  // Default: level 5, so threshold 3 logs are off, threshold 5+ are on
+  return 5 <= threshold;
+}
+
+/**
  * Debug trace for a single match — mirrors VB6 intermediate values step by step.
  * Each field corresponds to a VB6 variable at a specific point in the recalc() flow.
  */
