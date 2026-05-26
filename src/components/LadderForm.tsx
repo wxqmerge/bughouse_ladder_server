@@ -1245,7 +1245,8 @@ export default function LadderForm({
   const handleEnterRecalculateSave = async (correctedString: string) => {
     if (!entryCell) return;
 
-    log('[ENTER_GAMES]', 'Entered "' + correctedString + '" for cell P' + entryCell.playerRank + ' R' + (entryCell.round + 1));
+    const activeFile = dataService.getMiniGameFile() || 'ladder.tab';
+    log('[ENTER_GAMES]', 'Active file: ' + activeFile + ' | Entered "' + correctedString + '" for cell P' + entryCell.playerRank + ' R' + (entryCell.round + 1));
 
     // Mark local changes if we're in server down mode
     if (isServerDownMode()) {
@@ -1307,20 +1308,9 @@ export default function LadderForm({
         const outcomeForTeam1 = scoreToLetter(score1);
         const outcomeForTeam2 = score2 > 0 ? scoreToLetter(score2) : scoreToLetter(swapScore(score1));
 
-        // Determine which team current player is on
-        let isCurrentPlayerOnTeam1 = false;
-        if (currentPlayerRank === p1Rank || currentPlayerRank === p2Rank) {
-          isCurrentPlayerOnTeam1 = true;
-        } else if (currentPlayerRank === p3Rank || currentPlayerRank === p4Rank) {
-          isCurrentPlayerOnTeam1 = false;
-        }
-        
-        // Did current player's team win?
-        const currentTeamWon = isCurrentPlayerOnTeam1 ? (outcomeForTeam1 === "W") : (outcomeForTeam2 === "W");
-        
-        // Outcome from each team's perspective
-        const outcomeForTeam1TheirView = currentTeamWon ? "W" : "L";
-        const outcomeForTeam2TheirView = currentTeamWon ? "L" : "W";
+        // Outcome from each team's perspective (already computed from scores)
+        const outcomeForTeam1TheirView = outcomeForTeam1;
+        const outcomeForTeam2TheirView = outcomeForTeam2;
 
         // Build result strings for each team (all teammates get same result)
         const resultForTeam1 = `${p1Rank}:${p2Rank}${outcomeForTeam1TheirView}${p3Rank}:${p4Rank}`;
