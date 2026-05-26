@@ -15,13 +15,13 @@
 
 - [ ] **1. Settings UI** — debugLevel selector renders, saves, persists across reload
 - [ ] **2. Disconnect → reload** — clear server URL, save, hard reload → stays in local mode (no splash repopulation)
-- [ ] **3. Connect via URL** — `?config=1&server=URL&key=KEY` → connects, params cleared after apply
+- [x] **3. Connect via URL** — `?config=1&server=URL&key=KEY` → connects, params cleared after apply
 - [ ] **4. Full reset** — `?config=2` → clears all data, stays in local mode after reload
 - [ ] **5. Force local** — `?config=4` → disconnects server, blocks auto-detect, preserves data
 - [ ] **6. File import** — drop `.tab`/`.xls` on splash → loads
 - [ ] **7. Mini-game tournament import** — end-to-end with real data
 - [ ] **8. ErrorDialog UI extras** — visible at debugLevel ≤ 3, hidden at 5+
-- [ ] **9. SSE real-time sync** — two browser tabs, edit in one, see update in other
+- [x] **9. SSE real-time sync** — two browser tabs, edit in one, see update in other
 - [ ] **10. Push/Pull buttons** — reconnect after disconnect, data merge direction
 - [ ] **11. Server auto-detect** — no config → `/health` check → SERVER vs LOCAL mode
 - [ ] **12. localStorage persistence** — close browser, reopen → settings/data intact
