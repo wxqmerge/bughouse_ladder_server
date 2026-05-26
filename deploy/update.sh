@@ -195,10 +195,14 @@ else
     echo "  No local changes to stash."
 fi
 
-# 2. Pull latest code
+# 2. Pull latest code (or reset to remote if branches diverged)
 echo "[2/9] Pulling latest code..."
-if ! git pull; then
-    echo "  ERROR: git pull failed. Restoring stash..."
+if git pull --rebase 2>/dev/null; then
+    echo "  Pulled successfully."
+elif git fetch origin main && git reset --hard origin/main; then
+    echo "  Branches diverged — reset to origin/main."
+else
+    echo "  ERROR: Failed to update from remote. Restoring stash..."
     git stash pop 2>/dev/null || true
     echo "  Aborting."
     exit 1
