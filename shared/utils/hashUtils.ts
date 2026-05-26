@@ -1254,10 +1254,55 @@ export function calculateRatings(
 }
 
 /**
+ * Build a result string from a specific player's perspective.
+ * 2-player: "8W9" for the winner, "8L9" for the loser
+ * 4-player: "1:2W3:4" for winning team, "1:2L3:4" for losing team
+ */
+function buildPlayerResult(m: MatchData, playerRank: number): string {
+  const is4p = m.player3 > 0 && m.player4 > 0;
+
+  if (is4p) {
+    const norm = normalize4Player(m.player1, m.player2, m.player3, m.player4);
+    const pair1Min = Math.min(m.player1, m.player2);
+    const pair2Min = Math.min(m.player3, m.player4);
+    const pairsSwapped = pair1Min > pair2Min;
+
+    // Determine which team the player is on
+    const onTeam1 = [m.player1, m.player2].includes(playerRank);
+    const onTeam2 = [m.player3, m.player4].includes(playerRank);
+    if (!onTeam1 && !onTeam2) return '';
+
+    // score1 is team1's outcome. If pairs were swapped, use score2 for team1
+    const team1Score = pairsSwapped && m.score2 > 0 ? m.score2 : m.score1;
+    const team2Score = pairsSwapped && m.score1 > 0 ? m.score1 : m.score2;
+
+    const playerScore = onTeam1 ? team1Score : team2Score;
+    const letter = scoreCodeToLetter(playerScore);
+
+    if (m.score2 > 0) {
+      const team2Letter = scoreCodeToLetter(team2Score);
+      return `${norm[0]}:${norm[1]}${letter}${team2Letter}${norm[2]}:${norm[3]}`;
+    }
+    return `${norm[0]}:${norm[1]}${letter}${norm[2]}:${norm[3]}`;
+  } else {
+    const norm = normalize2Player(m.player1, m.player2);
+    const isPlayer1 = playerRank === m.player1 || playerRank === norm[0];
+
+    // score1 is from player1's perspective
+    let playerScore = m.score1;
+    if (!isPlayer1) {
+      playerScore = swapScore(m.score1);
+    }
+    const letter = scoreCodeToLetter(playerScore);
+    return `${norm[0]}${letter}${norm[1]}`;
+  }
+}
+
+/**
  * Repopulate game results from validated matches
  * @param debugLevel - log level (<=3 shows per-match debug logs)
  */
-export function repopulateGameResults(
+ export function repopulateGameResults(
   playersList: PlayerData[],
   matches: MatchData[],
   numRounds: number = 31,
@@ -1324,10 +1369,14 @@ export function repopulateGameResults(
       return result4p;
     } else {
       const norm = normalize2Player(m.player1, m.player2);
-      const scoreLetter = scoreCodeToLetter(m.score1);
+      // If player order was swapped, swap the score too
+      const playerSwapped = m.player1 > m.player2;
+      const normScore1 = playerSwapped ? swapScore(m.score1) : m.score1;
+      const normScore2 = playerSwapped && m.score2 > 0 ? swapScore(m.score2) : m.score2;
+      const scoreLetter = scoreCodeToLetter(normScore1);
       if (debugLevel <= 3) {      }
-      if (m.score2 > 0) {
-        const scoreLetter2 = scoreCodeToLetter(m.score2);
+      if (normScore2 > 0) {
+        const scoreLetter2 = scoreCodeToLetter(normScore2);
         const result = `${norm[0]}${scoreLetter}${scoreLetter2}${norm[1]}`;
         return result;
       }
@@ -1383,12 +1432,20 @@ export function repopulateGameResults(
     for (const playerRank of playerRanks) {
       const player = playersCopy.find((p) => p.rank === playerRank);
       if (!player) continue;
+
+      // Build per-player result from this player's perspective
+      const playerResult = buildPlayerResult(match, playerRank);
+
       // Skip if player already has this result in some round
-      const alreadyHas = hasResult(player, normalizedResult);
+      const alreadyHas = hasResult(player, playerResult);
       if (alreadyHas) continue;
+      // Also skip if player has the equivalent result from the other perspective
+      // e.g., P9 has "9L8" which is equivalent to "8W9"
+      const alsoHasNormalized = hasResult(player, normalizedResult);
+      if (alsoHasNormalized) continue;
       const round = findLowestEmptyRound(player);
-      if (round >= 0 && normalizedResult) {
-        player.gameResults[round] = normalizedResult;
+      if (round >= 0 && playerResult) {
+        player.gameResults[round] = playerResult;
       }
     }
   }
