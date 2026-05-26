@@ -1253,7 +1253,7 @@ export default function LadderForm({
       markLocalChanges();
     }
 
-    // Parse the game result to extract opponent ranks
+    // Parse the game result to extract opponent ranks (SOURCE parse)
     const parsedResult = updatePlayerGameData(
       correctedString.replace(/_$/, ""),
       true,
@@ -1272,29 +1272,25 @@ export default function LadderForm({
       const currentPlayerRank = entryCell.playerRank;
       const roundIndex = entryCell.round;
 
-      console.log('[ENTER_GAMES_DEBUG] === ENTRY START ===');
-      console.log('[ENTER_GAMES_DEBUG] Raw correctedString:', correctedString);
-      console.log('[ENTER_GAMES_DEBUG] valueToSave:', valueToSave);
-      console.log('[ENTER_GAMES_DEBUG] parsedPlayer1Rank:', p1Rank, 'parsedPlayer2Rank:', p2Rank, 'parsedPlayer3Rank:', p3Rank, 'parsedPlayer4Rank:', p4Rank);
-      console.log('[ENTER_GAMES_DEBUG] parsedScoreList:', parsedResult.parsedScoreList, 'score1:', score1, 'score2:', score2);
-      console.log('[ENTER_GAMES_DEBUG] currentPlayerRank:', currentPlayerRank, 'roundIndex:', roundIndex);
-      console.log('[ENTER_GAMES_DEBUG] is4Player:', is4Player);
+      // Summary line: input scores vs output outcomes (for debugging outcome corruption)
+      const scoreToLetter = (s: number) => s === 0 ? 'O' : s === 1 ? 'L' : s === 2 ? 'D' : 'W';
+      const s1l = scoreToLetter(score1);
+      const s2l = score2 > 0 ? scoreToLetter(score2) : scoreToLetter(score1 === 1 ? 3 : score1 === 3 ? 1 : score1);
+      log('[ENTER_GAMES]', 'PARSED: ' + (is4Player ? '4P' : '2P') + ' | players=[' + p1Rank + (is4Player ? ':' + p2Rank : '') + (is4Player ? ',' + p3Rank + ':' + p4Rank : '') + '] | scores=[' + s1l + (score2 > 0 ? ',' + s2l : ',(inferred)') + ']');
 
       // Helper: fill a player's cell if empty (same round for all players in game)
       const fillCell = (playerRank: number, resultString: string) => {
         const player = players.find((p) => p.rank === playerRank);
         if (player && roundIndex >= 0 && roundIndex < 31) {
           const existingValue = player.gameResults[roundIndex]?.replace(/_+$/, "") || "";
-          console.log('[ENTER_GAMES_DEBUG] fillCell called: playerRank=' + playerRank + ' resultString="' + resultString + '" existingValue="' + existingValue + '"');
           if (!existingValue.trim()) {
             player.gameResults[roundIndex] = resultString;
-            console.log('[ENTER_GAMES_DEBUG] Cell SET: P' + playerRank + ' R' + (roundIndex + 1) + ' = "' + resultString + '"');
             log('[ENTER_GAMES]', 'Filled cell P' + playerRank + ' R' + (roundIndex + 1) + ': "' + resultString + '"');
           } else {
-            console.log('[ENTER_GAMES_DEBUG] Cell SKIPPED (already filled): P' + playerRank + ' R' + (roundIndex + 1) + ' = "' + existingValue + '"');
+            if (shouldLog(3)) {
+              console.log('[ENTER_GAMES_DEBUG] Cell SKIPPED (already filled): P' + playerRank + ' R' + (roundIndex + 1) + ' = "' + existingValue + '"');
+            }
           }
-        } else {
-          console.log('[ENTER_GAMES_DEBUG] fillCell SKIPPED: player not found or round out of bounds');
         }
       };
 
@@ -1302,7 +1298,6 @@ export default function LadderForm({
         // 4-player team game: use parsed scores
         // score1 = team1's result (W=3, L=1, D=2, O=0)
         // score2 = team2's result (if present, from team2's perspective)
-        const scoreToLetter = (s: number) => s === 0 ? 'O' : s === 1 ? 'L' : s === 2 ? 'D' : 'W';
         const swapScore = (s: number) => s === 1 ? 3 : s === 3 ? 1 : s;
         
         const outcomeForTeam1 = scoreToLetter(score1);
@@ -1316,8 +1311,7 @@ export default function LadderForm({
         const resultForTeam1 = `${p1Rank}:${p2Rank}${outcomeForTeam1TheirView}${p3Rank}:${p4Rank}`;
         const resultForTeam2 = `${p1Rank}:${p2Rank}${outcomeForTeam2TheirView}${p3Rank}:${p4Rank}`;
 
-        console.log('[ENTER_GAMES_DEBUG] 4P: score1=' + score1 + '(' + outcomeForTeam1 + ') score2=' + score2 + '(' + outcomeForTeam2 + ')');
-        console.log('[ENTER_GAMES_DEBUG] 4P: resultForTeam1="' + resultForTeam1 + '" resultForTeam2="' + resultForTeam2 + '"');
+        log('[ENTER_GAMES]', '4P OUTPUT: team1("' + outcomeForTeam1TheirView + ')->' + resultForTeam1 + ' | team2("' + outcomeForTeam2TheirView + ')->' + resultForTeam2 + '"');
 
         // Fill cells for ALL players in the game (including current player)
         fillCell(p1Rank, resultForTeam1);
@@ -1331,7 +1325,6 @@ export default function LadderForm({
       } else {
         // 2-player game: use parsed score
         // score1 = player 1's result (W=3, L=1, D=2, O=0)
-        const scoreToLetter = (s: number) => s === 0 ? 'O' : s === 1 ? 'L' : s === 2 ? 'D' : 'W';
         const swapScore = (s: number) => s === 1 ? 3 : s === 3 ? 1 : s;
         
         const outcomeForP1 = scoreToLetter(score1);
@@ -1346,9 +1339,7 @@ export default function LadderForm({
         const resultForP1 = `${p1Rank}${outcomeForP1}${p2Rank}`;
         const resultForP2 = `${p1Rank}${outcomeForP2}${p2Rank}`;
 
-        console.log('[ENTER_GAMES_DEBUG] 2P: score1=' + score1 + '(' + outcomeForP1 + ') outcomeForP2=' + outcomeForP2);
-        console.log('[ENTER_GAMES_DEBUG] 2P: isCurrentPlayerP1=' + isCurrentPlayerP1 + ' currentPlayerWon=' + currentPlayerWon);
-        console.log('[ENTER_GAMES_DEBUG] 2P: resultForP1="' + resultForP1 + '" resultForP2="' + resultForP2 + '"');
+        log('[ENTER_GAMES]', '2P OUTPUT: P1("' + outcomeForP1 + ')->' + resultForP1 + ' | P2("' + outcomeForP2 + ')->' + resultForP2 + '"');
 
         // Fill cells for BOTH players (including current player)
         fillCell(p1Rank, resultForP1);
@@ -1356,7 +1347,6 @@ export default function LadderForm({
         addDelta({ type: 'GAME_RESULT', playerRank: p1Rank, round: roundIndex, result: resultForP1 });
         addDelta({ type: 'GAME_RESULT', playerRank: p2Rank, round: roundIndex, result: resultForP2 });
       }
-      console.log('[ENTER_GAMES_DEBUG] === ENTRY END ===');
     }
 
     // Store current cell position to find next empty cell after recalc
@@ -1719,9 +1709,11 @@ export default function LadderForm({
           console.log(`Total results after repopulation: ${totalAfterRepop}`);
         }
 
-        console.log('[RECALC_DEBUG] [ADMIN] === RECALC START ===');
-        console.log('[RECALC_DEBUG] [ADMIN] Input matches count:', matches.length);
-        console.log('[RECALC_DEBUG] [ADMIN] Input matches:', JSON.stringify(matches.map(m => ({p1:m.player1, p2:m.player2, p3:m.player3, p4:m.player4, s1:m.score1, s2:m.score2}))));
+        if (shouldLog(3)) {
+          console.log('[RECALC_DEBUG] [ADMIN] === RECALC START ===');
+          console.log('[RECALC_DEBUG] [ADMIN] Input matches count:', matches.length);
+          console.log('[RECALC_DEBUG] [ADMIN] Input matches:', JSON.stringify(matches.map(m => ({p1:m.player1, p2:m.player2, p3:m.player3, p4:m.player4, s1:m.score1, s2:m.score2}))));
+        }
         
         const calculatedPlayers = calculateRatings(processedPlayers, matches).players;
         const normalizedPlayers = normalizePlayersAttendance(normalizePlayersTrophy(calculatedPlayers));
@@ -1751,7 +1743,9 @@ export default function LadderForm({
             }
           }
         }
-        console.log('[RECALC_DEBUG] [ADMIN] === RECALC END ===');
+        if (shouldLog(3)) {
+          console.log('[RECALC_DEBUG] [ADMIN] === RECALC END ===');
+        }
 
         // Save with waitForServer=true to wait for server confirmation
         (window as any).__ladder_setStatus?.('Saving to server...');
@@ -1808,9 +1802,11 @@ export default function LadderForm({
         console.log(`Matches to process: ${matches.length}`);
       }
 
-   console.log('[RECALC_DEBUG] === RECALC START ===');
-    console.log('[RECALC_DEBUG] Input matches count:', matches.length);
-    console.log('[RECALC_DEBUG] Input matches:', JSON.stringify(matches.map(m => ({p1:m.player1, p2:m.player2, p3:m.player3, p4:m.player4, s1:m.score1, s2:m.score2}))));
+   if (shouldLog(3)) {
+      console.log('[RECALC_DEBUG] === RECALC START ===');
+      console.log('[RECALC_DEBUG] Input matches count:', matches.length);
+      console.log('[RECALC_DEBUG] Input matches:', JSON.stringify(matches.map(m => ({p1:m.player1, p2:m.player2, p3:m.player3, p4:m.player4, s1:m.score1, s2:m.score2}))));
+    }
 
     if (shouldLog(2)) {
       console.log(`[REPOPULATE] Starting repopulateGameResults (O(N*R)): ${players.length} players x ${matches.length} matches`);
@@ -1855,7 +1851,9 @@ export default function LadderForm({
         }
       }
     }
-    console.log('[RECALC_DEBUG] === RECALC END ===');
+    if (shouldLog(3)) {
+      console.log('[RECALC_DEBUG] === RECALC END ===');
+    }
 
     // Push full table to server
     (window as any).__ladder_setStatus?.('Saving to server...');
