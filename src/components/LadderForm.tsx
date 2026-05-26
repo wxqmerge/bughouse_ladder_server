@@ -1332,31 +1332,31 @@ export default function LadderForm({
       let workingPlayers = [...players];
 
      if (is4Player) {
-          // 4-player team game — same string for all players
+          // 4-player team game — build perspective-based results per team
+          const outcomeForTeam1 = scoreCodeToLetter(score1);
+          const outcomeForTeam2 = score2 > 0 ? scoreCodeToLetter(score2) : scoreCodeToLetter(swapScore(score1));
+          const resultForTeam1 = `${p1Rank}:${p2Rank}${outcomeForTeam1}${p3Rank}:${p4Rank}`;
+          const resultForTeam2 = `${p1Rank}:${p2Rank}${outcomeForTeam2}${p3Rank}:${p4Rank}`;
 
-        workingPlayers = fillCellSync(workingPlayers, p1Rank, valueToSave);
-        workingPlayers = fillCellSync(workingPlayers, p2Rank, valueToSave);
-        workingPlayers = fillCellSync(workingPlayers, p3Rank, valueToSave);
-        workingPlayers = fillCellSync(workingPlayers, p4Rank, valueToSave);
-        addDelta({ type: 'GAME_RESULT', playerRank: p1Rank, round: roundIndex, result: valueToSave });
-        addDelta({ type: 'GAME_RESULT', playerRank: p2Rank, round: roundIndex, result: valueToSave });
-        addDelta({ type: 'GAME_RESULT', playerRank: p3Rank, round: roundIndex, result: valueToSave });
-        addDelta({ type: 'GAME_RESULT', playerRank: p4Rank, round: roundIndex, result: valueToSave });
+        workingPlayers = fillCellSync(workingPlayers, p1Rank, resultForTeam1);
+        workingPlayers = fillCellSync(workingPlayers, p2Rank, resultForTeam1);
+        workingPlayers = fillCellSync(workingPlayers, p3Rank, resultForTeam2);
+        workingPlayers = fillCellSync(workingPlayers, p4Rank, resultForTeam2);
+        addDelta({ type: 'GAME_RESULT', playerRank: p1Rank, round: roundIndex, result: resultForTeam1 });
+        addDelta({ type: 'GAME_RESULT', playerRank: p2Rank, round: roundIndex, result: resultForTeam1 });
+        addDelta({ type: 'GAME_RESULT', playerRank: p3Rank, round: roundIndex, result: resultForTeam2 });
+        addDelta({ type: 'GAME_RESULT', playerRank: p4Rank, round: roundIndex, result: resultForTeam2 });
       } else {
-          // 2-player game — build normalized result for each player's perspective
-          // score1 is from p1's perspective: W=3, L=1, D=2, O=0
-          // For p2's perspective, swap the score
+          // 2-player game — build perspective-based results
+          const outcomeForP1 = scoreCodeToLetter(score1);
+          const outcomeForP2 = scoreCodeToLetter(swapScore(score1));
+          const resultForP1 = `${p1Rank}${outcomeForP1}${p2Rank}`;
+          const resultForP2 = `${p1Rank}${outcomeForP2}${p2Rank}`;
 
-        const p1Result = valueToSave;
-        const p2Score = swapScore(score1);
-        const p2ScoreLetter = scoreCodeToLetter(p2Score);
-        // Build p2's result: p2's rank + their score letter + p1's rank
-        const p2Result = `${p2Rank}${p2ScoreLetter}${p1Rank}${valueToSave.endsWith('_') ? '_' : ''}`;
-
-        workingPlayers = fillCellSync(workingPlayers, p1Rank, p1Result);
-        workingPlayers = fillCellSync(workingPlayers, p2Rank, p2Result);
-        addDelta({ type: 'GAME_RESULT', playerRank: p1Rank, round: roundIndex, result: p1Result });
-        addDelta({ type: 'GAME_RESULT', playerRank: p2Rank, round: roundIndex, result: p2Result });
+        workingPlayers = fillCellSync(workingPlayers, p1Rank, resultForP1);
+        workingPlayers = fillCellSync(workingPlayers, p2Rank, resultForP2);
+        addDelta({ type: 'GAME_RESULT', playerRank: p1Rank, round: roundIndex, result: resultForP1 });
+        addDelta({ type: 'GAME_RESULT', playerRank: p2Rank, round: roundIndex, result: resultForP2 });
       }
       // Update state once with all filled cells
       setPlayers(workingPlayers);
