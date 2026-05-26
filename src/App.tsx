@@ -75,6 +75,7 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
   const [currentMode, setCurrentMode] = useState<'local' | 'server_down' | 'server' | null>(null);
   const recalculateRef = useRef<(() => void) | undefined>(undefined);
   const refreshPlayersRef = useRef<(() => void) | undefined>(undefined);
+  const toggleAdminRef = useRef<(() => Promise<void>) | undefined>(undefined);
   const initRef = useRef(false);
 
   // Cache bust: reload if build timestamp differs from last visit
@@ -680,6 +681,7 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
         onSetRecalculateRef={handleSetRecalculateRef}
         onSetRefreshPlayersRef={handleSetRefreshPlayersRef}
         onAdminChange={setIsAdmin}
+        onSetToggleAdmin={(toggle) => { toggleAdminRef.current = toggle; }}
         showServerDownBlocking={showServerDownBlocking}
         onDismissServerDown={() => setShowServerDownBlocking(false)}
         versionMismatch={versionMismatch}
@@ -699,8 +701,9 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
           onExportTournamentFiles={isAdmin ? handleExportTournamentFiles : undefined}
           onImportTournamentFiles={isAdmin ? handleImportTournamentFiles : undefined}
           onGenerateTrophies={isAdmin ? handleGenerateTrophies : undefined}
-          isTournamentActive={isMiniGameTitle(getProjectName())}
-          isAdmin={isAdmin}
+isTournamentActive={isMiniGameTitle(getProjectName())}
+           isAdmin={isAdmin}
+           onToggleAdmin={toggleAdminRef.current}
           onSaveBeforeAction={handleSaveSettingsForAction}
         />
       )}
