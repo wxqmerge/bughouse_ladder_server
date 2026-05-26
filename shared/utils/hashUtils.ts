@@ -650,7 +650,45 @@ export function processGameResults(
 
       if (!player1 || !player2) {
         errorCount++;
+        errors.push({
+          hashValue: 0,
+          player1: player1Rank,
+          player2: player2Rank,
+          player3: player3Rank,
+          player4: player4Rank,
+          score1: player1Score,
+          score2: player2Score,
+          resultIndex: round,
+          isValid: false,
+          error: 11,
+          originalString: result,
+          playerRank: player.rank,
+        });
         continue;
+      }
+
+      // Validate 4-player references exist too
+      if (parsedPlayersList[2] > 0 && parsedPlayersList[3] > 0) {
+        const player3 = playersList.find(p => p.rank === player3Rank);
+        const player4 = playersList.find(p => p.rank === player4Rank);
+        if (!player3 || !player4) {
+          errorCount++;
+          errors.push({
+            hashValue: 0,
+            player1: player1Rank,
+            player2: player2Rank,
+            player3: player3Rank,
+            player4: player4Rank,
+            score1: player1Score,
+            score2: player2Score,
+            resultIndex: round,
+            isValid: false,
+            error: 11,
+            originalString: result,
+            playerRank: player.rank,
+          });
+          continue;
+        }
       }
 
       // Include all players in key to distinguish 2-player vs 4-player games

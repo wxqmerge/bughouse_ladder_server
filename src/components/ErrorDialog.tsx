@@ -26,7 +26,7 @@ interface ErrorDialogProps {
   totalRounds?: number;
   onEnterRecalculateSave?: (correctedString: string) => void;
   isAdmin?: boolean;
-  onAddPlayer?: () => void;
+  onAddPlayer?: (rank?: number) => void;
   debugLevel?: number;
   isOverrideMode?: boolean;
   onToggleOverrideMode?: () => void;
@@ -888,16 +888,35 @@ export default function ErrorDialog({
                         ")"}
                     </p>
                   ) : invalidPlayerRanks.has(1) ? (
-                    <p
-                      style={{
-                        fontSize: "0.875rem",
-                        color: "#ef4444",
-                        marginBottom: "0.5rem",
-                        fontWeight: "500",
-                      }}
-                    >
-                      Invalid player ({invalidPlayerRanks.get(1)!})
-                    </p>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                      <p
+                        style={{
+                          fontSize: "0.875rem",
+                          color: "#ef4444",
+                          marginBottom: 0,
+                          fontWeight: "500",
+                        }}
+                      >
+                        Invalid player ({invalidPlayerRanks.get(1)!})
+                      </p>
+                      {isAdmin && onAddPlayer && (
+                        <button
+                          onClick={() => onAddPlayer(invalidPlayerRanks.get(1)!)}
+                          style={{
+                            padding: "0.125rem 0.5rem",
+                            backgroundColor: "#3b82f6",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "0.25rem",
+                            cursor: "pointer",
+                            fontSize: "0.75rem",
+                            fontWeight: "500",
+                          }}
+                        >
+                          + Add
+                        </button>
+                      )}
+                    </div>
                   ) : null}
                   {extractedResults.length > 0 && (
                     <p
@@ -928,16 +947,35 @@ export default function ErrorDialog({
                         ")"}
                     </p>
                   ) : invalidPlayerRanks.has(2) ? (
-                    <p
-                      style={{
-                        fontSize: "0.875rem",
-                        color: "#ef4444",
-                        marginBottom: "0.5rem",
-                        fontWeight: "500",
-                      }}
-                    >
-                      Invalid player ({invalidPlayerRanks.get(2)!})
-                    </p>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                      <p
+                        style={{
+                          fontSize: "0.875rem",
+                          color: "#ef4444",
+                          marginBottom: 0,
+                          fontWeight: "500",
+                        }}
+                      >
+                        Invalid player ({invalidPlayerRanks.get(2)!})
+                      </p>
+                      {isAdmin && onAddPlayer && (
+                        <button
+                          onClick={() => onAddPlayer(invalidPlayerRanks.get(2)!)}
+                          style={{
+                            padding: "0.125rem 0.5rem",
+                            backgroundColor: "#3b82f6",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "0.25rem",
+                            cursor: "pointer",
+                            fontSize: "0.75rem",
+                            fontWeight: "500",
+                          }}
+                        >
+                          + Add
+                        </button>
+                      )}
+                    </div>
                   ) : null}
                 </>
               )}
@@ -963,16 +1001,35 @@ export default function ErrorDialog({
                         ")"}
                     </p>
                   ) : invalidPlayerRanks.has(1) ? (
-                    <p
-                      style={{
-                        fontSize: "0.875rem",
-                        color: "#ef4444",
-                        marginBottom: "0.25rem",
-                        fontWeight: "500",
-                      }}
-                    >
-                      Invalid player ({invalidPlayerRanks.get(1)!})
-                    </p>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.25rem" }}>
+                      <p
+                        style={{
+                          fontSize: "0.875rem",
+                          color: "#ef4444",
+                          marginBottom: 0,
+                          fontWeight: "500",
+                        }}
+                      >
+                        Invalid player ({invalidPlayerRanks.get(1)!})
+                      </p>
+                      {isAdmin && onAddPlayer && (
+                        <button
+                          onClick={() => onAddPlayer(invalidPlayerRanks.get(1)!)}
+                          style={{
+                            padding: "0.125rem 0.5rem",
+                            backgroundColor: "#3b82f6",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "0.25rem",
+                            cursor: "pointer",
+                            fontSize: "0.75rem",
+                            fontWeight: "500",
+                          }}
+                        >
+                          + Add
+                        </button>
+                      )}
+                    </div>
                   ) : null}
                   {displayPlayer2 ? (
                     <p
@@ -991,16 +1048,35 @@ export default function ErrorDialog({
                         ")"}
                     </p>
                   ) : invalidPlayerRanks.has(2) ? (
-                    <p
-                      style={{
-                        fontSize: "0.875rem",
-                        color: "#ef4444",
-                        marginBottom: "0.5rem",
-                        fontWeight: "500",
-                      }}
-                    >
-                      Invalid player ({invalidPlayerRanks.get(2)!})
-                    </p>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                      <p
+                        style={{
+                          fontSize: "0.875rem",
+                          color: "#ef4444",
+                          marginBottom: 0,
+                          fontWeight: "500",
+                        }}
+                      >
+                        Invalid player ({invalidPlayerRanks.get(2)!})
+                      </p>
+                      {isAdmin && onAddPlayer && (
+                        <button
+                          onClick={() => onAddPlayer(invalidPlayerRanks.get(2)!)}
+                          style={{
+                            padding: "0.125rem 0.5rem",
+                            backgroundColor: "#3b82f6",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "0.25rem",
+                            cursor: "pointer",
+                            fontSize: "0.75rem",
+                            fontWeight: "500",
+                          }}
+                        >
+                          + Add
+                        </button>
+                      )}
+                    </div>
                   ) : null}
                   
                   {/* Result between teams */}
@@ -1035,16 +1111,35 @@ export default function ErrorDialog({
                         ")"}
                     </p>
                   ) : invalidPlayerRanks.has(3) ? (
-                    <p
-                      style={{
-                        fontSize: "0.875rem",
-                        color: "#ef4444",
-                        marginBottom: "0.25rem",
-                        fontWeight: "500",
-                      }}
-                    >
-                      Invalid player ({invalidPlayerRanks.get(3)!})
-                    </p>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.25rem" }}>
+                      <p
+                        style={{
+                          fontSize: "0.875rem",
+                          color: "#ef4444",
+                          marginBottom: 0,
+                          fontWeight: "500",
+                        }}
+                      >
+                        Invalid player ({invalidPlayerRanks.get(3)!})
+                      </p>
+                      {isAdmin && onAddPlayer && (
+                        <button
+                          onClick={() => onAddPlayer(invalidPlayerRanks.get(3)!)}
+                          style={{
+                            padding: "0.125rem 0.5rem",
+                            backgroundColor: "#3b82f6",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "0.25rem",
+                            cursor: "pointer",
+                            fontSize: "0.75rem",
+                            fontWeight: "500",
+                          }}
+                        >
+                          + Add
+                        </button>
+                      )}
+                    </div>
                   ) : null}
                   {displayPlayer4 ? (
                     <p
@@ -1063,16 +1158,35 @@ export default function ErrorDialog({
                         ")"}
                     </p>
                   ) : invalidPlayerRanks.has(4) ? (
-                    <p
-                      style={{
-                        fontSize: "0.875rem",
-                        color: "#ef4444",
-                        marginBottom: "0.5rem",
-                        fontWeight: "500",
-                      }}
-                    >
-                      Invalid player ({invalidPlayerRanks.get(4)!})
-                    </p>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                      <p
+                        style={{
+                          fontSize: "0.875rem",
+                          color: "#ef4444",
+                          marginBottom: 0,
+                          fontWeight: "500",
+                        }}
+                      >
+                        Invalid player ({invalidPlayerRanks.get(4)!})
+                      </p>
+                      {isAdmin && onAddPlayer && (
+                        <button
+                          onClick={() => onAddPlayer(invalidPlayerRanks.get(4)!)}
+                          style={{
+                            padding: "0.125rem 0.5rem",
+                            backgroundColor: "#3b82f6",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "0.25rem",
+                            cursor: "pointer",
+                            fontSize: "0.75rem",
+                            fontWeight: "500",
+                          }}
+                        >
+                          + Add
+                        </button>
+                      )}
+                    </div>
                   ) : null}
                 </>
               )}
@@ -1136,6 +1250,35 @@ export default function ErrorDialog({
                   getValidationErrorMessage(displayError.error)
                 : getValidationErrorMessage(displayError.error)}
             </p>
+            {displayError.error === 11 && isAdmin && onAddPlayer && (
+              <div style={{ marginTop: "0.25rem", marginBottom: "0.5rem" }}>
+                {[displayError.player1, displayError.player2, displayError.player3, displayError.player4]
+                  .filter((r) => r > 0)
+                  .map((r) => {
+                    const playerExists = players.some(p => p.rank === r);
+                    if (playerExists) return null;
+                    return (
+                      <button
+                        key={r}
+                        onClick={() => onAddPlayer(r)}
+                        style={{
+                          marginRight: "0.5rem",
+                          padding: "0.25rem 0.75rem",
+                          backgroundColor: "#3b82f6",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "0.25rem",
+                          cursor: "pointer",
+                          fontSize: "0.75rem",
+                          fontWeight: "500",
+                        }}
+                      >
+                        + Add Player (Rank {r})
+                      </button>
+                    );
+                  })}
+              </div>
+            )}
             {displayError.error === 10 && displayError.conflictingResults && (
               <div
                 style={{
