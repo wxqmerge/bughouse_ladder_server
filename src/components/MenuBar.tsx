@@ -88,6 +88,9 @@ export default function MenuBar({
   availableMiniGames = [],
   writePermission = true,
 }: MenuBarProps) {
+  useEffect(() => {
+    console.log('[TEST_DEBUG] MenuBar: writePermission=', writePermission, 'isAdmin=', isAdmin, 'projectName=', projectName);
+  }, [writePermission, isAdmin, projectName]);
   const zoomScale = parseInt(zoomLevel, 10) / 100;
   const serverConfigured = !!(serverUrl && serverUrl.trim());
   const [openMenu, setOpenMenu] = useState<string | null>(null);
