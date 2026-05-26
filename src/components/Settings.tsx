@@ -139,7 +139,7 @@ export default function Settings({
 
   const handleClearAll = () => {
     debugClick("Settings:Set Sample Data");
-    console.log(">>> [BUTTON PRESSED] Set Sample Data");
+    console.log(">>> [SETTINGS ACTION] Set Sample Data");
     if (
       window.confirm(
         "Are you sure you want to reset all data to sample data? This will clear all loaded players and game results.",
@@ -153,7 +153,7 @@ export default function Settings({
 
   const handleClearData = () => {
     debugClick("Settings:Clear All");
-    console.log(">>> [BUTTON PRESSED] Clear All");
+    console.log(">>> [SETTINGS ACTION] Clear All");
     if (
       window.confirm(
         "Are you sure you want to clear all data? This will leave the grid blank.",
@@ -167,7 +167,7 @@ export default function Settings({
 
   const handleNewDay = () => {
     debugClick("Settings:New Day");
-    console.log(">>> [BUTTON PRESSED] New Day");
+    console.log(">>> [SETTINGS ACTION] New Day");
     if (
       window.confirm(
         "Are you sure you want to start a new day? This will copy New Rating to Previous Rating and clear reports.",
@@ -181,7 +181,7 @@ export default function Settings({
 
   const handleNewDayWithReRank = () => {
     debugClick("Settings:New Day + Re-rank");
-    console.log(">>> [BUTTON PRESSED] New Day with Re-rank");
+    console.log(">>> [SETTINGS ACTION] New Day with Re-rank");
     if (
       window.confirm(
         "Are you sure you want to start a new day with re-ranking? This will copy New Rating to Previous Rating, clear reports, and sort players by rating.",
@@ -453,6 +453,7 @@ export default function Settings({
                   {onClearMiniGames && (
                     <button
                       onClick={() => {
+                        console.log(">>> [SETTINGS ACTION] Clear Mini-Games");
                         debugClick("Settings:Clear Mini-Games");
                         if (window.confirm("Clear all mini-game files? This will remove all 7 mini-game .tab files and end tournament mode.")) {
                           saveForAction();
@@ -483,6 +484,7 @@ export default function Settings({
                   {isTournamentActive && onExportTournamentFiles && (
                     <button
                       onClick={() => {
+                        console.log(">>> [SETTINGS ACTION] Export Tournament Files");
                         debugClick("Settings:Export Tournament Files");
                         saveForAction();
                         onClose();
@@ -512,6 +514,7 @@ export default function Settings({
                   {!isTournamentActive && onImportTournamentFiles && (
                     <button
                       onClick={() => {
+                        console.log(">>> [SETTINGS ACTION] Import Tournament Files");
                         debugClick("Settings:Import Tournament Files");
                         saveForAction();
                         onClose();
@@ -541,6 +544,7 @@ export default function Settings({
                   {onGenerateTrophies && (
                     <button
                       onClick={() => {
+                        console.log(">>> [SETTINGS ACTION] Generate Trophies");
                         debugClick("Settings:Generate Trophies");
                         saveForAction();
                         onClose();
