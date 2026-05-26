@@ -1260,32 +1260,28 @@ export default function LadderForm({
     );
 
     if (parsedResult.isValid) {
-      const valueToSave = (parsedResult.resultString || correctedString).replace(/_$/, "").toUpperCase();
       const p1Rank = parsedResult.parsedPlayer1Rank || 0;
       const p2Rank = parsedResult.parsedPlayer2Rank || 0;
       const p3Rank = parsedResult.parsedPlayer3Rank || 0;
       const p4Rank = parsedResult.parsedPlayer4Rank || 0;
-      const score1 = parsedResult.parsedScoreList?.[0] ?? 3;
-      const score2 = parsedResult.parsedScoreList?.[1] ?? 0;
-      
+
       const is4Player = p3Rank > 0 && p4Rank > 0;
-      const currentPlayerRank = entryCell.playerRank;
       const roundIndex = entryCell.round;
 
-      // Summary line: input scores vs output outcomes (for debugging outcome corruption)
-      const scoreToLetter = (s: number) => s === 0 ? 'O' : s === 1 ? 'L' : s === 2 ? 'D' : 'W';
-      const s1l = scoreToLetter(score1);
-      const s2l = score2 > 0 ? scoreToLetter(score2) : scoreToLetter(score1 === 1 ? 3 : score1 === 3 ? 1 : score1);
-      log('[ENTER_GAMES]', 'PARSED: ' + (is4Player ? '4P' : '2P') + ' | players=[' + p1Rank + (is4Player ? ':' + p2Rank : '') + (is4Player ? ',' + p3Rank + ':' + p4Rank : '') + '] | scores=[' + s1l + (score2 > 0 ? ',' + s2l : ',(inferred)') + ']');
+      // Use normalized string - same for all players in the game
+      const normalizedResult = (parsedResult.normalizedString || parsedResult.resultString || correctedString).replace(/_$/, "").toUpperCase();
+      const resultToStore = normalizedResult + "_";
+
+      log('[ENTER_GAMES]', (is4Player ? '4P' : '2P') + ' OUTPUT: "' + resultToStore + '"');
 
       // Helper: fill a player's cell if empty (same round for all players in game)
-      const fillCell = (playerRank: number, resultString: string) => {
+      const fillCell = (playerRank: number, resultStr: string) => {
         const player = players.find((p) => p.rank === playerRank);
         if (player && roundIndex >= 0 && roundIndex < 31) {
           const existingValue = player.gameResults[roundIndex]?.replace(/_+$/, "") || "";
           if (!existingValue.trim()) {
-            player.gameResults[roundIndex] = resultString;
-            log('[ENTER_GAMES]', 'Filled cell P' + playerRank + ' R' + (roundIndex + 1) + ': "' + resultString + '"');
+            player.gameResults[roundIndex] = resultStr;
+            log('[ENTER_GAMES]', 'Filled cell P' + playerRank + ' R' + (roundIndex + 1) + ': "' + resultStr + '"');
           } else {
             if (shouldLog(3)) {
               console.log('[ENTER_GAMES_DEBUG] Cell SKIPPED (already filled): P' + playerRank + ' R' + (roundIndex + 1) + ' = "' + existingValue + '"');
@@ -1295,57 +1291,19 @@ export default function LadderForm({
       };
 
       if (is4Player) {
-        // 4-player team game: use parsed scores
-        // score1 = team1's result (W=3, L=1, D=2, O=0)
-        // score2 = team2's result (if present, from team2's perspective)
-        const swapScore = (s: number) => s === 1 ? 3 : s === 3 ? 1 : s;
-        
-        const outcomeForTeam1 = scoreToLetter(score1);
-        const outcomeForTeam2 = score2 > 0 ? scoreToLetter(score2) : scoreToLetter(swapScore(score1));
-
-        // Outcome from each team's perspective (already computed from scores)
-        const outcomeForTeam1TheirView = outcomeForTeam1;
-        const outcomeForTeam2TheirView = outcomeForTeam2;
-
-        // Build result strings for each team (all teammates get same result)
-        const resultForTeam1 = `${p1Rank}:${p2Rank}${outcomeForTeam1TheirView}${p3Rank}:${p4Rank}`;
-        const resultForTeam2 = `${p1Rank}:${p2Rank}${outcomeForTeam2TheirView}${p3Rank}:${p4Rank}`;
-
-        log('[ENTER_GAMES]', '4P OUTPUT: team1("' + outcomeForTeam1TheirView + ')->' + resultForTeam1 + ' | team2("' + outcomeForTeam2TheirView + ')->' + resultForTeam2 + '"');
-
-        // Fill cells for ALL players in the game (including current player)
-        fillCell(p1Rank, resultForTeam1);
-        fillCell(p2Rank, resultForTeam1);
-        fillCell(p3Rank, resultForTeam2);
-        fillCell(p4Rank, resultForTeam2);
-        addDelta({ type: 'GAME_RESULT', playerRank: p1Rank, round: roundIndex, result: resultForTeam1 });
-        addDelta({ type: 'GAME_RESULT', playerRank: p2Rank, round: roundIndex, result: resultForTeam1 });
-        addDelta({ type: 'GAME_RESULT', playerRank: p3Rank, round: roundIndex, result: resultForTeam2 });
-        addDelta({ type: 'GAME_RESULT', playerRank: p4Rank, round: roundIndex, result: resultForTeam2 });
+        fillCell(p1Rank, resultToStore);
+        fillCell(p2Rank, resultToStore);
+        fillCell(p3Rank, resultToStore);
+        fillCell(p4Rank, resultToStore);
+        addDelta({ type: 'GAME_RESULT', playerRank: p1Rank, round: roundIndex, result: resultToStore });
+        addDelta({ type: 'GAME_RESULT', playerRank: p2Rank, round: roundIndex, result: resultToStore });
+        addDelta({ type: 'GAME_RESULT', playerRank: p3Rank, round: roundIndex, result: resultToStore });
+        addDelta({ type: 'GAME_RESULT', playerRank: p4Rank, round: roundIndex, result: resultToStore });
       } else {
-        // 2-player game: use parsed score
-        // score1 = player 1's result (W=3, L=1, D=2, O=0)
-        const swapScore = (s: number) => s === 1 ? 3 : s === 3 ? 1 : s;
-        
-        const outcomeForP1 = scoreToLetter(score1);
-        const outcomeForP2 = scoreToLetter(swapScore(score1));
-        
-        // Determine if current player is player 1 or player 2 in the entry
-        const isCurrentPlayerP1 = currentPlayerRank === p1Rank;
-        const currentPlayerOutcome = isCurrentPlayerP1 ? outcomeForP1 : outcomeForP2;
-        const currentPlayerWon = currentPlayerOutcome === "W";
-
-        // Build result strings
-        const resultForP1 = `${p1Rank}${outcomeForP1}${p2Rank}`;
-        const resultForP2 = `${p1Rank}${outcomeForP2}${p2Rank}`;
-
-        log('[ENTER_GAMES]', '2P OUTPUT: P1("' + outcomeForP1 + ')->' + resultForP1 + ' | P2("' + outcomeForP2 + ')->' + resultForP2 + '"');
-
-        // Fill cells for BOTH players (including current player)
-        fillCell(p1Rank, resultForP1);
-        fillCell(p2Rank, resultForP2);
-        addDelta({ type: 'GAME_RESULT', playerRank: p1Rank, round: roundIndex, result: resultForP1 });
-        addDelta({ type: 'GAME_RESULT', playerRank: p2Rank, round: roundIndex, result: resultForP2 });
+        fillCell(p1Rank, resultToStore);
+        fillCell(p2Rank, resultToStore);
+        addDelta({ type: 'GAME_RESULT', playerRank: p1Rank, round: roundIndex, result: resultToStore });
+        addDelta({ type: 'GAME_RESULT', playerRank: p2Rank, round: roundIndex, result: resultToStore });
       }
     }
 
