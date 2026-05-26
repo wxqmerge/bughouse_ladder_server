@@ -81,6 +81,7 @@ export interface UpdatePlayerGameDataResult {
   parsedScoreList?: number[];
   originalString: string;
   resultString?: string;
+  normalizedString?: string;
   parsedPlayer1Rank?: number;
   parsedPlayer2Rank?: number;
   parsedPlayer3Rank?: number;
