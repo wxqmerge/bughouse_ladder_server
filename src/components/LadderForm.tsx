@@ -2414,7 +2414,7 @@ export default function LadderForm({
   };
 
   const handleGameEntrySubmit = (correctedString: string) => {
-    console.log('[DEBUG-TRACE] === handleGameEntrySubmit ENTRY === correctedString="' + correctedString + '" entryCell=' + JSON.stringify(entryCell));
+    if (shouldLog(3)) console.log('[3]DEBUG-TRACE] === handleGameEntrySubmit ENTRY === correctedString="' + correctedString + '" entryCell=' + JSON.stringify(entryCell));
     if (!entryCell) return;
 
     const parsedResult = updatePlayerGameData(
@@ -2436,7 +2436,7 @@ export default function LadderForm({
         const valueToSave = (
           parsedResult.resultString || correctedString
         ).replace(/_$/, "");
-        console.log('[DEBUG-TRACE] handleGameEntrySubmit SAVE: valueToSave="' + valueToSave + '" correctedString="' + correctedString + '" parsedResult.resultString="' + parsedResult.resultString + '"');
+        if (shouldLog(3)) console.log('[3]DEBUG-TRACE] handleGameEntrySubmit SAVE: valueToSave="' + valueToSave + '" correctedString="' + correctedString + '" parsedResult.resultString="' + parsedResult.resultString + '"');
 
         const newGameResults = [...player.gameResults];
         newGameResults[entryCell.round] = valueToSave;
@@ -2450,7 +2450,7 @@ export default function LadderForm({
         dataService.savePlayers(updatedPlayers).catch((err) => {
           console.error("Failed to save game entry:", err);
         });
-        console.log('[DEBUG-TRACE] handleGameEntrySubmit setPlayers DONE: playerRank=' + entryCell.playerRank + ' round=' + entryCell.round + ' savedValue="' + valueToSave + '"');
+        if (shouldLog(3)) console.log('[3]DEBUG-TRACE] handleGameEntrySubmit setPlayers DONE: playerRank=' + entryCell.playerRank + ' round=' + entryCell.round + ' savedValue="' + valueToSave + '"');
         return updatedPlayers;
       });
     }
