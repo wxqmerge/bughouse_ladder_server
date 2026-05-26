@@ -280,7 +280,7 @@ if [ -f "/etc/nginx/sites-available/${PROJECT_NAME}.${DOMAIN}.conf" ]; then
     echo "      https://$DOMAIN/$PROJECT_NAME/dist/?config=1&server=https://${PROJECT_NAME}.${DOMAIN}&key=$USER_KEY"
     echo ""
     echo "    View:"
-    echo "      https://$DOMAIN/$PROJECT_NAME/dist/?config=1&server=https://${PROJECT_NAME}.${DOMAIN}"
+    echo "      https://$DOMAIN/$PROJECT_NAME/dist/"
     echo ""
 else
     echo "  [FAIL] No config found in /etc/nginx/sites-available/${PROJECT_NAME}.${DOMAIN}.conf - cannot generate config strings"
