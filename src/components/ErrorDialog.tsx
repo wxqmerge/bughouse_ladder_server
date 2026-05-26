@@ -76,7 +76,7 @@ function formatResultText(results: string[]): string {
  * Scans all game results for the same opponent(s)
  * @returns conflicting result string (e.g., "5L6") or null if no conflict
  */
-function findConflictForEntry(
+export function findConflictForEntry(
   playerRank: number,
   opp1: number,
   opp2: number,
@@ -613,30 +613,25 @@ export default function ErrorDialog({
         });
       } else if (validation.isValid) {
         // Check for conflicts with existing entries
-        const playerRank = entryCell?.playerRank || 0;
         let conflict: string | null = null;
-        
-        if (playerRank > 0) {
-          // Find the canonical player (lowest rank in the game)
-          // This is where committed results would be stored
-          const allPlayersInGame = [
-            playerRank,
-            validation.parsedPlayer1Rank || 0,
-            validation.parsedPlayer2Rank || 0,
-            validation.parsedPlayer3Rank || 0,
-            validation.parsedPlayer4Rank || 0
-          ].filter((r): r is number => r > 0);
-          
+
+        const p1 = validation.parsedPlayer1Rank || 0;
+        const p2 = validation.parsedPlayer2Rank || 0;
+        const p3 = validation.parsedPlayer3Rank || 0;
+        const p4 = validation.parsedPlayer4Rank || 0;
+
+        if (p1 > 0 && p2 > 0) {
+          const allPlayersInGame = [p1, p2, p3, p4].filter((r): r is number => r > 0);
           const canonicalPlayerRank = Math.min(...allPlayersInGame);
           const canonicalPlayer = players.find(p => p.rank === canonicalPlayerRank);
-          
+
           if (canonicalPlayer && canonicalPlayer.gameResults) {
             conflict = findConflictForEntry(
               canonicalPlayerRank,
-              validation.parsedPlayer1Rank || 0,
-              validation.parsedPlayer2Rank || 0,
-              validation.parsedPlayer3Rank || 0,
-              validation.parsedPlayer4Rank || 0,
+              p1,
+              p2,
+              p3,
+              p4,
               canonicalPlayer.gameResults
             );
           }
@@ -1255,7 +1250,7 @@ export default function ErrorDialog({
               field name: correctedResult
             </p>
           )}
-          {parseStatus && (
+{parseStatus && (
             <p
               style={{
                 fontSize: "0.75rem",
@@ -1268,10 +1263,10 @@ export default function ErrorDialog({
               }}
             >
                {parseStatus.isValid
-                 ? "✓ Valid format"
-                 : parseStatus.error === 10
-                   ? `⚠ Conflict: Game already exists (${parseStatus.message})`
-                   : `✗ ${parseStatus.message || getValidationErrorMessage(parseStatus.error || 0)}`}
+                  ? "✓ Valid format"
+                  : parseStatus.error === 10
+                    ? `⚠ Conflict: Game already exists (${parseStatus.message})`
+                    : `✗ ${parseStatus.message || getValidationErrorMessage(parseStatus.error || 0)}`}
             </p>
           )}
           <div
