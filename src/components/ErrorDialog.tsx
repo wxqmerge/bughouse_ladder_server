@@ -3,7 +3,7 @@ import { X, Plus } from "lucide-react";
 import type { ValidationResult, PlayerData } from "../utils/hashUtils";
 import { updatePlayerGameData, normalize4Player, normalize2Player } from "../utils/hashUtils";
 import { getValidationErrorMessage } from "../utils/constants";
-import { debugInput } from "../utils/debug";
+import { debugInput, shouldLog } from "../utils/debug";
 
 interface ErrorDialogProps {
   error: ValidationResult | null;
@@ -421,9 +421,9 @@ export default function ErrorDialog({
 
   const cleanInput = (): string => {
     const raw = (currentInputValue || "").toUpperCase();
-    console.log('[DEBUG-TRACE] === cleanInput ENTRY === currentInputValue="' + currentInputValue + '" raw="' + raw + '"');
+    if (shouldLog(3)) console.log('[3]DEBUG-TRACE] === cleanInput ENTRY === currentInputValue="' + currentInputValue + '" raw="' + raw + '"');
     const cleaned = raw.replace(/[^0-9WLD:]/g, "");
-    console.log('[DEBUG-TRACE] cleanInput cleaned="' + cleaned + '"');
+    if (shouldLog(3)) console.log('[3]DEBUG-TRACE] cleanInput cleaned="' + cleaned + '"');
     if (cleaned !== raw) {
       setCurrentInputValue(cleaned);
       if (inputRef.current) inputRef.current.value = cleaned;
@@ -438,7 +438,7 @@ export default function ErrorDialog({
     console.clear();
     console.log(">>> [BUTTON PRESSED] Save (Game Result)");
     const value = cleanInput();
-    console.log('[DEBUG-TRACE] === handleSubmit === value="' + value + '"');
+    if (shouldLog(3)) console.log('[3]DEBUG-TRACE] === handleSubmit === value="' + value + '"');
     if (!value.trim()) return;
     onSubmit(value);
   };
@@ -448,7 +448,7 @@ export default function ErrorDialog({
     console.clear();
     console.log(">>> [BUTTON PRESSED] Enter_Recalculate_Save");
     const value = cleanInput();
-    console.log('[DEBUG-TRACE] === handleEnterRecalculateSave === value="' + value + '"');
+    if (shouldLog(3)) console.log('[3]DEBUG-TRACE] === handleEnterRecalculateSave === value="' + value + '"');
     if (!value.trim()) return;
     if (onEnterRecalculateSave) {
       onEnterRecalculateSave(value);
