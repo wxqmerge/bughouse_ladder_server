@@ -22,6 +22,9 @@ const router = Router();
 router.get('/', async (req: Request, res: Response): Promise<void> => {
   try {
     const ladderData = await readLadderFile();
+    // Debug: log P1 R0 value
+    const p1 = ladderData.players.find((p: PlayerData) => p.rank === 1);
+    console.log(`[SERVER GET] P1 R0: "${p1?.gameResults?.[0]}"`);
     res.json({
       success: true,
       data: {
@@ -206,7 +209,16 @@ router.put('/', requireUserKey, writeLimiter, async (req: Request, res: Response
 
     ladderData.players = players;
 
+    // Debug: log P1 R0 before write
+    const p1In = players.find((p: PlayerData) => p.rank === 1);
+    console.log(`[SERVER PUT] P1 R0 before write: "${p1In?.gameResults?.[0]}"`);
+
     await withTiming(`writeLadderFile(bulk-${players.length})`, () => writeLadderFile(ladderData));
+
+    // Debug: read back and verify P1 R0
+    const verifyData = await readLadderFile();
+    const p1Out = verifyData.players.find((p: PlayerData) => p.rank === 1);
+    console.log(`[SERVER PUT] P1 R0 after write (read back): "${p1Out?.gameResults?.[0]}"`);
 
     broadcastSSEEvent('ladderUpdated', { type: 'bulkUpdate', count: players.length });
 
