@@ -157,9 +157,11 @@ class DataService {
 
   // Simple hash function for comparing data
   private computeHash(players: PlayerData[]): string {
+    // Normalize: treat "" and null as equivalent to avoid hash mismatch
+    // between client (sends "") and server (reads "" as null)
     return JSON.stringify(
       players.map(p => ({
-        gameResults: p.gameResults,
+        gameResults: p.gameResults?.map(r => r === "" ? null : r),
         rank: p.rank,
       }))
     );
@@ -190,21 +192,31 @@ class DataService {
   }
 
   // Reset hash to current server state (call after successful save)
-  async resetHash(): Promise<void> {
+  // Optionally pass players directly to avoid extra fetch
+  async resetHash(players?: PlayerData[]): Promise<void> {
     if (this.config.mode === DataServiceMode.LOCAL) {
       return;
     }
     
     try {
-      const response = await fetch(`${this.getApiUrl()}/api/ladder`, {
-        headers: this.getAuthHeaders(),
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        const serverPlayers = data.data?.players || [];
-        this.lastDataHash = this.computeHash(serverPlayers);
-        console.log('[DataService] Reset hash after save');
+      if (players) {
+        // Use provided players (from local save) to compute hash
+        this.lastDataHash = this.computeHash(players);
+        const localP1 = players.find(p => p.rank === 1);
+        const localP1r0 = localP1?.gameResults?.[0];
+        console.log(`[DataService] Reset hash from local saved data — P1 R0 local: "${localP1r0}"`);
+        console.log(`[DataService] Hash value: ${this.lastDataHash?.substring(0, 80)}...`);
+      } else {
+        const response = await fetch(`${this.getApiUrl()}/api/ladder`, {
+          headers: this.getAuthHeaders(),
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          const serverPlayers = data.data?.players || [];
+          this.lastDataHash = this.computeHash(serverPlayers);
+          console.log('[DataService] Reset hash after save');
+        }
       }
     } catch (error) {
       console.error('[DataService] Failed to reset hash:', error);
@@ -212,8 +224,8 @@ class DataService {
   }
 
   // Expose resetHash publicly
-  public resetHashPublic(): Promise<void> {
-    return this.resetHash();
+  public resetHashPublic(players?: PlayerData[]): Promise<void> {
+    return this.resetHash(players);
   }
 
   // Refresh data from source - returns true if data changed
@@ -256,7 +268,12 @@ class DataService {
         
         // Check if data actually changed
         if (newHash !== this.lastDataHash) {
-          console.log('[DataService] Polling detected data change');
+          // Debug: show P1 R0 value from server
+          const p1 = serverPlayers.find(p => p.rank === 1);
+          const p1r0 = p1?.gameResults?.[0];
+          console.log(`[DataService] Polling detected data change — P1 R0 from server: "${p1r0}"`);
+          console.log(`[DataService] lastDataHash: ${this.lastDataHash?.substring(0, 80)}...`);
+          console.log(`[DataService] newHash:       ${newHash?.substring(0, 80)}...`);
           this.lastDataHash = newHash;
           return true; // Data changed
         }

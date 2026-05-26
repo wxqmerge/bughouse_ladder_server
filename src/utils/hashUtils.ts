@@ -17,6 +17,7 @@ export {
   updatePlayerGameData,
   normalize4Player,
   normalize2Player,
+  normalizeResultForComparison,
   scoreCodeToLetter,
   swapScore,
 } from "../../shared/utils/hashUtils";

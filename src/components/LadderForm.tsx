@@ -307,6 +307,7 @@ export default function LadderForm({
     null,
   );
   const [isRecalculating, setIsRecalculating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [isWalkthrough, setIsWalkthrough] = useState(false);
   const [walkthroughErrors, setWalkthroughErrors] = useState<
     ValidationResult[]
@@ -1167,9 +1168,9 @@ export default function LadderForm({
 
     const { blockingErrors, warnings } = checkPlayerRanks(playersList);
     
-    const { matches, hasErrors, errorCount, errors, playerResultsByMatch } =
-      processGameResults(playersList, 31);
-    if (shouldLog(4)) {
+   const { matches, hasErrors, errorCount, errors, playerResultsByMatch } =
+       processGameResults(playersList, 31);
+  if (shouldLog(4)) {
       console.log(`Validated ${matches.length} matches, errors: ${errorCount}`);
     }
 
@@ -1293,6 +1294,8 @@ export default function LadderForm({
       true,
     );
 
+    let updatedPlayers: PlayerData[] | null = null;
+
     if (parsedResult.isValid) {
       const valueToSave = (parsedResult.resultString || correctedString).replace(/_$/, "").toUpperCase();
       const p1Rank = parsedResult.parsedPlayer1Rank || 0;
@@ -1301,119 +1304,75 @@ export default function LadderForm({
       const p4Rank = parsedResult.parsedPlayer4Rank || 0;
       const score1 = parsedResult.parsedScoreList?.[0] ?? 3;
       const score2 = parsedResult.parsedScoreList?.[1] ?? 0;
-      
+
       const is4Player = p3Rank > 0 && p4Rank > 0;
       const currentPlayerRank = entryCell.playerRank;
       const roundIndex = entryCell.round;
 
-      console.log('[ENTER_GAMES_DEBUG] === ENTRY START ===');
-      console.log('[ENTER_GAMES_DEBUG] Raw correctedString:', correctedString);
-      console.log('[ENTER_GAMES_DEBUG] valueToSave:', valueToSave);
-      console.log('[ENTER_GAMES_DEBUG] parsedPlayer1Rank:', p1Rank, 'parsedPlayer2Rank:', p2Rank, 'parsedPlayer3Rank:', p3Rank, 'parsedPlayer4Rank:', p4Rank);
-      console.log('[ENTER_GAMES_DEBUG] parsedScoreList:', parsedResult.parsedScoreList, 'score1:', score1, 'score2:', score2);
-      console.log('[ENTER_GAMES_DEBUG] currentPlayerRank:', currentPlayerRank, 'roundIndex:', roundIndex);
-      console.log('[ENTER_GAMES_DEBUG] is4Player:', is4Player);
-
-      // Helper: fill a player's cell if empty (same round for all players in game)
-      const fillCell = (playerRank: number, resultString: string) => {
-        const player = players.find((p) => p.rank === playerRank);
+      // Helper: fill a player's cell synchronously on the given players array
+      const fillCellSync = (currentPlayers: PlayerData[], playerRank: number, resultString: string): PlayerData[] => {
+        const player = currentPlayers.find((p) => p.rank === playerRank);
         if (player && roundIndex >= 0 && roundIndex < 31) {
           const existingValue = player.gameResults[roundIndex]?.replace(/_+$/, "") || "";
-          console.log('[ENTER_GAMES_DEBUG] fillCell called: playerRank=' + playerRank + ' resultString="' + resultString + '" existingValue="' + existingValue + '"');
           if (!existingValue.trim()) {
-            setPlayers((prev) => prev.map((p) => {
+            const newPlayers = currentPlayers.map((p) => {
               if (p.rank !== playerRank) return p;
               const newResults = [...(p.gameResults || new Array(31).fill(null))];
               newResults[roundIndex] = resultString;
               return { ...p, gameResults: newResults };
-            }));
-            console.log('[ENTER_GAMES_DEBUG] Cell SET: P' + playerRank + ' R' + (roundIndex + 1) + ' = "' + resultString + '"');
-            log('[ENTER_GAMES]', 'Filled cell P' + playerRank + ' R' + (roundIndex + 1) + ': "' + resultString + '"');
+            });            log('[ENTER_GAMES]', 'Filled cell P' + playerRank + ' R' + (roundIndex + 1) + ': "' + resultString + '"');
+            return newPlayers;
+         } else {
+            }
           } else {
-            console.log('[ENTER_GAMES_DEBUG] Cell SKIPPED (already filled): P' + playerRank + ' R' + (roundIndex + 1) + ' = "' + existingValue + '"');
-          }
-        } else {
-          console.log('[ENTER_GAMES_DEBUG] fillCell SKIPPED: player not found or round out of bounds');
-        }
+            }
+        return currentPlayers;
       };
 
-      if (is4Player) {
-        // 4-player team game: use parsed scores
-        // score1 = team1's result (W=3, L=1, D=2, O=0)
-        // score2 = team2's result (if present, from team2's perspective)
-        const outcomeForTeam1 = scoreCodeToLetter(score1);
-        const outcomeForTeam2 = score2 > 0 ? scoreCodeToLetter(score2) : scoreCodeToLetter(swapScore(score1));
+      let workingPlayers = [...players];
 
-        // Determine which team current player is on
-        let isCurrentPlayerOnTeam1 = false;
-        if (currentPlayerRank === p1Rank || currentPlayerRank === p2Rank) {
-          isCurrentPlayerOnTeam1 = true;
-        } else if (currentPlayerRank === p3Rank || currentPlayerRank === p4Rank) {
-          isCurrentPlayerOnTeam1 = false;
-        }
-        
-        // Did current player's team win?
-        const currentTeamWon = isCurrentPlayerOnTeam1 ? (outcomeForTeam1 === "W") : (outcomeForTeam2 === "W");
-        
-        // Outcome from each team's perspective
-        const outcomeForTeam1TheirView = currentTeamWon ? "W" : "L";
-        const outcomeForTeam2TheirView = currentTeamWon ? "L" : "W";
+     if (is4Player) {
+          // 4-player team game — same string for all players
 
-        // Build result strings for each team (all teammates get same result)
-        const resultForTeam1 = `${p1Rank}:${p2Rank}${outcomeForTeam1TheirView}${p3Rank}:${p4Rank}`;
-        const resultForTeam2 = `${p1Rank}:${p2Rank}${outcomeForTeam2TheirView}${p3Rank}:${p4Rank}`;
-
-        console.log('[ENTER_GAMES_DEBUG] 4P: score1=' + score1 + '(' + outcomeForTeam1 + ') score2=' + score2 + '(' + outcomeForTeam2 + ')');
-        console.log('[ENTER_GAMES_DEBUG] 4P: resultForTeam1="' + resultForTeam1 + '" resultForTeam2="' + resultForTeam2 + '"');
-
-        // Fill cells for ALL players in the game (including current player)
-        fillCell(p1Rank, resultForTeam1);
-        fillCell(p2Rank, resultForTeam1);
-        fillCell(p3Rank, resultForTeam2);
-        fillCell(p4Rank, resultForTeam2);
-        addDelta({ type: 'GAME_RESULT', playerRank: p1Rank, round: roundIndex, result: resultForTeam1 });
-        addDelta({ type: 'GAME_RESULT', playerRank: p2Rank, round: roundIndex, result: resultForTeam1 });
-        addDelta({ type: 'GAME_RESULT', playerRank: p3Rank, round: roundIndex, result: resultForTeam2 });
-        addDelta({ type: 'GAME_RESULT', playerRank: p4Rank, round: roundIndex, result: resultForTeam2 });
+        workingPlayers = fillCellSync(workingPlayers, p1Rank, valueToSave);
+        workingPlayers = fillCellSync(workingPlayers, p2Rank, valueToSave);
+        workingPlayers = fillCellSync(workingPlayers, p3Rank, valueToSave);
+        workingPlayers = fillCellSync(workingPlayers, p4Rank, valueToSave);
+        addDelta({ type: 'GAME_RESULT', playerRank: p1Rank, round: roundIndex, result: valueToSave });
+        addDelta({ type: 'GAME_RESULT', playerRank: p2Rank, round: roundIndex, result: valueToSave });
+        addDelta({ type: 'GAME_RESULT', playerRank: p3Rank, round: roundIndex, result: valueToSave });
+        addDelta({ type: 'GAME_RESULT', playerRank: p4Rank, round: roundIndex, result: valueToSave });
       } else {
-        // 2-player game: use parsed score
-        // score1 = player 1's result (W=3, L=1, D=2, O=0)
-        const outcomeForP1 = scoreCodeToLetter(score1);
-        const outcomeForP2 = scoreCodeToLetter(swapScore(score1));
-        
-        // Determine if current player is player 1 or player 2 in the entry
-        const isCurrentPlayerP1 = currentPlayerRank === p1Rank;
-        const currentPlayerOutcome = isCurrentPlayerP1 ? outcomeForP1 : outcomeForP2;
-        const currentPlayerWon = currentPlayerOutcome === "W";
+          // 2-player game — build normalized result for each player's perspective
+          // score1 is from p1's perspective: W=3, L=1, D=2, O=0
+          // For p2's perspective, swap the score
 
-        // Build result strings
-        const resultForP1 = `${p1Rank}${outcomeForP1}${p2Rank}`;
-        const resultForP2 = `${p1Rank}${outcomeForP2}${p2Rank}`;
+        const p1Result = valueToSave;
+        const p2Score = swapScore(score1);
+        const p2ScoreLetter = scoreCodeToLetter(p2Score);
+        // Build p2's result: p2's rank + their score letter + p1's rank
+        const p2Result = `${p2Rank}${p2ScoreLetter}${p1Rank}${valueToSave.endsWith('_') ? '_' : ''}`;
 
-        console.log('[ENTER_GAMES_DEBUG] 2P: score1=' + score1 + '(' + outcomeForP1 + ') outcomeForP2=' + outcomeForP2);
-        console.log('[ENTER_GAMES_DEBUG] 2P: isCurrentPlayerP1=' + isCurrentPlayerP1 + ' currentPlayerWon=' + currentPlayerWon);
-        console.log('[ENTER_GAMES_DEBUG] 2P: resultForP1="' + resultForP1 + '" resultForP2="' + resultForP2 + '"');
-
-        // Fill cells for BOTH players (including current player)
-        fillCell(p1Rank, resultForP1);
-        fillCell(p2Rank, resultForP2);
-        addDelta({ type: 'GAME_RESULT', playerRank: p1Rank, round: roundIndex, result: resultForP1 });
-        addDelta({ type: 'GAME_RESULT', playerRank: p2Rank, round: roundIndex, result: resultForP2 });
+        workingPlayers = fillCellSync(workingPlayers, p1Rank, p1Result);
+        workingPlayers = fillCellSync(workingPlayers, p2Rank, p2Result);
+        addDelta({ type: 'GAME_RESULT', playerRank: p1Rank, round: roundIndex, result: p1Result });
+        addDelta({ type: 'GAME_RESULT', playerRank: p2Rank, round: roundIndex, result: p2Result });
       }
-      console.log('[ENTER_GAMES_DEBUG] === ENTRY END ===');
+      // Update state once with all filled cells
+      setPlayers(workingPlayers);
+      updatedPlayers = workingPlayers;
     }
 
     // Store current cell position to find next empty cell after recalc
     const currentCell = { ...entryCell };
 
-    // Call recalculateAndSave immediately with the updated players array
+    // Call recalculateAndSave with the updated players array
     log('[ENTER_GAMES]', 'Calling recalculateAndSave()...');
-    
-    // REUSE the existing recalculateAndSave function from Operations menu
-    await recalculateAndSave();
-    
-    // After recalculateAndSave completes, check if errors were found
-    if (walkthroughErrors.length > 0) {
+
+    const recalcResult = await recalculateAndSave(updatedPlayers);
+
+    // Check if errors were found (synchronous result, not async state)
+    if (recalcResult.hasErrors) {
       log('[ENTER_GAMES]', 'Errors found during recalculation - showing error dialog');
       // isRecalculating stays true, ErrorDialog shows in recalculate mode with errors
       setEnterGamesError(null);
@@ -1617,11 +1576,12 @@ debugLevel,
     * Recalculate ratings AND save to server/localStorage in one operation
     * This is the primary save operation for users
     */
-   const recalculateAndSave = async () => {
-     log('[RECALC]', 'Starting recalculate_and_save');
+const recalculateAndSave = async (playersOverride?: PlayerData[] | null): Promise<{ hasErrors: boolean }> => {
+      log('[RECALC]', 'Starting recalculate_and_save');
+      const currentPlayers = playersOverride || players;
 
-   // Check for pending New Day operation (set by App.tsx before calling recalculate)
-     const pendingNewDayData = getPendingNewDay();
+    // Check for pending New Day operation (set by App.tsx before calling recalculate)
+      const pendingNewDayData = getPendingNewDay();
      if (pendingNewDayData) {
        console.log(
          `>>> [RECALC COMPLETE] Pending New Day detected: ${JSON.stringify(pendingNewDayData)}`,
@@ -1640,22 +1600,22 @@ debugLevel,
            startBatch();
 
            // Extract matches from current UI state
-           const newDayResult = checkGameErrors();
+            const newDayResult = checkGameErrorsWithPlayers(currentPlayers);
            if (newDayResult.rankBlockingErrors && newDayResult.rankBlockingErrors.length > 0) {
              console.log(`=== RECALC PAUSED === Rank blocking errors detected`);
              alert('Rank Errors:\n\n' + newDayResult.rankBlockingErrors.join('\n') + '\n\nPlease fix ranks before recalculating.');
-             clearPendingNewDay();
-             return;
-           }
+         clearPendingNewDay();
+              return { hasErrors: true };
+            }
 
-        // Repopulate game results from matches, then calculate ratings
-            const processedPlayers = repopulateGameResults(
-              players,
-              newDayResult.matches,
-              31,
-              newDayResult.playerResultsByMatch,
-debugLevel,
-            );
+         // Repopulate game results from matches, then calculate ratings
+             const processedPlayers = repopulateGameResults(
+               currentPlayers,
+               newDayResult.matches,
+               31,
+               newDayResult.playerResultsByMatch,
+ debugLevel,
+             );
            const calculatedPlayers = calculateRatings(processedPlayers, newDayResult.matches).players;
 
           // Fix rank issues before New Day transformations
@@ -1685,9 +1645,9 @@ debugLevel,
            // Flush batch buffer to server before reload
            await endBatch();
 
-           // Reload to apply changes
-           window.location.reload();
-           return;
+          // Reload to apply changes
+            window.location.reload();
+            return { hasErrors: false };
          } catch (err) {
            console.error("Failed to process pending New Day (recalculateAndSave):", err);
            clearPendingNewDay();
@@ -1703,7 +1663,7 @@ debugLevel,
 
         // Fetch fresh data from server before calculating to avoid losing user-reported games
         const serverUrl = getServerUrl();
-        let mergePlayers: PlayerData[] = players;
+        let mergePlayers: PlayerData[] = currentPlayers;
 
         if (serverUrl) {
           try {
@@ -1711,10 +1671,10 @@ debugLevel,
             if (response.ok) {
               const data = await response.json();
               const serverPlayers = data.data?.players || [];
-              
+
               // Merge: take gameResults + player data from server, keep local nRatings and admin edits
               mergePlayers = serverPlayers.map((sp: PlayerData) => {
-                const localPlayer = players.find(lp => lp.rank === sp.rank);
+                const localPlayer = currentPlayers.find(lp => lp.rank === sp.rank);
                 return {
                   ...sp,
                   nRating: localPlayer?.nRating !== undefined ? localPlayer.nRating : sp.nRating,
@@ -1737,19 +1697,19 @@ debugLevel,
         // If there are rank blocking errors, show alert and return early
         if (result.rankBlockingErrors && result.rankBlockingErrors.length > 0) {
           console.log(`=== RECALC PAUSED === Rank blocking errors detected`);
-          alert('Rank Errors:\n\n' + result.rankBlockingErrors.join('\n') + '\n\nPlease fix ranks before recalculating.');
-          return;
-        }
+        alert('Rank Errors:\n\n' + result.rankBlockingErrors.join('\n') + '\n\nPlease fix ranks before recalculating.');
+           return { hasErrors: true };
+         }
 
-        // If there are errors, show the error dialog and return early
-        if (result.hasErrors && result.errors.length > 0) {
-          if (shouldLog(7)) {
-            console.log(`\n=== RECALC PAUSED ===`);
-            console.log(
-              `Found ${result.errors.length} errors - showing error dialog`,
-            );
-          }
-          return;
+         // If there are errors, show the error dialog and return early
+         if (result.hasErrors && result.errors.length > 0) {
+           if (shouldLog(7)) {
+             console.log(`\n=== RECALC PAUSED ===`);
+             console.log(
+               `Found ${result.errors.length} errors - showing error dialog`,
+             );
+           }
+           return { hasErrors: true };
         }
 
         let matches: MatchData[] = result.matches;
@@ -1782,38 +1742,21 @@ if (shouldLog(7)) {
             totalAfterRepop += filled.length;
           }
           console.log(`Total results after repopulation: ${totalAfterRepop}`);
-        }
-
-        console.log('[RECALC_DEBUG] [ADMIN] === RECALC START ===');
-        console.log('[RECALC_DEBUG] [ADMIN] Input matches count:', matches.length);
-        console.log('[RECALC_DEBUG] [ADMIN] Input matches:', JSON.stringify(matches.map(m => ({p1:m.player1, p2:m.player2, p3:m.player3, p4:m.player4, s1:m.score1, s2:m.score2}))));
-        
+        }        
         const calculatedPlayers = calculateRatings(processedPlayers, matches).players;
-        const normalizedPlayers = normalizePlayersAttendance(normalizePlayersTrophy(calculatedPlayers));
-
-        console.log('[RECALC_DEBUG] [ADMIN] After calculateRatings + normalize:');
-        for (const p of normalizedPlayers) {
+        const normalizedPlayers = normalizePlayersAttendance(normalizePlayersTrophy(calculatedPlayers));        for (const p of normalizedPlayers) {
           const filled = (p.gameResults || []).filter((r, i) => r && r.trim() && r.trim() !== '');
-          if (filled.length > 0) {
-            console.log('[RECALC_DEBUG] [ADMIN] P' + p.rank + ' results:', filled.map((r, i) => 'R' + i + '=' + r));
-          }
+          if (filled.length > 0) {          }
         }
 
         // Lock all game results with "_" suffix to mark as confirmed
         const lockedPlayers = normalizedPlayers.map(p => ({
           ...p,
           gameResults: (p.gameResults || []).map(r => r && r.trim() ? `${r.replace(/_+$/, '')}_` : r),
-        }));
-
-        console.log('[RECALC_DEBUG] [ADMIN] After locking:');
-        for (const p of lockedPlayers) {
+        }));        for (const p of lockedPlayers) {
           const filled = (p.gameResults || []).filter((r, i) => r && r.trim() && r.trim() !== '');
-          if (filled.length > 0) {
-            console.log('[RECALC_DEBUG] [ADMIN] P' + p.rank + ' locked:', filled.map((r, i) => 'R' + i + '=' + r));
-          }
+          if (filled.length > 0) {          }
         }
-        console.log('[RECALC_DEBUG] [ADMIN] === RECALC END ===');
-
         // Save with waitForServer=true to wait for server confirmation
         (window as any).__ladder_setStatus?.('Saving to server...');
         log('[RECALC]', 'Saving to server...');
@@ -1832,34 +1775,34 @@ if (shouldLog(7)) {
           log('[RECALC]', '⚠ Server save issue:', saveResult.error);
         }
         
-        setPlayers(lockedPlayers);
-        log('[RECALC]', 'Recalculate_Save complete');
-        (window as any).__ladder_setStatus?.(null);
-        return;
-      }
+      setPlayers(lockedPlayers);
+         log('[RECALC]', 'Recalculate_Save complete');
+         (window as any).__ladder_setStatus?.(null);
+         return { hasErrors: false };
+       }
 
-     // User mode: calculate locally, push full table to server, pull back fresh data
+      // User mode: calculate locally, push full table to server, pull back fresh data
       log('[RECALC]', 'User mode - calculating locally and syncing with server');
       
       clearAllSaveStatus();
 
-      const result = checkGameErrorsWithPlayers(players);
+      const result = checkGameErrorsWithPlayers(currentPlayers);
 
       if (result.rankBlockingErrors && result.rankBlockingErrors.length > 0) {
         if (shouldLog(7)) {
           console.log(`\n=== RECALC PAUSED === Rank blocking errors detected`);
         }
-        alert('Rank Errors:\n\n' + result.rankBlockingErrors.join('\n') + '\n\nPlease fix ranks before recalculating.');
-        return;
-      }
+     alert('Rank Errors:\n\n' + result.rankBlockingErrors.join('\n') + '\n\nPlease fix ranks before recalculating.');
+         return { hasErrors: true };
+       }
 
-      if (result.hasErrors && result.errors.length > 0) {
-        if (shouldLog(7)) {
-          console.log(`\n=== RECALC PAUSED ===`);
-          console.log(`Found ${result.errors.length} errors - showing error dialog`);
-        }
-        return;
-      }
+       if (result.hasErrors && result.errors.length > 0) {
+         if (shouldLog(7)) {
+           console.log(`\n=== RECALC PAUSED ===`);
+           console.log(`Found ${result.errors.length} errors - showing error dialog`);
+         }
+         return { hasErrors: true };
+       }
 
       let matches: MatchData[] = result.matches;
       let playerResultsByMatch: Map<string, PlayerMatchResult[]> | undefined = result.playerResultsByMatch;
@@ -1867,48 +1810,32 @@ if (shouldLog(7)) {
       if (shouldLog(7)) {
         console.log(`\n=== RECALC START ===`);
         console.log(`Matches to process: ${matches.length}`);
-      }
-
-   console.log('[RECALC_DEBUG] === RECALC START ===');
-    console.log('[RECALC_DEBUG] Input matches count:', matches.length);
-    console.log('[RECALC_DEBUG] Input matches:', JSON.stringify(matches.map(m => ({p1:m.player1, p2:m.player2, p3:m.player3, p4:m.player4, s1:m.score1, s2:m.score2}))));
-    
-    const processedPlayers = repopulateGameResults(players, matches, 31, playerResultsByMatch, debugLevel);
-    
-    console.log('[RECALC_DEBUG] After repopulateGameResults:');
-    for (const p of processedPlayers) {
-      const filled = (p.gameResults || []).filter((r, i) => r && r.trim() && r.trim() !== '');
-      if (filled.length > 0) {
-        console.log('[RECALC_DEBUG] P' + p.rank + ' results:', filled.map((r, i) => 'R' + i + '=' + r));
+      }    // Debug: show P8 and P9 gameResults
+    for (const p of currentPlayers) {
+      if (p.rank === 8 || p.rank === 9) {
+        const rr = (p.gameResults || []).map((r: string | null, i: number) => r && r.trim() ? `R${i}=${r}` : null).filter(Boolean);
       }
     }
     
-    const calculatedPlayers = calculateRatings(processedPlayers, matches).players;
-    const normalizedPlayers = normalizePlayersAttendance(normalizePlayersTrophy(calculatedPlayers));
+    const processedPlayers = repopulateGameResults(currentPlayers, matches, 31, playerResultsByMatch, debugLevel);    for (const p of processedPlayers) {
+      const resultsWithRound = (p.gameResults || []).map((r, i) => r && r.trim() ? `R${i}=${r}` : null).filter(Boolean);
+      if (resultsWithRound.length > 0) {      }
+    }
 
-    console.log('[RECALC_DEBUG] After calculateRatings + normalize:');
-    for (const p of normalizedPlayers) {
-      const filled = (p.gameResults || []).filter((r, i) => r && r.trim() && r.trim() !== '');
-      if (filled.length > 0) {
-        console.log('[RECALC_DEBUG] P' + p.rank + ' results:', filled.map((r, i) => 'R' + i + '=' + r));
-      }
+    const calculatedPlayers = calculateRatings(processedPlayers, matches).players;
+    const normalizedPlayers = normalizePlayersAttendance(normalizePlayersTrophy(calculatedPlayers));    for (const p of normalizedPlayers) {
+      const resultsWithRound = (p.gameResults || []).map((r, i) => r && r.trim() ? `R${i}=${r}` : null).filter(Boolean);
+      if (resultsWithRound.length > 0) {      }
     }
 
     // Lock all game results with "_" suffix to mark as confirmed
     const lockedPlayers = normalizedPlayers.map(p => ({
       ...p,
       gameResults: (p.gameResults || []).map(r => r && r.trim() ? `${r.replace(/_+$/, '')}_` : r),
-    }));
-
-    console.log('[RECALC_DEBUG] After locking:');
-    for (const p of lockedPlayers) {
-      const filled = (p.gameResults || []).filter((r, i) => r && r.trim() && r.trim() !== '');
-      if (filled.length > 0) {
-        console.log('[RECALC_DEBUG] P' + p.rank + ' locked:', filled.map((r, i) => 'R' + i + '=' + r));
-      }
+    }));    for (const p of lockedPlayers) {
+      const resultsWithRound = (p.gameResults || []).map((r, i) => r && r.trim() ? `R${i}=${r}` : null).filter(Boolean);
+      if (resultsWithRound.length > 0) {      }
     }
-    console.log('[RECALC_DEBUG] === RECALC END ===');
-
     // Push full table to server
     (window as any).__ladder_setStatus?.('Saving to server...');
     log('[RECALC]', 'Pushing full table to server...');
@@ -1922,16 +1849,23 @@ if (shouldLog(7)) {
           const serverUrl = getServerUrl();
 
           if (serverUrl) {
-           const response = await fetch(`${serverUrl}/api/ladder`);
-           if (response.ok) {
-             const data = await response.json();
-             const serverPlayers = data.data?.players || [];
-             if (serverPlayers && serverPlayers.length > 0) {
-               setPlayers(normalizePlayersAttendance(normalizePlayersTrophy(serverPlayers)));
-               log('[RECALC]', '✓ Synced with server - UI refreshed from server data');
-             } else {
-               setPlayers(normalizedPlayers);
-             }
+            const response = await fetch(`${serverUrl}/api/ladder`);
+            if (response.ok) {
+              const data = await response.json();
+              const serverPlayers = data.data?.players || [];
+              if (serverPlayers && serverPlayers.length > 0) {
+                const syncedPlayers = normalizePlayersAttendance(normalizePlayersTrophy(serverPlayers));
+                // Debug: show P8 and P9 results from server
+                for (const sp of syncedPlayers) {
+                  if (sp.rank === 8 || sp.rank === 9) {
+                    const rr = (sp.gameResults || []).map((r: string | null, i: number) => r && r.trim() ? `R${i}=${r}` : null).filter(Boolean);
+                  }
+                }
+                setPlayers(syncedPlayers);
+                log('[RECALC]', '✓ Synced with server - UI refreshed from server data');
+              } else {
+                setPlayers(normalizedPlayers);
+              }
            } else {
              setPlayers(normalizedPlayers);
            }
@@ -1942,8 +1876,9 @@ if (shouldLog(7)) {
          setPlayers(normalizedPlayers);
        }
 
-      log('[RECALC]', 'Recalculate_Save complete');
-      (window as any).__ladder_setStatus?.(null);
+   log('[RECALC]', 'Recalculate_Save complete');
+       (window as any).__ladder_setStatus?.(null);
+       return { hasErrors: false };
     };
 
   /**
@@ -1951,6 +1886,18 @@ if (shouldLog(7)) {
    * Called when polling detects data changes from other clients
    */
   const refreshPlayers = async () => {
+    // Skip refresh during active recalculation to avoid race condition
+    // where SSE pulls stale data before save completes
+    if (isRecalculating) {
+      log('[REFRESH]', 'Skipped — recalculation in progress');
+      return;
+    }
+    // Skip refresh during active save to prevent SSE-triggered refresh
+    // from overwriting local state before save completes
+    if (isSaving) {
+      log('[REFRESH]', 'Skipped — save in progress');
+      return;
+    }
     // In admin mode, skip server refresh when local data is pending confirmation
     // (e.g., file import or backup restore preview) — local data should win
     if (pendingImport || pendingRestore) {
@@ -2474,8 +2421,10 @@ if (shouldLog(7)) {
     });
     
     setPlayers(updatedPlayers);
-    const saveTarget = isAdmin ? true : false;
-    savePlayers(updatedPlayers, saveTarget).then((result) => {
+    setIsSaving(true);
+    // Always waitForServer=true for clear — ensures PUT + resetHash complete
+    // before the promise resolves, so polling sees the correct hash
+    savePlayers(updatedPlayers, true).then((result) => {
       if (result.success && result.serverSynced) {
         console.log(`[CLEAR CELL] ✓ Cleared ${cellsToClear.length} matching cells with value "${cellValue}" — saved to server`);
       } else if (result.success) {
@@ -2483,6 +2432,8 @@ if (shouldLog(7)) {
       }
     }).catch((err) => {
       console.error("Failed to save cleared cell:", err);
+    }).finally(() => {
+      setIsSaving(false);
     });
 
     // Log how many cells were cleared

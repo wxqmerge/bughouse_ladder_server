@@ -479,8 +479,10 @@ export async function savePlayers(players: PlayerData[], waitForServer = false, 
   const mode = dataService.getMode();
   const serverUrl = getServerUrl() || '';
   const headers = buildAuthHeaders();
+  console.log(`[STORAGE DEBUG] savePlayers: mode=${mode}, waitForServer=${waitForServer}, skipServerSync=${skipServerSync}, serverUrl="${serverUrl}"`);
   
   if (mode === DataServiceMode.LOCAL && !serverUrl) {
+    console.log(`[STORAGE DEBUG] LOCAL mode, no server — localStorage only`);
     setJson('ladder_players', players);
     for (const p of players) {
       if (p.gameResults) {
@@ -492,12 +494,29 @@ export async function savePlayers(players: PlayerData[], waitForServer = false, 
     return { success: true, serverSynced: true };
   } else {
     setJson('ladder_players', players);
+
+    // When mini-game is active, route save to mini-game endpoint, not main ladder
+    const miniGameFile = dataService.getMiniGameFile();
+
     if (waitForServer) {
       const url = dataService.getConfigServerUrl();
       if (!url) return { success: true, serverSynced: false, error: 'No server URL' };
-      const res = await fetch(`${url}/api/ladder`, { method: 'PUT', headers, body: JSON.stringify({ players }) });
+
+      let res: Response;
+      if (miniGameFile) {
+        console.log(`[STORAGE DEBUG] waitForServer=true — sending POST to mini-game endpoint, file=${miniGameFile}`);
+        res = await fetch(`${url}/api/admin/tournament/write-mini-game`, {
+          method: 'POST',
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fileName: miniGameFile, players }),
+        });
+      } else {
+        console.log(`[STORAGE DEBUG] waitForServer=true — sending PUT to ${url}/api/ladder, ${players.length} players`);
+        res = await fetch(`${url}/api/ladder`, { method: 'PUT', headers, body: JSON.stringify({ players }) });
+      }
+      console.log(`[STORAGE DEBUG] PUT response: status=${res.status} ok=${res.ok}`);
       if (res.ok) {
-        dataService.resetHashPublic();
+        dataService.resetHashPublic(players);
         return { success: true, serverSynced: true };
       }
       let errorMsg = res.statusText;
@@ -506,13 +525,25 @@ export async function savePlayers(players: PlayerData[], waitForServer = false, 
       }
       return { success: false, serverSynced: false, error: errorMsg };
     } else if (skipServerSync) {
+      console.log(`[STORAGE DEBUG] skipServerSync=true — local only, no server PUT`);
       return { success: true, serverSynced: false };
     } else {
+      console.log(`[STORAGE DEBUG] fire-and-forget — async PUT to server`);
       (async () => {
         const url = dataService.getConfigServerUrl();
         if (url) {
-          const res = await fetch(`${url}/api/ladder`, { method: 'PUT', headers, body: JSON.stringify({ players }) });
-          if (res.ok) dataService.resetHashPublic();
+          let res: Response;
+          if (miniGameFile) {
+            res = await fetch(`${url}/api/admin/tournament/write-mini-game`, {
+              method: 'POST',
+              headers: { ...headers, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ fileName: miniGameFile, players }),
+            });
+          } else {
+            res = await fetch(`${url}/api/ladder`, { method: 'PUT', headers, body: JSON.stringify({ players }) });
+          }
+          console.log(`[STORAGE DEBUG] fire-and-forget PUT response: status=${res.status} ok=${res.ok}`);
+          if (res.ok) dataService.resetHashPublic(players);
         }
       })();
       return { success: true, serverSynced: false };

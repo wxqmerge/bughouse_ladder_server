@@ -53,6 +53,73 @@ export const CONSTANTS = {
 export const RESULT_STRING = "OLDWXYZ__________" as const;
 
 /**
+ * Normalize a game result string to canonical form for comparison.
+ * Sorts players and swaps score perspective when order is reversed.
+ * e.g., "9L8" → "8W9", "3:4L1:2" → "1:2W3:4"
+ */
+export function normalizeResultForComparison(
+  _result: string,
+  _playerRank: number,
+  parsedPlayers: number[],
+  scores: number[],
+): string {
+  const is4Player = parsedPlayers[2] > 0 && parsedPlayers[3] > 0;
+
+  if (!is4Player) {
+    const p1 = parsedPlayers[0];
+    const p2 = parsedPlayers[1];
+    let normScore = scores[0];
+    let normScore2 = scores[1];
+
+    if (p1 > p2) {
+      normScore = swapScore(scores[0]);
+      if (scores[1] > 0) {
+        normScore2 = swapScore(scores[1]);
+      }
+    }
+
+    const scoreLetter = scoreCodeToLetter(normScore);
+    const sortedTeam = [p1, p2].sort((a, b) => a - b);
+    if (normScore2 > 0) {
+      const scoreLetter2 = scoreCodeToLetter(normScore2);
+      return `${sortedTeam[0]}${scoreLetter}${scoreLetter2}${sortedTeam[1]}`;
+    }
+    return `${sortedTeam[0]}${scoreLetter}${sortedTeam[1]}`;
+  } else {
+    const team1 = [parsedPlayers[0], parsedPlayers[1]].sort((a, b) => a - b);
+    const team2 = [parsedPlayers[2], parsedPlayers[3]].sort((a, b) => a - b);
+
+    const minTeam1 = Math.min(team1[0], team1[1]);
+    const minTeam2 = Math.min(team2[0], team2[1]);
+
+    let normPair1: number[],
+      normPair2: number[],
+      normScore1: number,
+      normScore2: number;
+
+    if (minTeam1 < minTeam2) {
+      normPair1 = team1;
+      normPair2 = team2;
+      normScore1 = scores[0];
+      normScore2 = scores[1] > 0 ? scores[1] : swapScore(scores[0]);
+    } else {
+      normPair1 = team2;
+      normPair2 = team1;
+      normScore1 = scores[1] > 0 ? scores[1] : swapScore(scores[0]);
+      normScore2 = scores[1] > 0 ? scores[0] : swapScore(scores[0]);
+    }
+
+    const score1Letter = scoreCodeToLetter(normScore1);
+
+    if (scores[1] > 0) {
+      const score2Letter = scoreCodeToLetter(normScore2);
+      return `${normPair1[0]}:${normPair1[1]}${score1Letter}${score2Letter}${normPair2[0]}:${normPair2[1]}`;
+    }
+    return `${normPair1[0]}:${normPair1[1]}${score1Letter}${normPair2[0]}:${normPair2[1]}`;
+  }
+}
+
+/**
  * VB6 Line: 61 - Group codes for player classification
  */
 export const GROUP_CODES = "A1xAxBxCxDxExFxGxHxIxZx   " as const;
@@ -522,71 +589,6 @@ export function processGameResults(
 
   hashInitializeLocal();
 
-  // Helper to normalize a result string for comparison (converts to canonical form)
-  const normalizeResultForComparison = (
-    _result: string,
-    _playerRank: number,
-    parsedPlayers: number[],
-    scores: number[],
-  ): string => {
-    const is4Player = parsedPlayers[2] > 0 && parsedPlayers[3] > 0;
-
-    if (!is4Player) {
-      // For 2-player games, normalize by sorting players
-      const p1 = parsedPlayers[0];
-      const p2 = parsedPlayers[1];
-      const score = scores[0];
-
-      // Convert score to letter (no perspective swap - score is already from first player's perspective)
-      const scoreLetter = scoreCodeToLetter(score);
-
-      // Return in sorted player order (within team)
-      const sortedTeam = [p1, p2].sort((a, b) => a - b);
-      if (scores[1] > 0) {
-        // Dual result: two score letters (e.g., "1ww3")
-        const scoreLetter2 = scoreCodeToLetter(scores[1]);
-        return `${sortedTeam[0]}${scoreLetter}${scoreLetter2}${sortedTeam[1]}`;
-      }
-      return `${sortedTeam[0]}${scoreLetter}${sortedTeam[1]}`;
-    } else {
-      // For 4-player team games: normalize each team separately, then sort teams by lowest player
-      const team1 = [parsedPlayers[0], parsedPlayers[1]].sort((a, b) => a - b);
-      const team2 = [parsedPlayers[2], parsedPlayers[3]].sort((a, b) => a - b);
-
-      const minTeam1 = Math.min(team1[0], team1[1]);
-      const minTeam2 = Math.min(team2[0], team2[1]);
-
-      let normPair1: number[],
-        normPair2: number[],
-        normScore1: number,
-        normScore2: number;
-
-      if (minTeam1 < minTeam2) {
-        // Team 1 comes first
-        normPair1 = team1;
-        normPair2 = team2;
-        normScore1 = scores[0];
-        normScore2 = scores[1];
-      } else {
-        // Team 2 comes first, swap perspectives
-        normPair1 = team2;
-        normPair2 = team1;
-        normScore1 = swapScore(scores[1]);
-        normScore2 = swapScore(scores[0]);
-      }
-
-      const score1Letter = scoreCodeToLetter(normScore1);
-
-      // Return with both pairs sorted internally and in correct order
-      if (scores[1] > 0) {
-        // Dual result: two score letters
-        const score2Letter = scoreCodeToLetter(normScore2);
-        return `${normPair1[0]}:${normPair1[1]}${score1Letter}${score2Letter}${normPair2[0]}:${normPair2[1]}`;
-      }
-      return `${normPair1[0]}:${normPair1[1]}${score1Letter}${normPair2[0]}:${normPair2[1]}`;
-    }
-  };
-
   let errorCount = 0;
 
   // Global deduplication across all rounds to prevent same match appearing multiple times
@@ -652,10 +654,6 @@ export function processGameResults(
         normKey = `${sortedPair[0]}-${sortedPair[1]}`;
       }
 
-      if (processedPairs.has(normKey)) {
-        continue;
-      }
-
       if (player1Rank <= 0 || player2Rank <= 0) {
         errorCount++;
         continue;
@@ -710,6 +708,7 @@ export function processGameResults(
         key = `${sortedPair[0]}-${sortedPair[1]}`;
       }
 
+      // Collect ALL entries for conflict detection (before dedup)
       if (!matchResults.has(key)) {
         matchResults.set(key, []);
       }
@@ -718,8 +717,8 @@ export function processGameResults(
         playerRank: player.rank,
         player1: parsedPlayersList[0],
         player2: parsedPlayersList[1],
-        player3: parsedPlayersList[2], // BUG FIX: was [3]
-        player4: parsedPlayersList[3], // BUG FIX: was [4]
+        player3: parsedPlayersList[2],
+        player4: parsedPlayersList[3],
         score1: parsedScoreList[0],
         score2: parsedScoreList[1],
         round,
@@ -735,6 +734,9 @@ export function processGameResults(
       });
 
       // Use normalized key for deduplication to catch different orderings
+      if (processedPairs.has(normKey)) {
+        continue;
+      }
       processedPairs.add(normKey);
 
       const _matchKey = `${hashValue}_${round}`;
@@ -749,8 +751,8 @@ export function processGameResults(
       results.push({
         player1: parsedPlayersList[0],
         player2: parsedPlayersList[1],
-        player3: parsedPlayersList[2], // BUG FIX: was [3]
-        player4: parsedPlayersList[3], // BUG FIX: was [4]
+        player3: parsedPlayersList[2],
+        player4: parsedPlayersList[3],
         score1: player1Score,
         score2: player2Score,
         side0Won: player1Score === 3,
@@ -759,7 +761,7 @@ export function processGameResults(
   }
 
   // Process match results and check for conflicts
-  for (const [_, entries] of matchResults.entries()) {
+  for (const [key, entries] of matchResults.entries()) {
     if (entries.length < 2) continue;
 
     // Normalize all results to the same perspective for comparison
@@ -1264,16 +1266,37 @@ export function repopulateGameResults(
 ): PlayerData[] {
   const playersCopy = playersList.map((p) => ({
     ...p,
-    gameResults: new Array(numRounds).fill(null),
+    // Preserve existing game results, stripping trailing underscores for normalization
+    gameResults: (p.gameResults || new Array(numRounds).fill(null)).map(
+      (r: string | null) => (r ? r.replace(/_+$/, '') : null)
+    ),
   }));
+
+  if (debugLevel <= 3) {
+    for (const p of playersCopy) {
+      const rr = p.gameResults.map((r, i) => r ? `R${i}=${r}` : null).filter(Boolean);
+      if (rr.length > 0) {
+      }
+    }
+  }
 
   const findLowestEmptyRound = (player: PlayerData): number => {
     for (let r = 0; r < numRounds; r++) {
-      if (player.gameResults[r] === null) {
+      if (!player.gameResults[r]) {
         return r;
       }
     }
     return -1;
+  };
+
+  /** Check if a player already has this result string in any round */
+  const hasResult = (player: PlayerData, result: string): boolean => {
+    for (let r = 0; r < numRounds; r++) {
+      if (player.gameResults[r] === result) {
+        return true;
+      }
+    }
+    return false;
   };
 
   const buildNormalizedResult = (m: MatchData): string => {
@@ -1290,36 +1313,26 @@ export function repopulateGameResults(
 
       const score1Letter = scoreCodeToLetter(normScore1);
 
-      if (debugLevel <= 3) {
-        console.log('[REPOPULATE_DEBUG] 4P Match: p1=' + m.player1 + ' p2=' + m.player2 + ' p3=' + m.player3 + ' p4=' + m.player4 + ' s1=' + m.score1 + '(' + scoreCodeToLetter(m.score1) + ') s2=' + m.score2 + '(' + (m.score2 > 0 ? scoreCodeToLetter(m.score2) : 'none') + ')');
-        console.log('[REPOPULATE_DEBUG] 4P norm=' + norm.join(',') + ' pairsSwapped=' + pairsSwapped + ' normScore1=' + normScore1 + '(' + scoreCodeToLetter(normScore1) + ') normScore2=' + normScore2 + '(' + (normScore2 > 0 ? scoreCodeToLetter(normScore2) : 'none') + ')');
-      }
+      if (debugLevel <= 3) {      }
 
       if (m.score2 > 0) {
         const score2Letter = scoreCodeToLetter(normScore2);
         const result = `${norm[0]}:${norm[1]}${score1Letter}${score2Letter}${norm[2]}:${norm[3]}`;
-        if (debugLevel <= 3) console.log('[REPOPULATE_DEBUG] 4P result=' + result);
         return result;
       }
-      const result = `${norm[0]}:${norm[1]}${score1Letter}${norm[2]}:${norm[3]}`;
-      if (debugLevel <= 3) console.log('[REPOPULATE_DEBUG] 4P result=' + result);
-      return result;
+      const result4p = `${norm[0]}:${norm[1]}${score1Letter}${norm[2]}:${norm[3]}`;
+      return result4p;
     } else {
       const norm = normalize2Player(m.player1, m.player2);
       const scoreLetter = scoreCodeToLetter(m.score1);
-      if (debugLevel <= 3) {
-        console.log('[REPOPULATE_DEBUG] 2P Match: p1=' + m.player1 + ' p2=' + m.player2 + ' s1=' + m.score1 + '(' + scoreLetter + ') s2=' + m.score2 + '(' + (m.score2 > 0 ? scoreCodeToLetter(m.score2) : 'none') + ')');
-        console.log('[REPOPULATE_DEBUG] 2P norm=' + norm.join(',') + ' scoreLetter=' + scoreLetter);
-      }
+      if (debugLevel <= 3) {      }
       if (m.score2 > 0) {
         const scoreLetter2 = scoreCodeToLetter(m.score2);
         const result = `${norm[0]}${scoreLetter}${scoreLetter2}${norm[1]}`;
-        if (debugLevel <= 3) console.log('[REPOPULATE_DEBUG] 2P result=' + result);
         return result;
       }
-      const result = `${norm[0]}${scoreLetter}${norm[1]}`;
-      if (debugLevel <= 3) console.log('[REPOPULATE_DEBUG] 2P result=' + result);
-      return result;
+      const result2p = `${norm[0]}${scoreLetter}${norm[1]}`;
+      return result2p;
     }
   };
 
@@ -1370,11 +1383,12 @@ export function repopulateGameResults(
     for (const playerRank of playerRanks) {
       const player = playersCopy.find((p) => p.rank === playerRank);
       if (!player) continue;
+      // Skip if player already has this result in some round
+      const alreadyHas = hasResult(player, normalizedResult);
+      if (alreadyHas) continue;
       const round = findLowestEmptyRound(player);
       if (round >= 0 && normalizedResult) {
-        // Provisional: add "_" suffix for backward compatibility with callers that expect it (e.g. stress test reports).
-        // Callers that also lock results (e.g. recalculateAndSave) strip trailing "_" and re-add, so double "_" is handled safely.
-        player.gameResults[round] = normalizedResult + "_";
+        player.gameResults[round] = normalizedResult;
       }
     }
   }
