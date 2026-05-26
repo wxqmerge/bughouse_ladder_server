@@ -216,6 +216,7 @@ interface LadderFormProps {
   onSetRecalculateRef?: (ref: () => void) => void;
   onSetRefreshPlayersRef?: (ref: () => void) => void;
   onAdminChange?: (isAdmin: boolean) => void;
+  onSetToggleAdmin?: (toggle: () => Promise<void>) => void;
   showServerDownBlocking?: boolean;
   onDismissServerDown?: () => void;
   versionMismatch?: boolean;
@@ -230,6 +231,7 @@ export default function LadderForm({
   onSetRecalculateRef,
   onSetRefreshPlayersRef,
   onAdminChange,
+  onSetToggleAdmin,
   showServerDownBlocking = false,
   onDismissServerDown,
   versionMismatch = false,
@@ -3352,6 +3354,11 @@ export default function LadderForm({
       clearAdminMode();
     }
   };
+
+  // Expose admin toggle handler to parent
+  useEffect(() => {
+    onSetToggleAdmin?.(handleToggleAdmin);
+  }, [onSetToggleAdmin, handleToggleAdmin]);
 
   const handleSplashEnterAdminMode = async () => {
     const serverUrl = splashServerUrl.trim();

@@ -13,9 +13,10 @@ import {
   Eye,
   Server,
   Key,
+  Shield,
 } from "lucide-react";
 import "../css/index.css";
-import { getSettings, saveSettings } from "../services/storageService";
+import { getSettings, saveSettings, getServerUrl } from "../services/storageService";
 import { loadUserSettings, saveUserSettings, normalizeServerUrl, getLastWorkingConfig, type UserSettings } from "../services/userSettingsStorage";
 import { debugClick, debugInput } from "../utils/debug";
 
@@ -38,6 +39,7 @@ interface SettingsProps {
   onGenerateTrophies?: () => void;
   isTournamentActive?: boolean;
   isAdmin: boolean;
+  onToggleAdmin?: () => Promise<void>;
   onSaveBeforeAction?: (settings: ActionSettings, userSettings: UserSettings) => void;
 }
 
@@ -54,6 +56,7 @@ export default function Settings({
   onGenerateTrophies,
   isTournamentActive,
   isAdmin,
+  onToggleAdmin,
   onSaveBeforeAction,
 }: SettingsProps) {
   const [showRatings, setShowRatings] = useState(true);
@@ -63,6 +66,7 @@ export default function Settings({
   const [serverUrl, setServerUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [lastWorkingConfig, setLastWorkingConfig] = useState<{ server: string; apiKey: string } | null>(null);
+  const [adminToggleLoading, setAdminToggleLoading] = useState(false);
 
   useEffect(() => {
     const savedSettings = getSettings();
@@ -668,6 +672,59 @@ export default function Settings({
             <Server size={16} />
             Server Connection
           </h3>
+
+          {onToggleAdmin && (!serverUrl.trim() || apiKey.trim()) && (
+            <div style={{ marginBottom: '1.5rem' }}>
+              <button
+                onClick={async () => {
+                  debugClick("Settings:Toggle Admin Mode");
+                  setAdminToggleLoading(true);
+                  try {
+                    await onToggleAdmin();
+                  } finally {
+                    setAdminToggleLoading(false);
+                  }
+                }}
+                disabled={adminToggleLoading}
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "0.5rem",
+                  padding: "0.75rem",
+                  backgroundColor: isAdmin ? "#dc2626" : "#059669",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "0.25rem",
+                  cursor: adminToggleLoading ? "not-allowed" : "pointer",
+                  fontSize: "0.875rem",
+                  fontWeight: "500",
+                  opacity: adminToggleLoading ? 0.7 : 1,
+                }}
+              >
+                <Shield size={16} />
+                {adminToggleLoading
+                  ? "Connecting..."
+                  : isAdmin
+                    ? "Exit Admin Mode"
+                    : "Enter Admin Mode"}
+              </button>
+              <p
+                style={{
+                  fontSize: "0.75rem",
+                  color: "#64748b",
+                  marginTop: "0.5rem",
+                }}
+              >
+                {isAdmin
+                  ? "You are in admin mode. Click to exit and release the admin lock."
+                  : !serverUrl.trim()
+                    ? "Local mode: enter admin mode to access configuration and actions."
+                    : "Enter admin mode to access configuration and actions."}
+              </p>
+            </div>
+          )}
           
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
             <div>
