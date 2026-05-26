@@ -5,7 +5,8 @@
  */
 export function shouldLog(threshold: number): boolean {
   try {
-    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('bughouse_settings') : null;
+    const ls = (globalThis as Record<string, unknown>).localStorage as { getItem: (k: string) => string | null } | undefined;
+    const raw = ls ? ls.getItem('bughouse_settings') : null;
     if (raw) {
       const settings = JSON.parse(raw);
       const level = settings.debugLevel ?? 5;
