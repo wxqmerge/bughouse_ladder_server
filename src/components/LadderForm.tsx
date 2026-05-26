@@ -945,8 +945,15 @@ export default function LadderForm({
       const formData = new FormData();
       formData.append('file', pendingImport.file);
 
+      const userSettings = loadUserSettings();
+      const headers: Record<string, string> = {};
+      if (userSettings.apiKey && userSettings.apiKey.trim()) {
+        headers['X-API-Key'] = userSettings.apiKey.trim();
+      }
+
       const response = await gatedFetch(`${serverUrl}/api/admin/upload`, {
         method: 'POST',
+        headers,
         body: formData,
       });
 
