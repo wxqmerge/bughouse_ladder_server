@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { getVersionString, getProgramMode } from "../utils/mode";
 import { getVisibleTitles } from "../utils/titleMenu";
-import { getFontSize } from "../utils/getFontSize";
+import { getFontSize, getScaledPadding, getScaledGap, getScaledLineHeight } from "../utils/getFontSize";
 import { useIntervalCheck } from "../utils/useIntervalCheck";
 import { titleToFileName } from "../utils/constants";
 import {
@@ -386,11 +386,11 @@ export default function MenuBar({
             }
           }}
           style={{
-            padding: "0.75rem 1rem",
+            padding: getScaledPadding(zoomLevel, 0.75, 1),
             cursor: item.disabled ? "not-allowed" : "pointer",
             display: "flex",
             alignItems: "center",
-            gap: "0.75rem",
+            gap: getScaledGap(zoomLevel, 0.75),
             color: item.disabled ? "#9ca3af" : "#374151",
             backgroundColor: "white",
             opacity: item.disabled ? 0.5 : 1,
@@ -459,21 +459,22 @@ export default function MenuBar({
     menuType?: string,
   ) => (
     <div style={{ position: "relative", display: "inline-block" }}>
-      <button
-        data-menu={menuName}
-        onClick={() => toggleMenu(menuName)}
-        style={{
-          background: openMenu === menuName ? "#334155" : "transparent",
-          color: "white",
-          border: "none",
-          padding: "0.5rem 1rem",
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          gap: "0.5rem",
-          borderRadius: "0.25rem",
-        }}
-      >
+<button
+          data-menu={menuName}
+          onClick={() => toggleMenu(menuName)}
+          style={{
+            background: openMenu === menuName ? "#334155" : "transparent",
+            color: "white",
+            border: "none",
+            padding: getScaledPadding(zoomLevel, 0.5, 1),
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: getScaledGap(zoomLevel, 0.5),
+            borderRadius: "0.25rem",
+            fontSize: getFontSize(zoomLevel),
+          }}
+        >
         {icon}
         <span>{menuName}</span>
         <ChevronDown size={14} />
@@ -497,7 +498,7 @@ export default function MenuBar({
         <div
           style={{
             display: "flex",
-            gap: "0.5rem",
+            gap: getScaledGap(zoomLevel, 0.5),
             flex: 1,
           }}
         >
@@ -522,19 +523,19 @@ export default function MenuBar({
             style={{
               margin: 0,
               color: "white",
-              padding: "0 1rem",
-              fontSize: "0.875rem",
+              padding: getScaledPadding(zoomLevel, 0, 1),
+              fontSize: getFontSize(zoomLevel),
             }}
           >
             {projectName} {getVersionString()}
             {isServerDown && (
               <span style={{
-                marginLeft: '0.5rem',
-                padding: '0.25rem 0.5rem',
+                marginLeft: getScaledGap(zoomLevel, 0.5),
+                padding: getScaledPadding(zoomLevel, 0.25, 0.5),
                 backgroundColor: '#f59e0b',
                 color: '#78350f',
                 borderRadius: '0.25rem',
-                fontSize: '0.75rem',
+                fontSize: getFontSize(zoomLevel),
                 fontWeight: '600',
               }}>
                 ⚠️ SERVER DOWN
@@ -543,7 +544,7 @@ export default function MenuBar({
           </h1>
         )}
         {playerCount !== undefined && (
-          <div style={{ padding: "0.75rem 1rem", fontSize: "0.875rem" }}>
+          <div style={{ padding: getScaledPadding(zoomLevel, 0.75, 1) }}>
             <span style={{ color: "rgba(255, 255, 255, 0.7)" }}>
               Total Players
             </span>

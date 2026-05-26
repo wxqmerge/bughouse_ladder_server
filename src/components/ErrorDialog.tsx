@@ -420,7 +420,9 @@ export default function ErrorDialog({
 
   const cleanInput = (): string => {
     const raw = (currentInputValue || "").toUpperCase();
+    console.log('[DEBUG-TRACE] === cleanInput ENTRY === currentInputValue="' + currentInputValue + '" raw="' + raw + '"');
     const cleaned = raw.replace(/[^0-9WLD:]/g, "");
+    console.log('[DEBUG-TRACE] cleanInput cleaned="' + cleaned + '"');
     if (cleaned !== raw) {
       setCurrentInputValue(cleaned);
       if (inputRef.current) inputRef.current.value = cleaned;
@@ -432,16 +434,20 @@ export default function ErrorDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    console.clear();
     console.log(">>> [BUTTON PRESSED] Save (Game Result)");
     const value = cleanInput();
+    console.log('[DEBUG-TRACE] === handleSubmit === value="' + value + '"');
     if (!value.trim()) return;
     onSubmit(value);
   };
 
   const handleEnterRecalculateSave = (e: React.FormEvent) => {
     e.preventDefault();
+    console.clear();
     console.log(">>> [BUTTON PRESSED] Enter_Recalculate_Save");
     const value = cleanInput();
+    console.log('[DEBUG-TRACE] === handleEnterRecalculateSave === value="' + value + '"');
     if (!value.trim()) return;
     if (onEnterRecalculateSave) {
       onEnterRecalculateSave(value);

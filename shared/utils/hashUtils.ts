@@ -18,11 +18,6 @@ import {
   DebugLogger 
 } from "./debugUtils.js";
 
-// Local debug function for shared module (no localStorage dependency)
-function shouldLog(_threshold: number): boolean {
-  return false; // Disabled in shared module by default
-}
-
 /**
  * VB6 Line: 25 - Global constants from common.bas
  * Field indices used throughout the VB6 application
@@ -119,42 +114,6 @@ export function formula(myRating: number, opponentsRating: number): number {
 
 
 /**
- * VB6 Line: 138-154 - Player array to string conversion
- * Translates player and score arrays to hash string format
- */
-function entry2string(
-  playersList: number[],
-  scoreList: number[],
-): string {
-  // VB6 Line: 140-145 - Swap to ensure correct order
-  if (playersList[0] > playersList[1]) {
-    const temp = playersList[0];
-    playersList[0] = playersList[1];
-    playersList[1] = temp;
-  }
-  if (playersList[3] > playersList[4]) {
-    const temp = playersList[3];
-    playersList[3] = playersList[4];
-    playersList[4] = temp;
-  }
-
-  const resultParts: string[] = [
-    playersList[0].toString(),
-    ":",
-    playersList[1].toString(),
-    RESULT_STRING.charAt(scoreList[0]),
-  ];
-  if (scoreList[1] > 0) {
-    resultParts.push(RESULT_STRING.charAt(scoreList[1]));
-  }
-  resultParts.push(playersList[3].toString());
-  resultParts.push(":");
-  resultParts.push(playersList[4].toString());
-
-  return resultParts.join("");
-}
-
-/**
  * VB6 Line: 155-271 - Parse entry string to structured data
  * Parses game entry like "23:29LW" into game details
  */
@@ -172,6 +131,7 @@ function parseEntry(
 
   // Normalize input to uppercase
   const normalizedText = myText.toUpperCase();
+  console.log('[DEBUG-TRACE] === parseEntry START === input="' + myText + '" normalized="' + normalizedText + '"');
   const strlen = normalizedText.length;
   if (strlen < 2) return -3;
 
@@ -189,6 +149,7 @@ function parseEntry(
   for (let i = 1; i <= strlen; i++) {
     const mychar = normalizedText.substring(i - 1, i);
     const myasc = mychar.charCodeAt(0);
+    console.log('[DEBUG-TRACE] parseEntry char[' + (i-1) + ']=' + mychar + ' asc=' + myasc + ' entryString="' + entryString + '" entry=' + entry + ' numOrChar=' + numOrChar + ' resultIndex=' + resultIndex);
 
     if (myasc > 33) {
       // VB6 Line: 180-183 - Handle underscore separator
@@ -231,6 +192,7 @@ function parseEntry(
             entryString !== ""
           ) {
             playersList[entry] = parseInt(entryString);
+            console.log('[DEBUG-TRACE] parseEntry STORE PLAYER: playersList[' + entry + ']=' + playersList[entry] + ' (from entryString="' + entryString + '")');
             if (playersList[entry] > CONSTANTS.GROWS_MAX) {
               errorNum = 9;
               break;
@@ -247,6 +209,7 @@ function parseEntry(
           entryString = "";
           // Store result character directly, don't add to entryString
           results[resultIndex] = mychar;
+          console.log('[DEBUG-TRACE] parseEntry STORE RESULT: results[' + resultIndex + ']=' + mychar);
           resultIndex = resultIndex + 1;
           continue;
         } else {
@@ -270,6 +233,7 @@ function parseEntry(
   // Store any remaining number at the end of the string
   if (numOrChar === 0 && playersList.length > entry && entryString !== "") {
     playersList[entry] = parseInt(entryString);
+    console.log('[DEBUG-TRACE] parseEntry STORE REMAINING: playersList[' + entry + ']=' + playersList[entry] + ' (from entryString="' + entryString + '")');
     entry++;
     if (playersList[entry - 1] > CONSTANTS.GROWS_MAX) {
       errorNum = 9;
@@ -311,7 +275,7 @@ function parseEntry(
   scoreList[0] = RESULT_STRING.indexOf(results[0]);
   scoreList[1] = results[1] ? RESULT_STRING.indexOf(results[1]) : 0;
 
-  console.log('[PARSE_DEBUG] parseEntry input="' + myText + '" -> players=[' + playersList[0] + ',' + playersList[1] + ',' + playersList[2] + ',' + playersList[3] + '] scores=[' + scoreList[0] + '(' + RESULT_STRING[scoreList[0]] + '),' + scoreList[1] + '(' + (scoreList[1] > 0 ? RESULT_STRING[scoreList[1]] : 'none') + ')] results=[' + (results[0] || 'none') + ',' + (results[1] || 'none') + ']');
+  console.log('[DEBUG-TRACE] === parseEntry END === input="' + myText + '" -> players=[' + playersList[0] + ',' + playersList[1] + ',' + playersList[2] + ',' + playersList[3] + '] original=[' + playersList[5] + ',' + playersList[6] + ',' + playersList[7] + ',' + playersList[8] + '] scores=[' + scoreList[0] + '(' + RESULT_STRING[scoreList[0]] + '),' + scoreList[1] + '(' + (scoreList[1] > 0 ? RESULT_STRING[scoreList[1]] : 'none') + ')] results=[' + (results[0] || 'none') + ',' + (results[1] || 'none') + ']');
 
   // VB6 Line: 251-258 - Normalize player order
   // Store original values before normalization for display
@@ -1295,18 +1259,22 @@ export function repopulateGameResults(
       const result = `${norm[0]}:${norm[1]}${score1Letter}${norm[2]}:${norm[3]}`;
       console.log('[REPOPULATE_DEBUG] 4P result=' + result);
       return result;
-    } else {
+   } else {
       const norm = normalize2Player(m.player1, m.player2);
-      const scoreLetter = scoreCodeToLetter(m.score1);
-      console.log('[REPOPULATE_DEBUG] 2P Match: p1=' + m.player1 + ' p2=' + m.player2 + ' s1=' + m.score1 + '(' + scoreLetter + ') s2=' + m.score2 + '(' + (m.score2 > 0 ? scoreCodeToLetter(m.score2) : 'none') + ')');
-      console.log('[REPOPULATE_DEBUG] 2P norm=' + norm.join(',') + ' scoreLetter=' + scoreLetter);
+      // If players were swapped by normalization, swap scores too
+      const swapped = m.player1 > m.player2;
+      const normScore1 = swapped ? swapScore(m.score1) : m.score1;
+      const scoreLetter = scoreCodeToLetter(normScore1);
+      console.log('[REPOPULATE_DEBUG] 2P Match: p1=' + m.player1 + ' p2=' + m.player2 + ' s1=' + m.score1 + '(' + scoreCodeToLetter(m.score1) + ') s2=' + m.score2 + '(' + (m.score2 > 0 ? scoreCodeToLetter(m.score2) : 'none') + ')');
+      console.log('[REPOPULATE_DEBUG] 2P norm=' + norm.join(',') + ' swapped=' + swapped + ' normScore1=' + normScore1 + '(' + scoreLetter + ')');
       if (m.score2 > 0) {
-        const scoreLetter2 = scoreCodeToLetter(m.score2);
+        const normScore2 = swapped ? swapScore(m.score2) : m.score2;
+        const scoreLetter2 = scoreCodeToLetter(normScore2);
         const result = `${norm[0]}${scoreLetter}${scoreLetter2}${norm[1]}`;
         console.log('[REPOPULATE_DEBUG] 2P result=' + result);
         return result;
       }
-      const result = `${norm[0]}${scoreLetter}${norm[1]}`;
+     const result = `${norm[0]}${scoreLetter}${norm[1]}`;
       console.log('[REPOPULATE_DEBUG] 2P result=' + result);
       return result;
     }
@@ -1402,6 +1370,7 @@ export function updatePlayerGameData(
   input: string,
   addUnderscore: boolean = true,
 ): UpdatePlayerGameDataResult {
+  console.log('[DEBUG-TRACE] === updatePlayerGameData ENTRY === input="' + input + '" addUnderscore=' + addUnderscore);
   if (!input.trim()) {
     return {
       isValid: false,
@@ -1453,7 +1422,7 @@ export function updatePlayerGameData(
   const parsedPlayer3Rank = parsedPlayersList[7];
   const parsedPlayer4Rank = parsedPlayersList[8];
 
-  console.log('[UPDATE_DEBUG] updatePlayerGameData input="' + input + '" addUnderscore=' + addUnderscore + ' -> resultString="' + resultString + '" p1=' + parsedPlayer1Rank + ' p2=' + parsedPlayer2Rank + ' p3=' + parsedPlayer3Rank + ' p4=' + parsedPlayer4Rank + ' scores=[' + parsedScoreList[0] + ',' + parsedScoreList[1] + ']');
+  console.log('[DEBUG-TRACE] === updatePlayerGameData EXIT === input="' + input + '" addUnderscore=' + addUnderscore + ' -> resultString="' + resultString + '" originalString="' + input + '" p1=' + parsedPlayer1Rank + ' p2=' + parsedPlayer2Rank + ' p3=' + parsedPlayer3Rank + ' p4=' + parsedPlayer4Rank + ' scores=[' + parsedScoreList[0] + ',' + parsedScoreList[1] + ']');
 
   return {
     isValid: true,

@@ -1,6 +1,6 @@
 # Bughouse Chess Ladder - Administrator Manual
  
-**Version: 1.2.2**
+**Version: 1.3.0**
  
 ## Table of Contents
 
@@ -465,8 +465,8 @@ These buttons only appear when admin mode is enabled.
 
 ---
 
-**Version:** 1.1.0  
-**Last Updated:** April 2026  
+**Version:** 1.3.0  
+**Last Updated:** May 2026  
 **Prerequisites:** User Manual knowledge assumed
 
 ## Admin API Reference
