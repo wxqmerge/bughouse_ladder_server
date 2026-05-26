@@ -11,6 +11,8 @@ import { PlayerData, DeltaOperation } from '../../shared/types';
 import { log } from '../utils/log';
 import { dataService, DataServiceMode } from './dataService';
 import { loadUserSettings, normalizeServerUrl } from './userSettingsStorage';
+import { isValidServerUrl } from '../utils/mode';
+import { gatedFetch } from '../utils/requestGate';
 
 // ==================== UTILITIES ====================
 
@@ -298,7 +300,7 @@ export function queueDelete(playerRank: number, round: number): void {
       const userSettings = loadUserSettings();
       const serverUrl = userSettings.server?.trim();
       if (serverUrl) {
-        await fetch(`${serverUrl}/api/ladder/${playerRank}/round/${round}`, { method: 'DELETE' });
+        await gatedFetch(`${serverUrl}/api/ladder/${playerRank}/round/${round}`, { method: 'DELETE' });
         const freshDeletes = new Set(getJsonArray<string>('ladder_pending_deletes'));
         freshDeletes.delete(key);
         setJson('ladder_pending_deletes', [...freshDeletes]);
@@ -326,7 +328,7 @@ export async function replayPendingDeletes(): Promise<void> {
   for (const key of deletes) {
     const [rankStr, roundStr] = key.split(':');
     try {
-      await fetch(`${serverUrl}/api/ladder/${parseInt(rankStr)}/round/${parseInt(roundStr)}`, { method: 'DELETE' });
+      await gatedFetch(`${serverUrl}/api/ladder/${parseInt(rankStr)}/round/${parseInt(roundStr)}`, { method: 'DELETE' });
     } catch (err) {
       log('[STORAGE]', `Failed to replay delete ${key}:`, err);
     }
@@ -405,7 +407,42 @@ export async function savePlayers(players: PlayerData[], waitForServer = false, 
   if (userSettings.apiKey && userSettings.apiKey.trim()) {
     headers['X-API-Key'] = userSettings.apiKey.trim();
   }
-  
+
+  // Mini-game mode: save to mini-game endpoint, not main ladder
+  const miniGameFile = dataService.getMiniGameFile();
+  if (miniGameFile) {
+    setJson('ladder_players', players);
+    if (waitForServer) {
+      const url = dataService.getConfigServerUrl();
+      if (!url) return { success: true, serverSynced: false, error: 'No server URL' };
+      const res = await gatedFetch(`${url}/api/ladder/mini-games/write`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ fileName: miniGameFile, players }),
+      });
+      if (res.ok) return { success: true, serverSynced: true };
+      let errorMsg = res.statusText;
+      if (res.status === 401 || res.status === 403) {
+        errorMsg = 'Write rejected by server. Check your API key in settings.';
+      }
+      return { success: false, serverSynced: false, error: errorMsg };
+    } else if (skipServerSync) {
+      return { success: true, serverSynced: false };
+    } else {
+      (async () => {
+        const url = dataService.getConfigServerUrl();
+        if (url) {
+          const res = await gatedFetch(`${url}/api/ladder/mini-games/write`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ fileName: miniGameFile, players }),
+          });
+        }
+      })();
+      return { success: true, serverSynced: false };
+    }
+  }
+
   if (mode === DataServiceMode.LOCAL && !serverUrl) {
     setJson('ladder_players', players);
     for (const p of players) {
@@ -421,7 +458,7 @@ export async function savePlayers(players: PlayerData[], waitForServer = false, 
     if (waitForServer) {
       const url = dataService.getConfigServerUrl();
       if (!url) return { success: true, serverSynced: false, error: 'No server URL' };
-      const res = await fetch(`${url}/api/ladder`, { method: 'PUT', headers, body: JSON.stringify({ players }) });
+      const res = await gatedFetch(`${url}/api/ladder`, { method: 'PUT', headers, body: JSON.stringify({ players }) });
       if (res.ok) {
         dataService.resetHashPublic();
         return { success: true, serverSynced: true };
@@ -437,7 +474,7 @@ export async function savePlayers(players: PlayerData[], waitForServer = false, 
       (async () => {
         const url = dataService.getConfigServerUrl();
         if (url) {
-          const res = await fetch(`${url}/api/ladder`, { method: 'PUT', headers, body: JSON.stringify({ players }) });
+          const res = await gatedFetch(`${url}/api/ladder`, { method: 'PUT', headers, body: JSON.stringify({ players }) });
           if (res.ok) dataService.resetHashPublic();
         }
       })();
@@ -523,7 +560,7 @@ export async function saveToServer(): Promise<{ success: boolean; error?: string
   try {
     const url = dataService.getConfigServerUrl();
     if (!url) return { success: false, error: 'No server URL' };
-    const res = await fetch(`${url}/api/ladder`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ players }) });
+    const res = await gatedFetch(`${url}/api/ladder`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ players }) });
     return res.ok ? { success: true } : { success: false, error: res.statusText };
   } catch (e: any) { return { success: false, error: e.message }; }
 }
@@ -541,7 +578,9 @@ export function getClientName(clientId: string): string { return `Client ${clien
 export function getServerUrl(): string | null {
   try {
     const settings = loadUserSettings();
-    return normalizeServerUrl(settings.server || '') || null;
+    const raw = normalizeServerUrl(settings.server || '');
+    if (!raw) return null;
+    return isValidServerUrl(raw) ? raw : null;
   } catch { return null; }
 }
 
@@ -556,7 +595,7 @@ export async function tryAcquireAdminLock(clientName?: string): Promise<boolean>
     headers['X-API-Key'] = settings.apiKey.trim();
   }
   try {
-    const res = await fetch(`${url}/api/admin-lock/acquire`, { method: 'POST', headers, body: JSON.stringify({ clientId: id, clientName: name }) });
+    const res = await gatedFetch(`${url}/api/admin-lock/acquire`, { method: 'POST', headers, body: JSON.stringify({ clientId: id, clientName: name }) });
     if (!res.ok) return false;
     const data = await res.json();
     return data.success;
@@ -574,7 +613,7 @@ export async function forceAcquireAdminLock(clientName?: string): Promise<boolea
     headers['X-API-Key'] = settings.apiKey.trim();
   }
   try {
-    const res = await fetch(`${url}/api/admin-lock/force`, { method: 'POST', headers, body: JSON.stringify({ clientId: id, clientName: name }) });
+    const res = await gatedFetch(`${url}/api/admin-lock/force`, { method: 'POST', headers, body: JSON.stringify({ clientId: id, clientName: name }) });
     if (!res.ok) return false;
     const data = await res.json();
     return data.success;
@@ -589,7 +628,7 @@ export async function releaseAdminLock(): Promise<void> {
   if (settings.apiKey && settings.apiKey.trim()) {
     headers['X-API-Key'] = settings.apiKey.trim();
   }
-  try { await fetch(`${url}/api/admin-lock/release`, { method: 'POST', headers, body: JSON.stringify({ clientId: getClientId() }) }); } catch {}
+  try { await gatedFetch(`${url}/api/admin-lock/release`, { method: 'POST', headers, body: JSON.stringify({ clientId: getClientId() }) }); } catch {}
 }
 
 export async function refreshAdminLock(): Promise<void> {
@@ -600,7 +639,7 @@ export async function refreshAdminLock(): Promise<void> {
   if (settings.apiKey && settings.apiKey.trim()) {
     headers['X-API-Key'] = settings.apiKey.trim();
   }
-  try { await fetch(`${url}/api/admin-lock/refresh`, { method: 'POST', headers, body: JSON.stringify({ clientId: getClientId() }) }); } catch {}
+  try { await gatedFetch(`${url}/api/admin-lock/refresh`, { method: 'POST', headers, body: JSON.stringify({ clientId: getClientId() }) }); } catch {}
 }
 
 export async function getAdminLockInfo(): Promise<{ locked: boolean; holderId?: string; holderName?: string; expiresAt?: number; serverReachable?: boolean; adminBlocked?: boolean }> {
@@ -612,7 +651,7 @@ export async function getAdminLockInfo(): Promise<{ locked: boolean; holderId?: 
     headers['X-API-Key'] = settings.apiKey.trim();
   }
   try {
-    const res = await fetch(`${url}/api/admin-lock/status`, { headers });
+    const res = await gatedFetch(`${url}/api/admin-lock/status`, { headers });
     if (res.status === 401 || res.status === 403) {
       return { locked: false, serverReachable: true, adminBlocked: true };
     }
@@ -631,10 +670,12 @@ export async function isAdminLocked(): Promise<boolean> {
 
 export async function checkWritePermission(): Promise<boolean> {
   const url = getServerUrl();
-  if (!url) { console.log('[CHECK-WRITE] no server URL → true'); return true; }
+  if (!url) { // console.log('[CHECK-WRITE] no server URL → true')
+    return true; }
   const settings = loadUserSettings();
-  if (!settings.apiKey || !settings.apiKey.trim()) { console.log('[CHECK-WRITE] no API key → false'); return false; }
-  console.log('[CHECK-WRITE] has API key → true');
+  if (!settings.apiKey || !settings.apiKey.trim()) { // console.log('[CHECK-WRITE] no API key → false')
+    return false; }
+  // console.log('[CHECK-WRITE] has API key → true')
   return true;
 }
 

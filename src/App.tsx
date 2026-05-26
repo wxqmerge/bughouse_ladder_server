@@ -46,6 +46,7 @@ import {
 } from "./services/storageService";
 import { mergeServerWithLocal } from "./utils/mergeUtils";
 import { getDebugLevel } from "./utils/debug";
+import { gatedFetch } from "./utils/requestGate";
 import "./css/index.css";
 
 // Global status tracking
@@ -112,11 +113,11 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
       // Step 2: Determine mode and configure dataService
       const config = await determineMode();
       dataService.updateConfig(config);
-      console.log('[App] DataService configured:', config.mode, config.serverUrl || '');
+      // console.log('[App] DataService configured:', config.mode, config.serverUrl || '');
 
       // Step 2.5: Wire up miniGameStore for all modes (localStorage cache + local mini-game support)
       dataService.updateConfig({ miniGameStore });
-      console.log('[App] Wired up miniGameStore');
+      // console.log('[App] Wired up miniGameStore');
 
       // Step 3: Initialize connection state from localStorage (now has fresh config)
       await initializeConnectionState();
@@ -139,9 +140,8 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
 
           // Start polling for data updates in server mode (every 5 seconds)
           if (mode !== 'local' && mode !== 'server_down') {
-            console.log('[APP] Initializing data sync...');
-            await dataService.initializeHash();
-            console.log('[APP] Starting data polling (60 second interval)');
+            // Hash init moved to LadderForm - it calls dataService.setHash() after fetching players
+            // console.log('[APP] Starting data polling (60 second interval)');
             dataService.startPolling(60000);
             
             // Start SSE for real-time updates (polling remains as fallback)
@@ -165,7 +165,7 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
                 const serverUrl = userSettings.server?.trim();
                 if (!serverUrl) return;
 
-                const response = await fetch(`${serverUrl}/health`);
+                const response = await gatedFetch(`${serverUrl}/health`);
                 if (!response.ok) return;
 
                 const data = await response.json();
@@ -498,7 +498,7 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
       const userSettings = loadUserSettings();
       const serverUrl = userSettings.server;
       if (serverUrl) {
-        const response = await fetch(`${serverUrl}/api/ladder`);
+        const response = await gatedFetch(`${serverUrl}/api/ladder`);
         if (response.ok) {
           const data = await response.json();
           const serverPlayers = data.data?.players || [];
@@ -563,7 +563,7 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
         return;
       }
       
-      const serverResponse = await fetch(`${serverUrl}/api/ladder`);
+      const serverResponse = await gatedFetch(`${serverUrl}/api/ladder`);
       if (!serverResponse.ok) {
         console.error("[Reconnect] Failed to fetch server state:", serverResponse.status);
         alert("Failed to fetch server state. Please try again.");
@@ -579,7 +579,7 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
       const mergedPlayers = mergeServerWithLocal(serverPlayers, localPlayers, pendingDeletes);
       
       // Save merged data to server
-      const response = await fetch(`${serverUrl}/api/ladder`, {
+      const response = await gatedFetch(`${serverUrl}/api/ladder`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ players: mergedPlayers }),
@@ -725,7 +725,7 @@ async function determineMode(): Promise<{ mode: DataServiceMode; serverUrl?: str
         const settings = loadUserSettings();
         localStorage.setItem(getUserSettingsKey(), JSON.stringify({ server: '', apiKey: settings.apiKey }));
       } else {
-        console.log('[App] Using USER SETTINGS server:', serverUrl);
+        // console.log('[App] Using USER SETTINGS server:', serverUrl);
         if (serverUrl.includes('localhost') || serverUrl.includes('127.0.0.1')) {
           return { mode: DataServiceMode.DEVELOPMENT, serverUrl };
         }
@@ -749,14 +749,14 @@ async function determineMode(): Promise<{ mode: DataServiceMode; serverUrl?: str
     try {
       const healthController = new AbortController();
       const healthTimeoutId = setTimeout(() => healthController.abort(), 3000);
-      const healthResponse = await fetch(`${origin}/health`, { method: 'GET', signal: healthController.signal });
+      const healthResponse = await gatedFetch(`${origin}/health`, { method: 'GET', signal: healthController.signal });
       clearTimeout(healthTimeoutId);
       console.log('[App] Auto-detect: /health status=', healthResponse.status, 'ok=', healthResponse.ok);
       const healthOk = healthResponse.ok || healthResponse.status === 404;
       
       const apiController = new AbortController();
       const apiTimeoutId = setTimeout(() => apiController.abort(), 3000);
-      const apiResponse = await fetch(`${origin}/api/ladder`, { method: 'GET', signal: apiController.signal });
+      const apiResponse = await gatedFetch(`${origin}/api/ladder`, { method: 'GET', signal: apiController.signal });
       clearTimeout(apiTimeoutId);
       console.log('[App] Auto-detect: /api/ladder status=', apiResponse.status, 'ok=', apiResponse.ok);
       // 404 means Express routes aren't registered (invalid server)
@@ -784,7 +784,7 @@ async function determineMode(): Promise<{ mode: DataServiceMode; serverUrl?: str
         const healthTimeoutId = setTimeout(() => healthController.abort(), 3000);
         let healthOk = false;
         try {
-          const healthResponse = await fetch(`${candidateUrl}/health`, { method: 'GET', signal: healthController.signal });
+          const healthResponse = await gatedFetch(`${candidateUrl}/health`, { method: 'GET', signal: healthController.signal });
           clearTimeout(healthTimeoutId);
           healthOk = healthResponse.ok || healthResponse.status === 404;
         } catch {
@@ -797,7 +797,7 @@ async function determineMode(): Promise<{ mode: DataServiceMode; serverUrl?: str
           let apiOk = false;
           let apiStatus = 0;
           try {
-            const apiResponse = await fetch(`${candidateUrl}/api/ladder`, { method: 'GET', signal: apiController.signal });
+            const apiResponse = await gatedFetch(`${candidateUrl}/api/ladder`, { method: 'GET', signal: apiController.signal });
             clearTimeout(apiTimeoutId);
             apiStatus = apiResponse.status;
             console.log('[App] Subdomain check: /api/ladder status=', apiStatus);

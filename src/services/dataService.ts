@@ -14,6 +14,7 @@ import {
   savePlayers as storageSavePlayers,
 } from './storageService';
 import { loadUserSettings } from './userSettingsStorage';
+import { gatedFetch } from '../utils/requestGate';
 
 export enum DataServiceMode {
   LOCAL = 'LOCAL',
@@ -35,8 +36,10 @@ class DataService {
   private currentMiniGameFile: string | null = null;
   private subscribers: Set<() => void> = new Set();
   private isPolling = false;
+  private activeRefreshCount = 0;
   private sseEventSource: EventSource | null = null;
   private sseConnected = false;
+  private notifyTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(config: DataServiceConfig) {
     this.config = config;
@@ -48,7 +51,11 @@ class DataService {
   }
 
   private notifySubscribers(): void {
-    this.subscribers.forEach(callback => callback());
+    if (this.notifyTimer) return; // Debounce: skip if notification already queued
+    this.notifyTimer = setTimeout(() => {
+      this.notifyTimer = null;
+      this.subscribers.forEach(callback => callback());
+    }, 200);
   }
 
   updateConfig(newConfig: Partial<DataServiceConfig>): void {
@@ -96,17 +103,17 @@ class DataService {
     if (this.sseEventSource) return; // Already connected
     
     const url = `${this.getApiUrl()}/api/ladder/events`;
-    console.log('[DataService] Connecting to SSE:', url);
+    // console.log('[DataService] Connecting to SSE:', url);
     
     this.sseEventSource = new EventSource(url);
     
     this.sseEventSource.onopen = () => {
       this.sseConnected = true;
-      console.log('[DataService] SSE connection established');
+      // console.log('[DataService] SSE connection established');
     };
     
     this.sseEventSource.addEventListener('connected', (e: any) => {
-      console.log('[DataService] SSE: connected event received');
+      // console.log('[DataService] SSE: connected event received');
     });
     
     this.sseEventSource.addEventListener('playerUpdated', () => {
@@ -213,36 +220,51 @@ class DataService {
 
   // Initialize hash from current server state (call once on app start)
   async initializeHash(): Promise<void> {
-    if (this.hashInitialized || this.config.mode === DataServiceMode.LOCAL) {
+   if (this.hashInitialized || this.config.mode === DataServiceMode.LOCAL) {
       return;
     }
-    
-    try {
-      const response = await fetch(`${this.getApiUrl()}/api/ladder`, {
-        headers: this.getAuthHeaders(),
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        const serverPlayers = data.data?.players || [];
-        this.lastDataHash = this.computeHash(serverPlayers);
-        console.log('[DataService] Initialized hash from server');
-      }
-    } catch (error) {
-      console.error('[DataService] Failed to initialize hash:', error);
+
+    // If LadderForm already fetched players, use them to avoid a redundant request
+    const localPlayers = await this.getLocalPlayers();
+    if (localPlayers.length > 0) {
+      this.lastDataHash = this.computeHash(localPlayers);
+      this.hashInitialized = true;
+      return;
     }
-    
-    this.hashInitialized = true;
+
+    try {
+      const response = await gatedFetch(`${this.getApiUrl()}/api/ladder`, {
+         headers: this.getAuthHeaders(),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const serverPlayers = data.data?.players || [];
+          this.lastDataHash = this.computeHash(serverPlayers);
+        }
+      } catch (error) {
+        console.error('[DataService] Failed to initialize hash:', error);
+      }
+
+      this.hashInitialized = true;
+    }
+
+  // Set hash directly from already-fetched players (avoids redundant server request)
+  public setHash(players: PlayerData[]): void {
+    if (!this.hashInitialized) {
+      this.lastDataHash = this.computeHash(players);
+      this.hashInitialized = true;
+    }
   }
 
-  // Reset hash to current server state (call after successful save)
-  async resetHash(): Promise<void> {
-    if (this.config.mode === DataServiceMode.LOCAL) {
-      return;
-    }
-    
-    try {
-      const response = await fetch(`${this.getApiUrl()}/api/ladder`, {
+   // Reset hash to current server state (call after successful save)
+   async resetHash(): Promise<void> {
+     if (this.config.mode === DataServiceMode.LOCAL) {
+       return;
+     }
+     
+     try {
+       const response = await gatedFetch(`${this.getApiUrl()}/api/ladder`, {
         headers: this.getAuthHeaders(),
       });
       
@@ -274,12 +296,12 @@ class DataService {
         let serverPlayers: PlayerData[];
         
         if (this.currentMiniGameFile) {
-          response = await fetch(
+          response = await gatedFetch(
             `${this.getApiUrl()}/api/admin/tournament/read-mini-game?fileName=${this.currentMiniGameFile}`,
             { headers: this.getAuthHeaders() }
           );
         } else {
-          response = await fetch(`${this.getApiUrl()}/api/ladder`, {
+          response = await gatedFetch(`${this.getApiUrl()}/api/ladder`, {
             headers: this.getAuthHeaders(),
           });
         }
@@ -313,40 +335,63 @@ class DataService {
 
   // ==================== PLAYER OPERATIONS ====================
 
-  async getPlayers(): Promise<PlayerData[]> {
+ async getPlayers(): Promise<PlayerData[]> {
     if (this.config.mode === DataServiceMode.LOCAL) {
       if (this.currentMiniGameFile) {
         return this.getLocalMiniGamePlayers();
       }
       return this.getLocalPlayers();
     } else {
-      // SERVER mode: return cached local data instantly, then sync from server in background
-      let cachedPlayers: PlayerData[] = [];
+      // SERVER mode with mini-game: always fetch fresh from server to avoid stale ladder cache
       if (this.currentMiniGameFile) {
-        cachedPlayers = await this.getLocalMiniGamePlayers();
-      } else {
-        cachedPlayers = await this.getLocalPlayers();
+        try {
+          const serverPlayers = await this.fetchMiniGamePlayers();
+          const newHash = this.computeHash(serverPlayers);
+          if (this.lastDataHash === null && serverPlayers.length > 0) {
+            this.lastDataHash = newHash;
+          }
+          if (this.lastDataHash !== null && newHash !== this.lastDataHash) {
+            this.lastDataHash = newHash;
+          }
+          return serverPlayers;
+        } catch {
+          // Fallback to cached local data if server fetch fails
+          return await this.getLocalMiniGamePlayers();
+        }
       }
 
-      // Fetch from server in background to sync
-      (async () => {
-        try {
-          let serverPlayers: PlayerData[];
-          if (this.currentMiniGameFile) {
-            serverPlayers = await this.fetchMiniGamePlayers();
-          } else {
-            serverPlayers = await this.fetchPlayers();
+      // SERVER mode without mini-game: return cached local data instantly, then sync from server in background
+       let cachedPlayers: PlayerData[] = await this.getLocalPlayers();
+       // console.log(`[DataService] getPlayers: mode=${this.config.mode}, miniGame=${this.currentMiniGameFile || 'none'}, cached=${cachedPlayers.length} players`);
+
+      // Fetch from server in background to sync (deduplicated)
+      if (this.activeRefreshCount === 0) {
+        this.activeRefreshCount++;
+        (async () => {
+          try {
+            let serverPlayers: PlayerData[];
+            if (this.currentMiniGameFile) {
+              serverPlayers = await this.fetchMiniGamePlayers();
+            } else {
+              serverPlayers = await this.fetchPlayers();
+            }
+            // Initialize hash on first fetch
+            const newHash = this.computeHash(serverPlayers);
+            if (this.lastDataHash === null && serverPlayers.length > 0) {
+              this.lastDataHash = newHash;
+            }
+            // Only notify if data actually changed (prevents infinite loop on empty mini-game)
+            if (this.lastDataHash !== null && newHash !== this.lastDataHash) {
+              this.lastDataHash = newHash;
+              this.notifySubscribers();
+            }
+          } catch {
+            // Server fetch failed silently — UI keeps showing cached local data
+          } finally {
+            this.activeRefreshCount--;
           }
-          // Initialize hash on first fetch
-          if (this.lastDataHash === null && serverPlayers.length > 0) {
-            this.lastDataHash = this.computeHash(serverPlayers);
-          }
-          // Notify subscribers so refreshPlayers picks up the synced data
-          this.notifySubscribers();
-        } catch {
-          // Server fetch failed silently — UI keeps showing cached local data
-        }
-      })();
+        })();
+      }
 
       return cachedPlayers;
     }
@@ -478,7 +523,7 @@ class DataService {
   // ==================== API IMPLEMENTATIONS ====================
 
   private async fetchPlayers(): Promise<PlayerData[]> {
-    const response = await fetch(`${this.getApiUrl()}/api/ladder`, {
+    const response = await gatedFetch(`${this.getApiUrl()}/api/ladder`, {
       headers: this.getAuthHeaders(),
     });
     
@@ -495,7 +540,7 @@ class DataService {
   }
 
   private async fetchPlayer(rank: number): Promise<PlayerData | undefined> {
-    const response = await fetch(
+    const response = await gatedFetch(
       `${this.getApiUrl()}/api/ladder/${rank}`,
       { headers: this.getAuthHeaders() }
     );
@@ -506,7 +551,7 @@ class DataService {
   }
 
   private async updatePlayers(players: PlayerData[]): Promise<void> {
-    const response = await fetch(`${this.getApiUrl()}/api/ladder`, {
+    const response = await gatedFetch(`${this.getApiUrl()}/api/ladder`, {
       method: 'PUT',
       headers: {
         ...this.getAuthHeaders(),
@@ -526,10 +571,9 @@ class DataService {
     this.notifySubscribers();
   }
 
-  private async fetchMiniGamePlayers(): Promise<PlayerData[]> {
-    const response = await fetch(
-      `${this.getApiUrl()}/api/admin/tournament/read-mini-game?fileName=${this.currentMiniGameFile}`,
-      { headers: this.getAuthHeaders() }
+  public async fetchMiniGamePlayers(): Promise<PlayerData[]> {
+    const response = await gatedFetch(
+      `${this.getApiUrl()}/api/ladder/mini-games/read?fileName=${this.currentMiniGameFile}`
     );
 
     if (!response.ok) {
@@ -540,6 +584,7 @@ class DataService {
 
     const data = await response.json();
     const players = data.data.players || [];
+    console.log(`[DataService] fetchMiniGamePlayers: ${this.currentMiniGameFile} → ${players.length} players (response.playerCount=${data.data.playerCount})`);
     // Cache in localStorage mini-game store
     if (this.currentMiniGameFile && players.length > 0) {
       const store = this.getStore();
@@ -553,7 +598,7 @@ class DataService {
   }
 
   private async updateMiniGamePlayers(players: PlayerData[]): Promise<void> {
-    const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/write-mini-game`, {
+    const response = await gatedFetch(`${this.getApiUrl()}/api/ladder/mini-games/write`, {
       method: 'POST',
       headers: {
         ...this.getAuthHeaders(),
@@ -584,7 +629,7 @@ class DataService {
         return;
       }
       players[playerIndex] = { ...players[playerIndex], ...player };
-      response = await fetch(`${this.getApiUrl()}/api/admin/tournament/write-mini-game`, {
+      response = await gatedFetch(`${this.getApiUrl()}/api/ladder/mini-games/write`, {
         method: 'POST',
         headers: {
           ...this.getAuthHeaders(),
@@ -596,7 +641,7 @@ class DataService {
         }),
       });
     } else {
-      response = await fetch(
+      response = await gatedFetch(
         `${this.getApiUrl()}/api/ladder/${player.rank}`,
         {
           method: 'PUT',
@@ -635,7 +680,7 @@ class DataService {
       player.gameResults[round] = result;
       player.num_games = (player.num_games || 0) + 1;
       
-      response = await fetch(`${this.getApiUrl()}/api/admin/tournament/write-mini-game`, {
+      response = await gatedFetch(`${this.getApiUrl()}/api/ladder/mini-games/write`, {
         method: 'POST',
         headers: {
           ...this.getAuthHeaders(),
@@ -647,7 +692,7 @@ class DataService {
         }),
       });
     } else {
-      response = await fetch(`${this.getApiUrl()}/api/games/submit`, {
+      response = await gatedFetch(`${this.getApiUrl()}/api/games/submit`, {
         method: 'POST',
         headers: {
           ...this.getAuthHeaders(),
@@ -681,7 +726,7 @@ class DataService {
         }
       }
       
-      const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/write-mini-game`, {
+      const response = await gatedFetch(`${this.getApiUrl()}/api/ladder/mini-games/write`, {
         method: 'POST',
         headers: {
           ...this.getAuthHeaders(),
@@ -701,7 +746,7 @@ class DataService {
 
       this.notifySubscribers();
     } else {
-      const response = await fetch(`${this.getApiUrl()}/api/ladder/batch`, {
+      const response = await gatedFetch(`${this.getApiUrl()}/api/ladder/batch`, {
         method: 'POST',
         headers: {
           ...this.getAuthHeaders(),
@@ -730,7 +775,7 @@ class DataService {
         player.gameResults[roundIndex] = null;
       }
       
-      response = await fetch(`${this.getApiUrl()}/api/admin/tournament/write-mini-game`, {
+      response = await gatedFetch(`${this.getApiUrl()}/api/ladder/mini-games/write`, {
         method: 'POST',
         headers: {
           ...this.getAuthHeaders(),
@@ -742,7 +787,7 @@ class DataService {
         }),
       });
     } else {
-      response = await fetch(
+      response = await gatedFetch(
         `${this.getApiUrl()}/api/ladder/${playerRank}/round/${roundIndex}`,
         {
           method: 'DELETE',
@@ -834,9 +879,11 @@ class DataService {
   }
 
   async copyPlayersToMiniGame(fileName: string): Promise<any> {
+    console.log('[DataService] copyPlayersToMiniGame: mode=' + this.config.mode + ', file=' + fileName);
     if (this.config.mode === DataServiceMode.LOCAL) {
       const store = this.getStore();
       const players = await this.getLocalPlayers();
+      console.log('[DataService] copyPlayersToMiniGame: LOCAL mode, ' + players.length + ' players');
       
       const targetPlayers = players.map(player => ({
         ...player,
@@ -849,9 +896,11 @@ class DataService {
         players: targetPlayers,
         rawLines: [],
       });
+      console.log('[DataService] copyPlayersToMiniGame: LOCAL write complete');
       return { message: `Copied players to ${fileName}` };
     } else {
-      const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/copy-players`, {
+      console.log('[DataService] copyPlayersToMiniGame: SERVER mode, URL=' + this.getApiUrl());
+      const response = await gatedFetch(`${this.getApiUrl()}/api/admin/tournament/copy-players`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -859,12 +908,14 @@ class DataService {
         },
         body: JSON.stringify({ fileName }),
       });
+      console.log('[DataService] copyPlayersToMiniGame: response status=' + response.status);
 
       if (!response.ok) {
-        throw new Error(`Failed to copy players to: ${fileName}`);
+        throw new Error(`Failed to copy players to: ${fileName} (HTTP ${response.status})`);
       }
 
       const data = await response.json();
+      console.log('[DataService] copyPlayersToMiniGame: SERVER success');
       return data.data;
     }
   }
@@ -912,7 +963,7 @@ class DataService {
       
       return { message: `Saved ${fileName}` };
     } else {
-      const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/save-mini-game`, {
+      const response = await gatedFetch(`${this.getApiUrl()}/api/admin/tournament/save-mini-game`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -955,7 +1006,7 @@ class DataService {
       });
       return blob;
     } else {
-      const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/export`, {
+      const response = await gatedFetch(`${this.getApiUrl()}/api/admin/tournament/export`, {
         headers: this.getAuthHeaders(),
       });
 
@@ -991,7 +1042,7 @@ class DataService {
       const content = lines.join('\n') + '\n';
       return new Blob([content], { type: 'text/tab-separated-values' });
     } else {
-      const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/trophies?debugLevel=${debugLevel}`, {
+      const response = await gatedFetch(`${this.getApiUrl()}/api/admin/tournament/trophies?debugLevel=${debugLevel}`, {
         headers: this.getAuthHeaders(),
       });
 
@@ -1008,7 +1059,7 @@ class DataService {
       const store = this.getStore();
       return store.clearMiniGames();
     } else {
-      const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/clear-mini-games`, {
+      const response = await gatedFetch(`${this.getApiUrl()}/api/admin/tournament/clear-mini-games`, {
         method: 'POST',
         headers: this.getAuthHeaders(),
       });
@@ -1028,7 +1079,7 @@ class DataService {
       await store.addPlayerToAllMiniGames(player);
       return { message: 'Player added to all mini-game files' };
     } else {
-      const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/add-player-to-mini-games`, {
+      const response = await gatedFetch(`${this.getApiUrl()}/api/admin/tournament/add-player-to-mini-games`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1055,9 +1106,7 @@ class DataService {
       return store.checkMiniGameFilesWith();
     } else {
       try {
-        const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/check-mini-games`, {
-          headers: this.getAuthHeaders(),
-        });
+        const response = await gatedFetch(`${this.getApiUrl()}/api/ladder/mini-games/check`);
 
         if (!response.ok) {
           return [];
@@ -1078,7 +1127,7 @@ class DataService {
       const store = this.getStore();
       return store.importMiniGameFiles(content);
     } else {
-      const response = await fetch(`${this.getApiUrl()}/api/admin/tournament/import`, {
+      const response = await gatedFetch(`${this.getApiUrl()}/api/admin/tournament/import`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

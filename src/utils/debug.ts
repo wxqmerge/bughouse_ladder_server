@@ -19,7 +19,7 @@ export function shouldLog(debugThreshold: number): boolean {
  */
 export function debugClick(label: string): void {
   if (shouldLog(9)) {
-    console.log(`[CLICK]->${label}`);
+    // console.log(`[CLICK]->${label}`);
   }
 }
 
