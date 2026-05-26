@@ -119,11 +119,7 @@ const adminLockLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-app.use('/api/auth', authLimiter);
-app.use('/api/admin-lock', adminLockLimiter); // Apply lenient limiter to admin-lock
-app.use('/api', apiLimiter); // General limiter for other API routes
-
-// CORS configuration - MUST come before Helmet!
+// CORS configuration - MUST come before rate limiting so error responses include CORS headers!
 // Get allowed origins from environment variable (comma-separated list)
 const corsOrigins = process.env.CORS_ORIGINS?.split(',').map(o => o.trim()).filter(o => o) || ['*'];
 
@@ -137,6 +133,10 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
 }));
+
+app.use('/api/auth', authLimiter);
+app.use('/api/admin-lock', adminLockLimiter); // Apply lenient limiter to admin-lock
+app.use('/api', apiLimiter); // General limiter for other API routes
 
 // Security middleware with Content Security Policy
 app.use(helmet({
