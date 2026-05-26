@@ -514,20 +514,23 @@ export default function LadderForm({
     reacquireAdminLock();
   }, []); // Run once on init
 
-  // Check write permissions on mount
-  useEffect(() => {
+// Track server URL changes reactively (auto-detect, Settings, etc.)
+   const currentServerUrl = useIntervalCheck(() => getServerUrl(), 5000);
+
+  // Check write permissions on mount and when server URL changes
+   useEffect(() => {
     const checkPermissions = async () => {
       const canWrite = await checkWritePermission();
       setWritePermission(canWrite);
     };
     checkPermissions();
-  }, []);
+  }, [currentServerUrl]);
 
   // Track mode changes for UI updates
-  const mode = useIntervalCheck(() => {
-    const m = getProgramMode();
-    return m === 'local' || m === 'server_down' ? m : 'server';
-  }, 10000);
+   const mode = useIntervalCheck(() => {
+     const m = getProgramMode();
+     return m === 'local' || m === 'server_down' ? m : 'server';
+   }, 10000);
 
   useEffect(() => {
     setCurrentMode(mode);
@@ -5119,7 +5122,7 @@ if (shouldLog(7)) {
                                  ? "#f8fafc"
                                  : "transparent",
                            fontSize: getFontSize(zoomLevel),
-                           cursor: isAdmin ? "default" : "pointer",
+                           cursor: isAdmin ? "default" : (writePermission ? "pointer" : "default"),
                            borderColor:
                              entryCell &&
                              entryCell.playerRank === player.rank &&
@@ -5145,13 +5148,14 @@ if (shouldLog(7)) {
                                    round: gCol,
                                  });
                                }}
-                               onPaste={(e) => {
-                                 const text = e.clipboardData.getData('text');
-                                 const rows = text.split('\n').filter(r => r.trim());
-                                 if (rows.length <= 1) return;
-                                 e.preventDefault();
-                                 handleGameCellPaste(e, player.rank, gCol);
-                               }}
+onPaste={(e) => {
+                                   if (!writePermission) return;
+                                   const text = e.clipboardData.getData('text');
+                                   const rows = text.split('\n').filter(r => r.trim());
+                                   if (rows.length <= 1) return;
+                                   e.preventDefault();
+                                   handleGameCellPaste(e, player.rank, gCol);
+                                 }}
                               onKeyDown={(e) => {
                                   if (e.key === "Enter") {
                                     e.preventDefault();
@@ -5191,22 +5195,23 @@ if (shouldLog(7)) {
                                  suppressContentEditableWarning={true}
                                  data-cell={`player-${player.rank}-game-${gCol}`}
                                  style={{ cursor: "text" }}
-                                onClick={() => {
-                                  const result = players.find(p => p.rank === player.rank)?.gameResults?.[gCol] || '';
+onClick={() => {
+                                   if (!writePermission) return;
+                                   const result = players.find(p => p.rank === player.rank)?.gameResults?.[gCol] || '';
 
-                                  if (result.endsWith('_')) {
-                                    const emptyCell = findFirstEmptyCell();
-                                    if (emptyCell) {
-                                      setEntryCell(emptyCell);
-                                      return;
-                                    }
-                                  }
+                                   if (result.endsWith('_')) {
+                                     const emptyCell = findFirstEmptyCell();
+                                     if (emptyCell) {
+                                       setEntryCell(emptyCell);
+                                       return;
+                                     }
+                                   }
 
-                                  setEntryCell({
-                                     playerRank: player.rank,
-                                     round: gCol,
-                                   });
-                                }}
+                                   setEntryCell({
+                                      playerRank: player.rank,
+                                      round: gCol,
+                                    });
+                                 }}
                                 onPaste={(e) => {
                                   const text = e.clipboardData.getData('text');
                                   const rows = text.split('\n').filter(r => r.trim());
@@ -5214,33 +5219,35 @@ if (shouldLog(7)) {
                                   e.preventDefault();
                                   handleGameCellPaste(e, player.rank, gCol);
                                 }}
-                              onKeyDown={(e) => {
-                                   if (e.key === "Enter") {
-                                     e.preventDefault();
-                                     const current = e.currentTarget as HTMLElement;
-                                     current.blur();
-                                     setTimeout(() => {
-                                       moveFocusDown(current);
-                                     }, 10);
-                                   } else if (e.key === "Tab") {
-                                     e.preventDefault();
-                                     const current = e.currentTarget as HTMLElement;
-                                     current.blur();
-                                     setTimeout(() => {
-                                       moveFocus(current, e.shiftKey ? 'prev' : 'next');
-                                     }, 10);
-                                   } else if (e.key === "Escape") {
-                                     e.preventDefault();
-                                     e.currentTarget.blur();
-                                   }
-                                 }}
-                           onBlur={(e) => {
-                                  const value = e.target.textContent || "";
-                                  setPlayers((prevPlayers) => prevPlayers.map((p) => {
-                                    if (p.rank !== player.rank) return p;
-                                    const newResults = [...(p.gameResults || new Array(31).fill(null))];
-                                    newResults[gCol] = value.trim() || null;
-                                    return { ...p, gameResults: newResults };
+onKeyDown={(e) => {
+                                    if (!writePermission) return;
+                                    if (e.key === "Enter") {
+                                      e.preventDefault();
+                                      const current = e.currentTarget as HTMLElement;
+                                      current.blur();
+                                      setTimeout(() => {
+                                        moveFocusDown(current);
+                                      }, 10);
+                                    } else if (e.key === "Tab") {
+                                      e.preventDefault();
+                                      const current = e.currentTarget as HTMLElement;
+                                      current.blur();
+                                      setTimeout(() => {
+                                        moveFocus(current, e.shiftKey ? 'prev' : 'next');
+                                      }, 10);
+                                    } else if (e.key === "Escape") {
+                                      e.preventDefault();
+                                      e.currentTarget.blur();
+                                    }
+                                  }}
+                            onBlur={(e) => {
+                                   if (!writePermission) return;
+                                   const value = e.target.textContent || "";
+                                   setPlayers((prevPlayers) => prevPlayers.map((p) => {
+                                     if (p.rank !== player.rank) return p;
+                                     const newResults = [...(p.gameResults || new Array(31).fill(null))];
+                                     newResults[gCol] = value.trim() || null;
+                                     return { ...p, gameResults: newResults };
                                   }));
                                 }}
                              >
