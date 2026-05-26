@@ -19,7 +19,7 @@ import { BulkPasteDialog } from "./BulkPasteDialog";
 import MenuBar from "./MenuBar";
 import MobileMenu from "./MobileMenu";
 import { Menu as MenuIcon, Server } from "lucide-react";
-import { shouldLog } from "../utils/debug";
+import { shouldLog, debugClick, debugInput } from "../utils/debug";
 import { getVersionString, isLocalMode, isServerDownMode, getProgramMode, testServerConnection } from "../utils/mode";
 import { log } from "../utils/log";
 import { downloadBlob } from "../utils/downloadBlob";
@@ -343,7 +343,7 @@ export default function LadderForm({
     backupFilename: string;
   } | null>(null);
   const [currentMode, setCurrentMode] = useState<'local' | 'server_down' | 'server'>('local');
-  const [debugMode, setDebugMode] = useState(false);
+  const [debugLevel, setDebugLevel] = useState(5);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   // Enter Games mode state
   const [enterGamesError, setEnterGamesError] = useState<ValidationResult | null>(null);
@@ -587,8 +587,9 @@ export default function LadderForm({
           setZoomLevel(zoomPercent);
         }
 
-         // Load debug mode from user settings
-         setDebugMode(userSettings.debugMode || false);
+        // Load debug level from settings
+          const appSettings = getSettings();
+          setDebugLevel(appSettings.debugLevel ?? 5);
 
         // PRIORITY 1: If server is configured, ALWAYS fetch from server first
         if (serverUrl) {
@@ -678,7 +679,7 @@ export default function LadderForm({
             }));
             setPlayers(playersWithResults);
             setSortBy(null);
-            if (shouldLog(10)) {
+            if (shouldLog(3)) {
               console.log(
                 `[LadderForm] Loaded ${playersWithResults.length} players from localStorage`,
               );
@@ -890,8 +891,9 @@ export default function LadderForm({
   };
 
   const handleConfirmImport = async () => {
+    debugClick("Import:Confirm");
     if (!pendingImport) return;
-    
+
     log('[LOAD_FILE]', 'Admin mode - accepting import: ' + pendingImport.filename);
     setPlayers(pendingImport.players);
     setPendingImport(null);
@@ -926,6 +928,7 @@ export default function LadderForm({
   };
 
   const handleDeclineImport = async () => {
+    debugClick("Import:Decline");
     log('[LOAD_FILE]', 'Admin mode - declined import: ' + pendingImport?.filename);
     setPendingImport(null);
     setRankLoadErrors([]);
@@ -965,6 +968,7 @@ export default function LadderForm({
   };
 
   const handleRestoreBackup = async (filename: string) => {
+    debugClick(`Restore Backup:${filename}`);
     console.log('[RESTORE_BACKUP]', 'Selected backup:', filename);
     setShowRestoreBackupDialog(false);
     
@@ -1027,8 +1031,9 @@ export default function LadderForm({
   };
 
   const handleConfirmRestore = async () => {
+    debugClick("Restore:Confirm");
     if (!pendingRestore) return;
-    
+
     log('[RESTORE_BACKUP]', 'Admin mode - confirming restore: ' + pendingRestore.backupFilename);
     setPlayers(pendingRestore.players);
     setPendingRestore(null);
@@ -1046,6 +1051,7 @@ export default function LadderForm({
   };
 
   const handleDeclineRestore = () => {
+    debugClick("Restore:Decline");
     log('[RESTORE_BACKUP]', 'Admin mode - declined restore: ' + pendingRestore?.backupFilename);
     setPendingRestore(null);
     setShowRestoreBackupDialog(true);
@@ -1172,6 +1178,7 @@ export default function LadderForm({
 
   // Enter Games mode handlers
   const handleEnterGamesMenu = () => {
+    debugClick("Enter Games");
     console.log(">>> [MENU ACTION] Enter Games");
     
     // Exit admin mode if currently in it
@@ -1402,6 +1409,7 @@ export default function LadderForm({
   };
 
   const handleEnterGamesClose = () => {
+    debugClick("Enter Games:Close");
     console.log(">>> [ENTER_GAMES_CLOSE] Exiting Enter Games mode");
     setIsEnterGamesMode(false);
     setEntryCell(null);
@@ -1691,7 +1699,7 @@ export default function LadderForm({
         let playerResultsByMatch: Map<string, PlayerMatchResult[]> | undefined =
           result.playerResultsByMatch;
 
-        if (shouldLog(5)) {
+        if (shouldLog(3)) {
           console.log(`\n=== RECALC START ===`);
           console.log(`Matches to process: ${matches.length}`);
           let totalExisting = 0;
@@ -1702,6 +1710,9 @@ export default function LadderForm({
           console.log(`Total existing game results: ${totalExisting}`);
         }
 
+        if (shouldLog(2)) {
+          console.log(`[REPOPULATE] Starting repopulateGameResults (O(N*R)): ${mergePlayers.length} players x ${matches.length} matches`);
+        }
         const processedPlayers = repopulateGameResults(
           mergePlayers,
           matches,
@@ -1709,7 +1720,7 @@ export default function LadderForm({
           playerResultsByMatch,
         );
 
-        if (shouldLog(5)) {
+        if (shouldLog(3)) {
           let totalAfterRepop = 0;
           for (const p of processedPlayers) {
             const filled = p.gameResults.filter((r) => r !== null && r !== "");
@@ -1725,11 +1736,13 @@ export default function LadderForm({
         const calculatedPlayers = calculateRatings(processedPlayers, matches).players;
         const normalizedPlayers = normalizePlayersAttendance(normalizePlayersTrophy(calculatedPlayers));
 
-        console.log('[RECALC_DEBUG] [ADMIN] After calculateRatings + normalize:');
-        for (const p of normalizedPlayers) {
-          const filled = (p.gameResults || []).filter((r, i) => r && r.trim() && r.trim() !== '');
-          if (filled.length > 0) {
-            console.log('[RECALC_DEBUG] [ADMIN] P' + p.rank + ' results:', filled.map((r, i) => 'R' + i + '=' + r));
+        if (shouldLog(3)) {
+          console.log('[RECALC_DEBUG] [ADMIN] After calculateRatings + normalize:');
+          for (const p of normalizedPlayers) {
+            const filled = (p.gameResults || []).filter((r, i) => r && r.trim() && r.trim() !== '');
+            if (filled.length > 0) {
+              console.log('[RECALC_DEBUG] [ADMIN] P' + p.rank + ' results:', filled.map((r, i) => 'R' + i + '=' + r));
+            }
           }
         }
 
@@ -1739,11 +1752,13 @@ export default function LadderForm({
           gameResults: (p.gameResults || []).map(r => r && r.trim() ? `${r.replace(/_+$/, '')}_` : r),
         }));
 
-        console.log('[RECALC_DEBUG] [ADMIN] After locking:');
-        for (const p of lockedPlayers) {
-          const filled = (p.gameResults || []).filter((r, i) => r && r.trim() && r.trim() !== '');
-          if (filled.length > 0) {
-            console.log('[RECALC_DEBUG] [ADMIN] P' + p.rank + ' locked:', filled.map((r, i) => 'R' + i + '=' + r));
+        if (shouldLog(3)) {
+          console.log('[RECALC_DEBUG] [ADMIN] After locking:');
+          for (const p of lockedPlayers) {
+            const filled = (p.gameResults || []).filter((r, i) => r && r.trim() && r.trim() !== '');
+            if (filled.length > 0) {
+              console.log('[RECALC_DEBUG] [ADMIN] P' + p.rank + ' locked:', filled.map((r, i) => 'R' + i + '=' + r));
+            }
           }
         }
         console.log('[RECALC_DEBUG] [ADMIN] === RECALC END ===');
@@ -1798,7 +1813,7 @@ export default function LadderForm({
       let matches: MatchData[] = result.matches;
       let playerResultsByMatch: Map<string, PlayerMatchResult[]> | undefined = result.playerResultsByMatch;
 
-      if (shouldLog(5)) {
+      if (shouldLog(3)) {
         console.log(`\n=== RECALC START ===`);
         console.log(`Matches to process: ${matches.length}`);
       }
@@ -1806,25 +1821,32 @@ export default function LadderForm({
    console.log('[RECALC_DEBUG] === RECALC START ===');
     console.log('[RECALC_DEBUG] Input matches count:', matches.length);
     console.log('[RECALC_DEBUG] Input matches:', JSON.stringify(matches.map(m => ({p1:m.player1, p2:m.player2, p3:m.player3, p4:m.player4, s1:m.score1, s2:m.score2}))));
-    
+
+    if (shouldLog(2)) {
+      console.log(`[REPOPULATE] Starting repopulateGameResults (O(N*R)): ${players.length} players x ${matches.length} matches`);
+    }
     const processedPlayers = repopulateGameResults(players, matches, 31, playerResultsByMatch);
     
-    console.log('[RECALC_DEBUG] After repopulateGameResults:');
-    for (const p of processedPlayers) {
-      const filled = (p.gameResults || []).filter((r, i) => r && r.trim() && r.trim() !== '');
-      if (filled.length > 0) {
-        console.log('[RECALC_DEBUG] P' + p.rank + ' results:', filled.map((r, i) => 'R' + i + '=' + r));
+    if (shouldLog(3)) {
+      console.log('[RECALC_DEBUG] After repopulateGameResults:');
+      for (const p of processedPlayers) {
+        const filled = (p.gameResults || []).filter((r, i) => r && r.trim() && r.trim() !== '');
+        if (filled.length > 0) {
+          console.log('[RECALC_DEBUG] P' + p.rank + ' results:', filled.map((r, i) => 'R' + i + '=' + r));
+        }
       }
     }
-    
+
     const calculatedPlayers = calculateRatings(processedPlayers, matches).players;
     const normalizedPlayers = normalizePlayersAttendance(normalizePlayersTrophy(calculatedPlayers));
 
-    console.log('[RECALC_DEBUG] After calculateRatings + normalize:');
-    for (const p of normalizedPlayers) {
-      const filled = (p.gameResults || []).filter((r, i) => r && r.trim() && r.trim() !== '');
-      if (filled.length > 0) {
-        console.log('[RECALC_DEBUG] P' + p.rank + ' results:', filled.map((r, i) => 'R' + i + '=' + r));
+    if (shouldLog(3)) {
+      console.log('[RECALC_DEBUG] After calculateRatings + normalize:');
+      for (const p of normalizedPlayers) {
+        const filled = (p.gameResults || []).filter((r, i) => r && r.trim() && r.trim() !== '');
+        if (filled.length > 0) {
+          console.log('[RECALC_DEBUG] P' + p.rank + ' results:', filled.map((r, i) => 'R' + i + '=' + r));
+        }
       }
     }
 
@@ -1834,11 +1856,13 @@ export default function LadderForm({
       gameResults: (p.gameResults || []).map(r => r && r.trim() ? `${r.replace(/_+$/, '')}_` : r),
     }));
 
-    console.log('[RECALC_DEBUG] After locking:');
-    for (const p of lockedPlayers) {
-      const filled = (p.gameResults || []).filter((r, i) => r && r.trim() && r.trim() !== '');
-      if (filled.length > 0) {
-        console.log('[RECALC_DEBUG] P' + p.rank + ' locked:', filled.map((r, i) => 'R' + i + '=' + r));
+    if (shouldLog(3)) {
+      console.log('[RECALC_DEBUG] After locking:');
+      for (const p of lockedPlayers) {
+        const filled = (p.gameResults || []).filter((r, i) => r && r.trim() && r.trim() !== '');
+        if (filled.length > 0) {
+          console.log('[RECALC_DEBUG] P' + p.rank + ' locked:', filled.map((r, i) => 'R' + i + '=' + r));
+        }
       }
     }
     console.log('[RECALC_DEBUG] === RECALC END ===');
@@ -2518,7 +2542,7 @@ export default function LadderForm({
           const cellValue = player.gameResults[round];
           if (!cellValue || cellValue.trim() === "") {
             foundCell = { playerRank: rank, round };
-            if (shouldLog(10)) {
+            if (shouldLog(3)) {
               console.log(
                 `>>> [PASTE CONTINUE] Found empty cell at Rank ${rank}, Round ${round + 1}`,
               );
@@ -2539,7 +2563,7 @@ export default function LadderForm({
             const cellValue = player.gameResults[round];
             if (!cellValue || cellValue.trim() === "") {
               foundCell = { playerRank: rank, round };
-              if (shouldLog(10)) {
+              if (shouldLog(3)) {
                 console.log(
                   `>>> [PASTE CONTINUE] Found empty cell at Rank ${rank}, Round ${round + 1}`,
                 );
@@ -3306,7 +3330,7 @@ export default function LadderForm({
     }
     
     // Server mode - save settings and check version
-    saveUserSettings({ server: serverUrl, apiKey: splashApiKey, debugMode: false });
+    saveUserSettings({ server: serverUrl, apiKey: splashApiKey });
     if (splashApiKey.trim()) {
       saveLastWorkingConfig(serverUrl, splashApiKey);
     }
@@ -3346,7 +3370,7 @@ export default function LadderForm({
     const trimmedServer = splashServerUrl.trim();
     
     // Save settings to localStorage before reloading
-    saveUserSettings({ server: trimmedServer, apiKey: splashApiKey, debugMode: false });
+    saveUserSettings({ server: trimmedServer, apiKey: splashApiKey });
     if (trimmedServer) {
       saveLastWorkingConfig(trimmedServer, splashApiKey);
     }
@@ -3483,7 +3507,10 @@ export default function LadderForm({
               type="text"
               placeholder="Server URL (auto-detected)"
               value={splashServerUrl}
-              onChange={(e) => setSplashServerUrl(e.target.value)}
+              onChange={(e) => {
+                debugInput("Splash:Server URL", e.target.value);
+                setSplashServerUrl(e.target.value);
+              }}
               style={{
                 padding: "0.5rem",
                 border: "1px solid #d1d5db",
@@ -3495,7 +3522,10 @@ export default function LadderForm({
               type="password"
               placeholder="API Key (optional)"
               value={splashApiKey}
-              onChange={(e) => setSplashApiKey(e.target.value)}
+              onChange={(e) => {
+                debugInput("Splash:API Key", e.target.value);
+                setSplashApiKey(e.target.value);
+              }}
               style={{
                 padding: "0.5rem",
                 border: "1px solid #d1d5db",
@@ -3506,8 +3536,8 @@ export default function LadderForm({
           </div>
           
           <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center", flexWrap: "wrap" }}>
-            <button
-              onClick={handleSplashConnect}
+<button
+               onClick={() => { debugClick("Splash:Connect"); handleSplashConnect(); }}
               style={{
                 padding: "0.625rem 1.25rem",
                 backgroundColor: "#3b82f6",
@@ -3521,8 +3551,8 @@ export default function LadderForm({
             >
               Connect
             </button>
-            <button
-              onClick={() => setShowSettings?.(true)}
+<button
+               onClick={() => { debugClick("Splash:Settings"); setShowSettings?.(true); }}
               style={{
                 padding: "0.625rem 1.25rem",
                 backgroundColor: "white",
@@ -3551,8 +3581,8 @@ export default function LadderForm({
         
         {/* Local Options */}
         <div>
-          <button
-            onClick={() => fileInputRef.current?.click()}
+<button
+             onClick={() => { debugClick("Splash:Load File"); fileInputRef.current?.click(); }}
             style={{
               padding: "0.75rem 1.5rem",
               backgroundColor: "#3b82f6",
@@ -3566,12 +3596,13 @@ export default function LadderForm({
           >
             Load File
           </button>
-          <button
-            onClick={() => {
-              const samplePlayers = loadSampleData();
-              setPlayers(samplePlayers);
-              setSortBy(null);
-            }}
+<button
+             onClick={() => {
+               debugClick("Splash:Load Sample Data");
+               const samplePlayers = loadSampleData();
+               setPlayers(samplePlayers);
+               setSortBy(null);
+             }}
             style={{
               padding: "0.75rem 1.5rem",
               backgroundColor: "#10b981",
@@ -3585,8 +3616,8 @@ export default function LadderForm({
             Load Sample Data
           </button>
           {!isAdmin && (
-            <button
-              onClick={handleSplashEnterAdminMode}
+<button
+               onClick={() => { debugClick("Splash:Enter Admin Mode"); handleSplashEnterAdminMode(); }}
               style={{
                 padding: "0.75rem 1.5rem",
                 backgroundColor: "#8b5cf6",
@@ -3740,6 +3771,7 @@ export default function LadderForm({
               <div style={{ display: "flex", gap: "0.75rem", marginBottom: "1rem" }}>
                 <button
                   onClick={async () => {
+                    debugClick("Override:Wait");
                     setShowOverrideDialog(false);
                     const acquired = await tryAcquireAdminLock();
                     if (acquired) {
@@ -3764,6 +3796,7 @@ export default function LadderForm({
                 
                 <button
                   onClick={async () => {
+                    debugClick("Override:Force");
                     setShowOverrideDialog(false);
                     const acquired = await forceAcquireAdminLock();
                     if (acquired) {
@@ -3833,7 +3866,7 @@ export default function LadderForm({
               
               <div style={{ display: "flex", gap: "0.75rem" }}>
                 <button
-                  onClick={() => setShowVersionWarningDialog(false)}
+                  onClick={() => { debugClick("VersionWarning:Cancel"); setShowVersionWarningDialog(false); }}
                   style={{
                     flex: 1,
                     padding: "0.75rem 1rem",
@@ -3850,6 +3883,7 @@ export default function LadderForm({
                 </button>
                 <button
                   onClick={async () => {
+                    debugClick("VersionWarning:Enter Admin Mode");
                     setShowVersionWarningDialog(false);
                     const serverUrl = getServerUrl();
                     if (!serverUrl) {
@@ -4012,17 +4046,18 @@ export default function LadderForm({
             )}
 
             <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-              <button
-                onClick={() => {
-                  console.log('[ServerDownDialog] Proceeding in local mode');
-                  if (splashServerUrl.trim()) {
-                    saveLastWorkingConfig(splashServerUrl.trim(), splashApiKey);
-                    saveUserSettings({ server: '', apiKey: '', debugMode: false });
-                    console.log('[ServerDownDialog] Saved last working config, clearing server URL for local mode');
-                  }
-                  onDismissServerDown?.();
-                  setTimeout(() => window.location.reload(), 300);
-                }}
+<button
+                 onClick={() => {
+                   debugClick("ServerDown:Local Mode");
+                   console.log('[ServerDownDialog] Proceeding in local mode');
+                   if (splashServerUrl.trim()) {
+                     saveLastWorkingConfig(splashServerUrl.trim(), splashApiKey);
+                     saveUserSettings({ server: '', apiKey: '' });
+                     console.log('[ServerDownDialog] Saved last working config, clearing server URL for local mode');
+                   }
+                   onDismissServerDown?.();
+                   setTimeout(() => window.location.reload(), 300);
+                 }}
                 style={{
                   padding: "0.875rem 1.5rem",
                   backgroundColor: "#f59e0b",
@@ -4037,12 +4072,13 @@ export default function LadderForm({
                 Proceed in Local Mode
               </button>
               
-              <button
-                onClick={() => {
-                  console.log('[ServerDownDialog] Opening settings, hiding blocking dialog');
-                  onDismissServerDown?.();
-                  setShowSettings?.(true);
-                }}
+<button
+                 onClick={() => {
+                   debugClick("ServerDown:Change Settings");
+                   console.log('[ServerDownDialog] Opening settings, hiding blocking dialog');
+                   onDismissServerDown?.();
+                   setShowSettings?.(true);
+                 }}
                 style={{
                   padding: "0.875rem 1.5rem",
                   backgroundColor: "white",
@@ -4057,9 +4093,9 @@ export default function LadderForm({
                 Change Server Settings
               </button>
               
-              <button
-                onClick={handleRetryConnection}
-                disabled={isRetryingConnection}
+<button
+                 onClick={() => { debugClick("ServerDown:Retry"); handleRetryConnection(); }}
+                 disabled={isRetryingConnection}
                 style={{
                   padding: "0.875rem 1.5rem",
                   backgroundColor: isRetryingConnection ? "#9ca3af" : "#3b82f6",
@@ -4386,8 +4422,8 @@ export default function LadderForm({
                 {players.length}
               </div>
             </div>
-            <button
-              onClick={() => setIsMobileMenuOpen(true)}
+<button
+               onClick={() => { debugClick("Mobile Menu"); setIsMobileMenuOpen(true); }}
               style={{
                 background: "rgba(255, 255, 255, 0.1)",
                 color: "white",
@@ -4403,22 +4439,23 @@ export default function LadderForm({
         </div>
         {isMiniGameTitle(projectName) && (
           <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-            <button
-              onClick={async () => {
-                try {
-                  if (window.confirm('Save current mini-game file?')) {
-                    const userSettings = loadUserSettings();
-                    const serverUrl = userSettings.server?.trim();
-                    if (serverUrl) {
-                      await dataService.saveMiniGameFile(projectName);
-                      alert('Mini-game file saved');
-                    }
-                  }
-                } catch (error) {
-                  console.error('Failed to save mini-game file:', error);
-                  alert('Failed to save: ' + (error as Error).message);
-                }
-              }}
+<button
+               onClick={async () => {
+                 debugClick("MiniGame:Save");
+                 try {
+                   if (window.confirm('Save current mini-game file?')) {
+                     const userSettings = loadUserSettings();
+                     const serverUrl = userSettings.server?.trim();
+                     if (serverUrl) {
+                       await dataService.saveMiniGameFile(projectName);
+                       alert('Mini-game file saved');
+                     }
+                   }
+                 } catch (error) {
+                   console.error('Failed to save mini-game file:', error);
+                   alert('Failed to save: ' + (error as Error).message);
+                 }
+               }}
               style={{
                 padding: "0.375rem 0.75rem",
                 backgroundColor: "#16a34a",
@@ -4432,16 +4469,17 @@ export default function LadderForm({
             >
               Save Mini-Game
             </button>
-            <button
-              onClick={async () => {
-                try {
-                  const blob = await dataService.exportTournamentFiles();
-                  downloadBlob(blob, `tournament_${new Date().toISOString().split('T')[0]}.zip`);
-                } catch (error) {
-                  console.error('Failed to export:', error);
-                  alert('Failed to export: ' + (error as Error).message);
-                }
-              }}
+<button
+               onClick={async () => {
+                 debugClick("MiniGame:Export Files");
+                 try {
+                   const blob = await dataService.exportTournamentFiles();
+                   downloadBlob(blob, `tournament_${new Date().toISOString().split('T')[0]}.zip`);
+                 } catch (error) {
+                   console.error('Failed to export:', error);
+                   alert('Failed to export: ' + (error as Error).message);
+                 }
+               }}
               style={{
                 padding: "0.375rem 0.75rem",
                 backgroundColor: "#0284c7",
@@ -5654,9 +5692,9 @@ export default function LadderForm({
           onUpdatePlayerData={handleUpdatePlayerData}
           isAdmin={isAdmin}
           onAddPlayer={handleAddPlayer}
-          debugMode={debugMode}
-        />
-      )}
+debugLevel={debugLevel}
+          />
+        )}
       {entryCell &&
         !isRecalculating &&
         !isWalkthrough &&
@@ -5685,7 +5723,7 @@ export default function LadderForm({
             onUpdatePlayerData={handleUpdatePlayerData}
             isAdmin={isAdmin}
             onAddPlayer={handleAddPlayer}
-            debugMode={debugMode}
+            debugLevel={debugLevel}
           />
         )}
       {currentError && (

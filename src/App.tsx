@@ -714,13 +714,13 @@ async function determineMode(): Promise<{ mode: DataServiceMode; serverUrl?: str
     if (!isValidServerUrl(serverUrl)) {
       console.log('[App] Stored server URL invalid (missing subdomain prefix), clearing and re-running auto-detection');
       const settings = loadUserSettings();
-      localStorage.setItem(getUserSettingsKey(), JSON.stringify({ server: '', apiKey: settings.apiKey, debugMode: settings.debugMode }));
+      localStorage.setItem(getUserSettingsKey(), JSON.stringify({ server: '', apiKey: settings.apiKey }));
     } else {
       const isValid = await validateServerUrl(serverUrl);
       if (!isValid) {
         console.log('[App] Stored server URL unreachable, clearing and re-running auto-detection');
         const settings = loadUserSettings();
-        localStorage.setItem(getUserSettingsKey(), JSON.stringify({ server: '', apiKey: settings.apiKey, debugMode: settings.debugMode }));
+        localStorage.setItem(getUserSettingsKey(), JSON.stringify({ server: '', apiKey: settings.apiKey }));
       } else {
         console.log('[App] Using USER SETTINGS server:', serverUrl);
         if (serverUrl.includes('localhost') || serverUrl.includes('127.0.0.1')) {
@@ -824,7 +824,7 @@ async function determineMode(): Promise<{ mode: DataServiceMode; serverUrl?: str
   
   if (autoDetectedUrl) {
     sessionStorage.setItem('autoDetectedServerUrl', autoDetectedUrl);
-    saveUserSettings({ server: autoDetectedUrl, apiKey: existingSettings.apiKey, debugMode: false });
+    saveUserSettings({ server: autoDetectedUrl, apiKey: existingSettings.apiKey });
     return { mode: DataServiceMode.SERVER, serverUrl: autoDetectedUrl };
   }
 

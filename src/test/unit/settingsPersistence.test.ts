@@ -138,7 +138,6 @@ describe('Settings persistence', () => {
       const settings = {
         server: 'http://omen.com:3000',
         apiKey: 'test-key',
-        debugMode: true,
       };
       
       localStorage.setItem(userSettingsKey, JSON.stringify(settings));
@@ -153,7 +152,7 @@ describe('Settings persistence', () => {
       const userSettingsKey = prefix + 'ladder_user_settings';
       
       // Save
-      const settings = { server: 'http://omen.com:3000', apiKey: '', debugMode: false };
+      const settings = { server: 'http://omen.com:3000', apiKey: '' };
       localStorage.setItem(userSettingsKey, JSON.stringify(settings));
       
       // "Reload" — in real app this would be a fresh localStorage

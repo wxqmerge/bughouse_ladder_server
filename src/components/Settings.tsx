@@ -17,6 +17,7 @@ import {
 import "../css/index.css";
 import { getSettings, saveSettings } from "../services/storageService";
 import { loadUserSettings, saveUserSettings, normalizeServerUrl, getLastWorkingConfig, type UserSettings } from "../services/userSettingsStorage";
+import { debugClick, debugInput } from "../utils/debug";
 
 interface ActionSettings {
   showRatings: boolean[];
@@ -61,7 +62,6 @@ export default function Settings({
   // Server settings state
   const [serverUrl, setServerUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
-  const [debugMode, setDebugMode] = useState(false);
   const [lastWorkingConfig, setLastWorkingConfig] = useState<{ server: string; apiKey: string } | null>(null);
 
   useEffect(() => {
@@ -81,7 +81,6 @@ export default function Settings({
     const detectedOrigin = window.location.origin;
     setServerUrl(normalizeServerUrl(userSettings.server) || detectedOrigin);
     setApiKey(userSettings.apiKey || '');
-    setDebugMode(userSettings.debugMode || false);
     
     const lwc = getLastWorkingConfig();
     if (lwc) {
@@ -90,6 +89,7 @@ export default function Settings({
   }, []);
 
   const handleSave = () => {
+    debugClick("Settings:Save");
     console.log(">>> [BUTTON PRESSED] Save (Settings)");
     if (isAdmin) {
       const settings = {
@@ -104,7 +104,6 @@ export default function Settings({
     const userSettings: UserSettings = {
       server: serverUrl.trim(),
       apiKey: apiKey.trim(),
-      debugMode: debugMode,
     };
     saveUserSettings(userSettings);
     
@@ -130,12 +129,12 @@ export default function Settings({
     const userSettings: UserSettings = {
       server: serverUrl.trim(),
       apiKey: apiKey.trim(),
-      debugMode: debugMode,
     };
     onSaveBeforeAction?.(settings, userSettings);
   };
 
   const handleClearAll = () => {
+    debugClick("Settings:Set Sample Data");
     console.log(">>> [BUTTON PRESSED] Set Sample Data");
     if (
       window.confirm(
@@ -149,6 +148,7 @@ export default function Settings({
   };
 
   const handleClearData = () => {
+    debugClick("Settings:Clear All");
     console.log(">>> [BUTTON PRESSED] Clear All");
     if (
       window.confirm(
@@ -162,6 +162,7 @@ export default function Settings({
   };
 
   const handleNewDay = () => {
+    debugClick("Settings:New Day");
     console.log(">>> [BUTTON PRESSED] New Day");
     if (
       window.confirm(
@@ -175,6 +176,7 @@ export default function Settings({
   };
 
   const handleNewDayWithReRank = () => {
+    debugClick("Settings:New Day + Re-rank");
     console.log(">>> [BUTTON PRESSED] New Day with Re-rank");
     if (
       window.confirm(
@@ -226,7 +228,7 @@ export default function Settings({
             Settings
           </h2>
           <button
-            onClick={onClose}
+            onClick={() => { debugClick("Settings:Close"); onClose(); }}
             style={{ background: "none", border: "none", cursor: "pointer" }}
           >
             <X size={24} />
@@ -300,6 +302,7 @@ export default function Settings({
                 value={debugLevel}
                 onChange={(e) => {
                   const parsed = parseInt(e.target.value, 10);
+                  debugInput("Debug Level", e.target.value);
                   setDebugLevel(
                     e.target.value === '' || isNaN(parsed) ? 5 : Math.max(0, Math.min(20, parsed)),
                   );
@@ -338,16 +341,17 @@ export default function Settings({
                 K-Factor (Elo volatility)
               </label>
               <input
-                type="number"
-                id="kFactor"
-                min="1"
-                max="100"
-                value={kFactor}
-                onChange={(e) =>
-                  setKFactor(
-                    Math.max(1, Math.min(100, parseInt(e.target.value) || 20)),
-                  )
-                }
+                 type="number"
+                 id="kFactor"
+                 min="1"
+                 max="100"
+                 value={kFactor}
+                 onChange={(e) => {
+                   debugInput("K-Factor", e.target.value);
+                   setKFactor(
+                     Math.max(1, Math.min(100, parseInt(e.target.value) || 20)),
+                   );
+                 }}
                 style={{
                   width: "100%",
                   padding: "0.5rem",
@@ -445,6 +449,7 @@ export default function Settings({
                   {onClearMiniGames && (
                     <button
                       onClick={() => {
+                        debugClick("Settings:Clear Mini-Games");
                         if (window.confirm("Clear all mini-game files? This will remove all 7 mini-game .tab files and end tournament mode.")) {
                           saveForAction();
                           onClearMiniGames();
@@ -474,6 +479,7 @@ export default function Settings({
                   {isTournamentActive && onExportTournamentFiles && (
                     <button
                       onClick={() => {
+                        debugClick("Settings:Export Tournament Files");
                         saveForAction();
                         onClose();
                         onExportTournamentFiles();
@@ -502,6 +508,7 @@ export default function Settings({
                   {!isTournamentActive && onImportTournamentFiles && (
                     <button
                       onClick={() => {
+                        debugClick("Settings:Import Tournament Files");
                         saveForAction();
                         onClose();
                         onImportTournamentFiles();
@@ -530,6 +537,7 @@ export default function Settings({
                   {onGenerateTrophies && (
                     <button
                       onClick={() => {
+                        debugClick("Settings:Generate Trophies");
                         saveForAction();
                         onClose();
                         onGenerateTrophies();
@@ -558,6 +566,7 @@ export default function Settings({
                   {onWalkThroughReports && (
                     <button
                       onClick={() => {
+                        debugClick("Settings:Walk Through Reports");
                         saveForAction();
                         onClose();
                         onWalkThroughReports();
@@ -665,6 +674,7 @@ export default function Settings({
               {lastWorkingConfig && (
                 <button
                   onClick={() => {
+                    debugClick("Settings:Restore Last Server Config");
                     setServerUrl(lastWorkingConfig.server);
                     setApiKey(lastWorkingConfig.apiKey);
                   }}
@@ -701,11 +711,14 @@ export default function Settings({
               >
                 Server URL
               </label>
-              <input
-                type="text"
-                id="serverUrl"
-                value={serverUrl}
-                onChange={(e) => setServerUrl(normalizeServerUrl(e.target.value))}
+             <input
+                 type="text"
+                 id="serverUrl"
+                 value={serverUrl}
+                 onChange={(e) => {
+                   debugInput("Server URL", e.target.value);
+                   setServerUrl(normalizeServerUrl(e.target.value));
+                 }}
                 placeholder="http://omen.com:3000 or omen.com:3000"
                 style={{
                   width: "100%",
@@ -740,11 +753,14 @@ export default function Settings({
               >
                 API Key
               </label>
-              <input
-                type="password"
-                id="apiKey"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
+            <input
+                 type="password"
+                 id="apiKey"
+                 value={apiKey}
+                 onChange={(e) => {
+                   debugInput("API Key", e.target.value);
+                   setApiKey(e.target.value);
+                 }}
                 placeholder="Your API key (optional)"
                 style={{
                   width: "100%",
@@ -767,35 +783,11 @@ export default function Settings({
             </div>
           </div>
           
-          {/* Debug Mode Checkbox */}
-          <div style={{ gridColumn: '1 / -1', marginTop: '0.5rem' }}>
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                fontSize: "0.875rem",
-                color: "#6b7280",
-                cursor: "pointer",
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={debugMode}
-                onChange={(e) => setDebugMode(e.target.checked)}
-                style={{
-                  width: "16px",
-                  height: "16px",
-                  cursor: "pointer",
-                }}
-              />
-              <span>Debug mode (show extra info in dialogs)</span>
-            </label>
-          </div>
+          
         </div>
 
         <div style={{ display: "flex", gap: "1rem", marginTop: "2rem" }}>
-          <button onClick={onClose}>Cancel</button>
+          <button onClick={() => { debugClick("Settings:Cancel"); onClose(); }}>Cancel</button>
           <button onClick={handleSave}>Save</button>
         </div>
       </div>
