@@ -1444,24 +1444,22 @@ export default function ErrorDialog({
             {/* Enter-Games mode: Cancel + Enter_Recalculate_Save */}
 {isEnterGames ? (
               <>
-                {((existingValue && existingValue.trim()) || hasOtherResultInRound) && (
-                  <button
-                    type="button"
-                    onClick={onToggleOverrideMode}
-                    style={{
-                      padding: "0.5rem 0.75rem",
-                      background: isOverrideMode ? "#f59e0b" : "#f3f4f6",
-                      border: isOverrideMode ? "2px solid #d97706" : "1px solid #d1d5db",
-                      borderRadius: "0.25rem",
-                      cursor: "pointer",
-                      fontSize: "0.75rem",
-                      color: isOverrideMode ? "white" : "#374151",
-                      fontWeight: isOverrideMode ? "600" : "400",
-                    }}
-                  >
-                    {isOverrideMode ? "⚠ Override ON" : "Override"}
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={onToggleOverrideMode}
+                  style={{
+                    padding: "0.5rem 0.75rem",
+                    background: isOverrideMode ? "#f59e0b" : "#f3f4f6",
+                    border: isOverrideMode ? "2px solid #d97706" : "1px solid #d1d5db",
+                    borderRadius: "0.25rem",
+                    cursor: "pointer",
+                    fontSize: "0.75rem",
+                    color: isOverrideMode ? "white" : "#374151",
+                    fontWeight: isOverrideMode ? "600" : "400",
+                  }}
+                >
+                  {isOverrideMode ? "⚠ Override ON" : "Override"}
+                </button>
                 <button
                   type="button"
                   onClick={onClose}
