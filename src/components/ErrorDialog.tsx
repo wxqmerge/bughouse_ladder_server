@@ -161,6 +161,7 @@ export default function ErrorDialog({
   const [displayPlayer4, setDisplayPlayer4] = useState<PlayerData | null>(null);
   const [extractedResults, setExtractedResults] = useState<string[]>([]);
   const [invalidPlayerRanks, setInvalidPlayerRanks] = useState<Map<number, number>>(new Map());
+  const [hasOtherResultInRound, setHasOtherResultInRound] = useState(false);
 
   const displayOriginalString = error
     ? error.originalString?.toUpperCase() || ""
@@ -414,6 +415,23 @@ export default function ErrorDialog({
       inputRef.current.focus();
     }
   }, [existingValue, error]);
+
+  // Check if other players have results in the same round (for Override button)
+  useEffect(() => {
+    if (!entryCell || mode !== "enter-games") {
+      setHasOtherResultInRound(false);
+      return;
+    }
+    const { playerRank, round } = entryCell;
+    let hasOther = false;
+    for (const p of players) {
+      if (p.rank !== playerRank && p.gameResults?.[round]?.replace(/_+$/, "")) {
+        hasOther = true;
+        break;
+      }
+    }
+    setHasOtherResultInRound(hasOther);
+  }, [entryCell?.playerRank, entryCell?.round, players, mode]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   // Restore cursor position after input changes
@@ -1283,7 +1301,7 @@ export default function ErrorDialog({
             {/* Enter-Games mode: Cancel + Enter_Recalculate_Save */}
 {isEnterGames ? (
               <>
-                {existingValue && existingValue.trim() && (
+                {((existingValue && existingValue.trim()) || hasOtherResultInRound) && (
                   <button
                     type="button"
                     onClick={onToggleOverrideMode}
