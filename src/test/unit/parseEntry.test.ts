@@ -393,4 +393,50 @@ describe('parseEntry (via updatePlayerGameData)', () => {
       expect(result.parsedScoreList).toEqual([3, 1]); // W=3, L=1
     });
   });
+
+  describe('normalizedString', () => {
+    it('should normalize "12:1LD3:4" to "1:12LD3:4_"', () => {
+      const result = updatePlayerGameData('12:1LD3:4');
+      expect(result.isValid).toBe(true);
+      expect(result.normalizedString).toBe('1:12LD3:4_');
+    });
+
+    it('should normalize "4:3WD12:1" to same "1:12LD3:4_" as "12:1LD3:4"', () => {
+      const r1 = updatePlayerGameData('12:1LD3:4');
+      const r2 = updatePlayerGameData('4:3WD12:1');
+      expect(r1.normalizedString).toBe('1:12LD3:4_');
+      expect(r2.normalizedString).toBe('1:12LD3:4_');
+      expect(r1.normalizedString).toBe(r2.normalizedString);
+    });
+
+    it('should normalize "12:1WD3:4" to "1:12WD3:4_"', () => {
+      const result = updatePlayerGameData('12:1WD3:4');
+      expect(result.isValid).toBe(true);
+      expect(result.normalizedString).toBe('1:12WD3:4_');
+    });
+
+    it('should normalize "12:1DD3:4" to "1:12DD3:4_"', () => {
+      const result = updatePlayerGameData('12:1DD3:4');
+      expect(result.isValid).toBe(true);
+      expect(result.normalizedString).toBe('1:12DD3:4_');
+    });
+
+    it('should normalize 2-player "12W13" (no swap)', () => {
+      const result = updatePlayerGameData('12W13');
+      expect(result.isValid).toBe(true);
+      expect(result.normalizedString).toBe('12W13_');
+    });
+
+    it('should normalize 2-player "13W12" (swap players)', () => {
+      const result = updatePlayerGameData('13W12');
+      expect(result.isValid).toBe(true);
+      expect(result.normalizedString).toBe('12L13_');
+    });
+
+    it('should omit underscore when addUnderscore=false', () => {
+      const result = updatePlayerGameData('12:1LD3:4', false);
+      expect(result.isValid).toBe(true);
+      expect(result.normalizedString).toBe('1:12LD3:4');
+    });
+  });
 });

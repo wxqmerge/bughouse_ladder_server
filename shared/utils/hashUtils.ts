@@ -1416,13 +1416,43 @@ export function updatePlayerGameData(
     };
   }
 
-  const resultString = addUnderscore ? input + "_" : input;
   const parsedPlayer1Rank = parsedPlayersList[5];
   const parsedPlayer2Rank = parsedPlayersList[6];
   const parsedPlayer3Rank = parsedPlayersList[7];
   const parsedPlayer4Rank = parsedPlayersList[8];
 
-  console.log('[DEBUG-TRACE] === updatePlayerGameData EXIT === input="' + input + '" addUnderscore=' + addUnderscore + ' -> resultString="' + resultString + '" originalString="' + input + '" p1=' + parsedPlayer1Rank + ' p2=' + parsedPlayer2Rank + ' p3=' + parsedPlayer3Rank + ' p4=' + parsedPlayer4Rank + ' scores=[' + parsedScoreList[0] + ',' + parsedScoreList[1] + ']');
+  // Detect if original input had trailing underscore
+  const hasOriginalUnderscore = input.endsWith("_");
+
+  // Build normalized result string (parseEntry normalizes 4P but NOT 2P)
+  const is4Player = parsedPlayersList[2] > 0 && parsedPlayersList[3] > 0;
+  let normalizedString: string;
+  if (is4Player) {
+    // 4P: players[0-3] already normalized by parseEntry
+    const normS1 = scoreCodeToLetter(parsedScoreList[0]);
+    if (parsedScoreList[1] > 0) {
+      const normS2 = scoreCodeToLetter(parsedScoreList[1]);
+      normalizedString = `${parsedPlayersList[0]}:${parsedPlayersList[1]}${normS1}${normS2}${parsedPlayersList[2]}:${parsedPlayersList[3]}`;
+    } else {
+      normalizedString = `${parsedPlayersList[0]}:${parsedPlayersList[1]}${normS1}${parsedPlayersList[2]}:${parsedPlayersList[3]}`;
+    }
+  } else {
+    // 2P: need to normalize (parseEntry does NOT normalize 2P)
+    const norm = normalize2Player(parsedPlayersList[0], parsedPlayersList[1]);
+    const swapped = parsedPlayersList[0] > parsedPlayersList[1];
+    const ns1 = swapped ? swapScore(parsedScoreList[0]) : parsedScoreList[0];
+    const normS1 = scoreCodeToLetter(ns1);
+    if (parsedScoreList[1] > 0) {
+      const ns2 = swapped ? swapScore(parsedScoreList[1]) : parsedScoreList[1];
+      const normS2 = scoreCodeToLetter(ns2);
+      normalizedString = `${norm[0]}${normS1}${normS2}${norm[1]}`;
+    } else {
+      normalizedString = `${norm[0]}${normS1}${norm[1]}`;
+    }
+  }
+  const resultString = (addUnderscore || hasOriginalUnderscore) ? normalizedString + "_" : normalizedString;
+
+  console.log('[DEBUG-TRACE] === updatePlayerGameData EXIT === input="' + input + '" addUnderscore=' + addUnderscore + ' -> resultString="' + resultString + '" normalized="' + normalizedString + '" originalString="' + input + '" p1=' + parsedPlayer1Rank + ' p2=' + parsedPlayer2Rank + ' p3=' + parsedPlayer3Rank + ' p4=' + parsedPlayer4Rank + ' scores=[' + parsedScoreList[0] + ',' + parsedScoreList[1] + ']');
 
   return {
     isValid: true,
@@ -1430,6 +1460,7 @@ export function updatePlayerGameData(
     parsedScoreList: parsedScoreList,
     originalString: input,
     resultString,
+    normalizedString: resultString,
     parsedPlayer1Rank,
     parsedPlayer2Rank,
     parsedPlayer3Rank,
