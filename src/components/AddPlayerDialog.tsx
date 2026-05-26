@@ -6,8 +6,9 @@ import { debugInput } from "../utils/debug";
 interface AddPlayerDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onAdd: (player: Omit<PlayerData, "rank" | "nRating" | "gameResults">) => void;
+  onAdd: (player: Omit<PlayerData, "rank" | "nRating" | "gameResults">, rank?: number) => void;
   currentPlayerCount?: number;
+  suggestedRank?: number;
 }
 
 export default function AddPlayerDialog({
@@ -15,6 +16,7 @@ export default function AddPlayerDialog({
   onClose,
   onAdd,
   currentPlayerCount,
+  suggestedRank,
 }: AddPlayerDialogProps) {
   const [group, setGroup] = useState("");
   const [lastName, setLastName] = useState("");
@@ -25,10 +27,14 @@ export default function AddPlayerDialog({
   const [info, setInfo] = useState("");
   const [school, setSchool] = useState("");
   const [room, setRoom] = useState("");
+  const [customRank, setCustomRank] = useState<number | undefined>(undefined);
 
-  // Calculate next available rank (auto-assigned, read-only)
-  const nextRank =
-    currentPlayerCount !== undefined ? currentPlayerCount + 1 : 1;
+  // Calculate next available rank
+  const nextRank = customRank !== undefined
+    ? customRank
+    : (suggestedRank !== undefined
+      ? suggestedRank
+      : (currentPlayerCount !== undefined ? currentPlayerCount + 1 : 1));
 
   useEffect(() => {
     if (isOpen) {
@@ -46,6 +52,7 @@ export default function AddPlayerDialog({
     setInfo("");
     setSchool("");
     setRoom("");
+    setCustomRank(undefined);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -71,7 +78,7 @@ export default function AddPlayerDialog({
       attendance: nextRank,
     };
 
-    onAdd(newPlayer);
+    onAdd(newPlayer, nextRank);
     resetForm();
     onClose();
   };
@@ -123,7 +130,7 @@ export default function AddPlayerDialog({
             }}
           >
             <UserPlus size={24} />
-            Add New Player
+            {suggestedRank !== undefined ? `Add Player (Rank ${suggestedRank})` : 'Add New Player'}
           </h2>
           <button
             onClick={onClose}
@@ -160,13 +167,14 @@ export default function AddPlayerDialog({
                   marginBottom: "0.5rem",
                 }}
               >
-                Rank (Auto-assigned)
+                {suggestedRank !== undefined ? 'Rank' : 'Rank (Auto-assigned)'}
               </label>
               <input
                 type="number"
                 id="rank"
                 value={nextRank.toString()}
-                readOnly
+                readOnly={!suggestedRank}
+                onChange={(e) => { debugInput("AddPlayer:Rank", e.target.value); setCustomRank(parseInt(e.target.value) || undefined); }}
                 style={{
                   width: "100%",
                   padding: "0.5rem",
@@ -174,8 +182,8 @@ export default function AddPlayerDialog({
                   borderRadius: "0.25rem",
                   fontSize: "0.875rem",
                   boxSizing: "border-box",
-                  backgroundColor: "#f3f4f6",
-                  cursor: "not-allowed",
+                  backgroundColor: suggestedRank ? "#ffffff" : "#f3f4f6",
+                  cursor: suggestedRank ? "text" : "not-allowed",
                 }}
               />
             </div>

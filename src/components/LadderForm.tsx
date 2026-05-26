@@ -331,6 +331,7 @@ export default function LadderForm({
     parsedPlayer2Rank: number;
   } | null>(null);
   const [isAddPlayerDialogOpen, setIsAddPlayerDialogOpen] = useState(false);
+  const [addPlayerSuggestedRank, setAddPlayerSuggestedRank] = useState<number | undefined>(undefined);
   const [showBulkPasteDialog, setShowBulkPasteDialog] = useState(false);
   const [showRestoreBackupDialog, setShowRestoreBackupDialog] = useState(false);
   const [pendingImport, setPendingImport] = useState<{
@@ -3229,6 +3230,7 @@ export default function LadderForm({
 
   const handleAddPlayerSubmit = (
     playerData: Omit<PlayerData, "rank" | "nRating" | "gameResults">,
+    suggestedRank?: number,
   ) => {
     // Mark local changes if we're in server down mode
     if (isServerDownMode()) {
@@ -3240,7 +3242,7 @@ export default function LadderForm({
         (max, p) => Math.max(max, p.rank || 0),
         0,
       );
-      const newRank = maxRank + 1;
+      const newRank = suggestedRank !== undefined ? suggestedRank : maxRank + 1;
 
       const newPlayer: PlayerData = {
         ...playerData,
@@ -5781,8 +5783,8 @@ export default function LadderForm({
           onClearCell={clearCurrentCell}
           onUpdatePlayerData={handleUpdatePlayerData}
           isAdmin={isAdmin}
-          onAddPlayer={handleAddPlayer}
-debugLevel={debugLevel}
+onAddPlayer={(rank) => { setAddPlayerSuggestedRank(rank); setIsAddPlayerDialogOpen(true); }}
+          debugLevel={debugLevel}
           />
         )}
 {entryCell &&
@@ -5814,7 +5816,7 @@ onEnterRecalculateSave={handleEnterRecalculateSave}
              onToggleOverrideMode={() => setIsEnterGamesOverride(prev => !prev)}
             onUpdatePlayerData={handleUpdatePlayerData}
             isAdmin={isAdmin}
-            onAddPlayer={handleAddPlayer}
+onAddPlayer={(rank) => { setAddPlayerSuggestedRank(rank); setIsAddPlayerDialogOpen(true); }}
             debugLevel={debugLevel}
           />
         )}
@@ -5851,9 +5853,10 @@ onEnterRecalculateSave={handleEnterRecalculateSave}
       {/* Add Player Dialog */}
       <AddPlayerDialog
         isOpen={isAddPlayerDialogOpen}
-        onClose={() => setIsAddPlayerDialogOpen(false)}
+        onClose={() => { setIsAddPlayerDialogOpen(false); setAddPlayerSuggestedRank(undefined); }}
         onAdd={handleAddPlayerSubmit}
         currentPlayerCount={players.length}
+        suggestedRank={addPlayerSuggestedRank}
       />
 
       {/* Bulk Paste Dialog */}
