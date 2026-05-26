@@ -1434,6 +1434,35 @@ export default function ErrorDialog({
                     : `✗ ${parseStatus.message || getValidationErrorMessage(parseStatus.error || 0)}`}
             </p>
           )}
+          {parseStatus && parseStatus.error === 11 && isAdmin && onAddPlayer && isEnterGames && (
+            <div style={{ marginTop: "0.25rem", marginBottom: "1rem" }}>
+              {parsedGameData && [parsedGameData.player1Rank, parsedGameData.player2Rank, parsedGameData.player3Rank, parsedGameData.player4Rank]
+                .filter((r): r is number => r > 0)
+                .map((r) => {
+                  const playerExists = players.some(p => p.rank === r);
+                  if (playerExists) return null;
+                  return (
+                    <button
+                      key={r}
+                      onClick={() => onAddPlayer(r)}
+                      style={{
+                        marginRight: "0.5rem",
+                        padding: "0.25rem 0.75rem",
+                        backgroundColor: "#3b82f6",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "0.25rem",
+                        cursor: "pointer",
+                        fontSize: "0.75rem",
+                        fontWeight: "500",
+                      }}
+                    >
+                      + Add Player (Rank {r})
+                    </button>
+                  );
+                })}
+            </div>
+          )}
           <div
             style={{
               display: "flex",
