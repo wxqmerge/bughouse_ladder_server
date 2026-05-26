@@ -331,4 +331,66 @@ describe('parseEntry (via updatePlayerGameData)', () => {
       expect(result.isValid).toBe(true);
     });
   });
+
+  describe('4-player mixed outcome scores (LD, WD, LW, etc.)', () => {
+    it('should parse "12:1LD3:4" - team1 L, team2 D', () => {
+      const result = updatePlayerGameData('12:1LD3:4');
+      expect(result.isValid).toBe(true);
+      expect(result.parsedPlayer1Rank).toBe(12);
+      expect(result.parsedPlayer2Rank).toBe(1);
+      expect(result.parsedPlayer3Rank).toBe(3);
+      expect(result.parsedPlayer4Rank).toBe(4);
+      expect(result.parsedScoreList).toEqual([1, 2]); // L=1, D=2
+    });
+
+    it('should parse "12:1WD3:4" - team1 W, team2 D', () => {
+      const result = updatePlayerGameData('12:1WD3:4');
+      expect(result.isValid).toBe(true);
+      expect(result.parsedPlayer1Rank).toBe(12);
+      expect(result.parsedPlayer2Rank).toBe(1);
+      expect(result.parsedPlayer3Rank).toBe(3);
+      expect(result.parsedPlayer4Rank).toBe(4);
+      expect(result.parsedScoreList).toEqual([3, 2]); // W=3, D=2
+    });
+
+    it('should parse "12:1DL3:4" - team1 D, team2 L', () => {
+      const result = updatePlayerGameData('12:1DL3:4');
+      expect(result.isValid).toBe(true);
+      expect(result.parsedPlayer1Rank).toBe(12);
+      expect(result.parsedPlayer2Rank).toBe(1);
+      expect(result.parsedPlayer3Rank).toBe(3);
+      expect(result.parsedPlayer4Rank).toBe(4);
+      expect(result.parsedScoreList).toEqual([2, 1]); // D=2, L=1
+    });
+
+    it('should parse "12:1DD3:4" - both teams draw', () => {
+      const result = updatePlayerGameData('12:1DD3:4');
+      expect(result.isValid).toBe(true);
+      expect(result.parsedPlayer1Rank).toBe(12);
+      expect(result.parsedPlayer2Rank).toBe(1);
+      expect(result.parsedPlayer3Rank).toBe(3);
+      expect(result.parsedPlayer4Rank).toBe(4);
+      expect(result.parsedScoreList).toEqual([2, 2]); // D=2, D=2
+    });
+
+    it('should parse "12:1LW3:4" - team1 L, team2 W', () => {
+      const result = updatePlayerGameData('12:1LW3:4');
+      expect(result.isValid).toBe(true);
+      expect(result.parsedPlayer1Rank).toBe(12);
+      expect(result.parsedPlayer2Rank).toBe(1);
+      expect(result.parsedPlayer3Rank).toBe(3);
+      expect(result.parsedPlayer4Rank).toBe(4);
+      expect(result.parsedScoreList).toEqual([1, 3]); // L=1, W=3
+    });
+
+    it('should parse "12:1WL3:4" - team1 W, team2 L', () => {
+      const result = updatePlayerGameData('12:1WL3:4');
+      expect(result.isValid).toBe(true);
+      expect(result.parsedPlayer1Rank).toBe(12);
+      expect(result.parsedPlayer2Rank).toBe(1);
+      expect(result.parsedPlayer3Rank).toBe(3);
+      expect(result.parsedPlayer4Rank).toBe(4);
+      expect(result.parsedScoreList).toEqual([3, 1]); // W=3, L=1
+    });
+  });
 });
