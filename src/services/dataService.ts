@@ -320,15 +320,35 @@ class DataService {
       }
       return this.getLocalPlayers();
     } else {
+      // SERVER mode: return cached local data instantly, then sync from server in background
+      let cachedPlayers: PlayerData[] = [];
       if (this.currentMiniGameFile) {
-        return this.fetchMiniGamePlayers();
+        cachedPlayers = await this.getLocalMiniGamePlayers();
+      } else {
+        cachedPlayers = await this.getLocalPlayers();
       }
-      const players = await this.fetchPlayers();
-      // Initialize hash on first fetch
-      if (this.lastDataHash === null) {
-        this.lastDataHash = this.computeHash(players);
-      }
-      return players;
+
+      // Fetch from server in background to sync
+      (async () => {
+        try {
+          let serverPlayers: PlayerData[];
+          if (this.currentMiniGameFile) {
+            serverPlayers = await this.fetchMiniGamePlayers();
+          } else {
+            serverPlayers = await this.fetchPlayers();
+          }
+          // Initialize hash on first fetch
+          if (this.lastDataHash === null && serverPlayers.length > 0) {
+            this.lastDataHash = this.computeHash(serverPlayers);
+          }
+          // Notify subscribers so refreshPlayers picks up the synced data
+          this.notifySubscribers();
+        } catch {
+          // Server fetch failed silently — UI keeps showing cached local data
+        }
+      })();
+
+      return cachedPlayers;
     }
   }
 
@@ -519,7 +539,17 @@ class DataService {
     }
 
     const data = await response.json();
-    return data.data.players || [];
+    const players = data.data.players || [];
+    // Cache in localStorage mini-game store
+    if (this.currentMiniGameFile && players.length > 0) {
+      const store = this.getStore();
+      await store.writeMiniGameFile(this.currentMiniGameFile, {
+        header: [],
+        players,
+        rawLines: [],
+      });
+    }
+    return players;
   }
 
   private async updateMiniGamePlayers(players: PlayerData[]): Promise<void> {
