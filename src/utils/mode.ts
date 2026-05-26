@@ -1,4 +1,5 @@
 import { loadUserSettings, saveLastWorkingConfig, getUserSettingsKey } from '../services/userSettingsStorage';
+import { gatedFetch } from './requestGate';
 
 // Connection state tracking
 let connectionState: {
@@ -62,7 +63,7 @@ export async function validateServerUrl(url: string): Promise<boolean> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
     
-    const response = await fetch(`${url}/api/ladder`, {
+    const response = await gatedFetch(`${url}/api/ladder`, {
       method: 'GET',
       signal: controller.signal,
     });
@@ -123,7 +124,7 @@ export function onModeChange(callback: (newMode: string, oldMode: string) => voi
           } else {
             connectionState.configuredForServer = true;
             connectionState.serverUrl = serverUrl;
-            console.log('[mode.ts] Using USER SETTINGS server:', connectionState.serverUrl);
+            // console.log('[mode.ts] Using USER SETTINGS server:', connectionState.serverUrl);
             connectionState.serverReachable = null;
             connectionState.lastCheckTime = Date.now();
             connectionState.previousMode = null;
@@ -147,7 +148,7 @@ export function onModeChange(callback: (newMode: string, oldMode: string) => voi
      const healthController = new AbortController();
      const healthTimeoutId = setTimeout(() => healthController.abort(), 3000);
      
-     const healthResponse = await fetch(`${origin}/health`, {
+     const healthResponse = await gatedFetch(`${origin}/health`, {
        method: 'GET',
        signal: healthController.signal,
      });
@@ -159,7 +160,7 @@ export function onModeChange(callback: (newMode: string, oldMode: string) => voi
      const apiController = new AbortController();
      const apiTimeoutId = setTimeout(() => apiController.abort(), 3000);
      
-     const apiResponse = await fetch(`${origin}/api/ladder`, {
+     const apiResponse = await gatedFetch(`${origin}/api/ladder`, {
        method: 'GET',
        signal: apiController.signal,
      });
@@ -197,7 +198,7 @@ export function onModeChange(callback: (newMode: string, oldMode: string) => voi
          
          let healthOk = false;
          try {
-           const healthResponse = await fetch(`${candidateUrl}/health`, {
+           const healthResponse = await gatedFetch(`${candidateUrl}/health`, {
              method: 'GET',
              signal: healthController.signal,
            });
@@ -215,7 +216,7 @@ export function onModeChange(callback: (newMode: string, oldMode: string) => voi
            let apiOk = false;
            let apiStatus = 0;
            try {
-             const apiResponse = await fetch(`${candidateUrl}/api/ladder`, {
+             const apiResponse = await gatedFetch(`${candidateUrl}/api/ladder`, {
                method: 'GET',
                signal: apiController.signal,
              });
@@ -285,14 +286,14 @@ export async function testServerConnection(): Promise<boolean> {
   let healthOk = false;
   let healthStatus = 0;
   try {
-    const healthResponse = await fetch(`${apiUrl}/health`, {
+    const healthResponse = await gatedFetch(`${apiUrl}/health`, {
       method: 'GET',
       signal: healthController.signal,
     });
     clearTimeout(healthTimeoutId);
     healthStatus = healthResponse.status;
     healthOk = healthResponse.ok || healthResponse.status === 404;
-    console.log('[mode.ts] testServerConnection: /health status=', healthStatus);
+    // console.log('[mode.ts] testServerConnection: /health status=', healthStatus);
   } catch (e) {
     clearTimeout(healthTimeoutId);
     console.log('[mode.ts] testServerConnection: /health error:', (e as Error).message);
@@ -304,35 +305,8 @@ export async function testServerConnection(): Promise<boolean> {
     return false;
   }
   
-  // Step 2: Verify API routes are actually accessible
-  const apiController = new AbortController();
-  const apiTimeoutId = setTimeout(() => apiController.abort(), 3000);
-  
-  let apiOk = false;
-  let apiStatus = 0;
-  try {
-    const apiResponse = await fetch(`${apiUrl}/api/ladder`, {
-      method: 'GET',
-      signal: apiController.signal,
-    });
-    clearTimeout(apiTimeoutId);
-    apiStatus = apiResponse.status;
-    // /api/ladder GET is public - should return 200 with data
-    // 404 means Express routes aren't registered (invalid server)
-    // 401/403 means auth is required (still a valid server)
-    apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403;
-    console.log('[mode.ts] testServerConnection: /api/ladder status=', apiStatus);
-  } catch (e) {
-    clearTimeout(apiTimeoutId);
-    console.log('[mode.ts] testServerConnection: /api/ladder error:', (e as Error).message);
-    return false;
-  }
-  
-  if (!apiOk) {
-    console.log('[mode.ts] testServerConnection: /api/ladder not ok (status', apiStatus, ')');
-    return false;
-  }
-  
+  // Health check passed - server is reachable. Skip /api/ladder check since
+  // LadderForm already fetches it for data, making this redundant.
   const settings = loadUserSettings();
   if (shouldSaveLastWorkingConfig(apiUrl, settings.apiKey)) {
     saveLastWorkingConfig(apiUrl, settings.apiKey);

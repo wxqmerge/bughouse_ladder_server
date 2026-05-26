@@ -20,8 +20,9 @@ import MenuBar from "./MenuBar";
 import MobileMenu from "./MobileMenu";
 import { Menu as MenuIcon, Server } from "lucide-react";
 import { shouldLog, debugClick, debugInput } from "../utils/debug";
-import { getVersionString, isLocalMode, isServerDownMode, getProgramMode, testServerConnection } from "../utils/mode";
+import { getVersionString, isLocalMode, isServerDownMode, getProgramMode, testServerConnection, isValidServerUrl } from "../utils/mode";
 import { log } from "../utils/log";
+import { gatedFetch } from "../utils/requestGate";
 import { downloadBlob } from "../utils/downloadBlob";
 import { getFontSize, getScaledPadding, getScaledGap, getScaledLineHeight } from "../utils/getFontSize";
 import { useIntervalCheck } from "../utils/useIntervalCheck";
@@ -362,6 +363,7 @@ export default function LadderForm({
   const [rankLoadErrors, setRankLoadErrors] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const latestPendingPlayersRef = useRef<PlayerData[] | null>(null);
+  const initializingRef = useRef(false);
 
   useEffect(() => {
     if (triggerWalkthrough && setTriggerWalkthrough) {
@@ -408,7 +410,10 @@ export default function LadderForm({
       // Priority 1: Check sessionStorage for auto-detected URL (from App.tsx determineMode)
       const autoDetectedUrl = sessionStorage.getItem('autoDetectedServerUrl');
       if (autoDetectedUrl) {
-        setSplashServerUrl(normalizeServerUrl(autoDetectedUrl));
+        const normalized = normalizeServerUrl(autoDetectedUrl);
+        if (normalized && isValidServerUrl(normalized)) {
+          setSplashServerUrl(normalized);
+        }
         const userSettings = loadUserSettings();
         if (userSettings.apiKey && userSettings.apiKey.trim()) {
           setSplashApiKey(userSettings.apiKey);
@@ -425,7 +430,10 @@ export default function LadderForm({
       if (subdomainMatch) {
         const projectName = subdomainMatch[1];
         const candidateUrl = `https://${projectName}.${hostname}`;
-        setSplashServerUrl(normalizeServerUrl(candidateUrl));
+        const normalized = normalizeServerUrl(candidateUrl);
+        if (normalized && isValidServerUrl(normalized)) {
+          setSplashServerUrl(normalized);
+        }
         const userSettings = loadUserSettings();
         if (userSettings.apiKey && userSettings.apiKey.trim()) {
           setSplashApiKey(userSettings.apiKey);
@@ -437,12 +445,14 @@ export default function LadderForm({
       // Priority 3: Check localStorage for saved server settings
       const userSettings = loadUserSettings();
       if (userSettings.server && userSettings.server.trim()) {
-        setSplashServerUrl(normalizeServerUrl(userSettings.server) || '');
+        const normalized = normalizeServerUrl(userSettings.server);
+        if (normalized && isValidServerUrl(normalized)) {
+          setSplashServerUrl(normalized);
+        }
         setSplashApiKey(userSettings.apiKey || '');
         setHadExistingUserSettings(true);
       } else {
-        // Pre-populate with current origin for auto-detection
-        setSplashServerUrl(window.location.origin);
+        setSplashServerUrl('');
       }
       
       // Check for local player data
@@ -564,6 +574,8 @@ export default function LadderForm({
   // VB6 Line: 894 - Initialize with storage data or sample data
     useEffect(() => {
       const initializeData = async () => {
+        if (initializingRef.current) return;
+        initializingRef.current = true;
         try {
           // Get server configuration - check sessionStorage first (auto-detected), then state, then localStorage
           const userSettings = loadUserSettings();
@@ -595,12 +607,32 @@ export default function LadderForm({
         if (serverUrl) {
           (window as any).__ladder_setStatus?.(`Connecting to ${serverUrl}...`);
           try {
-            const isMiniGame = isMiniGameTitle(projectName);
-            const apiUrl = isMiniGame 
-              ? `${serverUrl}/api/admin/tournament/read-mini-game?fileName=${titleToFileName(projectName)}`
-              : `${serverUrl}/api/ladder`;
+            let isMiniGame = isMiniGameTitle(projectName);
+            let apiUrl = `${serverUrl}/api/ladder`;
             
-            const response = await fetch(apiUrl, {
+            if (isMiniGame) {
+              const fileName = titleToFileName(projectName);
+              // Use direct fetch since dataService may not be configured to SERVER mode yet
+              let existingFiles: string[] = [];
+              try {
+                const checkResp = await gatedFetch(`${serverUrl}/api/ladder/mini-games/check`);
+                if (checkResp.ok) {
+                  const checkData = await checkResp.json();
+                  existingFiles = checkData.data?.files || [];
+                }
+              } catch (e) {
+                console.warn('[INIT] Failed to check mini-game files:', e);
+              }
+  
+              if (!existingFiles.includes(fileName)) {
+                isMiniGame = false;
+                console.log('[INIT] Mini-game file not found, falling back to ladder');
+              } else {
+                apiUrl = `${serverUrl}/api/ladder/mini-games/read?fileName=${fileName}`;
+              }
+            }
+            
+            const response = await gatedFetch(apiUrl, {
               headers: splashApiKey ? { 'X-API-Key': splashApiKey } : {},
             });
             
@@ -634,7 +666,10 @@ export default function LadderForm({
                 if (isMiniGame) {
                   dataService.setMiniGameFile(titleToFileName(projectName));
                 }
-                
+
+                // Initialize hash with fetched players to avoid redundant server request
+                dataService.setHash(serverPlayers);
+
                 console.log('[LadderForm]', `Loaded ${playersWithResults.length} players from server`);
                 (window as any).__ladder_setStatus?.(null);
                 return;
@@ -907,7 +942,7 @@ export default function LadderForm({
       const formData = new FormData();
       formData.append('file', pendingImport.file);
 
-      const response = await fetch(`${serverUrl}/api/admin/upload`, {
+      const response = await gatedFetch(`${serverUrl}/api/admin/upload`, {
         method: 'POST',
         body: formData,
       });
@@ -939,7 +974,7 @@ export default function LadderForm({
       const serverUrl = userSettings.server?.trim();
       
       if (serverUrl) {
-        const response = await fetch(`${serverUrl}/api/ladder`, {
+        const response = await gatedFetch(`${serverUrl}/api/ladder`, {
           headers: {},
         });
         
@@ -979,7 +1014,7 @@ export default function LadderForm({
       
       if (serverUrl) {
         // Restore the backup on server first
-        const restoreResponse = await fetch(`${serverUrl}/api/admin/backups/restore/${encodeURIComponent(filename)}`, {
+        const restoreResponse = await gatedFetch(`${serverUrl}/api/admin/backups/restore/${encodeURIComponent(filename)}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
         });
@@ -989,7 +1024,7 @@ export default function LadderForm({
         }
         
         // Fetch the restored data to show preview
-        const response = await fetch(`${serverUrl}/api/ladder`, {
+        const response = await gatedFetch(`${serverUrl}/api/ladder`, {
           headers: {},
         });
         
@@ -1588,7 +1623,7 @@ export default function LadderForm({
 
         if (serverUrl) {
           try {
-            const response = await fetch(`${serverUrl}/api/ladder`);
+            const response = await gatedFetch(`${serverUrl}/api/ladder`);
             if (response.ok) {
               const data = await response.json();
               const serverPlayers = data.data?.players || [];
@@ -1820,29 +1855,32 @@ export default function LadderForm({
        clearLocalChangesFlag();
        clearPendingDeletes();
 
-       // Pull fresh data back from server to ensure UI matches server exactly
-       log('[RECALC]', 'Pulling fresh data from server...');
-       try {
-         const userSettings = loadUserSettings();
-         const serverUrl = userSettings.server?.trim();
-         
-         if (serverUrl) {
-           const response = await fetch(`${serverUrl}/api/ladder`);
-           if (response.ok) {
-             const data = await response.json();
-             const serverPlayers = data.data?.players || [];
-             if (serverPlayers && serverPlayers.length > 0) {
-               setPlayers(normalizePlayersAttendance(normalizePlayersTrophy(serverPlayers)));
-               log('[RECALC]', '✓ Synced with server - UI refreshed from server data');
-             } else {
-               setPlayers(normalizedPlayers);
-             }
-           } else {
-             setPlayers(normalizedPlayers);
-           }
-         } else {
-           setPlayers(normalizedPlayers);
-         }
+// Pull fresh data back from server to ensure UI matches server exactly
+        log('[RECALC]', 'Pulling fresh data from server...');
+        try {
+          const userSettings = loadUserSettings();
+          const serverUrl = userSettings.server?.trim();
+
+          if (serverUrl) {
+            let pullPlayers: PlayerData[] = [];
+            if (isMiniGameTitle(getProjectName())) {
+              pullPlayers = await dataService.fetchMiniGamePlayers();
+            } else {
+              const response = await gatedFetch(`${serverUrl}/api/ladder`);
+              if (response.ok) {
+                const data = await response.json();
+                pullPlayers = data.data?.players || [];
+              }
+            }
+            if (pullPlayers && pullPlayers.length > 0) {
+              setPlayers(normalizePlayersAttendance(normalizePlayersTrophy(pullPlayers)));
+              log('[RECALC]', '✓ Synced with server - UI refreshed from server data');
+            } else {
+              setPlayers(normalizedPlayers);
+            }
+          } else {
+            setPlayers(normalizedPlayers);
+          }
        } catch {
          setPlayers(normalizedPlayers);
        }
@@ -1889,9 +1927,20 @@ export default function LadderForm({
   useEffect(() => {
     const fetchAvailableMiniGames = async () => {
       try {
-        const files = await dataService.checkMiniGameFiles();
+        let files: string[] = [];
+        // Use direct fetch if server configured (dataService may not be in SERVER mode yet)
+        const sUrl = getServerUrl();
+        if (sUrl) {
+          const checkResp = await gatedFetch(`${sUrl}/api/ladder/mini-games/check`);
+          if (checkResp.ok) {
+            const checkData = await checkResp.json();
+            files = checkData.data?.files || [];
+          }
+        } else {
+          files = await dataService.checkMiniGameFiles();
+        }
         setAvailableMiniGames(files);
-        log('[MINI-GAMES]', `Found ${files.length} mini-game files: ${files.join(', ')}`);
+        // log('[MINI-GAMES]', `Found ${files.length} mini-game files: ${files.join(', ')}`);
       } catch (error) {
         log('[MINI-GAMES]', 'Failed to fetch mini-game availability:', error);
       }
@@ -2694,6 +2743,9 @@ export default function LadderForm({
     if (shouldLog(10)) {
       console.log(`>>> [MENU ACTION] Set title to ${newTitle}`);
     }
+    if (shouldLog(9)) {
+      log('[LADDER SWITCH]', `Click: "${getProjectName()}" -> "${newTitle}"`);
+    }
     
     const currentTitle = getProjectName();
     const currentIsMiniGame = isMiniGameTitle(currentTitle);
@@ -2717,32 +2769,67 @@ export default function LadderForm({
     
   if (newIsMiniGame) {
         // Switching to a mini-game (from ladder or from another mini-game):
-        // create file if it doesn't exist, then switch data source
+        // create file if it doesn't exist or has 0 players, then switch data source
         try {
           const fileName = titleToFileName(newTitle);
           const existingFiles = await dataService.checkMiniGameFiles();
           
+          let miniGamePlayers: PlayerData[] = [];
           if (!existingFiles.includes(fileName)) {
+            log('[MINI-GAME SWITCH]', `File ${fileName} not found, isAdmin=${isAdmin}`);
             if (!isAdmin) {
+              log('[MINI-GAME SWITCH]', 'Not admin — cannot create new mini-game file');
               dataService.setMiniGameFile(null);
               return;
             }
+            log('[MINI-GAME SWITCH]', `Calling copyPlayersToMiniGame(${fileName})`);
             await dataService.copyPlayersToMiniGame(fileName);
+            log('[MINI-GAME SWITCH]', `copyPlayersToMiniGame completed for ${fileName}`);
+            // Fetch the newly created mini-game data
+            dataService.setMiniGameFile(fileName);
+            miniGamePlayers = await dataService.fetchMiniGamePlayers();
+          } else {
+            // File exists — check if it has players. If empty, recreate it.
+            dataService.setMiniGameFile(fileName);
+            const checkResult = await dataService.fetchMiniGamePlayers();
+            log('[MINI-GAME SWITCH]', `File ${fileName} exists, playerCount=${checkResult.length}`);
+            if (checkResult.length === 0 && isAdmin) {
+              log('[MINI-GAME SWITCH]', `File ${fileName} is empty — recreating with ladder players`);
+              await dataService.copyPlayersToMiniGame(fileName);
+              log('[MINI-GAME SWITCH]', `copyPlayersToMiniGame completed for ${fileName}`);
+              miniGamePlayers = await dataService.fetchMiniGamePlayers();
+            } else {
+              log('[MINI-GAME SWITCH]', `File ${fileName} already exists with ${checkResult.length} players, using it`);
+              miniGamePlayers = checkResult;
+            }
           }
-          
+
           dataService.setMiniGameFile(fileName);
           console.log(`[LadderForm] Switched to mini-game ${fileName}`);
+
+          // Directly set players from fetched mini-game data
+          if (miniGamePlayers && miniGamePlayers.length > 0) {
+            const playersWithResults = miniGamePlayers.map((player: PlayerData) => ({
+              ...player,
+              gameResults: player.gameResults || new Array(31).fill(null),
+            }));
+            setPlayers(playersWithResults);
+            log('[MINI-GAME SWITCH]', `✓ Loaded ${playersWithResults.length} players from mini-game`);
+          }
         } catch (error) {
           const fileName = titleToFileName(newTitle);
-          console.error(`Failed to switch to ${fileName}:`, error);
+          log('[MINI-GAME SWITCH]', `Failed to switch to ${fileName}:`, error);
         }
       } else if (currentIsMiniGame && !newIsMiniGame) {
        // Switching away from mini-game: reset data source to ladder.tab
        dataService.setMiniGameFile(null);
+       
+       // Reload players from ladder
+       await refreshPlayers();
+     } else if (!newIsMiniGame && !currentIsMiniGame) {
+       // Switching between regular ladder titles
+       await refreshPlayers();
      }
-    
-    // Reload players from the new data source
-    await refreshPlayers();
     
     return;
   };
@@ -3140,7 +3227,7 @@ export default function LadderForm({
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 3000);
-      const response = await fetch(`${serverUrl}/health`, { signal: controller.signal });
+      const response = await gatedFetch(`${serverUrl}/health`, { signal: controller.signal });
       clearTimeout(timeoutId);
       
       if (!response.ok) return true;

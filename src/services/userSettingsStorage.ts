@@ -11,6 +11,8 @@
  * The key derivation logic is duplicated here intentionally.
  */
 
+import { gatedFetch } from '../utils/requestGate';
+
 function getLadderPrefix(): string {
   // Same logic as derivePrefixFromLocation in storageService.ts
   // Duplicated to avoid circular dependency
@@ -97,7 +99,7 @@ export function saveLastWorkingConfig(server: string, apiKey: string): void {
   try {
     const normalizedServer = normalizeServerUrl(server);
     localStorage.setItem(getLastWorkingConfigKey(), JSON.stringify({ server: normalizedServer, apiKey }));
-    console.log('[UserSettings] Saved last working config:', { server: normalizedServer, hasKey: !!apiKey });
+    // console.log('[UserSettings] Saved last working config:', { server: normalizedServer, hasKey: !!apiKey });
   } catch (error) {
     console.error('[UserSettings] Failed to save last working config:', error);
   }
@@ -126,7 +128,7 @@ function clearLastWorkingConfig(): void {
  */
 export async function loadRemoteFile(fileUrl: string): Promise<{ success: boolean; filename?: string }> {
   try {
-    const response = await fetch(fileUrl);
+    const response = await gatedFetch(fileUrl);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     
     const text = await response.text();
