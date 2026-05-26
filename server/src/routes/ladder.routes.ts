@@ -10,6 +10,7 @@ import {
 } from '../services/dataService.js';
 import { log, logError } from '../utils/logger.js';
 import { broadcastSSEEvent } from '../services/sseService.js';
+import { checkMiniGameFilesWith, readMiniGameFile, writeMiniGameFile, MINI_GAME_FILES } from '../services/tournamentService.js';
 
 const router = Router();
 
@@ -273,6 +274,108 @@ router.post('/batch', requireUserKey, writeLimiter, async (req: Request, res: Re
     res.status(500).json({
       success: false,
       error: { message: 'Failed to submit deltas' },
+    });
+  }
+});
+
+// Check which mini-game files have data (public read-only endpoint)
+router.get('/mini-games/check', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const filesWith = await checkMiniGameFilesWith();
+    res.json({
+      success: true,
+      data: { files: filesWith },
+    });
+  } catch (error) {
+    logError('[SERVER]', 'Error checking mini-game files:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to check mini-game files' },
+    });
+  }
+});
+
+// Read mini-game file (public read-only endpoint)
+router.get('/mini-games/read', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { fileName } = req.query;
+
+    if (!fileName || !MINI_GAME_FILES.includes(fileName as string)) {
+      res.status(400).json({
+        success: false,
+        error: { message: 'Invalid mini-game file name' },
+      });
+      return;
+    }
+
+    const miniGameData = await readMiniGameFile(fileName as string);
+    if (!miniGameData) {
+      res.json({
+        success: true,
+        data: {
+          header: [],
+          players: [],
+          playerCount: 0,
+        },
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        header: miniGameData.header,
+        players: miniGameData.players,
+        playerCount: miniGameData.players.length,
+      },
+    });
+  } catch (error) {
+    logError('[SERVER]', 'Error reading mini-game file:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to read mini-game file' },
+    });
+  }
+});
+
+// Write mini-game file (user+admin can write, admin-only operations like copy-players remain in admin.routes)
+router.post('/mini-games/write', requireUserKey, writeLimiter, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { fileName, players } = req.body;
+
+    if (!fileName || !MINI_GAME_FILES.includes(fileName)) {
+      res.status(400).json({
+        success: false,
+        error: { message: 'Invalid mini-game file name' },
+      });
+      return;
+    }
+
+    if (!players || !Array.isArray(players)) {
+      res.status(400).json({
+        success: false,
+        error: { message: 'Invalid players data' },
+      });
+      return;
+    }
+
+    await writeMiniGameFile(fileName, {
+      header: [],
+      players,
+      rawLines: [],
+    });
+
+    broadcastSSEEvent('miniGameWritten', { fileName, type: 'miniGameWrite' });
+
+    res.json({
+      success: true,
+      data: { message: `Saved ${fileName}` },
+    });
+  } catch (error) {
+    logError('[SERVER]', 'Error writing mini-game file:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to write mini-game file' },
     });
   }
 });
