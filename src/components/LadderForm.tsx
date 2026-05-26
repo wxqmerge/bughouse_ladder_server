@@ -23,7 +23,7 @@ import { shouldLog } from "../utils/debug";
 import { getVersionString, isLocalMode, isServerDownMode, getProgramMode, testServerConnection } from "../utils/mode";
 import { log } from "../utils/log";
 import { downloadBlob } from "../utils/downloadBlob";
-import { getFontSize } from "../utils/getFontSize";
+import { getFontSize, getScaledPadding, getScaledGap, getScaledLineHeight } from "../utils/getFontSize";
 import { useIntervalCheck } from "../utils/useIntervalCheck";
 import { mergeServerWithLocal as _mergeServerWithLocal } from "../utils/mergeUtils";
 import { loadUserSettings, saveUserSettings, saveLastWorkingConfig, normalizeServerUrl } from "../services/userSettingsStorage";
@@ -1410,6 +1410,7 @@ export default function LadderForm({
   };
 
   const recalculateRatings = async () => {
+    console.clear();
     console.log(`>>> [BUTTON PRESSED] Recalculate Ratings - ${players.length} players, isAdmin=${isAdmin}`);
 
     try {
@@ -2407,14 +2408,9 @@ export default function LadderForm({
     });
     
     setPlayers(updatedPlayers);
-    const saveTarget = isAdmin ? true : false;
-    savePlayers(updatedPlayers, saveTarget).then((result) => {
-      if (result.success && result.serverSynced) {
-        console.log(`[CLEAR CELL] ✓ Cleared ${cellsToClear.length} matching cells with value "${cellValue}" — saved to server`);
-      } else if (result.success) {
-        console.log(`[CLEAR CELL] ✓ Cleared ${cellsToClear.length} matching cells with value "${cellValue}" — saved locally`);
-      }
-    }).catch((err) => {
+    dataService.savePlayers(updatedPlayers).then(() => {
+      console.log(`[CLEAR CELL] ✓ Cleared ${cellsToClear.length} matching cells with value "${cellValue}" — saved`);
+    }).catch((err: Error) => {
       console.error("Failed to save cleared cell:", err);
     });
 
@@ -2448,6 +2444,7 @@ export default function LadderForm({
   };
 
   const handleGameEntrySubmit = (correctedString: string) => {
+    console.log('[DEBUG-TRACE] === handleGameEntrySubmit ENTRY === correctedString="' + correctedString + '" entryCell=' + JSON.stringify(entryCell));
     if (!entryCell) return;
 
     const parsedResult = updatePlayerGameData(
@@ -2469,6 +2466,7 @@ export default function LadderForm({
         const valueToSave = (
           parsedResult.resultString || correctedString
         ).replace(/_$/, "");
+        console.log('[DEBUG-TRACE] handleGameEntrySubmit SAVE: valueToSave="' + valueToSave + '" correctedString="' + correctedString + '" parsedResult.resultString="' + parsedResult.resultString + '"');
 
         const newGameResults = [...player.gameResults];
         newGameResults[entryCell.round] = valueToSave;
@@ -2479,9 +2477,10 @@ export default function LadderForm({
             : p,
         );
 
-        savePlayers(updatedPlayers).catch((err) => {
+        dataService.savePlayers(updatedPlayers).catch((err) => {
           console.error("Failed to save game entry:", err);
         });
+        console.log('[DEBUG-TRACE] handleGameEntrySubmit setPlayers DONE: playerRank=' + entryCell.playerRank + ' round=' + entryCell.round + ' savedValue="' + valueToSave + '"');
         return updatedPlayers;
       });
     }
@@ -4202,11 +4201,11 @@ export default function LadderForm({
           backgroundColor: '#fef3c7',
           border: '1px solid #f59e0b',
           borderRadius: '0.375rem',
-          padding: '0.75rem 1rem',
+          padding: getScaledPadding(zoomLevel, 0.75, 1),
           marginBottom: '1rem',
           display: 'flex',
           alignItems: 'center',
-          gap: '0.5rem',
+          gap: getScaledGap(zoomLevel, 0.5),
           fontSize: getFontSize(zoomLevel),
         }}>
           <span style={{ color: '#92400e', fontWeight: '600' }}>⚠️ Server Down Mode</span>
@@ -4524,7 +4523,7 @@ export default function LadderForm({
               <th
                 key="head-rank"
                 style={{
-                  padding: "0.5rem 0.75rem",
+                  padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                   textAlign: "right",
                   fontWeight: "500",
                   borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
@@ -4537,7 +4536,7 @@ export default function LadderForm({
               <th
                 key="head-group"
                 style={{
-                  padding: "0.5rem 0.75rem",
+                  padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                   textAlign: "left",
                   fontWeight: "500",
                   borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
@@ -4550,7 +4549,7 @@ export default function LadderForm({
               <th
                 key="head-lastName"
                 style={{
-                  padding: "0.5rem 0.75rem",
+                  padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                   textAlign: "left",
                   fontWeight: "500",
                   borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
@@ -4563,7 +4562,7 @@ export default function LadderForm({
               <th
                 key="head-firstName"
                 style={{
-                  padding: "0.5rem 0.75rem",
+                  padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                   textAlign: "left",
                   fontWeight: "500",
                   borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
@@ -4576,7 +4575,7 @@ export default function LadderForm({
               <th
                 key="head-rating"
                 style={{
-                  padding: "0.5rem 0.75rem",
+                  padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                   textAlign: "right",
                   fontWeight: "500",
                   borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
@@ -4589,7 +4588,7 @@ export default function LadderForm({
               <th
                 key="head-nRating"
                 style={{
-                  padding: "0.5rem 0.75rem",
+                  padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                   textAlign: "right",
                   fontWeight: "500",
                   borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
@@ -4602,7 +4601,7 @@ export default function LadderForm({
                <th
                  key="head-trophy"
                  style={{
-                   padding: "0.5rem 0.75rem",
+                   padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                    textAlign: "center",
                    fontWeight: "500",
                    borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
@@ -4618,7 +4617,7 @@ export default function LadderForm({
                   <th
                     key="head-grade"
                     style={{
-                      padding: "0.5rem 0.75rem",
+                      padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                       textAlign: "right",
                       fontWeight: "500",
                       borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
@@ -4631,7 +4630,7 @@ export default function LadderForm({
                   <th
                     key="head-num_games"
                     style={{
-                      padding: "0.5rem 0.75rem",
+                      padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                       textAlign: "right",
                       fontWeight: "500",
                       borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
@@ -4644,7 +4643,7 @@ export default function LadderForm({
                   <th
                     key="head-attendance"
                     style={{
-                      padding: "0.5rem 0.75rem",
+                      padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                       textAlign: "right",
                       fontWeight: "500",
                       borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
@@ -4658,7 +4657,7 @@ export default function LadderForm({
                   <th
                     key="head-phone"
                     style={{
-                      padding: "0.5rem 0.75rem",
+                      padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                       textAlign: "left",
                       fontWeight: "500",
                       borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
@@ -4671,7 +4670,7 @@ export default function LadderForm({
                   <th
                     key="head-info"
                     style={{
-                      padding: "0.5rem 0.75rem",
+                      padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                       textAlign: "left",
                       fontWeight: "500",
                       borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
@@ -4685,7 +4684,7 @@ export default function LadderForm({
                   <th
                     key="head-school"
                     style={{
-                      padding: "0.5rem 0.75rem",
+                      padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                       textAlign: "left",
                       fontWeight: "500",
                       borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
@@ -4699,7 +4698,7 @@ export default function LadderForm({
                   <th
                     key="head-room"
                     style={{
-                      padding: "0.5rem 0.75rem",
+                      padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                       textAlign: "left",
                       fontWeight: "500",
                       borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
@@ -4716,7 +4715,7 @@ export default function LadderForm({
                 <th
                   key={`head-round-${round}`}
                   style={{
-                    padding: "0.5rem 0.75rem",
+                    padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                     textAlign: "center",
                     fontWeight: "500",
                     borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
@@ -4764,7 +4763,7 @@ export default function LadderForm({
                               <td
                                 key={`${rowIndex}-${col}`}
                             style={{
-                              padding: "0.5rem 0.75rem",
+                              padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                               borderBottom: "1px solid #e2e8f0",
                               verticalAlign: "middle",
                               borderRight: "1px solid #e2e8f0",
@@ -4842,7 +4841,7 @@ export default function LadderForm({
                           <td
                              key={`${rowIndex}-trophy`}
                              style={{
-                               padding: "0.5rem 0.75rem",
+                               padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                                borderBottom: "1px solid #e2e8f0",
                                verticalAlign: "middle",
                                borderRight: "1px solid #e2e8f0",
@@ -4934,7 +4933,7 @@ export default function LadderForm({
                         <td
                           key={`${rowIndex}-${col}`}
                           style={{
-                            padding: "0.5rem 0.75rem",
+                            padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                             borderBottom: "1px solid #e2e8f0",
                             verticalAlign: "middle",
                             borderRight: "1px solid #e2e8f0",
@@ -5027,7 +5026,7 @@ export default function LadderForm({
                        <td
                          key={`game-${player.rank}-${gCol}`}
                          style={{
-                           padding: "0.5rem 0.75rem",
+                           padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                            borderBottom: "1px solid #e2e8f0",
                            verticalAlign: "middle",
                            borderRight: "1px solid #e2e8f0",
@@ -5187,7 +5186,7 @@ export default function LadderForm({
                     <td
                       key={`empty-${player.rank}-${emptyCol}-${isAdmin}`}
                       style={{
-                        padding: "0.5rem 0.75rem",
+                        padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                         borderBottom: "1px solid #e2e8f0",
                         verticalAlign: "middle",
                         backgroundColor:
@@ -5497,7 +5496,7 @@ export default function LadderForm({
                           setEmptyPlayerRow(result);
                         }}
                         style={{
-                          padding: "0.5rem 0.75rem",
+                          padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                           borderBottom: "2px solid #3b82f6",
                           color: "#94a3b8",
                           fontStyle: "italic",
@@ -5560,7 +5559,7 @@ export default function LadderForm({
                       });
                     }}
                     style={{
-                      padding: "0.5rem 0.75rem",
+                      padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                       borderBottom: "2px solid #3b82f6",
                       textAlign: "center",
                       fontSize: getFontSize(zoomLevel),
