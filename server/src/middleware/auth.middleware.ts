@@ -68,6 +68,12 @@ export function requireAdminKey(
   res: Response,
   next: NextFunction
 ): void {
+  // Read-only mini-game endpoints accept user key too
+  if (req.method === 'GET' && req.path.startsWith('/tournament/')) {
+    requireUserKey(req, res, next);
+    return;
+  }
+
   // In production, admin key is mandatory - reject if not configured
   const adminKey = getAdminKey();
   if (process.env.NODE_ENV === 'production' && !adminKey) {
@@ -78,7 +84,7 @@ export function requireAdminKey(
     });
     return;
   }
-  
+
   // In dev mode, if no API key configured, allow all requests
   if (!adminKey) {
     next();
@@ -86,7 +92,7 @@ export function requireAdminKey(
   }
 
   const apiKey = req.headers['x-api-key'] as string;
-  
+
   if (!apiKey) {
     console.log(`[ADMIN_AUTH] 401 - Missing API key | IP: ${req.ip} | Path: ${req.path}`);
     res.status(401).json({
@@ -100,7 +106,7 @@ export function requireAdminKey(
   try {
     const keyBuffer = Buffer.from(adminKey, 'utf-8');
     const providedBuffer = Buffer.from(apiKey, 'utf-8');
-    
+
     // If lengths differ, crypto.timingSafeEqual will throw, so handle gracefully
     if (keyBuffer.length !== providedBuffer.length) {
       // Still use timing-safe comparison with padded buffer to avoid length leakage
@@ -109,7 +115,7 @@ export function requireAdminKey(
       const paddedProvided = Buffer.alloc(maxLen);
       keyBuffer.copy(paddedKey);
       providedBuffer.copy(paddedProvided);
-      
+
       if (!crypto.timingSafeEqual(paddedKey, paddedProvided)) {
         console.log(`[ADMIN_AUTH] 401 - Invalid API key | IP: ${req.ip} | Path: ${req.path}`);
         res.status(401).json({

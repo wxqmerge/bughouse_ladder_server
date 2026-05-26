@@ -109,11 +109,9 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
       dataService.updateConfig(config);
       console.log('[App] DataService configured:', config.mode, config.serverUrl || '');
 
-      // Step 2.5: Wire up miniGameStore for local mode
-      if (dataService.getMode() === DataServiceMode.LOCAL) {
-        dataService.updateConfig({ miniGameStore });
-        console.log('[App] Wired up miniGameStore for local mode');
-      }
+      // Step 2.5: Wire up miniGameStore for all modes (localStorage cache + local mini-game support)
+      dataService.updateConfig({ miniGameStore });
+      console.log('[App] Wired up miniGameStore');
 
       // Step 3: Initialize connection state from localStorage (now has fresh config)
       await initializeConnectionState();
