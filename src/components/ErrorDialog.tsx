@@ -28,6 +28,8 @@ interface ErrorDialogProps {
   isAdmin?: boolean;
   onAddPlayer?: () => void;
   debugLevel?: number;
+  isOverrideMode?: boolean;
+  onToggleOverrideMode?: () => void;
 }
 
 /**
@@ -134,6 +136,8 @@ export default function ErrorDialog({
   isAdmin = false,
   onAddPlayer,
   debugLevel = 5,
+  isOverrideMode = false,
+  onToggleOverrideMode,
 }: ErrorDialogProps) {
   const [correctedResult, setCorrectedResult] = useState<string>(
     existingValue?.replace(/_$/, "") || "",
@@ -1277,8 +1281,26 @@ export default function ErrorDialog({
             }}
           >
             {/* Enter-Games mode: Cancel + Enter_Recalculate_Save */}
-            {isEnterGames ? (
+{isEnterGames ? (
               <>
+                {existingValue && existingValue.trim() && (
+                  <button
+                    type="button"
+                    onClick={onToggleOverrideMode}
+                    style={{
+                      padding: "0.5rem 0.75rem",
+                      background: isOverrideMode ? "#f59e0b" : "#f3f4f6",
+                      border: isOverrideMode ? "2px solid #d97706" : "1px solid #d1d5db",
+                      borderRadius: "0.25rem",
+                      cursor: "pointer",
+                      fontSize: "0.75rem",
+                      color: isOverrideMode ? "white" : "#374151",
+                      fontWeight: isOverrideMode ? "600" : "400",
+                    }}
+                  >
+                    {isOverrideMode ? "⚠ Override ON" : "Override"}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={onClose}
@@ -1311,9 +1333,9 @@ export default function ErrorDialog({
                      fontSize: "0.875rem",
                      color: "white",
                    }}
-                 >
-                   Enter_Recalculate_Save
-                 </button>
+                  >
+                    Enter_Recalculate_Save
+                  </button>
               </>
             ) : (
               /* Existing modes */

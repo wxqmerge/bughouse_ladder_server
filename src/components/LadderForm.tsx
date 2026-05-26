@@ -351,6 +351,7 @@ export default function LadderForm({
   // Enter Games mode state
   const [enterGamesError, setEnterGamesError] = useState<ValidationResult | null>(null);
   const [isEnterGamesMode, setIsEnterGamesMode] = useState(false);
+  const [isEnterGamesOverride, setIsEnterGamesOverride] = useState(false);
   // Splash screen server configuration state
   const [splashServerUrl, setSplashServerUrl] = useState('');
   const [splashApiKey, setSplashApiKey] = useState('');
@@ -1311,17 +1312,57 @@ export default function LadderForm({
 
       log('[ENTER_GAMES]', (is4Player ? '4P' : '2P') + ' OUTPUT: "' + resultToStore + '"');
 
-      // Helper: fill a player's cell if empty (same round for all players in game)
+      // Override mode: clear old matching results before filling new ones
+      if (isEnterGamesOverride) {
+        const playerToClear = players.find((p) => p.rank === entryCell.playerRank);
+        const oldCellValue = playerToClear?.gameResults?.[entryCell.round]?.replace(/_+$/, "") || "";
+
+        if (oldCellValue) {
+          log('[ENTER_GAMES]', 'Override mode: clearing old result "' + oldCellValue + '"');
+          const cellsToClear: { playerRank: number; round: number }[] = [];
+          for (const player of players) {
+            if (!player.gameResults) continue;
+            for (let r = 0; r < player.gameResults.length; r++) {
+              if (player.gameResults[r]?.replace(/_+$/, "") === oldCellValue) {
+                cellsToClear.push({ playerRank: player.rank, round: r });
+              }
+            }
+          }
+          if (cellsToClear.length === 0) {
+            cellsToClear.push({ playerRank: entryCell.playerRank, round: entryCell.round });
+          }
+          const updatedPlayers = players.map((p) => {
+            const newGameResults = [...(p.gameResults || [])];
+            let modified = false;
+            for (const cell of cellsToClear) {
+              if (cell.playerRank === p.rank && newGameResults[cell.round]?.replace(/_+$/, "") === oldCellValue) {
+                newGameResults[cell.round] = "";
+                modified = true;
+              }
+            }
+            return modified ? { ...p, gameResults: newGameResults } : p;
+          });
+          setPlayers(updatedPlayers);
+          log('[ENTER_GAMES]', 'Cleared ' + cellsToClear.length + ' old matching cells');
+        }
+      }
+
+      // Helper: fill a player's cell (in override mode, always overwrite)
       const fillCell = (playerRank: number, resultStr: string) => {
         const player = players.find((p) => p.rank === playerRank);
         if (player && roundIndex >= 0 && roundIndex < 31) {
-          const existingValue = player.gameResults[roundIndex]?.replace(/_+$/, "") || "";
-          if (!existingValue.trim()) {
+          if (isEnterGamesOverride) {
             player.gameResults[roundIndex] = resultStr;
-            log('[ENTER_GAMES]', 'Filled cell P' + playerRank + ' R' + (roundIndex + 1) + ': "' + resultStr + '"');
+            log('[ENTER_GAMES]', 'Overwrote cell P' + playerRank + ' R' + (roundIndex + 1) + ': "' + resultStr + '"');
           } else {
-            if (shouldLog(3)) {
-              console.log('[ENTER_GAMES_DEBUG] Cell SKIPPED (already filled): P' + playerRank + ' R' + (roundIndex + 1) + ' = "' + existingValue + '"');
+            const existingValue = player.gameResults[roundIndex]?.replace(/_+$/, "") || "";
+            if (!existingValue.trim()) {
+              player.gameResults[roundIndex] = resultStr;
+              log('[ENTER_GAMES]', 'Filled cell P' + playerRank + ' R' + (roundIndex + 1) + ': "' + resultStr + '"');
+            } else {
+              if (shouldLog(3)) {
+                console.log('[ENTER_GAMES_DEBUG] Cell SKIPPED (already filled): P' + playerRank + ' R' + (roundIndex + 1) + ' = "' + existingValue + '"');
+              }
             }
           }
         }
@@ -1380,6 +1421,7 @@ export default function LadderForm({
     }
     
     setEnterGamesError(null);
+    setIsEnterGamesOverride(false);
     console.log(">>> [ENTER_RECALCULATE_SAVE] Complete");
   };
 
@@ -1390,6 +1432,7 @@ export default function LadderForm({
     setEntryCell(null);
     setTempGameResult(null);
     setEnterGamesError(null);
+    setIsEnterGamesOverride(false);
   };
 
   const recalculateRatings = async () => {
@@ -5758,8 +5801,10 @@ debugLevel={debugLevel}
               }
             }}
             onSubmit={handleGameEntrySubmit}
-            onEnterRecalculateSave={handleEnterRecalculateSave}
-            onClearCell={clearCurrentCell}
+onEnterRecalculateSave={handleEnterRecalculateSave}
+             onClearCell={clearCurrentCell}
+             isOverrideMode={isEnterGamesOverride}
+             onToggleOverrideMode={() => setIsEnterGamesOverride(prev => !prev)}
             onUpdatePlayerData={handleUpdatePlayerData}
             isAdmin={isAdmin}
             onAddPlayer={handleAddPlayer}
