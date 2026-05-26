@@ -601,7 +601,7 @@ export default function LadderForm({
               : `${serverUrl}/api/ladder`;
             
             const response = await fetch(apiUrl, {
-              headers: {},
+              headers: splashApiKey ? { 'X-API-Key': splashApiKey } : {},
             });
             
             if (response.ok) {

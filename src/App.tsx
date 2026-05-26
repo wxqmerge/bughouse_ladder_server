@@ -74,6 +74,7 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
   const [currentMode, setCurrentMode] = useState<'local' | 'server_down' | 'server' | null>(null);
   const recalculateRef = useRef<(() => void) | undefined>(undefined);
   const refreshPlayersRef = useRef<(() => void) | undefined>(undefined);
+  const initRef = useRef(false);
 
   // Cache bust: reload if build timestamp differs from last visit
   useEffect(() => {
@@ -97,6 +98,10 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
 
   // Load URL-based config, initialize connection state, and test connectivity on mount
   useEffect(() => {
+    // Guard against double-initialization (React Strict Mode)
+    if (initRef.current) return;
+    initRef.current = true;
+
     const init = async () => {
       // Step 1: Load URL params (saves server+key to localStorage)
       const configApplied = await loadConfigFromUrl();
