@@ -360,7 +360,7 @@ describe('ErrorDialog - inline Add Player buttons', () => {
         onClose={mockOnClose}
         onSubmit={mockOnSubmit}
         mode="enter-games"
-        isAdmin={true}
+        hasAdminKey={true}
         onAddPlayer={mockOnAddPlayer}
         entryCell={{ playerRank: 5, round: 0 }}
         existingValue="5W16"
@@ -395,7 +395,7 @@ describe('ErrorDialog - inline Add Player buttons', () => {
         onClose={mockOnClose}
         onSubmit={mockOnSubmit}
         mode="enter-games"
-        isAdmin={true}
+        hasAdminKey={true}
         onAddPlayer={mockOnAddPlayer}
         entryCell={{ playerRank: 5, round: 0 }}
         existingValue="5W16"
@@ -408,7 +408,7 @@ describe('ErrorDialog - inline Add Player buttons', () => {
     expect(mockOnAddPlayer).toHaveBeenCalledWith(16);
   });
 
-  it('should NOT show Add Player button for non-admin', () => {
+  it('should NOT show Add Player button without admin key', () => {
     const error: ValidationResult = {
       hashValue: 0,
       player1: 5,
@@ -431,7 +431,7 @@ describe('ErrorDialog - inline Add Player buttons', () => {
         onClose={mockOnClose}
         onSubmit={mockOnSubmit}
         mode="enter-games"
-        isAdmin={false}
+        hasAdminKey={false}
         onAddPlayer={mockOnAddPlayer}
         entryCell={{ playerRank: 5, round: 0 }}
         existingValue="5W16"
@@ -470,7 +470,7 @@ describe('ErrorDialog - inline Add Player buttons', () => {
         onClose={mockOnClose}
         onSubmit={mockOnSubmit}
         mode="enter-games"
-        isAdmin={true}
+        hasAdminKey={true}
         onAddPlayer={mockOnAddPlayer}
         entryCell={{ playerRank: 5, round: 0 }}
         existingValue="5:6W98:99"
@@ -504,7 +504,7 @@ describe('ErrorDialog - inline Add Player buttons', () => {
         onClose={mockOnClose}
         onSubmit={mockOnSubmit}
         mode="recalculate"
-        isAdmin={true}
+        hasAdminKey={true}
         onAddPlayer={mockOnAddPlayer}
         walkthroughErrors={[error]}
         walkthroughIndex={0}

@@ -5831,12 +5831,13 @@ export default function LadderForm({
           onSubmit={handleCorrectionSubmit}
           onClearCell={clearCurrentCell}
           onUpdatePlayerData={handleUpdatePlayerData}
-          isAdmin={isAdmin}
-onAddPlayer={(rank) => { setAddPlayerSuggestedRank(rank); setIsAddPlayerDialogOpen(true); }}
-          debugLevel={debugLevel}
-          />
-        )}
-{entryCell &&
+isAdmin={isAdmin}
+           hasAdminKey={!!loadUserSettings().apiKey?.trim()}
+ onAddPlayer={(rank) => { setAddPlayerSuggestedRank(rank); setIsAddPlayerDialogOpen(true); }}
+           debugLevel={debugLevel}
+           />
+         )}
+ {entryCell &&
          !isRecalculating &&
          !isWalkthrough &&
          walkthroughErrors.length === 0 && (
@@ -5864,11 +5865,12 @@ onEnterRecalculateSave={handleEnterRecalculateSave}
              isOverrideMode={isEnterGamesOverride}
              onToggleOverrideMode={() => setIsEnterGamesOverride(prev => !prev)}
             onUpdatePlayerData={handleUpdatePlayerData}
-            isAdmin={isAdmin}
-onAddPlayer={(rank) => { setAddPlayerSuggestedRank(rank); setIsAddPlayerDialogOpen(true); }}
-            debugLevel={debugLevel}
-          />
-        )}
+isAdmin={isAdmin}
+             hasAdminKey={!!loadUserSettings().apiKey?.trim()}
+ onAddPlayer={(rank) => { setAddPlayerSuggestedRank(rank); setIsAddPlayerDialogOpen(true); }}
+             debugLevel={debugLevel}
+           />
+         )}
       {currentError && (
         <div
           style={{
