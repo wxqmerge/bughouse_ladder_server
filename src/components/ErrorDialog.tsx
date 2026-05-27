@@ -26,6 +26,7 @@ interface ErrorDialogProps {
   totalRounds?: number;
   onEnterRecalculateSave?: (correctedString: string) => void;
   isAdmin?: boolean;
+  hasAdminKey?: boolean;
   onAddPlayer?: (rank?: number) => void;
   debugLevel?: number;
   isOverrideMode?: boolean;
@@ -134,6 +135,7 @@ export default function ErrorDialog({
   totalRounds,
   onEnterRecalculateSave,
   isAdmin = false,
+  hasAdminKey = false,
   onAddPlayer,
   debugLevel = 5,
   isOverrideMode = false,
@@ -899,7 +901,7 @@ export default function ErrorDialog({
                       >
                         Invalid player ({invalidPlayerRanks.get(1)!})
                       </p>
-                      {isAdmin && onAddPlayer && (
+                      {hasAdminKey && onAddPlayer && (
                         <button
                           onClick={() => onAddPlayer(invalidPlayerRanks.get(1)!)}
                           style={{
@@ -958,7 +960,7 @@ export default function ErrorDialog({
                       >
                         Invalid player ({invalidPlayerRanks.get(2)!})
                       </p>
-                      {isAdmin && onAddPlayer && (
+                      {hasAdminKey && onAddPlayer && (
                         <button
                           onClick={() => onAddPlayer(invalidPlayerRanks.get(2)!)}
                           style={{
@@ -1012,7 +1014,7 @@ export default function ErrorDialog({
                       >
                         Invalid player ({invalidPlayerRanks.get(1)!})
                       </p>
-                      {isAdmin && onAddPlayer && (
+                      {hasAdminKey && onAddPlayer && (
                         <button
                           onClick={() => onAddPlayer(invalidPlayerRanks.get(1)!)}
                           style={{
@@ -1059,7 +1061,7 @@ export default function ErrorDialog({
                       >
                         Invalid player ({invalidPlayerRanks.get(2)!})
                       </p>
-                      {isAdmin && onAddPlayer && (
+                      {hasAdminKey && onAddPlayer && (
                         <button
                           onClick={() => onAddPlayer(invalidPlayerRanks.get(2)!)}
                           style={{
@@ -1122,7 +1124,7 @@ export default function ErrorDialog({
                       >
                         Invalid player ({invalidPlayerRanks.get(3)!})
                       </p>
-                      {isAdmin && onAddPlayer && (
+                      {hasAdminKey && onAddPlayer && (
                         <button
                           onClick={() => onAddPlayer(invalidPlayerRanks.get(3)!)}
                           style={{
@@ -1169,7 +1171,7 @@ export default function ErrorDialog({
                       >
                         Invalid player ({invalidPlayerRanks.get(4)!})
                       </p>
-                      {isAdmin && onAddPlayer && (
+                      {hasAdminKey && onAddPlayer && (
                         <button
                           onClick={() => onAddPlayer(invalidPlayerRanks.get(4)!)}
                           style={{
@@ -1250,7 +1252,7 @@ export default function ErrorDialog({
                   getValidationErrorMessage(displayError.error)
                 : getValidationErrorMessage(displayError.error)}
             </p>
-            {displayError.error === 11 && isAdmin && onAddPlayer && (
+            {displayError.error === 11 && hasAdminKey && onAddPlayer && (
               <div style={{ marginTop: "0.25rem", marginBottom: "0.5rem" }}>
                 {[displayError.player1, displayError.player2, displayError.player3, displayError.player4]
                   .filter((r) => r > 0)
@@ -1434,7 +1436,7 @@ export default function ErrorDialog({
                     : `✗ ${parseStatus.message || getValidationErrorMessage(parseStatus.error || 0)}`}
             </p>
           )}
-          {parseStatus && parseStatus.error === 11 && isAdmin && onAddPlayer && isEnterGames && (
+          {parseStatus && parseStatus.error === 11 && hasAdminKey && onAddPlayer && isEnterGames && (
             <div style={{ marginTop: "0.25rem", marginBottom: "1rem" }}>
               {parsedGameData && [parsedGameData.player1Rank, parsedGameData.player2Rank, parsedGameData.player3Rank, parsedGameData.player4Rank]
                 .filter((r): r is number => r > 0)
@@ -1643,7 +1645,7 @@ export default function ErrorDialog({
           </div>
         </form>}
 
-        {isAdmin && onAddPlayer && (
+        {hasAdminKey && onAddPlayer && (
           <div
             style={{
               marginTop: "1rem",
