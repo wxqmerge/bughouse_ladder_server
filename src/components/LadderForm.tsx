@@ -1396,14 +1396,14 @@ export default function LadderForm({
     // Store current cell position to find next empty cell after recalc
     const currentCell = { ...entryCell };
 
-    // Call recalculateAndSave immediately with the updated players array
-    log('[ENTER_GAMES]', 'Calling recalculateAndSave()...');
-    
-    // REUSE the existing recalculateAndSave function from Operations menu
-    await recalculateAndSave();
-    
-    // After recalculateAndSave completes, check if errors were found
-    if (walkthroughErrors.length > 0) {
+   // Call recalculateAndSave immediately with the updated players array
+     log('[ENTER_GAMES]', 'Calling recalculateAndSave()...');
+
+     // REUSE the existing recalculateAndSave function from Operations menu
+     const hadErrors = await recalculateAndSave();
+
+     // After recalculateAndSave completes, check if errors were found
+     if (hadErrors) {
       log('[ENTER_GAMES]', 'Errors found during recalculation - showing error dialog');
       // isRecalculating stays true, ErrorDialog shows in recalculate mode with errors
       setEnterGamesError(null);
@@ -1607,8 +1607,8 @@ export default function LadderForm({
     * Recalculate ratings AND save to server/localStorage in one operation
     * This is the primary save operation for users
     */
-   const recalculateAndSave = async () => {
-     log('[RECALC]', 'Starting recalculate_and_save');
+   const recalculateAndSave = async (): Promise<boolean> => {
+      log('[RECALC]', 'Starting recalculate_and_save');
 
    // Check for pending New Day operation (set by App.tsx before calling recalculate)
     const pendingNewDayData = getPendingNewDay();
@@ -1656,7 +1656,7 @@ export default function LadderForm({
 
           // Reload to apply changes
           window.location.reload();
-          return;
+          return false;
         } catch (err) {
           console.error("Failed to process pending New Day (recalculateAndSave):", err);
           clearPendingNewDay();
@@ -1707,7 +1707,7 @@ export default function LadderForm({
         if (result.rankBlockingErrors && result.rankBlockingErrors.length > 0) {
           console.log(`=== RECALC PAUSED === Rank blocking errors detected`);
           alert('Rank Errors:\n\n' + result.rankBlockingErrors.join('\n') + '\n\nPlease fix ranks before recalculating.');
-          return;
+          return true;
         }
 
         // If there are errors, show the error dialog and return early
@@ -1718,7 +1718,7 @@ export default function LadderForm({
               `Found ${result.errors.length} errors - showing error dialog`,
             );
           }
-          return;
+          return true;
         }
 
         let matches: MatchData[] = result.matches;
@@ -1814,7 +1814,7 @@ export default function LadderForm({
         setPlayers(lockedPlayers);
         log('[RECALC]', 'Recalculate_Save complete');
         (window as any).__ladder_setStatus?.(null);
-        return;
+        return false;
       }
 
      // User mode: calculate locally, push full table to server, pull back fresh data
@@ -1829,7 +1829,7 @@ export default function LadderForm({
           console.log(`\n=== RECALC PAUSED === Rank blocking errors detected`);
         }
         alert('Rank Errors:\n\n' + result.rankBlockingErrors.join('\n') + '\n\nPlease fix ranks before recalculating.');
-        return;
+        return true;
       }
 
       if (result.hasErrors && result.errors.length > 0) {
@@ -1837,7 +1837,7 @@ export default function LadderForm({
           console.log(`\n=== RECALC PAUSED ===`);
           console.log(`Found ${result.errors.length} errors - showing error dialog`);
         }
-        return;
+        return true;
       }
 
       let matches: MatchData[] = result.matches;
@@ -1940,6 +1940,7 @@ export default function LadderForm({
 
       log('[RECALC]', 'Recalculate_Save complete');
       (window as any).__ladder_setStatus?.(null);
+      return false;
     };
 
   /**
@@ -2337,10 +2338,10 @@ export default function LadderForm({
         setEntryCell(null);
         setIsRecalculating(false);
 
-        // Reload to apply changes
-        window.location.reload();
-        return;
-      } catch (err) {
+         // Reload to apply changes
+          window.location.reload();
+          return false;
+        } catch (err) {
         console.error("Failed to process pending New Day:", err);
         clearPendingNewDay();
       }
