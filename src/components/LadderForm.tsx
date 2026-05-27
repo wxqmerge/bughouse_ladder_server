@@ -1400,9 +1400,11 @@ export default function LadderForm({
       const missingRanks = allPlayerRanks.filter((r) => !players.some((p) => p.rank === r));
       if (missingRanks.length > 0) {
         log('[ENTER_GAMES]', `Invalid player reference(s): ${missingRanks.join(', ')}`);
+        // Extract existing valid matches so repopulateGameResults preserves them
+        const { matches, playerResultsByMatch } = processGameResults(players, 31);
         setPendingPlayers(players);
-        setPendingMatches([]);
-        setPendingPlayerResultsByMatch(new Map());
+        setPendingMatches(matches);
+        setPendingPlayerResultsByMatch(playerResultsByMatch);
         setCurrentError({
           hashValue: 0,
           player1: parsedResult.parsedPlayer1Rank || 0,
