@@ -1355,46 +1355,7 @@ export default function LadderForm({
         }
       }
 
-      // Helper: fill a player's cell (in override mode, always overwrite)
-      const fillCell = (playerRank: number, resultStr: string) => {
-        const player = players.find((p) => p.rank === playerRank);
-        if (player && roundIndex >= 0 && roundIndex < 31) {
-          if (isEnterGamesOverride) {
-            player.gameResults[roundIndex] = resultStr;
-            log('[ENTER_GAMES]', 'Overwrote cell P' + playerRank + ' R' + (roundIndex + 1) + ': "' + resultStr + '"');
-          } else {
-            const existingValue = player.gameResults[roundIndex]?.replace(/_+$/, "") || "";
-            if (!existingValue.trim()) {
-              player.gameResults[roundIndex] = resultStr;
-              log('[ENTER_GAMES]', 'Filled cell P' + playerRank + ' R' + (roundIndex + 1) + ': "' + resultStr + '"');
-            } else {
-              if (shouldLog(3)) {
-                console.log('[ENTER_GAMES_DEBUG] Cell SKIPPED (already filled): P' + playerRank + ' R' + (roundIndex + 1) + ' = "' + existingValue + '"');
-              }
-            }
-          }
-        }
-      };
-
-      if (is4Player) {
-        fillCell(p1Rank, resultToStore);
-        fillCell(p2Rank, resultToStore);
-        fillCell(p3Rank, resultToStore);
-        fillCell(p4Rank, resultToStore);
-        addDelta({ type: 'GAME_RESULT', playerRank: p1Rank, round: roundIndex, result: resultToStore });
-        addDelta({ type: 'GAME_RESULT', playerRank: p2Rank, round: roundIndex, result: resultToStore });
-        addDelta({ type: 'GAME_RESULT', playerRank: p3Rank, round: roundIndex, result: resultToStore });
-        addDelta({ type: 'GAME_RESULT', playerRank: p4Rank, round: roundIndex, result: resultToStore });
-      } else {
-        fillCell(p1Rank, resultToStore);
-        fillCell(p2Rank, resultToStore);
-        addDelta({ type: 'GAME_RESULT', playerRank: p1Rank, round: roundIndex, result: resultToStore });
-        addDelta({ type: 'GAME_RESULT', playerRank: p2Rank, round: roundIndex, result: resultToStore });
-      }
-    }
-
-    // Validate player references exist before proceeding
-    if (parsedResult.isValid) {
+      // Validate player references exist BEFORE filling cells
       const allPlayerRanks = [parsedResult.parsedPlayer1Rank, parsedResult.parsedPlayer2Rank, parsedResult.parsedPlayer3Rank, parsedResult.parsedPlayer4Rank]
         .filter((r) => r && r > 0);
       const missingRanks = allPlayerRanks.filter((r) => !players.some((p) => p.rank === r));
@@ -1440,6 +1401,43 @@ export default function LadderForm({
         setWalkthroughIndex(0);
         setIsRecalculating(true);
         return;
+      }
+
+      // Helper: fill a player's cell (in override mode, always overwrite)
+      const fillCell = (playerRank: number, resultStr: string) => {
+        const player = players.find((p) => p.rank === playerRank);
+        if (player && roundIndex >= 0 && roundIndex < 31) {
+          if (isEnterGamesOverride) {
+            player.gameResults[roundIndex] = resultStr;
+            log('[ENTER_GAMES]', 'Overwrote cell P' + playerRank + ' R' + (roundIndex + 1) + ': "' + resultStr + '"');
+          } else {
+            const existingValue = player.gameResults[roundIndex]?.replace(/_+$/, "") || "";
+            if (!existingValue.trim()) {
+              player.gameResults[roundIndex] = resultStr;
+              log('[ENTER_GAMES]', 'Filled cell P' + playerRank + ' R' + (roundIndex + 1) + ': "' + resultStr + '"');
+            } else {
+              if (shouldLog(3)) {
+                console.log('[ENTER_GAMES_DEBUG] Cell SKIPPED (already filled): P' + playerRank + ' R' + (roundIndex + 1) + ' = "' + existingValue + '"');
+              }
+            }
+          }
+        }
+      };
+
+      if (is4Player) {
+        fillCell(p1Rank, resultToStore);
+        fillCell(p2Rank, resultToStore);
+        fillCell(p3Rank, resultToStore);
+        fillCell(p4Rank, resultToStore);
+        addDelta({ type: 'GAME_RESULT', playerRank: p1Rank, round: roundIndex, result: resultToStore });
+        addDelta({ type: 'GAME_RESULT', playerRank: p2Rank, round: roundIndex, result: resultToStore });
+        addDelta({ type: 'GAME_RESULT', playerRank: p3Rank, round: roundIndex, result: resultToStore });
+        addDelta({ type: 'GAME_RESULT', playerRank: p4Rank, round: roundIndex, result: resultToStore });
+      } else {
+        fillCell(p1Rank, resultToStore);
+        fillCell(p2Rank, resultToStore);
+        addDelta({ type: 'GAME_RESULT', playerRank: p1Rank, round: roundIndex, result: resultToStore });
+        addDelta({ type: 'GAME_RESULT', playerRank: p2Rank, round: roundIndex, result: resultToStore });
       }
     }
 
@@ -2177,6 +2175,11 @@ export default function LadderForm({
       setPendingPlayers(pendingUpdatedPlayers);
       latestPendingPlayersRef.current = pendingUpdatedPlayers;
 
+      // Extract fresh matches from corrected players
+      const { matches: freshMatchesEmpty, playerResultsByMatch: freshResultsByMatchEmpty } = processGameResults(pendingUpdatedPlayers, 31);
+      setPendingMatches(freshMatchesEmpty);
+      setPendingPlayerResultsByMatch(freshResultsByMatchEmpty);
+
       // Remove this error from the walkthrough errors list
       const newWalkthroughErrors = walkthroughErrors.filter(
         (error) =>
@@ -2215,10 +2218,10 @@ export default function LadderForm({
             round: nextError.resultIndex,
           });
         } else {
-          completeRatingCalculation(pendingUpdatedPlayers);
+          completeRatingCalculation(pendingUpdatedPlayers, freshMatchesEmpty);
         }
       } else {
-        completeRatingCalculation(pendingUpdatedPlayers);
+        completeRatingCalculation(pendingUpdatedPlayers, freshMatchesEmpty);
       }
       return;
     }
@@ -2275,6 +2278,12 @@ export default function LadderForm({
     setCurrentError(null);
     setWalkthroughErrors(newWalkthroughErrors);
     // setEntryCell(null); // Removed to maintain highlighting during recalculation
+
+    // Extract fresh matches from corrected players so new results are included
+    const { matches: freshMatches, playerResultsByMatch: freshResultsByMatch } = processGameResults(pendingUpdatedPlayers, 31);
+    setPendingMatches(freshMatches);
+    setPendingPlayerResultsByMatch(freshResultsByMatch);
+
     // After correction: move to next error or complete if recalculation mode
     if (isRecalculating) {
       if (newWalkthroughErrors.length > 0) {
@@ -2293,13 +2302,13 @@ export default function LadderForm({
             round: nextError.resultIndex,
           });
         } else {
-          completeRatingCalculation(pendingUpdatedPlayers);
+          completeRatingCalculation(pendingUpdatedPlayers, freshMatches);
         }
       } else {
-        completeRatingCalculation(pendingUpdatedPlayers);
+        completeRatingCalculation(pendingUpdatedPlayers, freshMatches);
       }
     } else if (newWalkthroughErrors.length === 0) {
-      completeRatingCalculation(pendingUpdatedPlayers);
+      completeRatingCalculation(pendingUpdatedPlayers, freshMatches);
     }
   };
 
@@ -2328,17 +2337,18 @@ export default function LadderForm({
     setTempGameResult(null);
   };
 
-  const completeRatingCalculation = async (usePendingPlayers?: PlayerData[]) => {
+  const completeRatingCalculation = async (usePendingPlayers?: PlayerData[], useMatches?: MatchData[]) => {
     const playersToUse = usePendingPlayers || pendingPlayers;
-    if (!playersToUse || !pendingMatches) return;
+    const matchesToUse = useMatches || pendingMatches;
+    if (!playersToUse || !matchesToUse) return;
 
     const processedPlayers = repopulateGameResults(
       playersToUse,
-      pendingMatches,
+      matchesToUse,
       31,
       pendingPlayerResultsByMatch || undefined,
     );
-    let calculatedPlayers = calculateRatings(processedPlayers, pendingMatches).players;
+    let calculatedPlayers = calculateRatings(processedPlayers, matchesToUse).players;
 
     // Check for pending New Day operation
     const pendingNewDayJson = getPendingNewDay();
