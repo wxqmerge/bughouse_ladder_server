@@ -1393,6 +1393,54 @@ export default function LadderForm({
       }
     }
 
+    // Validate player references exist before proceeding
+    if (parsedResult.isValid) {
+      const allPlayerRanks = [parsedResult.parsedPlayer1Rank, parsedResult.parsedPlayer2Rank, parsedResult.parsedPlayer3Rank, parsedResult.parsedPlayer4Rank]
+        .filter((r) => r && r > 0);
+      const missingRanks = allPlayerRanks.filter((r) => !players.some((p) => p.rank === r));
+      if (missingRanks.length > 0) {
+        log('[ENTER_GAMES]', `Invalid player reference(s): ${missingRanks.join(', ')}`);
+        setPendingPlayers(players);
+        setPendingMatches([]);
+        setPendingPlayerResultsByMatch(new Map());
+        setCurrentError({
+          hashValue: 0,
+          player1: parsedResult.parsedPlayer1Rank || 0,
+          player2: parsedResult.parsedPlayer2Rank || 0,
+          player3: parsedResult.parsedPlayer3Rank || 0,
+          player4: parsedResult.parsedPlayer4Rank || 0,
+          score1: 0,
+          score2: 0,
+          resultIndex: entryCell.round,
+          isValid: false,
+          error: 11,
+          originalString: correctedString,
+          playerRank: entryCell.playerRank,
+        });
+        setEntryCell({
+          playerRank: entryCell.playerRank,
+          round: entryCell.round,
+        });
+        setWalkthroughErrors([{
+          hashValue: 0,
+          player1: parsedResult.parsedPlayer1Rank || 0,
+          player2: parsedResult.parsedPlayer2Rank || 0,
+          player3: parsedResult.parsedPlayer3Rank || 0,
+          player4: parsedResult.parsedPlayer4Rank || 0,
+          score1: 0,
+          score2: 0,
+          resultIndex: entryCell.round,
+          isValid: false,
+          error: 11,
+          originalString: correctedString,
+          playerRank: entryCell.playerRank,
+        }]);
+        setWalkthroughIndex(0);
+        setIsRecalculating(true);
+        return;
+      }
+    }
+
     // Store current cell position to find next empty cell after recalc
     const currentCell = { ...entryCell };
 
