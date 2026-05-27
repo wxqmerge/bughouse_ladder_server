@@ -3309,16 +3309,38 @@ export default function LadderForm({
       savePlayers(updatedPlayers).catch((err) => {
         console.error("Failed to save added player:", err);
       });
-      
+
       // If tournament active, add player to all mini-game files
       if (isMiniGameTitle(getProjectName()) && splashServerUrl) {
         dataService.addPlayerToMiniGames(newPlayer).catch((err) => {
           console.error("Failed to add player to mini-games:", err);
         });
       }
-      
+
       return updatedPlayers;
     });
+
+    // Also update pendingPlayers so the error correction flow includes the new player
+    if (pendingPlayers) {
+      const maxRank = pendingPlayers.reduce(
+        (max, p) => Math.max(max, p.rank || 0),
+        0,
+      );
+      const newRank = suggestedRank !== undefined ? suggestedRank : maxRank + 1;
+
+      const newPlayer: PlayerData = {
+        ...playerData,
+        rank: newRank,
+        nRating: Math.abs(playerData.rating || 1),
+        trophyEligible: true,
+        gameResults: new Array(31).fill(null),
+      };
+
+      const updatedPending = [...pendingPlayers, newPlayer];
+      updatedPending.sort((a, b) => a.rank - b.rank);
+      setPendingPlayers(updatedPending);
+      latestPendingPlayersRef.current = updatedPending;
+    }
 
     if (shouldLog(10)) {
       console.log(`New player added successfully`);
