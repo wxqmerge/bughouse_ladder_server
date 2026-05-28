@@ -208,14 +208,51 @@ describe('requireUserKey', () => {
     delete process.env.NODE_ENV;
   });
 
-  it('should allow request when neither key is configured (dev mode)', () => {
+  it('should return 403 when neither key is configured (view-only mode)', () => {
     const req = createMockReq();
     const res = createMockRes();
     const next = createMockNext();
 
     requireUserKey(req, res, next);
 
+    expect(res.statusCode).toBe(403);
+    expect(res.jsonBody.success).toBe(false);
+    expect(next.called()).toBe(false);
+  });
+
+  it('should allow request when ADMIN_API_KEY is set but USER_API_KEY is not (admin can write)', () => {
+    process.env.ADMIN_API_KEY = 'admin-secret';
+    const req = createMockReq({ headers: { 'x-api-key': 'admin-secret' } });
+    const res = createMockRes();
+    const next = createMockNext();
+
+    requireUserKey(req, res, next);
+
     expect(next.called()).toBe(true);
+  });
+
+  it('should reject when only ADMIN_API_KEY is set but no key sent', () => {
+    process.env.ADMIN_API_KEY = 'admin-secret';
+    const req = createMockReq();
+    const res = createMockRes();
+    const next = createMockNext();
+
+    requireUserKey(req, res, next);
+
+    expect(res.statusCode).toBe(401);
+    expect(next.called()).toBe(false);
+  });
+
+  it('should reject when only ADMIN_API_KEY is set but wrong key sent', () => {
+    process.env.ADMIN_API_KEY = 'admin-secret';
+    const req = createMockReq({ headers: { 'x-api-key': 'wrong-key' } });
+    const res = createMockRes();
+    const next = createMockNext();
+
+    requireUserKey(req, res, next);
+
+    expect(res.statusCode).toBe(401);
+    expect(next.called()).toBe(false);
   });
 
   it('should return 401 when USER_API_KEY is set but no key sent', () => {
@@ -276,6 +313,65 @@ describe('requireUserKey', () => {
     requireAdminKey(req, res, next);
 
     expect(res.statusCode).toBe(401);
+    expect(next.called()).toBe(false);
+  });
+});
+
+describe('Write endpoints without API key (regression)', () => {
+  beforeEach(() => {
+    delete process.env.ADMIN_API_KEY;
+    delete process.env.USER_API_KEY;
+    delete process.env.NODE_ENV;
+  });
+
+  afterEach(() => {
+    delete process.env.ADMIN_API_KEY;
+    delete process.env.USER_API_KEY;
+    delete process.env.NODE_ENV;
+  });
+
+  it('should block game/submit when no API keys configured', () => {
+    const req = createMockReq({
+      method: 'POST',
+      path: '/submit',
+      body: { playerRank: 1, round: 0, result: '6W8' },
+    });
+    const res = createMockRes();
+    const next = createMockNext();
+
+    requireUserKey(req, res, next);
+
+    expect(res.statusCode).toBe(403);
+    expect(next.called()).toBe(false);
+  });
+
+  it('should block ladder PUT when no API keys configured', () => {
+    const req = createMockReq({
+      method: 'PUT',
+      path: '/',
+      body: { players: [] },
+    });
+    const res = createMockRes();
+    const next = createMockNext();
+
+    requireUserKey(req, res, next);
+
+    expect(res.statusCode).toBe(403);
+    expect(next.called()).toBe(false);
+  });
+
+  it('should block ladder/batch when no API keys configured', () => {
+    const req = createMockReq({
+      method: 'POST',
+      path: '/batch',
+      body: { deltas: [] },
+    });
+    const res = createMockRes();
+    const next = createMockNext();
+
+    requireUserKey(req, res, next);
+
+    expect(res.statusCode).toBe(403);
     expect(next.called()).toBe(false);
   });
 });
