@@ -5,7 +5,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { processGameResults } from '../../../shared/utils/hashUtils';
+import { processGameResults, repopulateGameResults } from '../../../shared/utils/hashUtils';
 import type { PlayerData, ValidationResult } from '../../../shared/types';
 import AddPlayerDialog from '../../components/AddPlayerDialog';
 import ErrorDialog from '../../components/ErrorDialog';
@@ -515,5 +515,175 @@ describe('ErrorDialog - inline Add Player buttons', () => {
 
     const addButtons = screen.getAllByRole('button', { name: /Add Player/ });
     expect(addButtons.length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('Enter-games flow: validate before fillCell', () => {
+  it('should detect error 11 when game result references missing player', () => {
+    const players: PlayerData[] = [
+      makePlayer(5, ['5W16_', null, ...Array(29).fill(null)]),
+      makePlayer(6, Array(31).fill(null)),
+    ];
+
+    const result = processGameResults(players, 31);
+    expect(result.hasErrors).toBe(true);
+    expect(result.errors.find(e => e.error === 11)).toBeDefined();
+
+    // No match extracted since player 16 doesn't exist
+    expect(result.matches.length).toBe(0);
+  });
+
+  it('should fill cell only when all player references are valid', () => {
+    const players: PlayerData[] = [
+      makePlayer(5, Array(31).fill(null)),
+      makePlayer(6, Array(31).fill(null)),
+    ];
+
+    players[0].gameResults[0] = '5W6_';
+    players[1].gameResults[0] = '5W6_';
+
+    const result = processGameResults(players, 31);
+    expect(result.hasErrors).toBe(false);
+    expect(result.matches.length).toBe(1);
+  });
+});
+
+describe('Enter-games flow: pendingPlayers sync on add', () => {
+  it('should include new player in pendingPlayers after add', () => {
+    const pendingPlayers: PlayerData[] = [
+      makePlayer(5),
+      makePlayer(6),
+    ];
+
+    const newPlayer: PlayerData = makePlayer(16);
+    const updatedPending = [...pendingPlayers, newPlayer].sort((a, b) => a.rank - b.rank);
+
+    expect(updatedPending.length).toBe(3);
+    expect(updatedPending.some(p => p.rank === 16)).toBe(true);
+  });
+
+  it('should preserve existing players when syncing pendingPlayers', () => {
+    const pendingPlayers: PlayerData[] = [
+      makePlayer(5, ['5W6_', null, ...Array(29).fill(null)]),
+      makePlayer(6, ['6L5_', null, ...Array(29).fill(null)]),
+    ];
+
+    const newPlayer: PlayerData = makePlayer(16);
+    const updatedPending = [...pendingPlayers, newPlayer].sort((a, b) => a.rank - b.rank);
+
+    const p5 = updatedPending.find(p => p.rank === 5);
+    expect(p5?.gameResults[0]).toBe('5W6_');
+    const p6 = updatedPending.find(p => p.rank === 6);
+    expect(p6?.gameResults[0]).toBe('6L5_');
+  });
+});
+
+describe('Enter-games flow: fresh matches extraction on correction', () => {
+  it('should extract new match after adding missing player', () => {
+    const beforePlayers: PlayerData[] = [
+      makePlayer(5, ['5W16_', null, ...Array(29).fill(null)]),
+    ];
+    const before = processGameResults(beforePlayers, 31);
+    expect(before.matches.length).toBe(0);
+    expect(before.hasErrors).toBe(true);
+
+    const afterPlayers: PlayerData[] = [
+      makePlayer(5, ['5W16_', null, ...Array(29).fill(null)]),
+      makePlayer(16, ['5W16_', null, ...Array(29).fill(null)]),
+    ];
+    const after = processGameResults(afterPlayers, 31);
+    expect(after.matches.length).toBe(1);
+    expect(after.hasErrors).toBe(false);
+    expect(after.matches[0].player1).toBe(5);
+    expect(after.matches[0].player2).toBe(16);
+  });
+
+  it('should preserve existing matches when extracting fresh matches', () => {
+    const players: PlayerData[] = [
+      makePlayer(5, ['5W16_', '5W6_', null, ...Array(28).fill(null)]),
+      makePlayer(6, [null, '6L5_', null, ...Array(29).fill(null)]),
+      makePlayer(16, ['5W16_', null, ...Array(29).fill(null)]),
+    ];
+
+    const result = processGameResults(players, 31);
+
+    expect(result.matches.length).toBe(2);
+    expect(result.matches.some(m => m.player1 === 5 && m.player2 === 16)).toBe(true);
+    expect(result.matches.some(m => m.player1 === 5 && m.player2 === 6)).toBe(true);
+  });
+
+  it('should repopulate game results from fresh matches without data loss', () => {
+    const players: PlayerData[] = [
+      makePlayer(5, ['5W16_', '5W6_', null, ...Array(28).fill(null)]),
+      makePlayer(6, [null, '6L5_', null, ...Array(29).fill(null)]),
+      makePlayer(16, ['5W16_', null, ...Array(29).fill(null)]),
+    ];
+
+    const { matches, playerResultsByMatch } = processGameResults(players, 31);
+    const repopulated = repopulateGameResults(players, matches, 31, playerResultsByMatch);
+
+    const p5 = repopulated.find(p => p.rank === 5);
+    expect(p5?.gameResults.filter(r => r !== null).length).toBe(2);
+
+    const p6 = repopulated.find(p => p.rank === 6);
+    expect(p6?.gameResults.filter(r => r !== null).length).toBe(1);
+
+    const p16 = repopulated.find(p => p.rank === 16);
+    expect(p16?.gameResults.filter(r => r !== null).length).toBe(1);
+  });
+});
+
+describe('Enter-games flow: full correction flow', () => {
+  it('should preserve all results through full correction cycle', () => {
+    const step1Players: PlayerData[] = [
+      makePlayer(5, ['5W6_', null, ...Array(29).fill(null)]),
+      makePlayer(6, ['6L5_', null, ...Array(29).fill(null)]),
+    ];
+    const step1 = processGameResults(step1Players, 31);
+    expect(step1.matches.length).toBe(1);
+
+    const step2Players: PlayerData[] = [
+      makePlayer(5, ['5W6_', '5W16_', null, ...Array(28).fill(null)]),
+      makePlayer(6, ['6L5_', null, ...Array(29).fill(null)]),
+      makePlayer(16, [null, '5W16_', null, ...Array(28).fill(null)]),
+    ];
+    const step2 = processGameResults(step2Players, 31);
+    expect(step2.matches.length).toBe(2);
+
+    const repopulated = repopulateGameResults(step2Players, step2.matches, 31, step2.playerResultsByMatch);
+
+    const p5 = repopulated.find(p => p.rank === 5);
+    expect(p5?.gameResults.filter(r => r !== null).length).toBe(2);
+
+    const p6 = repopulated.find(p => p.rank === 6);
+    expect(p6?.gameResults.filter(r => r !== null).length).toBe(1);
+
+    const p16 = repopulated.find(p => p.rank === 16);
+    expect(p16?.gameResults.filter(r => r !== null).length).toBe(1);
+  });
+
+  it('should handle multiple corrections with fresh matches each time', () => {
+    const afterFirst: PlayerData[] = [
+      makePlayer(5, ['5W16_', null, ...Array(29).fill(null)]),
+      makePlayer(16, ['5W16_', null, ...Array(29).fill(null)]),
+    ];
+    const firstMatches = processGameResults(afterFirst, 31);
+    expect(firstMatches.matches.length).toBe(1);
+
+    const afterSecond: PlayerData[] = [
+      makePlayer(5, ['5W16_', '5W99_', null, ...Array(28).fill(null)]),
+      makePlayer(16, ['5W16_', null, ...Array(29).fill(null)]),
+      makePlayer(99, [null, '5W99_', null, ...Array(28).fill(null)]),
+    ];
+    const secondMatches = processGameResults(afterSecond, 31);
+    expect(secondMatches.matches.length).toBe(2);
+
+    const repopulated = repopulateGameResults(afterSecond, secondMatches.matches, 31, secondMatches.playerResultsByMatch);
+
+    const p5 = repopulated.find(p => p.rank === 5);
+    expect(p5?.gameResults.filter(r => r !== null).length).toBe(2);
+
+    const p99 = repopulated.find(p => p.rank === 99);
+    expect(p99?.gameResults.filter(r => r !== null).length).toBe(1);
   });
 });

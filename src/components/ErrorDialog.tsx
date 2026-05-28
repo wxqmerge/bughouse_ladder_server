@@ -459,7 +459,6 @@ export default function ErrorDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.clear();
     console.log(">>> [BUTTON PRESSED] Save (Game Result)");
     const value = cleanInput();
     if (shouldLog(3)) console.log('[3]DEBUG-TRACE] === handleSubmit === value="' + value + '"');
@@ -469,7 +468,6 @@ export default function ErrorDialog({
 
   const handleEnterRecalculateSave = (e: React.FormEvent) => {
     e.preventDefault();
-    console.clear();
     console.log(">>> [BUTTON PRESSED] Enter_Recalculate_Save");
     const value = cleanInput();
     if (shouldLog(3)) console.log('[3]DEBUG-TRACE] === handleEnterRecalculateSave === value="' + value + '"');
@@ -1258,11 +1256,11 @@ export default function ErrorDialog({
                   .filter((r) => r > 0)
                   .map((r) => {
                     const playerExists = players.some(p => p.rank === r);
-                    if (playerExists) return null;
-                    return (
-                      <button
-                        key={r}
-                        onClick={() => onAddPlayer(r)}
+                     if (playerExists) return null;
+                     return (
+                       <button
+                         key={r}
+                         onClick={() => { console.log(`>>> [BUTTON PRESSED] + Add Player (Rank ${r}) [inline error]`); onAddPlayer(r); }}
                         style={{
                           marginRight: "0.5rem",
                           padding: "0.25rem 0.75rem",
@@ -1446,7 +1444,7 @@ export default function ErrorDialog({
                   return (
                     <button
                       key={r}
-                      onClick={() => onAddPlayer(r)}
+                      onClick={() => { console.log(`>>> [BUTTON PRESSED] + Add Player (Rank ${r}) [inline enter-games]`); onAddPlayer(r); }}
                       style={{
                         marginRight: "0.5rem",
                         padding: "0.25rem 0.75rem",
@@ -1475,12 +1473,12 @@ export default function ErrorDialog({
             {/* Enter-Games mode: Cancel + Enter_Recalculate_Save */}
 {isEnterGames ? (
               <>
-                <button
-                  type="button"
-                  onClick={onToggleOverrideMode}
-                  style={{
-                    padding: "0.5rem 0.75rem",
-                    background: isOverrideMode ? "#f59e0b" : "#f3f4f6",
+             <button
+                   type="button"
+                   onClick={() => { console.log(`>>> [BUTTON PRESSED] Override ${isOverrideMode ? 'OFF' : 'ON'}`); onToggleOverrideMode?.(); }}
+                   style={{
+                     padding: "0.5rem 0.75rem",
+                     background: isOverrideMode ? "#f59e0b" : "#f3f4f6",
                     border: isOverrideMode ? "2px solid #d97706" : "1px solid #d1d5db",
                     borderRadius: "0.25rem",
                     cursor: "pointer",
@@ -1491,24 +1489,24 @@ export default function ErrorDialog({
                 >
                   {isOverrideMode ? "⚠ Override ON" : "Override"}
                 </button>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  style={{
-                    padding: "0.5rem 1rem",
-                    background: "#f3f4f6",
-                    border: "1px solid #d1d5db",
-                    borderRadius: "0.25rem",
-                    cursor: "pointer",
-                    fontSize: "0.875rem",
-                    color: "#374151",
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
+            <button
                    type="button"
-                   onClick={handleEnterRecalculateSave}
+                   onClick={() => { console.log(">>> [BUTTON PRESSED] Cancel [enter-games error dialog]"); onClose(); }}
+                   style={{
+                     padding: "0.5rem 1rem",
+                     background: "#f3f4f6",
+                     border: "1px solid #d1d5db",
+                     borderRadius: "0.25rem",
+                     cursor: "pointer",
+                     fontSize: "0.875rem",
+                     color: "#374151",
+                   }}
+                 >
+                   Cancel
+                 </button>
+                 <button
+                    type="button"
+                    onClick={handleEnterRecalculateSave}
                    disabled={!currentInputValue.trim()}
                    style={{
                      padding: "0.5rem 1rem",
@@ -1661,12 +1659,13 @@ export default function ErrorDialog({
             <span style={{ fontSize: "0.875rem", color: "#1e40af", fontWeight: "500" }}>
               Need to add a new player?
             </span>
-            <button
-              type="button"
-              onClick={() => {
-                onAddPlayer();
-                onClose();
-              }}
+           <button
+               type="button"
+               onClick={() => {
+                 console.log(">>> [BUTTON PRESSED] Add Player [bottom banner]");
+                 onAddPlayer();
+                 onClose();
+               }}
               style={{
                 padding: "0.5rem 1rem",
                 background: "#3b82f6",

@@ -28,6 +28,7 @@ export default function AddPlayerDialog({
   const [school, setSchool] = useState("");
   const [room, setRoom] = useState("");
   const [customRank, setCustomRank] = useState<number | undefined>(undefined);
+  const [trophyEligible, setTrophyEligible] = useState(true);
 
   // Calculate next available rank
   const nextRank = customRank !== undefined
@@ -53,10 +54,12 @@ export default function AddPlayerDialog({
     setSchool("");
     setRoom("");
     setCustomRank(undefined);
+    setTrophyEligible(true);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+     console.log(`>>> [BUTTON PRESSED] Add Player [submit] - Rank: ${nextRank}, Name: ${firstName} ${lastName}`);
+     e.preventDefault();
 
     if (!lastName || !firstName) {
       alert("Last Name and First Name are required");
@@ -68,7 +71,7 @@ export default function AddPlayerDialog({
       lastName,
       firstName,
       rating: rating ? parseInt(rating) : 0,
-      trophyEligible: true,
+      trophyEligible,
       grade,
       phone,
       info,
@@ -132,13 +135,13 @@ export default function AddPlayerDialog({
             <UserPlus size={24} />
             {suggestedRank !== undefined ? `Add Player (Rank ${suggestedRank})` : 'Add New Player'}
           </h2>
-          <button
-            onClick={onClose}
-            style={{
-              background: "transparent",
-              border: "none",
-              cursor: "pointer",
-              padding: "0.25rem",
+      <button
+             onClick={() => { console.log(">>> [BUTTON PRESSED] X Close [AddPlayerDialog]"); onClose(); }}
+             style={{
+               background: "transparent",
+               border: "none",
+               cursor: "pointer",
+               padding: "0.25rem",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -186,6 +189,39 @@ export default function AddPlayerDialog({
                   cursor: suggestedRank ? "text" : "not-allowed",
                 }}
               />
+            </div>
+
+            <div>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: "0.875rem",
+                  fontWeight: "500",
+                  color: "#374151",
+                  marginBottom: "0.5rem",
+                }}
+              >
+                Trophy
+              </label>
+              <button
+                type="button"
+                onClick={() => { console.log(`>>> [BUTTON PRESSED] Trophy Toggle [AddPlayerDialog] -> ${!trophyEligible ? '+' : '-'}`); setTrophyEligible(!trophyEligible); }}
+                style={{
+                  width: "100%",
+                  padding: "0.5rem",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "0.25rem",
+                  fontSize: "1.25rem",
+                  fontWeight: "700",
+                  fontFamily: "monospace",
+                  cursor: "pointer",
+                  boxSizing: "border-box",
+                  backgroundColor: trophyEligible !== false ? "#dcfce7" : "#fee2e2",
+                  color: trophyEligible !== false ? "#16a34a" : "#dc2626",
+                }}
+              >
+                {trophyEligible !== false ? "+" : "-"}
+              </button>
             </div>
 
             <div>
@@ -463,21 +499,21 @@ export default function AddPlayerDialog({
               marginTop: "1.5rem",
             }}
           >
-            <button
-              type="button"
-              onClick={onClose}
-              style={{
-                padding: "0.5rem 1rem",
-                background: "#f3f4f6",
-                border: "1px solid #d1d5db",
-                borderRadius: "0.25rem",
-                cursor: "pointer",
-                fontSize: "0.875rem",
-                color: "#374151",
-              }}
-            >
-              Cancel
-            </button>
+    <button
+               type="button"
+               onClick={() => { console.log(">>> [BUTTON PRESSED] Cancel [AddPlayerDialog]"); onClose(); }}
+               style={{
+                 padding: "0.5rem 1rem",
+                 background: "#f3f4f6",
+                 border: "1px solid #d1d5db",
+                 borderRadius: "0.25rem",
+                 cursor: "pointer",
+                 fontSize: "0.875rem",
+                 color: "#374151",
+               }}
+             >
+               Cancel
+             </button>
             <button
               type="submit"
               style={{
