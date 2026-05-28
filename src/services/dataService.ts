@@ -291,7 +291,7 @@ class DataService {
       return false;
     } else {
       try {
-        // Fetch fresh data from server (or mini-game file) WITHOUT caching to localStorage
+        // Fetch fresh data from server (or mini-game file)
         let response: Response;
         let serverPlayers: PlayerData[];
         
@@ -321,6 +321,12 @@ class DataService {
         if (newHash !== this.lastDataHash) {
           console.log('[DataService] Polling detected data change');
           this.lastDataHash = newHash;
+          // Save fresh server data to localStorage so getPlayers() returns it
+          if (this.currentMiniGameFile) {
+            this.saveLocalMiniGamePlayers(serverPlayers);
+          } else {
+            this.saveLocalPlayers(serverPlayers);
+          }
           return true; // Data changed
         }
         
@@ -364,34 +370,40 @@ class DataService {
        let cachedPlayers: PlayerData[] = await this.getLocalPlayers();
        // console.log(`[DataService] getPlayers: mode=${this.config.mode}, miniGame=${this.currentMiniGameFile || 'none'}, cached=${cachedPlayers.length} players`);
 
-      // Fetch from server in background to sync (deduplicated)
-      if (this.activeRefreshCount === 0) {
-        this.activeRefreshCount++;
-        (async () => {
-          try {
-            let serverPlayers: PlayerData[];
-            if (this.currentMiniGameFile) {
-              serverPlayers = await this.fetchMiniGamePlayers();
-            } else {
-              serverPlayers = await this.fetchPlayers();
-            }
-            // Initialize hash on first fetch
-            const newHash = this.computeHash(serverPlayers);
-            if (this.lastDataHash === null && serverPlayers.length > 0) {
-              this.lastDataHash = newHash;
-            }
-            // Only notify if data actually changed (prevents infinite loop on empty mini-game)
-            if (this.lastDataHash !== null && newHash !== this.lastDataHash) {
-              this.lastDataHash = newHash;
-              this.notifySubscribers();
-            }
-          } catch {
-            // Server fetch failed silently — UI keeps showing cached local data
-          } finally {
-            this.activeRefreshCount--;
-          }
-        })();
-      }
+     // Fetch from server in background to sync (deduplicated)
+       if (this.activeRefreshCount === 0) {
+         this.activeRefreshCount++;
+         (async () => {
+           try {
+             let serverPlayers: PlayerData[];
+             if (this.currentMiniGameFile) {
+               serverPlayers = await this.fetchMiniGamePlayers();
+             } else {
+               serverPlayers = await this.fetchPlayers();
+             }
+             // Initialize hash on first fetch
+             const newHash = this.computeHash(serverPlayers);
+             if (this.lastDataHash === null && serverPlayers.length > 0) {
+               this.lastDataHash = newHash;
+             }
+             // Save to localStorage cache so getPlayers() always has fresh data
+             if (this.currentMiniGameFile) {
+               this.saveLocalMiniGamePlayers(serverPlayers);
+             } else {
+               this.saveLocalPlayers(serverPlayers);
+             }
+             // Only notify if data actually changed (prevents infinite loop on empty mini-game)
+             if (this.lastDataHash !== null && newHash !== this.lastDataHash) {
+               this.lastDataHash = newHash;
+               this.notifySubscribers();
+             }
+           } catch {
+             // Server fetch failed silently — UI keeps showing cached local data
+           } finally {
+             this.activeRefreshCount--;
+           }
+         })();
+       }
 
       return cachedPlayers;
     }
