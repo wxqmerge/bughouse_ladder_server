@@ -465,7 +465,7 @@ These buttons only appear when admin mode is enabled.
 
 ---
 
-**Version:** 1.3.0  
+**Version:** 1.3.1  
 **Last Updated:** May 2026  
 **Prerequisites:** User Manual knowledge assumed
 

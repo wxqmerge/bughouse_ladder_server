@@ -339,5 +339,5 @@ Fix: Use **Operations → Check Errors**, then review recent entries.
 
 ---
 
-**Version:** 1.3.0  
+**Version:** 1.3.1  
 **Last Updated:** May 2026
