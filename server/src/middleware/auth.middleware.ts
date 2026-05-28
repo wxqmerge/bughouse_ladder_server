@@ -74,20 +74,13 @@ export function requireAdminKey(
     return;
   }
 
-  // In production, admin key is mandatory - reject if not configured
   const adminKey = getAdminKey();
-  if (process.env.NODE_ENV === 'production' && !adminKey) {
-    console.log(`[ADMIN_AUTH] 403 - ADMIN_API_KEY not configured in production | IP: ${req.ip} | Path: ${req.path}`);
+  if (!adminKey) {
+    console.log(`[ADMIN_AUTH] 403 - ADMIN_API_KEY not configured | IP: ${req.ip} | Path: ${req.path}`);
     res.status(403).json({
       success: false,
       error: { message: 'Admin API key not configured on server' },
     });
-    return;
-  }
-
-  // In dev mode, if no API key configured, allow all requests
-  if (!adminKey) {
-    next();
     return;
   }
 
