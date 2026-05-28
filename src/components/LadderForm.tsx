@@ -2422,6 +2422,7 @@ export default function LadderForm({
   };
 
   const handleWalkthroughNext = () => {
+    console.log(`>>> [BUTTON PRESSED] Walkthrough Next (recalc) [index ${walkthroughIndex} → ${walkthroughIndex + 1}]`);
     if (walkthroughIndex < walkthroughErrors.length - 1) {
       setWalkthroughIndex(walkthroughIndex + 1);
       setEntryCell({
@@ -2434,6 +2435,7 @@ export default function LadderForm({
   };
 
   const handleWalkthroughPrev = () => {
+    console.log(`>>> [BUTTON PRESSED] Walkthrough Prev (recalc) [index ${walkthroughIndex} → ${walkthroughIndex - 1}]`);
     if (walkthroughIndex > 0) {
       setWalkthroughIndex(walkthroughIndex - 1);
     }
@@ -2442,26 +2444,29 @@ export default function LadderForm({
   const getNonBlankCells = (): { playerRank: number; round: number }[] => {
     const cells: { playerRank: number; round: number }[] = [];
     for (let playerIdx = 0; playerIdx < players.length; playerIdx++) {
-      const gameResults = players[playerIdx]?.gameResults ?? [];
+      const player = players[playerIdx];
+      const gameResults = player?.gameResults ?? [];
       if (gameResults.length === 0) continue;
       for (let roundIdx = 0; roundIdx < gameResults.length; roundIdx++) {
         const result = gameResults[roundIdx];
         if (result != null && result.trim() !== "") {
-          cells.push({ playerRank: playerIdx + 1, round: roundIdx });
+          cells.push({ playerRank: player.rank, round: roundIdx });
         }
       }
     }
     return cells;
   };
 
-  const handleWalkthroughNextForReview = () => {
+const handleWalkthroughNextForReview = () => {
+    console.log(`>>> [BUTTON PRESSED] Walkthrough Next (review) [index ${walkthroughIndex} → ${walkthroughIndex + 1}]`);
     if (isWalkthrough && walkthroughIndex < getNonBlankCells().length - 1) {
       const newIndex = walkthroughIndex + 1;
       setWalkthroughIndex(newIndex);
       // Update entryCell to highlight the new cell
-      const cell = getNonBlankCells()[newIndex];
-      if (cell) {
-        setEntryCell({ playerRank: cell.playerRank, round: cell.round });
+      const nextCell = getNonBlankCells()[newIndex];
+      console.log(`[WALKTHROUGH NAV] Next → cell #${newIndex + 1}: rank=${nextCell?.playerRank}, round=${nextCell?.round}`);
+      if (nextCell) {
+        setEntryCell({ playerRank: nextCell.playerRank, round: nextCell.round });
       }
     } else {
       setIsWalkthrough(false);
@@ -2469,18 +2474,20 @@ export default function LadderForm({
   };
 
   const handleWalkthroughPrevForReview = () => {
+    console.log(`>>> [BUTTON PRESSED] Walkthrough Prev (review) [index ${walkthroughIndex} → ${walkthroughIndex - 1}]`);
     if (isWalkthrough && walkthroughIndex > 0) {
       const newIndex = walkthroughIndex - 1;
       setWalkthroughIndex(newIndex);
-      // Update entryCell to highlight the new cell
-      const cell = getNonBlankCells()[newIndex];
-      if (cell) {
-        setEntryCell({ playerRank: cell.playerRank, round: cell.round });
+      const prevCell = getNonBlankCells()[newIndex];
+      console.log(`[WALKTHROUGH NAV] Prev → cell #${newIndex + 1}: rank=${prevCell?.playerRank}, round=${prevCell?.round}`);
+      if (prevCell) {
+        setEntryCell({ playerRank: prevCell.playerRank, round: prevCell.round });
       }
     }
   };
 
   const clearCurrentCell = () => {
+    console.log(`>>> [BUTTON PRESSED] Clear Cell [${entryCell?.playerRank}:${entryCell?.round}]`);
     if (!entryCell) return;
 
     // Mark local changes if we're in server down mode
@@ -2578,6 +2585,31 @@ export default function LadderForm({
       } else {
         setCurrentError(null);
         setIsRecalculating(false);
+      }
+    }
+
+    // Update entryCell for walkthrough review mode — compute from updatedPlayers
+    // (getNonBlankCells() reads stale React state, so we compute inline)
+    if (isWalkthrough) {
+      const newCells: { playerRank: number; round: number }[] = [];
+      for (const player of updatedPlayers) {
+        const gameResults = player.gameResults ?? [];
+        for (let r = 0; r < gameResults.length; r++) {
+          const val = gameResults[r];
+          if (val && val.trim() !== "") {
+            newCells.push({ playerRank: player.rank, round: r });
+          }
+        }
+      }
+      const clampedIndex = Math.min(walkthroughIndex, newCells.length - 1);
+      if (clampedIndex >= 0) {
+        setWalkthroughIndex(clampedIndex);
+        const currentCell = newCells[clampedIndex];
+        setEntryCell({ playerRank: currentCell.playerRank, round: currentCell.round });
+        console.log(`[CLEAR CELL] Updated entryCell to walkthrough cell #${clampedIndex + 1}: rank=${currentCell.playerRank}, round=${currentCell.round}`);
+      } else {
+        setIsWalkthrough(false);
+        console.log(`[CLEAR CELL] No more non-blank cells — exiting walkthrough`);
       }
     }
   };
@@ -5794,7 +5826,17 @@ export default function LadderForm({
           </tbody>
         </table>
       </div>
-      {(isRecalculating || isWalkthrough) && (
+      {(isRecalculating || isWalkthrough) && (() => {
+        const cellInfo = isWalkthrough
+          ? (() => {
+              const cell = getNonBlankCells()[walkthroughIndex];
+              return cell
+                ? `rank=${cell.playerRank}, round=${cell.round + 1} (0-based: ${cell.round})`
+                : `MISSING (index ${walkthroughIndex})`;
+            })()
+          : "recalculate";
+        console.log(`[WALKTHROUGH DEBUG] Showing cell #${walkthroughIndex + 1}/${isWalkthrough ? countNonBlankRounds() : walkthroughErrors.length} → ${cellInfo}`);
+        return (
         <ErrorDialog
           key={`error-dialog-${isWalkthrough ? walkthroughIndex : "recalc"}`}
           error={isWalkthrough ? null : walkthroughErrors[walkthroughIndex]}
@@ -5824,11 +5866,12 @@ export default function LadderForm({
             isWalkthrough
               ? (() => {
                   const cell = getNonBlankCells()[walkthroughIndex];
-                  if (!cell) return "";
-                  return (
-                    players.find((p) => p.rank === cell.playerRank)
-                      ?.gameResults?.[cell.round] || ""
-                  );
+                  const value = cell
+                    ? (players.find((p) => p.rank === cell.playerRank)
+                        ?.gameResults?.[cell.round] || "")
+                    : "";
+                  console.log(`[WALKTHROUGH CELL] index=${walkthroughIndex}, cell=${cell ? `${cell.playerRank}:${cell.round}` : 'null'}, value="${value}"`);
+                  return value;
                 })()
               : isRecalculating && walkthroughErrors[walkthroughIndex]
                 ? walkthroughErrors[
@@ -5875,9 +5918,10 @@ export default function LadderForm({
 isAdmin={isAdmin}
            hasAdminKey={!!loadUserSettings().apiKey?.trim()}
  onAddPlayer={(rank) => { setAddPlayerSuggestedRank(rank); setIsAddPlayerDialogOpen(true); }}
-           debugLevel={debugLevel}
-           />
-         )}
+          debugLevel={debugLevel}
+            />
+        );
+      })()}
  {entryCell &&
          !isRecalculating &&
          !isWalkthrough &&
