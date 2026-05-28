@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { PlayerData } from "../utils/hashUtils";
 
 interface DeleteHiddenPlayerDialogProps {
@@ -5,9 +6,12 @@ interface DeleteHiddenPlayerDialogProps {
   onClose: () => void;
   onConfirm: () => void;
   onSkip: () => void;
+  onJumpTo?: (index: number) => void;
+  playersToDelete: PlayerData[];
   player: PlayerData;
   remainingCount: number;
   processedCount: number;
+  currentIndex: number;
   deleteAllPlayers: boolean;
 }
 
@@ -16,15 +20,29 @@ export default function DeleteHiddenPlayerDialog({
   onClose,
   onConfirm,
   onSkip,
+  onJumpTo,
+  playersToDelete,
   player,
   remainingCount,
   processedCount,
+  currentIndex,
   deleteAllPlayers,
 }: DeleteHiddenPlayerDialogProps) {
   if (!isOpen) return null;
 
+  const [jumpRank, setJumpRank] = useState("");
   const filledCount = (player.gameResults || []).filter((r) => r && r.trim() !== "").length;
   const isHidden = player.group?.toLowerCase().endsWith('x');
+
+  const handleJump = () => {
+    const rank = parseInt(jumpRank, 10);
+    if (isNaN(rank) || !onJumpTo) return;
+    const idx = playersToDelete.findIndex(p => p.rank === rank);
+    if (idx >= 0) {
+      onJumpTo(idx);
+      setJumpRank("");
+    }
+  };
 
   return (
     <div
@@ -60,6 +78,40 @@ export default function DeleteHiddenPlayerDialog({
           <p style={{ margin: "0 0 0.25rem 0" }}>
             <strong>Progress:</strong> {processedCount} of {remainingCount} {deleteAllPlayers ? 'players' : 'hidden players'} reviewed
           </p>
+          {onJumpTo && (
+            <div style={{ marginTop: "0.5rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <label style={{ fontWeight: 500, fontSize: "0.8125rem" }}>Jump to rank:</label>
+              <input
+                type="number"
+                min={1}
+                value={jumpRank}
+                onChange={(e) => setJumpRank(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleJump()}
+                placeholder="Player rank"
+                style={{
+                  width: "80px",
+                  padding: "0.25rem 0.5rem",
+                  fontSize: "0.8125rem",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "0.25rem",
+                }}
+              />
+              <button
+                onClick={handleJump}
+                style={{
+                  padding: "0.25rem 0.5rem",
+                  fontSize: "0.8125rem",
+                  background: "#3b82f6",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "0.25rem",
+                  cursor: "pointer",
+                }}
+              >
+                Go
+              </button>
+            </div>
+          )}
         </div>
 
         <div style={{ marginBottom: "1rem", padding: "1rem", backgroundColor: "#fef3c7", borderRadius: "0.25rem", border: "1px solid #f59e0b" }}>

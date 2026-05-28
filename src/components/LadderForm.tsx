@@ -1492,7 +1492,6 @@ export default function LadderForm({
   };
 
   const recalculateRatings = async () => {
-    console.clear();
     console.log(`>>> [BUTTON PRESSED] Recalculate Ratings - ${players.length} players, isAdmin=${isAdmin}`);
 
     try {
@@ -3289,10 +3288,11 @@ export default function LadderForm({
     setIsAddPlayerDialogOpen(true);
   };
 
-  const handleAddPlayerSubmit = (
-    playerData: Omit<PlayerData, "rank" | "nRating" | "gameResults">,
-    suggestedRank?: number,
-  ) => {
+ const handleAddPlayerSubmit = (
+     playerData: Omit<PlayerData, "rank" | "nRating" | "gameResults">,
+     suggestedRank?: number,
+   ) => {
+     console.log(`>>> [ACTION] handleAddPlayerSubmit - Rank: ${suggestedRank}, Name: ${playerData.firstName} ${playerData.lastName}`);
     // Mark local changes if we're in server down mode
     if (isServerDownMode()) {
       markLocalChanges();
@@ -6057,15 +6057,18 @@ isAdmin={isAdmin}
       {/* Delete Hidden Player Dialog */}
       {showDeleteHiddenDialog && hiddenPlayersToDelete.length > 0 && (
         <DeleteHiddenPlayerDialog
-          isOpen={showDeleteHiddenDialog}
-          onClose={handleDeleteCancel}
-          onConfirm={handleDeleteConfirm}
-          onSkip={handleDeleteSkip}
-          player={hiddenPlayersToDelete[currentDeleteIndex]}
-          remainingCount={hiddenPlayersToDelete.length}
-          processedCount={currentDeleteIndex + 1}
-          deleteAllPlayers={deleteAllPlayers}
-        />
+           isOpen={showDeleteHiddenDialog}
+           onClose={handleDeleteCancel}
+           onConfirm={handleDeleteConfirm}
+           onSkip={handleDeleteSkip}
+           onJumpTo={(idx) => setCurrentDeleteIndex(idx)}
+           playersToDelete={hiddenPlayersToDelete}
+           player={hiddenPlayersToDelete[currentDeleteIndex]}
+           remainingCount={hiddenPlayersToDelete.length}
+           processedCount={currentDeleteIndex + 1}
+           currentIndex={currentDeleteIndex}
+           deleteAllPlayers={deleteAllPlayers}
+         />
       )}
       
       {/* Toast notification */}
