@@ -2495,6 +2495,12 @@ export default function LadderForm({
 
     console.log(`>>> [CLEAR CELL DEBUG] Cell: ${entryCell.playerRank}:${entryCell.round}, Raw: "${rawCellValue}", Value: "${cellValue}"`);
 
+    // Guard: don't process empty cells — just return silently
+    if (cellValue === "") {
+      console.log(`>>> [CLEAR CELL DEBUG] Cell is already empty, skipping`);
+      return;
+    }
+
     // Find all cells with the same value across all players (ignoring trailing underscores).
     // This is intentional: duplicate game result strings (e.g., "5W3") in different rounds
     // typically indicate a data entry error where the same game was recorded multiple times.
@@ -2561,8 +2567,9 @@ export default function LadderForm({
       setWalkthroughErrors(newWalkthroughErrors);
 
       if (newWalkthroughErrors.length > 0) {
-        const nextError =
-          newWalkthroughErrors[walkthroughIndex] || newWalkthroughErrors[0];
+        const clampedIndex = Math.min(walkthroughIndex, newWalkthroughErrors.length - 1);
+        const nextError = newWalkthroughErrors[clampedIndex];
+        setWalkthroughIndex(clampedIndex);
         setCurrentError(nextError);
         setEntryCell({
           playerRank: nextError.playerRank,

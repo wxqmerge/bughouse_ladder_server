@@ -627,6 +627,6 @@ When loading a file in admin/server mode, a confirmation dialog appears before p
 
 ---
 
-**Version:** 1.3.0  
+**Version:** 1.3.1  
 **Last Updated:** May 2026  
 **Author:** System
