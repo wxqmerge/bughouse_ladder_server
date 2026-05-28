@@ -4464,28 +4464,30 @@ const handleWalkthroughNextForReview = () => {
       )}
       {/* Mobile menu trigger */}
       <MobileMenu
-        isOpen={isMobileMenuOpen}
-        onClose={() => setIsMobileMenuOpen(false)}
-        onFileAction={handleFileAction}
-        onSort={handleSort}
-        onRecalculateRatings={recalculateRatings}
-        onCheckErrors={() => checkGameErrors()}
-        onToggleAdmin={handleToggleAdmin}
-        onSetZoom={handleSetZoom}
-        onOpenSettings={() => setShowSettings?.(true)}
-        onAddPlayer={handleAddPlayer}
-        onBulkPaste={handleBulkPaste}
-        onEnterGames={handleEnterGamesMenu}
-        onRestoreBackup={isAdmin ? () => setShowRestoreBackupDialog(true) : undefined}
-        onDeleteHiddenPlayers={isAdmin ? handleDeleteHiddenPlayers : undefined}
-        onAutoLetter={isAdmin ? handleAutoLetter : undefined}
-        isAdmin={isAdmin}
-        tournamentMode={isMiniGameTitle(projectName || "")}
-        projectName={projectName}
-        onSetTitle={handleSetTitle}
-        availableMiniGames={availableMiniGames}
-        writePermission={writePermission}
-      />
+         isOpen={isMobileMenuOpen}
+         onClose={() => setIsMobileMenuOpen(false)}
+         onFileAction={handleFileAction}
+         onSort={handleSort}
+         onRecalculateRatings={recalculateRatings}
+         onCheckErrors={() => checkGameErrors()}
+         onToggleAdmin={handleToggleAdmin}
+         onSetZoom={handleSetZoom}
+         onOpenSettings={() => setShowSettings?.(true)}
+         onAddPlayer={handleAddPlayer}
+         onBulkPaste={handleBulkPaste}
+         onEnterGames={handleEnterGamesMenu}
+         onRestoreBackup={isAdmin ? () => setShowRestoreBackupDialog(true) : undefined}
+         onDeleteHiddenPlayers={isAdmin ? handleDeleteHiddenPlayers : undefined}
+         onAutoLetter={isAdmin ? handleAutoLetter : undefined}
+         isAdmin={isAdmin}
+         tournamentMode={isMiniGameTitle(projectName || "")}
+         projectName={projectName}
+         onSetTitle={handleSetTitle}
+         availableMiniGames={availableMiniGames}
+         serverUrl={splashServerUrl}
+         hasAdminApiKey={!!splashApiKey}
+         writePermission={writePermission}
+       />
 
       {/* Version mismatch warning banner */}
       {versionMismatch && (
