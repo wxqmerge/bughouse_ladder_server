@@ -140,62 +140,66 @@ export function onModeChange(callback: (newMode: string, oldMode: string) => voi
    
   // No server configured - try same-origin auto-detection
    let autoDetectedUrl: string | null = null;
-   try {
-     const origin = window.location.origin;
-     console.log('[mode.ts] Auto-detect: origin=', origin);
-     
-     // Step 1: Check same-origin first
-     const healthController = new AbortController();
-     const healthTimeoutId = setTimeout(() => healthController.abort(), 3000);
-     
-     const healthResponse = await gatedFetch(`${origin}/health`, {
-       method: 'GET',
-       signal: healthController.signal,
-     });
-     clearTimeout(healthTimeoutId);
-     console.log('[mode.ts] Auto-detect: /health status=', healthResponse.status, 'ok=', healthResponse.ok);
-     
-     const healthOk = healthResponse.ok || healthResponse.status === 404;
-     
-     const apiController = new AbortController();
-     const apiTimeoutId = setTimeout(() => apiController.abort(), 3000);
-     
-     const apiResponse = await gatedFetch(`${origin}/api/ladder`, {
-       method: 'GET',
-       signal: apiController.signal,
-     });
-     clearTimeout(apiTimeoutId);
-     console.log('[mode.ts] Auto-detect: /api/ladder status=', apiResponse.status, 'ok=', apiResponse.ok);
-     
-     const apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403 || apiResponse.status === 404;
-     
-     if (healthOk && apiOk) {
-       autoDetectedUrl = origin.replace(/\/$/, '');
-       console.log('[mode.ts] Same-origin auto-detected:', autoDetectedUrl);
-     } else {
-       console.log('[mode.ts] Same-origin detection FAILED: healthOk=', healthOk, 'apiOk=', apiOk);
-     }
-   } catch (e) {
-     console.log('[mode.ts] Same-origin detection threw error:', (e as Error).message);
-   }
-   
-   // Step 2: If same-origin failed, try subdomain-based detection
-   if (!autoDetectedUrl) {
+   const pathname = window.location.pathname;
+   const subdomainMatch = pathname.match(/^\/([^/]+)\/dist(?:\/.*)?$/);
+   const origin = window.location.origin;
+   console.log('[mode.ts] Auto-detect: origin=', origin, 'subdomainPath=', !!subdomainMatch);
+
+   // Only run same-origin check if NOT in a subdomain path (skip unnecessary requests)
+   if (!subdomainMatch) {
      try {
-       const pathname = window.location.pathname;
+       // Step 1: Check same-origin first
+       const healthController = new AbortController();
+       const healthTimeoutId = setTimeout(() => healthController.abort(), 3000);
+
+       const healthResponse = await gatedFetch(`${origin}/health`, {
+         method: 'GET',
+         signal: healthController.signal,
+       });
+       clearTimeout(healthTimeoutId);
+       console.log('[mode.ts] Auto-detect: /health status=', healthResponse.status, 'ok=', healthResponse.ok);
+
+       const healthOk = healthResponse.ok || healthResponse.status === 404;
+
+       const apiController = new AbortController();
+       const apiTimeoutId = setTimeout(() => apiController.abort(), 3000);
+
+       const apiResponse = await gatedFetch(`${origin}/api/ladder`, {
+         method: 'GET',
+         signal: apiController.signal,
+       });
+       clearTimeout(apiTimeoutId);
+       console.log('[mode.ts] Auto-detect: /api/ladder status=', apiResponse.status, 'ok=', apiResponse.ok);
+
+       const apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403 || apiResponse.status === 404;
+
+       if (healthOk && apiOk) {
+         autoDetectedUrl = origin.replace(/\/$/, '');
+         console.log('[mode.ts] Same-origin auto-detected:', autoDetectedUrl);
+       } else {
+         console.log('[mode.ts] Same-origin detection FAILED: healthOk=', healthOk, 'apiOk=', apiOk);
+       }
+     } catch (e) {
+       console.log('[mode.ts] Same-origin detection threw error:', (e as Error).message);
+     }
+   }
+
+  // Step 2: If same-origin failed/skipped, try subdomain-based detection
+    if (!autoDetectedUrl) {
+     try {
        const hostname = window.location.hostname;
-       
+
        // Extract project name from path (e.g., /dev-ladder/dist/ → dev-ladder)
        const match = pathname.match(/^\/([^/]+)\/dist(?:\/.*)?$/);
        if (match) {
          const projectName = match[1];
          const candidateUrl = `https://${projectName}.${hostname}`;
          console.log('[mode.ts] Subdomain candidate from path:', projectName, '→', candidateUrl);
-         
+
          // Validate candidate
          const healthController = new AbortController();
          const healthTimeoutId = setTimeout(() => healthController.abort(), 3000);
-         
+
          let healthOk = false;
          try {
            const healthResponse = await gatedFetch(`${candidateUrl}/health`, {
@@ -208,11 +212,11 @@ export function onModeChange(callback: (newMode: string, oldMode: string) => voi
          } catch {
            clearTimeout(healthTimeoutId);
          }
-         
+
          if (healthOk) {
            const apiController = new AbortController();
            const apiTimeoutId = setTimeout(() => apiController.abort(), 3000);
-           
+
            let apiOk = false;
            let apiStatus = 0;
            try {
@@ -228,7 +232,7 @@ export function onModeChange(callback: (newMode: string, oldMode: string) => voi
              clearTimeout(apiTimeoutId);
              console.log('[mode.ts] Subdomain check: /api/ladder error:', (e as Error).message);
            }
-           
+
            if (apiOk) {
              autoDetectedUrl = candidateUrl;
              console.log('[mode.ts] Subdomain auto-detected:', autoDetectedUrl);
