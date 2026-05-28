@@ -3356,21 +3356,26 @@ const handleWalkthroughNextForReview = () => {
   };
 
  const handleAddPlayerSubmit = (
-     playerData: Omit<PlayerData, "rank" | "nRating" | "gameResults">,
-     suggestedRank?: number,
-   ) => {
-     console.log(`>>> [ACTION] handleAddPlayerSubmit - Rank: ${suggestedRank}, Name: ${playerData.firstName} ${playerData.lastName}`);
-    // Mark local changes if we're in server down mode
-    if (isServerDownMode()) {
-      markLocalChanges();
-    }
+      playerData: Omit<PlayerData, "rank" | "nRating" | "gameResults">,
+      suggestedRank?: number,
+    ) => {
+      console.log(`>>> [ACTION] handleAddPlayerSubmit - Rank: ${suggestedRank}, Name: ${playerData.firstName} ${playerData.lastName}`);
+     // Mark local changes if we're in server down mode
+     if (isServerDownMode()) {
+       markLocalChanges();
+     }
+
+     const findNextRank = (cands: PlayerData[], sug?: number) => {
+       if (sug !== undefined) return sug;
+       const used = new Set(cands.map(p => p.rank));
+       for (let r = 1; r <= cands.length + 1; r++) {
+         if (!used.has(r)) return r;
+       }
+       return cands.length + 1;
+     };
 
     setPlayers((prevPlayers) => {
-      const maxRank = prevPlayers.reduce(
-        (max, p) => Math.max(max, p.rank || 0),
-        0,
-      );
-      const newRank = suggestedRank !== undefined ? suggestedRank : maxRank + 1;
+      const newRank = findNextRank(prevPlayers, suggestedRank);
 
       const newPlayer: PlayerData = {
         ...playerData,
@@ -3399,11 +3404,7 @@ const handleWalkthroughNextForReview = () => {
 
     // Also update pendingPlayers so the error correction flow includes the new player
     if (pendingPlayers) {
-      const maxRank = pendingPlayers.reduce(
-        (max, p) => Math.max(max, p.rank || 0),
-        0,
-      );
-      const newRank = suggestedRank !== undefined ? suggestedRank : maxRank + 1;
+      const newRank = findNextRank(pendingPlayers, suggestedRank);
 
       const newPlayer: PlayerData = {
         ...playerData,
