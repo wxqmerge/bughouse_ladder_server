@@ -333,15 +333,13 @@ fi
 
 # 8. Fix nginx config for SSE support (remove WebSocket headers, add long timeouts)
 echo "[8/10] Fixing nginx config for SSE support..."
-NGINX_CONF="/etc/nginx/sites-available/$SERVICE.${DOMAIN:-$(basename "$(ls /etc/nginx/sites-available/${SERVICE}.*.conf" 2>/dev/null | head -1)" | sed "s/${SERVICE}\.//;s/\.conf//")}.conf"
-if [ ! -f "$NGINX_CONF" ]; then
-    for conf in /etc/nginx/sites-available/${SERVICE}.*.conf; do
-        if [ -f "$conf" ]; then
-            NGINX_CONF="$conf"
-            break
-        fi
-    done
-fi
+NGINX_CONF=""
+for conf in /etc/nginx/sites-available/${SERVICE}.*.conf; do
+    if [ -f "$conf" ]; then
+        NGINX_CONF="$conf"
+        break
+    fi
+done
 if [ -f "$NGINX_CONF" ]; then
     FIXED=false
     if grep -q "Connection 'upgrade'" "$NGINX_CONF"; then
