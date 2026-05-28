@@ -321,11 +321,11 @@ class DataService {
         if (newHash !== this.lastDataHash) {
           console.log('[DataService] Polling detected data change');
           this.lastDataHash = newHash;
-          // Save fresh server data to localStorage so getPlayers() returns it
+          // Save fresh server data to localStorage so getPlayers() returns it (caller handles notify)
           if (this.currentMiniGameFile) {
-            this.saveLocalMiniGamePlayers(serverPlayers);
+            this.saveLocalMiniGamePlayers(serverPlayers, false);
           } else {
-            this.saveLocalPlayers(serverPlayers);
+            this.saveLocalPlayers(serverPlayers, false);
           }
           return true; // Data changed
         }
@@ -386,17 +386,17 @@ class DataService {
              if (this.lastDataHash === null && serverPlayers.length > 0) {
                this.lastDataHash = newHash;
              }
-             // Save to localStorage cache so getPlayers() always has fresh data
-             if (this.currentMiniGameFile) {
-               this.saveLocalMiniGamePlayers(serverPlayers);
-             } else {
-               this.saveLocalPlayers(serverPlayers);
-             }
-             // Only notify if data actually changed (prevents infinite loop on empty mini-game)
-             if (this.lastDataHash !== null && newHash !== this.lastDataHash) {
-               this.lastDataHash = newHash;
-               this.notifySubscribers();
-             }
+             // Save to localStorage cache so getPlayers() always has fresh data (no notify to avoid loop)
+              if (this.currentMiniGameFile) {
+                this.saveLocalMiniGamePlayers(serverPlayers, false);
+              } else {
+                this.saveLocalPlayers(serverPlayers, false);
+              }
+              // Only notify if data actually changed (prevents infinite loop)
+              if (this.lastDataHash !== null && newHash !== this.lastDataHash) {
+                this.lastDataHash = newHash;
+                this.notifySubscribers();
+              }
            } catch {
              // Server fetch failed silently — UI keeps showing cached local data
            } finally {
@@ -471,10 +471,12 @@ class DataService {
     return storageGetPlayers();
   }
 
-  private saveLocalPlayers(players: PlayerData[]): void {
+  private saveLocalPlayers(players: PlayerData[], notify: boolean = true): void {
     // Delegate to storageService for localStorage access
     storageSavePlayers(players);
-    this.notifySubscribers();
+    if (notify) {
+      this.notifySubscribers();
+    }
   }
 
   private async updateLocalPlayer(player: PlayerData): Promise<void> {
@@ -521,7 +523,7 @@ class DataService {
     return miniGameData?.players || [];
   }
 
-  private saveLocalMiniGamePlayers(players: PlayerData[]): void {
+  private saveLocalMiniGamePlayers(players: PlayerData[], notify: boolean = true): void {
     if (!this.currentMiniGameFile) return;
     const store = this.getStore();
     store.writeMiniGameFile(this.currentMiniGameFile, {
@@ -529,7 +531,9 @@ class DataService {
       players,
       rawLines: [],
     });
-    this.notifySubscribers();
+    if (notify) {
+      this.notifySubscribers();
+    }
   }
 
   // ==================== API IMPLEMENTATIONS ====================
