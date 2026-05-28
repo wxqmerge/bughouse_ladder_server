@@ -56,10 +56,29 @@ export function requireUserKey(
       });
       return;
     }
+    // User key matched — allow through
+    next();
+    return;
   }
 
-  // If we got here: USER_API_KEY is not configured, so allow the request (dev mode)
-  next();
+  // USER_API_KEY is not configured
+  if (!getAdminKey()) {
+    // Neither USER_API_KEY nor ADMIN_API_KEY configured — view-only mode, reject all writes
+    console.log(`[USER_AUTH] 403 - No API keys configured (view-only mode) | IP: ${req.ip} | Path: ${req.path}`);
+    res.status(403).json({
+      success: false,
+      error: { message: 'Write operations not available — no API keys configured on server' },
+    });
+    return;
+  }
+
+  // ADMIN_API_KEY is configured but USER_API_KEY is not — admin key was already checked above
+  // and didn't match, so reject
+  console.log(`[USER_AUTH] 401 - Invalid API key | IP: ${req.ip} | Path: ${req.path}`);
+  res.status(401).json({
+    success: false,
+    error: { message: 'Invalid user API key' },
+  });
 }
 
 // Middleware to verify admin API key using timing-safe comparison
