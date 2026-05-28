@@ -259,8 +259,55 @@ else
 fi
 echo ""
 
+# --- CORS Configuration ---
+echo "13. CORS Configuration"
+
+CORS_ORIGINS=""
+if [ -f "server/.env" ]; then
+    CORS_ORIGINS=$(grep '^CORS_ORIGINS=' server/.env 2>/dev/null | cut -d= -f2 | tr -d '[:space:]')
+fi
+
+if [ -n "$CORS_ORIGINS" ]; then
+    echo "  [INFO] CORS_ORIGINS: $CORS_ORIGINS"
+
+    # Check for wildcard (permissive but works)
+    if echo "$CORS_ORIGINS" | grep -q '\*'; then
+        echo "  [WARN] CORS uses wildcard '*' — works but less secure"
+        WARN=$((WARN + 1))
+    else
+        # Extract parent domain from nginx config
+        SERVER_CONF="/etc/nginx/sites-available/${PROJECT_NAME}.${DOMAIN}.conf"
+        if [ -f "$SERVER_CONF" ]; then
+            proj_domain=$(grep 'server_name' "$SERVER_CONF" 2>/dev/null | sed 's/server_name//;s/;//' | tr -s ' ' | awk '{print $1}')
+            if [ -n "$proj_domain" ]; then
+                # The parent domain is everything after the first dot in the project domain
+                # e.g., round-robin-ladder.chess4.us -> chess4.us
+                parent_domain=$(echo "$proj_domain" | sed 's/^[^.]*\.//')
+                parent_origin="https://$parent_domain"
+
+                echo "  [INFO] Project domain: $proj_domain"
+                echo "  [INFO] Parent origin: $parent_origin"
+
+                if echo "$CORS_ORIGINS" | grep -qF "$parent_origin"; then
+                    echo "  [PASS] Parent origin $parent_origin is in CORS_ORIGINS"
+                    PASS=$((PASS + 1))
+                else
+                    echo "  [FAIL] Parent origin $parent_origin is NOT in CORS_ORIGINS"
+                    echo "  [INFO] Frontend at $parent_domain/$PROJECT_NAME/dist/ will fail CORS on Firefox"
+                    echo "  [FIX] Add $parent_origin to CORS_ORIGINS in server/.env"
+                    FAIL=$((FAIL + 1))
+                fi
+            fi
+        fi
+    fi
+else
+    echo "  [WARN] CORS_ORIGINS not set in server/.env (defaults to '*')"
+    WARN=$((WARN + 1))
+fi
+echo ""
+
 # --- Client Config Strings ---
-echo "13. Client Config Strings"
+echo "14. Client Config Strings"
 
 # Read API keys from server/.env
 ADMIN_KEY=""
@@ -300,6 +347,14 @@ if [ $FAIL -gt 0 ]; then
             fi
             if ! grep -q 'listen 443 ssl' "$SERVER_CONF" 2>/dev/null; then
                 echo "  - SSL not in nginx: sudo certbot --nginx -d $proj_domain"
+            fi
+            # CORS fix suggestion
+            parent_domain=$(echo "$proj_domain" | sed 's/^[^.]*\.//')
+            if [ -f "server/.env" ]; then
+                env_cors=$(grep '^CORS_ORIGINS=' server/.env 2>/dev/null | cut -d= -f2)
+                if ! echo "$env_cors" | grep -qF "https://$parent_domain"; then
+                    echo "  - CORS: add https://$parent_domain to CORS_ORIGINS in server/.env"
+                fi
             fi
         fi
     fi

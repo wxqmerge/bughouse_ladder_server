@@ -88,3 +88,10 @@ When no manual server config exists, the app auto-detects from `window.location.
 
 ## Architecture Deep-Dive
 See [ARCHITECTURE.md](./ARCHITECTURE.md) for multi-client sync details, data flow diagrams, SSE event types, merge algorithms, and performance notes.
+
+## Add Player Flow
+See [ADD_PLAYER_FLOW_TRACE.md](./ADD_PLAYER_FLOW_TRACE.md) for step-by-step console trace and implementation details of the Enter Games → Add Player flow.
+
+## Recent Changes Summary
+- `console.clear()` removed from `ErrorDialog.tsx` and `LadderForm.tsx` to preserve console traces during debugging.
+- `AddPlayerDialog.tsx` now includes a Trophy `+`/`-` toggle button. `trophyEligible` is no longer hardcoded to `true`; user selects before submitting.
