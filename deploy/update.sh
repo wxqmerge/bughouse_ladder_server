@@ -182,7 +182,7 @@ echo "To trace live logs: sudo journalctl -u $SERVICE -f"
 echo ""
 
 # 1. Stash any local changes
-echo "[1/9] Stashing local changes..."
+echo "[1/10] Stashing local changes..."
 if ! git diff --quiet 2>/dev/null; then
     if git stash; then
         echo "  Changes stashed."
@@ -196,7 +196,7 @@ else
 fi
 
 # 2. Pull latest code (or reset to remote if branches diverged)
-echo "[2/9] Pulling latest code..."
+echo "[2/10] Pulling latest code..."
 if git pull --rebase 2>/dev/null; then
     echo "  Pulled successfully."
 elif git fetch origin main && git reset --hard origin/main; then
@@ -209,7 +209,7 @@ else
 fi
 
 # 3. Validate API keys are configured
-echo "[3/9] Validating API keys..."
+echo "[3/10] Validating API keys..."
 ENV_FILE="$DIR/server/.env"
 if [ ! -f "$ENV_FILE" ]; then
     echo "  ERROR: $ENV_FILE not found."
@@ -238,7 +238,7 @@ echo "  USER_API_KEY:    (set)"
 echo "  ADMIN_API_KEY:   (set)"
 
 # 3.5. Scan lockfile for newly published packages (supply chain protection)
-echo "[3.5/9] Scanning lockfile for newly published packages..."
+echo "[3.5/10] Scanning lockfile for newly published packages..."
 new_packages_found=false
 
 if [ -f "package-lock.json" ]; then
@@ -259,7 +259,7 @@ fi
 echo ""
 
 # 4. Clean stale build artifacts
-echo "[4/9] Cleaning stale build artifacts..."
+echo "[4/10] Cleaning stale build artifacts..."
 if [ -d "dist" ]; then
     rm -rf dist
     echo "  Removed dist/"
@@ -275,7 +275,7 @@ if [ -d "shared/utils" ]; then
 fi
 
 # 5. Install dependencies (no --production: we need devDeps for building)
-echo "[5/9] Installing dependencies..."
+echo "[5/10] Installing dependencies..."
    if [ -f "package.json" ]; then
         cooldown_type="normal"
         if [ "$FORCE_CRITICAL" = true ]; then
@@ -296,7 +296,7 @@ echo "[5/9] Installing dependencies..."
     fi
 
 # 6. Build frontend
-echo "[6/9] Building frontend..."
+echo "[6/10] Building frontend..."
 if ! npm run build; then
     echo "  ERROR: Frontend build failed."
     echo "  Aborting. Check build output above."
@@ -304,7 +304,7 @@ if ! npm run build; then
 fi
 
 # 7. Build server
-echo "[7/9] Building server..."
+echo "[7/10] Building server..."
    if [ -d "server" ] && [ -f "server/package.json" ]; then
         cooldown_type="normal"
         if [ "$FORCE_CRITICAL" = true ]; then
@@ -331,8 +331,45 @@ else
     echo "  Skipped (no server directory)."
 fi
 
-# 8. Fix systemd service file if needed (add EnvironmentFile inside [Service])
-echo "[8/9] Fixing systemd service file if needed..."
+# 8. Fix nginx config for SSE support (remove WebSocket headers, add long timeouts)
+echo "[8/10] Fixing nginx config for SSE support..."
+NGINX_CONF="/etc/nginx/sites-available/$SERVICE.${DOMAIN:-$(basename "$(ls /etc/nginx/sites-available/${SERVICE}.*.conf" 2>/dev/null | head -1)" | sed "s/${SERVICE}\.//;s/\.conf//")}.conf"
+if [ ! -f "$NGINX_CONF" ]; then
+    for conf in /etc/nginx/sites-available/${SERVICE}.*.conf; do
+        if [ -f "$conf" ]; then
+            NGINX_CONF="$conf"
+            break
+        fi
+    done
+fi
+if [ -f "$NGINX_CONF" ]; then
+    FIXED=false
+    if grep -q "Connection 'upgrade'" "$NGINX_CONF"; then
+        sudo sed -i "s/proxy_set_header Connection 'upgrade'/proxy_set_header Connection \"\"/" "$NGINX_CONF"
+        echo "  Fixed Connection header for SSE"
+        FIXED=true
+    fi
+    if grep -q "proxy_cache_bypass" "$NGINX_CONF"; then
+        sudo sed -i '/proxy_cache_bypass/d' "$NGINX_CONF"
+        echo "  Removed WebSocket proxy_cache_bypass"
+        FIXED=true
+    fi
+    if ! grep -q "proxy_read_timeout" "$NGINX_CONF"; then
+        sudo sed -i '/proxy_set_header X-Forwarded-Proto/a\        proxy_read_timeout 86400;\n        proxy_send_timeout 86400;' "$NGINX_CONF"
+        echo "  Added SSE timeout settings"
+        FIXED=true
+    fi
+    if [ "$FIXED" = true ]; then
+        sudo nginx -t 2>&1 && sudo systemctl reload nginx && echo "  Nginx reloaded"
+    else
+        echo "  Nginx config already SSE-compatible"
+    fi
+else
+    echo "  No nginx config found, skipping"
+fi
+
+# 9. Fix systemd service file if needed (add EnvironmentFile inside [Service])
+echo "[9/10] Fixing systemd service file if needed..."
 SERVICE_FILE="/etc/systemd/system/$SERVICE.service"
 if [ -f "$SERVICE_FILE" ]; then
     # Check if EnvironmentFile exists and is in the correct section ([Service])
@@ -389,8 +426,8 @@ else
     echo "  WARNING: $SERVICE_FILE not found"
 fi
 
-# 9. Restart service
-echo "[9/9] Restarting service: $SERVICE"
+# 10. Restart service
+echo "[10/10] Restarting service: $SERVICE"
 if ! sudo -n systemctl restart "$SERVICE" 2>&1; then
     echo "  ERROR: systemctl restart failed."
     echo "  If this says 'sudo: a password is required', you need passwordless sudo."
