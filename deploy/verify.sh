@@ -306,8 +306,35 @@ else
 fi
 echo ""
 
+# --- Nginx SSE Configuration ---
+echo "14. Nginx SSE Configuration"
+
+SERVER_CONF="/etc/nginx/sites-available/${PROJECT_NAME}.${DOMAIN}.conf"
+if [ -f "$SERVER_CONF" ]; then
+    if grep -q "Connection 'upgrade'" "$SERVER_CONF"; then
+        echo "  [FAIL] Nginx uses WebSocket Connection header — breaks SSE"
+        echo "  [FIX] Change to: proxy_set_header Connection \"\";"
+        FAIL=$((FAIL + 1))
+    else
+        echo "  [PASS] Connection header SSE-compatible"
+        PASS=$((PASS + 1))
+    fi
+
+    if grep -q "proxy_read_timeout" "$SERVER_CONF"; then
+        echo "  [PASS] SSE timeout configured"
+        PASS=$((PASS + 1))
+    else
+        echo "  [FAIL] No proxy_read_timeout — SSE connections will timeout after 60s"
+        echo "  [FIX] Add: proxy_read_timeout 86400; proxy_send_timeout 86400;"
+        FAIL=$((FAIL + 1))
+    fi
+else
+    warn "No nginx config found — cannot check SSE configuration"
+fi
+echo ""
+
 # --- Client Config Strings ---
-echo "14. Client Config Strings"
+echo "15. Client Config Strings"
 
 # Read API keys from server/.env
 ADMIN_KEY=""
@@ -354,6 +381,15 @@ if [ $FAIL -gt 0 ]; then
                 env_cors=$(grep '^CORS_ORIGINS=' server/.env 2>/dev/null | cut -d= -f2)
                 if ! echo "$env_cors" | grep -qF "https://$parent_domain"; then
                     echo "  - CORS: add https://$parent_domain to CORS_ORIGINS in server/.env"
+                fi
+            fi
+            # SSE fix suggestion
+            if [ -f "$SERVER_CONF" ]; then
+                if grep -q "Connection 'upgrade'" "$SERVER_CONF"; then
+                    echo "  - SSE: fix nginx Connection header (run deploy/update.sh or fix manually)"
+                fi
+                if ! grep -q "proxy_read_timeout" "$SERVER_CONF"; then
+                    echo "  - SSE: add proxy_read_timeout 86400 to nginx config"
                 fi
             fi
         fi
