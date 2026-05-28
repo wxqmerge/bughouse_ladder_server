@@ -1,0 +1,11 @@
+Windows Registry Editor Version 5.00
+
+;.tab association
+[HKEY_CURRENT_USER\Software\Classes\.tab]
+@="LibreOffice_Calc"
+
+[HKEY_CURRENT_USER\Software\Classes\LibreOffice_Calc\shell\open\command]
+@="\"C:\\Program Files\\LibreOffice\\program\\scalc.exe\" \"%1\""
+
+[HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.tab\UserChoice]
+"ProgId"="LibreOffice_Calc"
