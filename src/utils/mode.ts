@@ -159,7 +159,7 @@ export function onModeChange(callback: (newMode: string, oldMode: string) => voi
        clearTimeout(healthTimeoutId);
        console.log('[mode.ts] Auto-detect: /health status=', healthResponse.status, 'ok=', healthResponse.ok);
 
-       const healthOk = healthResponse.ok || healthResponse.status === 404;
+       const healthOk = healthResponse.ok;
 
        const apiController = new AbortController();
        const apiTimeoutId = setTimeout(() => apiController.abort(), 3000);
@@ -171,7 +171,7 @@ export function onModeChange(callback: (newMode: string, oldMode: string) => voi
        clearTimeout(apiTimeoutId);
        console.log('[mode.ts] Auto-detect: /api/ladder status=', apiResponse.status, 'ok=', apiResponse.ok);
 
-       const apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403 || apiResponse.status === 404;
+       const apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403;
 
        if (healthOk && apiOk) {
          autoDetectedUrl = origin.replace(/\/$/, '');
