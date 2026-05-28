@@ -1,4 +1,5 @@
 import { PlayerData } from '../../shared/types';
+import { deduplicatePlayers } from '../../shared/utils/dedupUtils';
 
 /**
  * Merge server data with local changes.
@@ -67,5 +68,6 @@ export function mergeServerWithLocal(
     }
   }
 
-  return result;
+  // Deduplicate by name to prevent duplicate entries
+  return deduplicatePlayers(result);
 }
