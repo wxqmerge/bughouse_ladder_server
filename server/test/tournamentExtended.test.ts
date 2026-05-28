@@ -601,10 +601,10 @@ describe('Mini-game trophy stress test', () => {
       const trophiesLines = buildTrophiesSection(miniGameTrophies);
       
       const trophyReportString = buildTrophyReportString(headerLines, miniGameLines, trophiesLines);
-      await fs.writeFile(path.join(outputDir, 'tournament_trophies.tab'), trophyReportString);
+      await fs.writeFile(path.join(outputDir, 'mini-game-trophies.tab'), trophyReportString);
 
       console.log(`[STRESS TEST] Output files saved to: ${outputDir}`);
-      console.log(`[STRESS TEST] Files: tournament.zip, ladder.tab, tournament_trophies.tab`);
+      console.log(`[STRESS TEST] Files: tournament.zip, ladder.tab, mini-game-trophies.tab`);
 
     } finally {
       delete process.env.TAB_FILE_PATH;
