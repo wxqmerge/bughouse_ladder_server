@@ -368,6 +368,8 @@ export default function LadderForm({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const latestPendingPlayersRef = useRef<PlayerData[] | null>(null);
   const initializingRef = useRef(false);
+  const prevSplashServerUrlRef = useRef('');
+  const prevLastFileRef = useRef<File | null>(null);
 
   useEffect(() => {
     if (triggerWalkthrough && setTriggerWalkthrough) {
@@ -578,8 +580,14 @@ export default function LadderForm({
   // VB6 Line: 894 - Initialize with storage data or sample data
     useEffect(() => {
       const initializeData = async () => {
+        // Reset guard when dependencies change (e.g. URL config update)
+        if (splashServerUrl !== prevSplashServerUrlRef.current || lastFile !== prevLastFileRef.current) {
+          initializingRef.current = false;
+        }
         if (initializingRef.current) return;
         initializingRef.current = true;
+        prevSplashServerUrlRef.current = splashServerUrl;
+        prevLastFileRef.current = lastFile;
         try {
           // Get server configuration - check sessionStorage first (auto-detected), then state, then localStorage
           const userSettings = loadUserSettings();
@@ -746,7 +754,7 @@ export default function LadderForm({
     };
 
     initializeData();
-   }, [splashServerUrl]);
+   }, [splashServerUrl, lastFile]);
 
  const loadPlayers = (file?: File) => {
     const fileToLoad = file || lastFile;
