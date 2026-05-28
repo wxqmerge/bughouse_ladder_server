@@ -911,13 +911,20 @@ export default function LadderForm({
 
         if (isAdmin) {
           log('[LOAD_FILE]', 'Admin mode - showing import confirmation');
-          const { blockingErrors, warnings } = checkPlayerRanks(loadedPlayers);
-          const allErrors = [...blockingErrors, ...warnings];
-          if (allErrors.length > 0) {
-            log('[LOAD_FILE]', '⚠ Rank issues found:', allErrors);
-            setRankLoadErrors(allErrors);
+          const { blockingErrors, warnings, fixedPlayers } = checkPlayerRanks(loadedPlayers);
+          if (fixedPlayers) {
+            log('[LOAD_FILE]', '⚠ Duplicate ranks auto-fixed on import');
+            setRankLoadErrors(warnings);
+            loadedPlayers.length = 0;
+            loadedPlayers.push(...fixedPlayers);
           } else {
-            setRankLoadErrors([]);
+            const allErrors = [...blockingErrors, ...warnings];
+            if (allErrors.length > 0) {
+              log('[LOAD_FILE]', '⚠ Rank issues found:', allErrors);
+              setRankLoadErrors(allErrors);
+            } else {
+              setRankLoadErrors([]);
+            }
           }
            setPendingImport({
              players: loadedPlayers,
@@ -1113,31 +1120,46 @@ export default function LadderForm({
     (window as any).__ladder_setStatus?.(null);
   };
 
-  const checkPlayerRanks = (playersList: PlayerData[]): { blockingErrors: string[], warnings: string[] } => {
-    const blockingErrors: string[] = [];
-    const warnings: string[] = [];
-    if (playersList.length === 0) return { blockingErrors, warnings };
-    
-    const ranks = playersList.map(p => p.rank).sort((a, b) => a - b);
-    const rankSet = new Set(ranks);
-    
-    // Check for duplicates (blocking)
-    if (rankSet.size !== ranks.length) {
-      const duplicates = ranks.filter((r, i) => ranks.indexOf(r) !== i);
-      const uniqueDups = [...new Set(duplicates)];
-      blockingErrors.push(`Duplicate ranks found: ${uniqueDups.join(', ')}`);
-    }
-    
-    // Check for gaps (warning)
-    const maxRank = ranks[ranks.length - 1];
-    const expectedRanks = new Set(Array.from({ length: maxRank }, (_, i) => i + 1));
-    const missing = ranks.filter(r => !expectedRanks.has(r));
-    if (missing.length > 0) {
-      warnings.push(`Missing ranks: ${missing.join(', ')}`);
-    }
-    
-    return { blockingErrors, warnings };
-  };
+  const checkPlayerRanks = (playersList: PlayerData[]): { blockingErrors: string[], warnings: string[], fixedPlayers?: PlayerData[] } => {
+     const blockingErrors: string[] = [];
+     const warnings: string[] = [];
+     if (playersList.length === 0) return { blockingErrors, warnings };
+
+     const ranks = playersList.map(p => p.rank).sort((a, b) => a - b);
+     const rankSet = new Set(ranks);
+
+     // Check for duplicates — auto-fix by moving 2nd+ occurrence to next available rank
+     if (rankSet.size !== ranks.length) {
+       const duplicates = ranks.filter((r, i) => ranks.indexOf(r) !== i);
+       const uniqueDups = [...new Set(duplicates)];
+       console.log(`[RANK FIX] Duplicate ranks found: ${uniqueDups.join(', ')} — auto-fixing`);
+       const seen = new Map<number, PlayerData>();
+       const fixedPlayers: PlayerData[] = [];
+       for (const p of playersList) {
+         if (seen.has(p.rank)) {
+           const used = new Set(fixedPlayers.map(fp => fp.rank));
+           let newR = p.rank + 1;
+           while (used.has(newR)) newR++;
+           fixedPlayers.push({ ...p, rank: newR });
+           console.log(`[RANK FIX] Moved player "${p.firstName} ${p.lastName}" from rank ${p.rank} → ${newR}`);
+         } else {
+           seen.set(p.rank, p);
+           fixedPlayers.push(p);
+         }
+       }
+       return { blockingErrors, warnings, fixedPlayers };
+     }
+
+     // Check for gaps (warning)
+     const maxRank = ranks[ranks.length - 1];
+     const expectedRanks = new Set(Array.from({ length: maxRank }, (_, i) => i + 1));
+     const missing = ranks.filter(r => !expectedRanks.has(r));
+     if (missing.length > 0) {
+       warnings.push(`Missing ranks: ${missing.join(', ')}`);
+     }
+
+     return { blockingErrors, warnings };
+   };
 
   const fixPlayerRanks = (playersList: PlayerData[]): PlayerData[] => {
     const deduped = new Map<number, PlayerData>();
@@ -1166,6 +1188,7 @@ export default function LadderForm({
     playerResultsByMatch?: Map<string, any[]>;
     rankBlockingErrors?: string[];
     rankWarnings?: string[];
+    fixedPlayers?: PlayerData[];
   } => {
     return checkGameErrorsWithPlayers(players);
   };
@@ -1178,30 +1201,29 @@ export default function LadderForm({
     playerResultsByMatch?: Map<string, any[]>;
     rankBlockingErrors?: string[];
     rankWarnings?: string[];
+    fixedPlayers?: PlayerData[];
   } => {
     if (playersList.length === 0) {
       console.error("No players to process");
       return { hasErrors: false, matches: [], errors: [], errorCount: 0 };
     }
 
-    const { blockingErrors, warnings } = checkPlayerRanks(playersList);
-    
+    const { blockingErrors, warnings, fixedPlayers } = checkPlayerRanks(playersList);
+    const effectivePlayers = fixedPlayers ?? playersList;
+
     const { matches, hasErrors, errorCount, errors, playerResultsByMatch } =
-      processGameResults(playersList, 31);
+      processGameResults(effectivePlayers, 31);
     if (shouldLog(4)) {
       console.log(`Validated ${matches.length} matches, errors: ${errorCount}`);
     }
 
-    if (blockingErrors.length > 0 || warnings.length > 0 || (hasErrors && errors.length > 0)) {
-      if (blockingErrors.length > 0) {
-        console.warn("Rank blocking errors detected:", blockingErrors);
-      }
+    if (warnings.length > 0 || (hasErrors && errors.length > 0)) {
       if (warnings.length > 0) {
         console.warn("Rank warnings:", warnings);
       }
       if (hasErrors && errors.length > 0) {
         console.warn("Game errors detected. Opening dialog for correction.");
-        setPendingPlayers(playersList);
+        setPendingPlayers(effectivePlayers);
         setPendingMatches(matches);
         setPendingPlayerResultsByMatch(playerResultsByMatch);
         setCurrentError(errors[0]);
@@ -1216,7 +1238,7 @@ export default function LadderForm({
 
     setIsRecalculating(true);
 
-    return { hasErrors, matches, errors, errorCount, playerResultsByMatch, rankBlockingErrors: blockingErrors.length > 0 ? blockingErrors : undefined, rankWarnings: warnings.length > 0 ? warnings : undefined };
+    return { hasErrors, matches, errors, errorCount, playerResultsByMatch, rankBlockingErrors: blockingErrors.length > 0 ? blockingErrors : undefined, rankWarnings: warnings.length > 0 ? warnings : undefined, fixedPlayers };
   };
 
   /**
@@ -1517,11 +1539,12 @@ export default function LadderForm({
       const result = checkGameErrors();
       console.log(`[RECALC] Errors: ${result.hasErrors ? result.errors.length : 'none'}, Matches: ${result.matches.length}`);
 
-      // If there are rank blocking errors, show alert and return early
-      if (result.rankBlockingErrors && result.rankBlockingErrors.length > 0) {
-        console.log(`=== RECALC PAUSED === Rank blocking errors detected`);
-        alert('Rank Errors:\n\n' + result.rankBlockingErrors.join('\n') + '\n\nPlease fix ranks before recalculating.');
-        return;
+      // Auto-fix duplicate ranks
+      if (result.fixedPlayers) {
+        console.log(`[RECALC] Applying auto-fixed ranks for ${result.fixedPlayers.length} players`);
+        setPlayers(result.fixedPlayers);
+        players.length = 0;
+        players.push(...result.fixedPlayers);
       }
 
       // Fix rank warnings (missing/duplicate ranks) before New Day + ReRank
@@ -3366,8 +3389,8 @@ const handleWalkthroughNextForReview = () => {
      }
 
      const findNextRank = (cands: PlayerData[], sug?: number) => {
-       if (sug !== undefined) return sug;
        const used = new Set(cands.map(p => p.rank));
+       if (sug !== undefined && !used.has(sug)) return sug;
        for (let r = 1; r <= cands.length + 1; r++) {
          if (!used.has(r)) return r;
        }
