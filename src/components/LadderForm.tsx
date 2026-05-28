@@ -522,15 +522,6 @@ export default function LadderForm({
     reacquireAdminLock();
   }, []); // Run once on init
 
-  // Check write permissions on mount
-  useEffect(() => {
-    const checkPermissions = async () => {
-      const canWrite = await checkWritePermission();
-      setWritePermission(canWrite);
-    };
-    checkPermissions();
-  }, []);
-
   // Track mode changes for UI updates
   const mode = useIntervalCheck(() => {
     const m = getProgramMode();
@@ -539,6 +530,15 @@ export default function LadderForm({
 
   useEffect(() => {
     setCurrentMode(mode);
+  }, [mode]);
+
+  // Check write permissions on mount and when mode changes (auto-detect may update server URL)
+  useEffect(() => {
+    const checkPermissions = async () => {
+      const canWrite = await checkWritePermission();
+      setWritePermission(canWrite);
+    };
+    checkPermissions();
   }, [mode]);
 
   // Admin lock: Release lock on unmount when exiting admin mode
@@ -1959,9 +1959,15 @@ export default function LadderForm({
     // Push full table to server
     (window as any).__ladder_setStatus?.('Saving to server...');
     log('[RECALC]', 'Pushing full table to server...');
-    await savePlayers(lockedPlayers, true);
-       clearLocalChangesFlag();
-       clearPendingDeletes();
+    const userSaveResult = await savePlayers(lockedPlayers, true);
+    if (!userSaveResult.success) {
+      log('[RECALC]', '⚠ Server rejected save:', userSaveResult.error);
+      (window as any).__ladder_setStatus?.(null);
+      alert('Server rejected save: ' + (userSaveResult.error || 'Unknown error') + '\n\nYour changes were saved locally but could not be synced to the server.');
+      return false;
+    }
+    clearLocalChangesFlag();
+    clearPendingDeletes();
 
 // Pull fresh data back from server to ensure UI matches server exactly
         log('[RECALC]', 'Pulling fresh data from server...');
