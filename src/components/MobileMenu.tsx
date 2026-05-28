@@ -35,6 +35,8 @@ interface MobileMenuProps {
   onSetTitle?: (title: string) => void;
   availableMiniGames?: string[];
   writePermission?: boolean;
+  serverUrl?: string;
+  hasAdminApiKey?: boolean;
 }
 
 interface MenuItem {
@@ -67,6 +69,8 @@ export default function MobileMenu({
   onSetTitle,
   availableMiniGames = [],
   writePermission = true,
+  serverUrl,
+  hasAdminApiKey = false,
 }: MobileMenuProps) {
   if (!isOpen) return null;
 
@@ -165,12 +169,14 @@ export default function MobileMenu({
       dataMenuItem: "Paste Multiple Results",
       disabled: !writePermission,
     },
-    {
-      label: isAdmin ? "Exit Admin Mode" : "Admin Mode",
-      onClick: () => handleItemClick(isAdmin ? "Exit Admin Mode" : "Admin Mode", onToggleAdmin),
-      dataMenuItem: isAdmin ? "Exit Admin Mode" : "Admin Mode",
-      disabled: !writePermission && !isAdmin,
-    },
+    ...(serverUrl && !hasAdminApiKey && !isAdmin
+      ? []
+      : [{
+          label: isAdmin ? "Exit Admin Mode" : "Admin Mode",
+          onClick: () => handleItemClick(isAdmin ? "Exit Admin Mode" : "Admin Mode", onToggleAdmin),
+          dataMenuItem: isAdmin ? "Exit Admin Mode" : "Admin Mode",
+          disabled: !writePermission && !isAdmin,
+        }]),
 ...(isAdmin && onAddPlayer
        ? [
            {
