@@ -27,6 +27,7 @@ import { downloadBlob } from "../utils/downloadBlob";
 import { getFontSize, getScaledPadding, getScaledGap, getScaledLineHeight } from "../utils/getFontSize";
 import { useIntervalCheck } from "../utils/useIntervalCheck";
 import { mergeServerWithLocal as _mergeServerWithLocal } from "../utils/mergeUtils";
+import { deduplicatePlayers } from "../../shared/utils/dedupUtils";
 import { loadUserSettings, saveUserSettings, saveLastWorkingConfig, normalizeServerUrl } from "../services/userSettingsStorage";
 import { 
   getKeyPrefix, 
@@ -1738,15 +1739,22 @@ export default function LadderForm({
               
               // Merge: take gameResults + player data from server, keep local nRatings and admin edits
               mergePlayers = serverPlayers.map((sp: PlayerData) => {
-                const localPlayer = players.find(lp => lp.rank === sp.rank);
-                return {
-                  ...sp,
-                  nRating: localPlayer?.nRating !== undefined ? localPlayer.nRating : sp.nRating,
-                  gameResults: sp.gameResults || new Array(31).fill(null),
-                };
-              });
-              
-              log('[RECALC]', `Merged ${mergePlayers.length} players from server for recalc`);
+                 const localPlayer = players.find(lp => lp.rank === sp.rank);
+                 return {
+                   ...sp,
+                   nRating: localPlayer?.nRating !== undefined ? localPlayer.nRating : sp.nRating,
+                   gameResults: sp.gameResults || new Array(31).fill(null),
+                 };
+               });
+
+               // Deduplicate merged players to prevent duplicate entries
+               const beforeCount = mergePlayers.length;
+               mergePlayers = deduplicatePlayers(mergePlayers);
+               if (beforeCount !== mergePlayers.length) {
+                 log('[RECALC]', `Deduplicated ${beforeCount} -> ${mergePlayers.length} players before recalc`);
+               }
+
+               log('[RECALC]', `Merged ${mergePlayers.length} players from server for recalc`);
             } else {
               log('[RECALC]', 'Server fetch failed during merge, using local players');
             }
@@ -1835,9 +1843,12 @@ export default function LadderForm({
           gameResults: (p.gameResults || []).map(r => r && r.trim() ? `${r.replace(/_+$/, '')}_` : r),
         }));
 
+        // Deduplicate to prevent duplicate entries
+        const dedupedAdminPlayers = deduplicatePlayers(lockedPlayers);
+
         if (shouldLog(3)) {
           console.log('[RECALC_DEBUG] [ADMIN] After locking:');
-          for (const p of lockedPlayers) {
+          for (const p of dedupedAdminPlayers) {
             const filled = (p.gameResults || []).filter((r, i) => r && r.trim() && r.trim() !== '');
             if (filled.length > 0) {
               console.log('[RECALC_DEBUG] [ADMIN] P' + p.rank + ' locked:', filled.map((r, i) => 'R' + i + '=' + r));
@@ -1851,7 +1862,7 @@ export default function LadderForm({
         // Save with waitForServer=true to wait for server confirmation
         (window as any).__ladder_setStatus?.('Saving to server...');
         log('[RECALC]', 'Saving to server...');
-        const saveResult = await savePlayers(lockedPlayers, true);
+        const saveResult = await savePlayers(dedupedAdminPlayers, true);
         
         if (saveResult.success) {
           if (saveResult.serverSynced) {
@@ -1866,7 +1877,7 @@ export default function LadderForm({
           log('[RECALC]', '⚠ Server save issue:', saveResult.error);
         }
         
-        setPlayers(lockedPlayers);
+        setPlayers(dedupedAdminPlayers);
         log('[RECALC]', 'Recalculate_Save complete');
         (window as any).__ladder_setStatus?.(null);
         return false;
@@ -1943,6 +1954,9 @@ export default function LadderForm({
       gameResults: (p.gameResults || []).map(r => r && r.trim() ? `${r.replace(/_+$/, '')}_` : r),
     }));
 
+    // Deduplicate to prevent duplicate entries
+    const dedupedPlayers = deduplicatePlayers(lockedPlayers);
+
     if (shouldLog(3)) {
       console.log('[RECALC_DEBUG] After locking:');
       for (const p of lockedPlayers) {
@@ -1959,7 +1973,7 @@ export default function LadderForm({
     // Push full table to server
     (window as any).__ladder_setStatus?.('Saving to server...');
     log('[RECALC]', 'Pushing full table to server...');
-    const userSaveResult = await savePlayers(lockedPlayers, true);
+    const userSaveResult = await savePlayers(dedupedPlayers, true);
     if (!userSaveResult.success) {
       log('[RECALC]', '⚠ Server rejected save:', userSaveResult.error);
       (window as any).__ladder_setStatus?.(null);

@@ -11,6 +11,7 @@ import {
 import { log, logError } from '../utils/logger.js';
 import { broadcastSSEEvent } from '../services/sseService.js';
 import { checkMiniGameFilesWith, readMiniGameFile, writeMiniGameFile, MINI_GAME_FILES } from '../services/tournamentService.js';
+import { deduplicatePlayers } from '../../../shared/utils/dedupUtils.js';
 
 const router = Router();
 
@@ -201,9 +202,15 @@ router.put('/', requireUserKey, writeLimiter, async (req: Request, res: Response
       }
     }
 
-    ladderData.players = players;
+    // Deduplicate players before saving to prevent duplicate entries
+    const beforeCount = players.length;
+    ladderData.players = deduplicatePlayers(players);
+    const afterCount = ladderData.players.length;
+    if (beforeCount !== afterCount) {
+      log('[SERVER_BULK]', `Deduplicated ${beforeCount} -> ${afterCount} players (${beforeCount - afterCount} duplicates removed)`);
+    }
 
-    await withTiming(`writeLadderFile(bulk-${players.length})`, () => writeLadderFile(ladderData));
+    await withTiming(`writeLadderFile(bulk-${afterCount})`, () => writeLadderFile(ladderData));
 
     broadcastSSEEvent('ladderUpdated', { type: 'bulkUpdate', count: players.length });
 
