@@ -1643,7 +1643,7 @@ export default function ErrorDialog({
           </div>
         </form>}
 
-        {hasAdminKey && onAddPlayer && (
+        {hasAdminKey && onAddPlayer && displayError?.error === 11 && (
           <div
             style={{
               marginTop: "1rem",
