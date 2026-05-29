@@ -63,8 +63,11 @@ export function mergeServerWithLocal(
 
   // Append players that exist locally but not on server
   for (const lp of localPlayers) {
-    if (!serverPlayers.find(sp => sp.rank === lp.rank)) {
+    const serverHasRank = serverPlayers.find(sp => sp.rank === lp.rank);
+    if (!serverHasRank) {
       result.push({ ...lp });
+    } else {
+      console.log(`[DEBUG MERGE] DROPPED local player "${lp.firstName} ${lp.lastName}" rank=${lp.rank} — server already has "${serverHasRank.firstName} ${serverHasRank.lastName}" at that rank`);
     }
   }
 

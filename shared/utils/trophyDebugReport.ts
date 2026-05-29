@@ -56,6 +56,7 @@ export function buildDebugHeader(players: PlayerData[], minTrophies: number, isC
   
   if (debugLevel <= 5) {
     lines.push(debugLine('DEBUG', 'TROPHY REPORT', '', '', '', '', '', ''));
+    lines.push(debugLine('Field 1', 'Field 2', 'Field 3', 'Field 4', 'Field 5', 'Field 6', 'Field 7', 'Field 8'));
     lines.push(debugLine('Players', String(players.length), '', '', '', '', '', ''));
     lines.push(debugLine('Min Trophies', `${minTrophies} (ceil(${players.length} / 3))`, '', '', '', '', '', ''));
     lines.push('');
@@ -111,6 +112,7 @@ export function buildMiniGamePlayerSection(miniGameDataList: MiniGameData[], deb
       const sorted = playersWithGames.sort((a: PlayerData, b: PlayerData) => b.nRating - a.nRating).slice(0, 5);
       lines.push('');
       lines.push(debugLine(mgd.fileName.replace('.tab', ''), '', '', '', '', '', '', ''));
+      lines.push(debugLine('Rank', 'Player', 'Gr', 'Rating', '', '', 'Games', ''));
       for (const p of sorted) {
         const games = p.gameResults?.filter((r: string | null) => r && r !== '' && r !== '_')?.length || 0;
         lines.push(debugLine(String(p.rank), formatPlayerName(p), p.grade, String(p.nRating), '', '', String(games), ''));
@@ -120,6 +122,7 @@ export function buildMiniGamePlayerSection(miniGameDataList: MiniGameData[], deb
       if (ineligible.length > 0) {
         lines.push('');
         lines.push(debugLine('Top Ineligible', '', '', '', '', '', '', ''));
+        lines.push(debugLine('Rank', 'Player', 'Gr', 'Rating', '', '', 'Games', ''));
         for (const p of ineligible) {
           const games = p.gameResults?.filter((r: string | null) => r && r !== '' && r !== '_')?.length || 0;
           lines.push(debugLine(String(p.rank), formatPlayerName(p), p.grade, String(p.nRating), '', '', String(games), ''));
@@ -136,6 +139,7 @@ export function buildMiniGamePlayerSection(miniGameDataList: MiniGameData[], deb
     if (allIneligible.length > 0) {
       lines.push('');
       lines.push(debugLine('Top Ineligible Overall', '', '', '', '', '', '', ''));
+      lines.push(debugLine('Rank', 'Player', 'Gr', 'Rating', '', '', 'Games', ''));
       const topIneligible = allIneligible.sort((a, b) => b.nRating - a.nRating).slice(0, 1);
       for (const p of topIneligible) {
         const totalGames = mgdPlayersTotalGames(p, miniGameDataList);
@@ -155,6 +159,7 @@ export function buildClubLadderPlayerSection(players: PlayerData[], debugLevel: 
   
   if (debugLevel <= 5) {
     lines.push(debugLine('TOP 5 OVERALL', '(by rating, eligible only)', '', '', '', '', '', ''));
+    lines.push(debugLine('Rank', 'Player', 'Gr', 'Rating', '', '', 'Games', ''));
     const sortedOverall = players.filter(p => p.trophyEligible !== false).sort((a, b) => b.nRating - a.nRating).slice(0, 5);
     for (const p of sortedOverall) {
       const games = clubLadderGamesPlayed(p);
@@ -165,6 +170,7 @@ export function buildClubLadderPlayerSection(players: PlayerData[], debugLevel: 
     if (overallIneligible.length > 0) {
       lines.push('');
       lines.push(debugLine('Top Ineligible', '', '', '', '', '', '', ''));
+      lines.push(debugLine('Rank', 'Player', 'Gr', 'Rating', '', '', 'Games', ''));
       for (const p of overallIneligible) {
         const games = clubLadderGamesPlayed(p);
         lines.push(debugLine(String(p.rank), formatPlayerName(p), p.grade, String(p.nRating), '', '', String(games), ''));
@@ -179,6 +185,7 @@ export function buildClubLadderPlayerSection(players: PlayerData[], debugLevel: 
       if (gradePlayers.length === 0) continue;
       lines.push('');
       lines.push(debugLine('Gr ' + grade, '', '', '', '', '', '', ''));
+      lines.push(debugLine('Rank', 'Player', 'Gr', 'Rating', '', '', 'Games', ''));
       for (const p of gradePlayers) {
         const games = clubLadderGamesPlayed(p);
         lines.push(debugLine(String(p.rank), formatPlayerName(p), p.grade, String(p.nRating), '', '', String(games), ''));
@@ -188,6 +195,7 @@ export function buildClubLadderPlayerSection(players: PlayerData[], debugLevel: 
       if (gradeIneligible.length > 0) {
         lines.push('');
         lines.push(debugLine('Top Ineligible', '', '', '', '', '', '', ''));
+        lines.push(debugLine('Rank', 'Player', 'Gr', 'Rating', '', '', 'Games', ''));
         for (const p of gradeIneligible) {
           const games = clubLadderGamesPlayed(p);
           lines.push(debugLine(String(p.rank), formatPlayerName(p), p.grade, String(p.nRating), '', '', String(games), ''));
