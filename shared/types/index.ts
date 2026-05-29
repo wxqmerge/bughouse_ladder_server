@@ -112,6 +112,7 @@ export interface MiniGameStore {
   checkMiniGameFilesWith(): Promise<string[]>;
   addPlayerToAllMiniGames(newPlayer: PlayerData): Promise<void>;
   removePlayerFromAllMiniGames(lastName: string, firstName: string): Promise<void>;
+  updatePlayerInAllMiniGames(rank: number, originalLastName: string, originalFirstName: string, updates: Partial<PlayerData>): Promise<void>;
   generateTrophyReport(players: PlayerData[], debugLevel: number): Promise<{
     success: boolean;
     message: string;

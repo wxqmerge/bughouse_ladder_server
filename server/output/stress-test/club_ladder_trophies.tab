@@ -1,9 +1,11 @@
 DEBUG	TROPHY REPORT						
+Field 1	Field 2	Field 3	Field 4	Field 5	Field 6	Field 7	Field 8
 Players	50						
 Min Trophies	17 (ceil(50 / 3))						
 
 Mode	Club Ladder (no mini-game files)						
 TOP 5 OVERALL	(by rating, eligible only)						
+Rank	Player	Gr	Rating			Games	
 35	Donna Moore	10	1966			30	
 25	William Clark	13	1887			26	
 22	Kevin Robinson	7	1863			30	
@@ -11,18 +13,22 @@ TOP 5 OVERALL	(by rating, eligible only)
 41	Carol Gomez	6	1828			30	
 
 Top Ineligible							
+Rank	Player	Gr	Rating			Games	
 3	Daniel Green	11	1947			30	
 
 TOP 5 PER GRADE							
 
 Gr 13							
+Rank	Player	Gr	Rating			Games	
 25	William Clark	13	1887			26	
 30	George Young	13	908			28	
 
 Top Ineligible							
+Rank	Player	Gr	Rating			Games	
 28	Daniel Flores	13	1084			30	
 
 Gr 12							
+Rank	Player	Gr	Rating			Games	
 10	Michael Lee	12	1559			29	
 36	Matthew Miller	12	1543			26	
 5	Richard Rodriguez	12	1433			25	
@@ -30,18 +36,22 @@ Gr 12
 40	Mark Hernandez	12	1273			28	
 
 Top Ineligible							
+Rank	Player	Gr	Rating			Games	
 11	Nancy Ramirez	12	1868			28	
 
 Gr 11							
+Rank	Player	Gr	Rating			Games	
 7	Daniel Green	11	1751			28	
 50	Michael Martinez	11	1312			27	
 13	Sandra Rodriguez	11	966			30	
 38	Melissa Wilson	11	954			30	
 
 Top Ineligible							
+Rank	Player	Gr	Rating			Games	
 3	Daniel Green	11	1947			30	
 
 Gr 10							
+Rank	Player	Gr	Rating			Games	
 35	Donna Moore	10	1966			30	
 4	Dorothy Davis	10	1829			30	
 31	Matthew Robinson	10	1738			30	
@@ -49,30 +59,37 @@ Gr 10
 45	Jessica Nelson	10	1029			26	
 
 Top Ineligible							
+Rank	Player	Gr	Rating			Games	
 29	Linda Mitchell	10	1414			30	
 
 Gr 9							
+Rank	Player	Gr	Rating			Games	
 47	Emily Martinez	9	1363			30	
 27	Matthew Taylor	9	1134			28	
 6	Patricia Clark	9	905			28	
 
 Top Ineligible							
+Rank	Player	Gr	Rating			Games	
 23	Ashley Garcia	9	746			30	
 
 Gr 8							
+Rank	Player	Gr	Rating			Games	
 34	Emily Walker	8	1814			30	
 48	Steven Robinson	8	1554			29	
 21	Paul Flores	8	839			29	
 19	Robert Sanchez	8	742			27	
 
 Top Ineligible							
+Rank	Player	Gr	Rating			Games	
 49	Steven Perez	8	1765			27	
 
 Gr 7							
+Rank	Player	Gr	Rating			Games	
 22	Kevin Robinson	7	1863			30	
 17	Anthony White	7	813			30	
 
 Gr 6							
+Rank	Player	Gr	Rating			Games	
 41	Carol Gomez	6	1828			30	
 12	Elizabeth White	6	1529			30	
 26	Mary Nelson	6	1351			30	
@@ -80,13 +97,16 @@ Gr 6
 14	Andrew Johnson	6	1212			30	
 
 Top Ineligible							
+Rank	Player	Gr	Rating			Games	
 18	Emily Roberts	6	1689			24	
 
 Gr 5							
+Rank	Player	Gr	Rating			Games	
 24	Joseph Lopez	5	1606			30	
 46	Barbara Lee	5	1048			30	
 
 Top Ineligible							
+Rank	Player	Gr	Rating			Games	
 20	Elizabeth Smith	5	1265			26	
 
 AWARDED TROPHIES							

@@ -263,6 +263,29 @@ export const miniGameStore: MiniGameStore = {
     }
   },
 
+  async updatePlayerInAllMiniGames(
+    rank: number,
+    originalLastName: string,
+    originalFirstName: string,
+    updates: Partial<PlayerData>
+  ): Promise<void> {
+    const origKey = originalLastName.toLowerCase() + '|' + originalFirstName.toLowerCase();
+    const existingFiles = await this.getExistingMiniGameFiles();
+
+    for (const fileName of existingFiles) {
+      const miniGameData = await this.readMiniGameFile(fileName);
+      if (!miniGameData) continue;
+
+      const idx = miniGameData.players.findIndex(
+        p => p.lastName.toLowerCase() + '|' + p.firstName.toLowerCase() === origKey
+      );
+      if (idx !== -1) {
+        Object.assign(miniGameData.players[idx], updates);
+        await this.writeMiniGameFile(fileName, miniGameData);
+      }
+    }
+  },
+
   async generateTrophyReport(players: PlayerData[], debugLevel: number = 3): Promise<{
     success: boolean;
     message: string;
