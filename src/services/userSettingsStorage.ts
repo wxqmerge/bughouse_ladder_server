@@ -130,8 +130,22 @@ export async function loadRemoteFile(fileUrl: string): Promise<{ success: boolea
   try {
     const response = await gatedFetch(fileUrl);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    
+
     const text = await response.text();
+
+    // Guard: reject trophy report files
+    const firstLine = text.split('\n')[0]?.trim() || '';
+    const trophyIndicators = ['DEBUG', 'TROPHY REPORT', 'Trophy Report', 'AWARDED TROPHIES', 'MINI-GAME PLAYERS'];
+    if (trophyIndicators.some(ind => firstLine.startsWith(ind))) {
+      alert('This is a trophy report file, not a ladder file. Trophy reports cannot be loaded as player data.');
+      return { success: false };
+    }
+    if (!firstLine.startsWith('Group')) {
+      if (!window.confirm('This file does not start with "Group" in the header row. It may not be a valid ladder file. Load it anyway?')) {
+        return { success: false };
+      }
+    }
+
     const blob = new Blob([text], { type: 'text/tab-separated-values' });
     const fileName = fileUrl.split('/').pop()?.split('?')[0] || 'ladder';
     

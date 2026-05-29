@@ -28,6 +28,7 @@ import { getFontSize, getScaledPadding, getScaledGap, getScaledLineHeight } from
 import { useIntervalCheck } from "../utils/useIntervalCheck";
 import { mergeServerWithLocal as _mergeServerWithLocal } from "../utils/mergeUtils";
 import { deduplicatePlayers } from "../../shared/utils/dedupUtils";
+import { isTrophyReport, isValidLadderHeader } from "../../shared/utils/trophyFileGuard";
 import { loadUserSettings, saveUserSettings, saveLastWorkingConfig, normalizeServerUrl } from "../services/userSettingsStorage";
 import { 
   getKeyPrefix, 
@@ -374,10 +375,28 @@ export default function LadderForm({
   const prevLastFileRef = useRef<File | null>(null);
   const debouncedSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingPlayerUpdate = useRef<{ rank: number; originalLastName: string; originalFirstName: string; updates: Record<string, unknown> } | null>(null);
+  const lastRefreshHash = useRef<string | null>(null);
 
   // Keep playersRef in sync with players state for use in async closures
   useEffect(() => {
     playersRef.current = players;
+  }, [players]);
+
+  // Save pending data to localStorage before page unload to prevent data loss
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (players.length === 0) return;
+      try {
+        // Synchronous save to localStorage — this is the only reliable way
+        // to persist data before the page unloads
+        const key = getKeyPrefix() + 'ladder_players';
+        localStorage.setItem(key, JSON.stringify(players));
+      } catch {
+        // localStorage may be full or unavailable — silently fail
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [players]);
 
   useEffect(() => {
@@ -681,8 +700,9 @@ export default function LadderForm({
                 });
                 
                 setPlayers(playersWithResults);
+                lastRefreshHash.current = computePlayersHash(playersWithResults);
                 setSortBy(null);
-                
+
                 // Set mini-game file if we're in tournament mode
                 if (isMiniGame) {
                   dataService.setMiniGameFile(titleToFileName(projectName));
@@ -734,6 +754,7 @@ export default function LadderForm({
               gameResults: player.gameResults || new Array(31).fill(null),
             }));
             setPlayers(playersWithResults);
+            lastRefreshHash.current = computePlayersHash(playersWithResults);
             setSortBy(null);
             if (shouldLog(3)) {
               console.log(
@@ -787,6 +808,18 @@ export default function LadderForm({
     const reader = new FileReader();
     reader.onload = async (e) => {
       const text = e.target?.result as string;
+
+      // Guard: reject trophy report files loaded as ladder data
+      if (isTrophyReport(text)) {
+        alert('This is a trophy report file, not a ladder file. Trophy reports cannot be loaded as player data.');
+        return;
+      }
+      if (!isValidLadderHeader(text)) {
+        if (!window.confirm('This file does not start with "Group" in the header row. It may not be a valid ladder file. Load it anyway?')) {
+          return;
+        }
+      }
+
       const lines = text.split("\n");
       let loadedPlayers: PlayerData[] = [];
       const allGameResults: (string | null)[][] = [];
@@ -984,7 +1017,11 @@ export default function LadderForm({
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error?.message || 'Upload failed');
+        const message = errorData.error?.message || 'Upload failed';
+        if (message.includes('Trophy report') || message.includes('Group')) {
+          alert(message);
+        }
+        throw new Error(message);
       }
 
       await savePlayers(pendingImport.players, false, true);
@@ -2082,6 +2119,13 @@ export default function LadderForm({
     };
 
   /**
+   * Simple hash for comparing player data to detect real changes
+   */
+  const computePlayersHash = (ps: PlayerData[]): string => {
+    return ps.map(p => `${p.rank}:${(p.gameResults || []).join('|')}`).join('::');
+  };
+
+  /**
    * Refresh players from server/storage
    * Called when polling detects data changes from other clients
    */
@@ -2110,6 +2154,14 @@ export default function LadderForm({
       if (freshPlayers && freshPlayers.length > 0) {
         const serverRanks = freshPlayers.map(p => p.rank).join(',');
         log('[DEBUG REFRESH]', `Server returned ${freshPlayers.length} players, ranks: ${serverRanks}`);
+
+        // Guard: skip if data hasn't actually changed (breaks SSE refresh loop)
+        const newHash = computePlayersHash(freshPlayers);
+        if (newHash === lastRefreshHash.current) {
+          log('[DEBUG REFRESH]', '⊘ Data unchanged — skipping setPlayers (breaks SSE loop)');
+          return;
+        }
+        lastRefreshHash.current = newHash;
 
         // Check if any local-only player would be lost
         const localOnly = players.filter(lp => !freshPlayers.find(sp => sp.rank === lp.rank));
@@ -3463,11 +3515,11 @@ const handleWalkthroughNextForReview = () => {
   };
 
  const findNextRank = (cands: PlayerData[], sug?: number, label?: string) => {
-    const maxRank = cands.reduce((max, p) => Math.max(max, p.rank || 0), 0);
-    const result = (sug !== undefined && sug > maxRank) ? sug : maxRank + 1;
-    console.log(`[DEBUG findNextRank] ${label || ''} cands.length=${cands.length} maxRank=${maxRank} sug=${sug} => result=${result}`);
-    return result;
-  };
+     const maxRank = cands.reduce((max, p) => Math.max(max, p.rank || 0), 0);
+     const result = sug !== undefined ? sug : maxRank + 1;
+     console.log(`[DEBUG findNextRank] ${label || ''} cands.length=${cands.length} maxRank=${maxRank} sug=${sug} => result=${result}`);
+     return result;
+   };
 
   const handleAddPlayerSubmit = (
        playerData: Omit<PlayerData, "rank" | "nRating" | "gameResults">,
@@ -3480,18 +3532,18 @@ const handleWalkthroughNextForReview = () => {
       }
 
      setPlayers((prevPlayers) => {
-       const newRank = findNextRank(prevPlayers, suggestedRank);
+        const newRank = findNextRank(prevPlayers, suggestedRank);
 
-      const newPlayer: PlayerData = {
-        ...playerData,
-        rank: newRank,
-        nRating: Math.abs(playerData.rating || 1),
-        trophyEligible: true,
-        gameResults: new Array(31).fill(null),
-      };
+       const newPlayer: PlayerData = {
+         ...playerData,
+         rank: newRank,
+         nRating: Math.abs(playerData.rating || 1),
+         trophyEligible: true,
+         gameResults: new Array(31).fill(null),
+       };
 
-      const updatedPlayers = [...prevPlayers, newPlayer];
-      updatedPlayers.sort((a, b) => a.rank - b.rank);
+       const updatedPlayers = [...prevPlayers, newPlayer];
+       updatedPlayers.sort((a, b) => a.rank - b.rank);
 
       savePlayers(updatedPlayers).catch((err) => {
         console.error("Failed to save added player:", err);
