@@ -4,7 +4,7 @@
  */
 
 import { PlayerData, LadderData, MiniGameStore, MiniGameData } from '../../shared/types';
-import { calculateRatings, processGameResults } from '../../shared/utils/hashUtils';
+import { calculateRatings, processGameResults, clearRankReferences } from '../../shared/utils/hashUtils';
 import {
   copyPlayersToTarget as sharedCopyPlayersToTarget,
   mergeGameResults as sharedMergeGameResults,
@@ -234,6 +234,30 @@ export const miniGameStore: MiniGameStore = {
           ...newPlayer,
           gameResults: new Array(31).fill(null),
         });
+        await this.writeMiniGameFile(fileName, miniGameData);
+      }
+    }
+  },
+
+  async removePlayerFromAllMiniGames(lastName: string, firstName: string): Promise<void> {
+    const key = lastName.toLowerCase() + '|' + firstName.toLowerCase();
+    const existingFiles = await this.getExistingMiniGameFiles();
+
+    for (const fileName of existingFiles) {
+      const miniGameData = await this.readMiniGameFile(fileName);
+      if (!miniGameData) continue;
+
+      const idx = miniGameData.players.findIndex(
+        p => p.lastName.toLowerCase() + '|' + p.firstName.toLowerCase() === key
+      );
+      if (idx !== -1) {
+        const deletedRank = miniGameData.players[idx].rank;
+        miniGameData.players.splice(idx, 1);
+        for (const player of miniGameData.players) {
+          if (player.gameResults) {
+            player.gameResults = clearRankReferences(player.gameResults, deletedRank);
+          }
+        }
         await this.writeMiniGameFile(fileName, miniGameData);
       }
     }
