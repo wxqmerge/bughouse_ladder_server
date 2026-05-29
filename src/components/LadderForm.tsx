@@ -3107,10 +3107,10 @@ const handleWalkthroughNextForReview = () => {
 
   const createPlayerFromMapped = (mapped: Record<string, string | number>, currentPlayers: PlayerData[]): PlayerData => {
     const lastPlayer = currentPlayers[currentPlayers.length - 1];
-    const maxRank = currentPlayers.reduce((max, p) => Math.max(max, p.rank || 0), 0);
-    
+    const newRank = findNextRank(currentPlayers);
+
     return {
-      rank: maxRank + 1,
+      rank: newRank,
       group: String(mapped.group || '').trim() || lastPlayer?.group || "",
       lastName: String(mapped.lastName || '').trim(),
       firstName: String(mapped.firstName || '').trim(),
@@ -3378,27 +3378,27 @@ const handleWalkthroughNextForReview = () => {
     setIsAddPlayerDialogOpen(true);
   };
 
- const handleAddPlayerSubmit = (
-      playerData: Omit<PlayerData, "rank" | "nRating" | "gameResults">,
-      suggestedRank?: number,
-    ) => {
-      console.log(`>>> [ACTION] handleAddPlayerSubmit - Rank: ${suggestedRank}, Name: ${playerData.firstName} ${playerData.lastName}`);
-     // Mark local changes if we're in server down mode
-     if (isServerDownMode()) {
-       markLocalChanges();
-     }
+ const findNextRank = (cands: PlayerData[], sug?: number) => {
+    const used = new Set(cands.map(p => p.rank));
+    if (sug !== undefined && !used.has(sug)) return sug;
+    for (let r = 1; r <= cands.length + 1; r++) {
+      if (!used.has(r)) return r;
+    }
+    return cands.length + 1;
+  };
 
-     const findNextRank = (cands: PlayerData[], sug?: number) => {
-       const used = new Set(cands.map(p => p.rank));
-       if (sug !== undefined && !used.has(sug)) return sug;
-       for (let r = 1; r <= cands.length + 1; r++) {
-         if (!used.has(r)) return r;
-       }
-       return cands.length + 1;
-     };
+  const handleAddPlayerSubmit = (
+       playerData: Omit<PlayerData, "rank" | "nRating" | "gameResults">,
+       suggestedRank?: number,
+     ) => {
+       console.log(`>>> [ACTION] handleAddPlayerSubmit - Rank: ${suggestedRank}, Name: ${playerData.firstName} ${playerData.lastName}`);
+      // Mark local changes if we're in server down mode
+      if (isServerDownMode()) {
+        markLocalChanges();
+      }
 
-    setPlayers((prevPlayers) => {
-      const newRank = findNextRank(prevPlayers, suggestedRank);
+     setPlayers((prevPlayers) => {
+       const newRank = findNextRank(prevPlayers, suggestedRank);
 
       const newPlayer: PlayerData = {
         ...playerData,
@@ -5698,8 +5698,8 @@ const handleWalkthroughNextForReview = () => {
                                   school: gameData.school,
                                   room: gameData.room,
                                 };
-                                const maxRank = players.reduce((max, p) => Math.max(max, p.rank || 0), 0);
-                                const rankedPlayer = { ...newPlayer, rank: maxRank + 1 };
+                                const newRank = findNextRank(players);
+                                 const rankedPlayer = { ...newPlayer, rank: newRank };
                                 const updatedPlayers = [...players, rankedPlayer];
                                 setPlayers(updatedPlayers);
                                 savePlayers(updatedPlayers, true).catch((err) => {
@@ -5784,12 +5784,12 @@ const handleWalkthroughNextForReview = () => {
                               room: gameData.room,
                             };
                             
-                            // Compute new rank from current players
-                            const maxRank = players.reduce((max, p) => Math.max(max, p.rank || 0), 0);
-                            const rankedPlayer = { ...newPlayer, rank: maxRank + 1 };
+                           // Compute new rank from current players (fill gaps)
+                             const newRank = findNextRank(players);
+                             const rankedPlayer = { ...newPlayer, rank: newRank };
                             const updatedPlayers = [...players, rankedPlayer];
                             
-                            console.log('[EMPTY ROW] maxRank:', maxRank, 'newRank:', maxRank + 1);
+                            console.log('[EMPTY ROW] assigned rank:', newRank);
                             console.log('[EMPTY ROW] new player object:', JSON.stringify(rankedPlayer));
                             console.log('[EMPTY ROW] updatedPlayers length:', updatedPlayers.length);
                             
