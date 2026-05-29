@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 import { log as loggerLog } from '../utils/logger.js';
 import { readLadderFile, writeLadderFile, generateTabContent, PlayerData, LadderData, withTiming, ensureDataDirectory } from './dataService.js';
 import { MiniGameData } from '../../../shared/types/index.js';
-import { calculateRatings, processGameResults } from '../../../shared/utils/hashUtils.js';
+import { calculateRatings, processGameResults, clearRankReferences } from '../../../shared/utils/hashUtils.js';
 import {
   copyPlayersToTarget as sharedCopyPlayersToTarget,
   mergeGameResults as sharedMergeGameResults,
@@ -294,6 +294,47 @@ export async function addPlayerToAllMiniGames(newPlayer: PlayerData): Promise<vo
       });
       await writeMiniGameFile(fileName, miniGameData);
       loggerLog('[TOURNAMENT]', `Added player ${newPlayer.firstName} ${newPlayer.lastName} to ${fileName}`);
+    }
+  }
+}
+
+export async function removePlayerFromAll(lastName: string, firstName: string): Promise<void> {
+  const key = lastName.toLowerCase() + '|' + firstName.toLowerCase();
+
+  const ladderData = await readLadderFile();
+  const deletedIdx = ladderData.players.findIndex(
+    p => p.lastName.toLowerCase() + '|' + p.firstName.toLowerCase() === key
+  );
+  if (deletedIdx !== -1) {
+    const deletedRank = ladderData.players[deletedIdx].rank;
+    ladderData.players.splice(deletedIdx, 1);
+    for (const player of ladderData.players) {
+      if (player.gameResults) {
+        player.gameResults = clearRankReferences(player.gameResults, deletedRank);
+      }
+    }
+    await writeLadderFile(ladderData);
+    loggerLog('[TOURNAMENT]', 'Removed player ' + firstName + ' ' + lastName + ' (rank ' + deletedRank + ') from club ladder');
+  }
+
+  const existingFiles = await getExistingMiniGameFiles();
+  for (const fileName of existingFiles) {
+    const miniGameData = await readMiniGameFile(fileName);
+    if (!miniGameData) continue;
+
+    const idx = miniGameData.players.findIndex(
+      p => p.lastName.toLowerCase() + '|' + p.firstName.toLowerCase() === key
+    );
+    if (idx !== -1) {
+      const deletedRank = miniGameData.players[idx].rank;
+      miniGameData.players.splice(idx, 1);
+      for (const player of miniGameData.players) {
+        if (player.gameResults) {
+          player.gameResults = clearRankReferences(player.gameResults, deletedRank);
+        }
+      }
+      await writeMiniGameFile(fileName, miniGameData);
+      loggerLog('[TOURNAMENT]', 'Removed player ' + firstName + ' ' + lastName + ' (rank ' + deletedRank + ') from ' + fileName);
     }
   }
 }

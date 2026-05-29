@@ -1160,6 +1160,46 @@ class DataService {
       return data.data;
     }
   }
+
+  async propagatePlayerAdd(player: any): Promise<void> {
+    if (this.config.mode === DataServiceMode.LOCAL) {
+      const store = this.getStore();
+      await store.addPlayerToAllMiniGames(player);
+    } else {
+      try {
+        await gatedFetch(`${this.getApiUrl()}/api/admin/tournament/add-player-to-mini-games`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...this.getAuthHeaders(),
+          },
+          body: JSON.stringify({ player }),
+        });
+      } catch (e) {
+        console.error('[DATA-SERVICE] propagatePlayerAdd failed:', e);
+      }
+    }
+  }
+
+  async propagatePlayerDelete(player: any): Promise<void> {
+    if (this.config.mode === DataServiceMode.LOCAL) {
+      const store = this.getStore();
+      await store.removePlayerFromAllMiniGames(player.lastName, player.firstName);
+    } else {
+      try {
+        await gatedFetch(`${this.getApiUrl()}/api/admin/tournament/remove-player-from-all`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...this.getAuthHeaders(),
+          },
+          body: JSON.stringify({ lastName: player.lastName, firstName: player.firstName }),
+        });
+      } catch (e) {
+        console.error('[DATA-SERVICE] propagatePlayerDelete failed:', e);
+      }
+    }
+  }
 }
 
 // Singleton instance — initialized with LOCAL, mode updated by caller

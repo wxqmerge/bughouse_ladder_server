@@ -1448,12 +1448,12 @@ export function updatePlayerGameData(
       parsedPlayersList: parsedPlayersList,
       parsedScoreList: parsedScoreList,
       originalString: input,
-      parsedPlayer1Rank,
-      parsedPlayer2Rank,
-      parsedPlayer3Rank,
-      parsedPlayer4Rank,
-    };
-  }
+    parsedPlayer1Rank,
+     parsedPlayer2Rank,
+     parsedPlayer3Rank,
+     parsedPlayer4Rank,
+ };
+}
 
   const parsedPlayer1Rank = parsedPlayersList[5];
   const parsedPlayer2Rank = parsedPlayersList[6];
@@ -1505,4 +1505,28 @@ export function updatePlayerGameData(
     parsedPlayer3Rank,
     parsedPlayer4Rank,
   };
+}
+
+/**
+ * Clear game result cells that reference a deleted player rank.
+ * Uses word-boundary matching so rank 8 won't match rank 18.
+ *
+ * Game result formats:
+ *   2P: "8W9_"  (rank 8 won, rank 9 lost)
+ *   4P: "8:9W10:11_" (pair 8&9 vs pair 10&11)
+ *
+ * @param results - The player's gameResults array
+ * @param deletedRank - The rank of the deleted player
+ * @returns New gameResults array with matching cells cleared (set to null)
+ */
+export function clearRankReferences(
+  results: (string | null)[],
+  deletedRank: number
+): (string | null)[] {
+  const escaped = String(deletedRank);
+  const boundary = new RegExp(`(^|(?<=[^0-9]))${escaped}(?=$|[^0-9])`);
+  return results.map((cell) => {
+    if (!cell || boundary.test(cell)) return null;
+    return cell;
+  });
 }
