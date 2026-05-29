@@ -28,6 +28,7 @@ import {
   MINI_GAME_FILES,
   MINI_GAME_DIFFICULTY_ORDER,
 } from '../services/tournamentService.js';
+import { buildTrophyReportString } from '../../../shared/utils/trophyDebugReport.js';
 
 const router = Router();
 
@@ -465,7 +466,8 @@ router.get('/tournament/trophies', async (req: Request, res: Response): Promise<
     const prefix = result.isClubMode ? 'club-ladder-trophies' : 'mini-game-trophies';
     const trophyFileName = `${prefix}_${dateStr}.tab`;
     const trophyFilePath = path.join(dataDir, trophyFileName);
-    const tabContent = generateTrophyTabContent(result.trophies!, result.isClubMode, result.debugInfo, result.trophiesSection);
+    const headerLines = result.debugInfo ? result.debugInfo.split('\n') : [];
+    const tabContent = buildTrophyReportString(headerLines, [], result.trophiesSection || []);
     await fs.writeFile(trophyFilePath, tabContent, 'utf-8');
     log('[ADMIN]', `Trophy report saved: ${trophyFileName}`);
     
@@ -704,20 +706,5 @@ router.get('/export-mini-data', async (req: Request, res: Response): Promise<voi
     });
   }
 });
-
-function generateTrophyTabContent(trophies: any[], isClubMode: boolean = false, debugInfo?: string, trophiesSection?: string[]): string {
-  const lines: string[] = [];
-  
-  if (debugInfo) {
-    lines.push(debugInfo);
-    lines.push('');
-  }
-  
-  if (trophiesSection) {
-    lines.push(...trophiesSection);
-  }
-  
-  return lines.join('\n') + '\n';
-}
 
 export { router };
