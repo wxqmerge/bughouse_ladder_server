@@ -472,8 +472,8 @@ class DataService {
   }
 
   private saveLocalPlayers(players: PlayerData[], notify: boolean = true): void {
-    // Delegate to storageService for localStorage access
-    storageSavePlayers(players);
+    // Delegate to storageService for localStorage access (skipServerSync=true — this is cache-only)
+    storageSavePlayers(players, false, true);
     if (notify) {
       this.notifySubscribers();
     }
@@ -582,9 +582,12 @@ class DataService {
       throw error;
     }
 
-    // Update localStorage cache via storageService
-    storageSavePlayers(players);
-    this.notifySubscribers();
+    // Update localStorage cache only (skipServerSync=true because updatePlayers already PUT to server)
+    storageSavePlayers(players, false, true);
+    // NOTE: Do NOT call notifySubscribers() here — the server broadcasts
+    // 'ladderUpdated' SSE event which already triggers a refresh. Calling
+    // both creates a double-notification cascade (SSE + local) that causes
+    // infinite refresh loops and UI blinking.
   }
 
   public async fetchMiniGamePlayers(): Promise<PlayerData[]> {
@@ -631,8 +634,7 @@ class DataService {
       (error as any).status = response.status;
       throw error;
     }
-
-    this.notifySubscribers();
+    // SSE 'miniGameWritten' event triggers refresh
   }
 
   private async updatePlayerApi(player: PlayerData): Promise<void> {
@@ -673,8 +675,7 @@ class DataService {
     if (!response.ok) {
       throw new Error('Failed to update player');
     }
-
-    this.notifySubscribers();
+    // SSE 'playerUpdated'/'miniGameWritten' event triggers refresh
   }
 
   private async submitGameApi(
@@ -721,8 +722,7 @@ class DataService {
     if (!response.ok) {
       throw new Error('Failed to submit game');
     }
-
-    this.notifySubscribers();
+    // SSE 'gameSubmitted'/'miniGameWritten' event triggers refresh
   }
 
   async submitDeltaBatch(deltas: DeltaOperation[]): Promise<void> {
@@ -759,8 +759,7 @@ class DataService {
         (error as any).status = response.status;
         throw error;
       }
-
-      this.notifySubscribers();
+      // SSE 'miniGameWritten' event triggers refresh
     } else {
       const response = await gatedFetch(`${this.getApiUrl()}/api/ladder/batch`, {
         method: 'POST',
@@ -776,8 +775,7 @@ class DataService {
         (error as any).status = response.status;
         throw error;
       }
-
-      this.notifySubscribers();
+      // SSE 'deltasSubmitted' event triggers refresh
     }
   }
 
@@ -821,7 +819,7 @@ class DataService {
     const player = players.find(p => p.rank === playerRank);
     if (player && player.gameResults) {
       player.gameResults[roundIndex] = null;
-      this.saveLocalPlayers(players);
+      this.saveLocalPlayers(players, false); // SSE 'cellCleared' triggers refresh
     }
   }
 

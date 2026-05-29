@@ -162,10 +162,32 @@ export async function readLadderFile(filePath?: string): Promise<LadderData> {
     
     const players: PlayerData[] = [];
     
+    const MetadataPrefixes = [
+      'Players', 'Max Trophies', 'Mode', 'Mini-games played',
+      'Award 2nd place', 'Award grade 1st', 'MINI-GAME PLAYERS',
+      'AWARDED TROPHIES', 'DEBUG', 'Trophy Report',
+    ];
+
     for (let i = 0; i < dataLines.length; i++) {
       const line = dataLines[i];
       const fields = line.split('\t');
-      
+
+      // Skip metadata lines from trophy reports or other non-player sections
+      const firstField = fields[0]?.trim() || '';
+      if (MetadataPrefixes.some(p => firstField === p || firstField.startsWith(p + ' '))) {
+        continue;
+      }
+
+      // Skip trophy table header
+      if (fields[1]?.trim() === 'Player' && fields[2]?.trim() === 'Trophy Type') {
+        continue;
+      }
+
+      // Skip section divider lines (file names only - don't skip empty Group column)
+      if (firstField.endsWith('.tab')) {
+        continue;
+      }
+
       // Skip empty rows or footer rows
       if (fields.length < 4 || (!fields[1] && !fields[2])) {
         continue;
