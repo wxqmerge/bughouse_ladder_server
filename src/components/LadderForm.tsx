@@ -5676,52 +5676,55 @@ const handleWalkthroughNextForReview = () => {
                             }
                           }}
                           onKeyDown={(e) => {
-                            if (e.key === "Enter" && e.ctrlKey) {
-                              e.preventDefault();
-                              const currentValues = { ...emptyPlayerRowRef.current };
-                              if ((currentValues.firstName || "").trim() && (currentValues.lastName || "").trim()) {
-                                const gameData = currentValues as typeof emptyPlayerRow & { rank?: number };
-                                const newPlayer: PlayerData = {
-                                   rank: 0,
-                                   nRating: Math.abs(currentValues.nRating || 1),
-                                   trophyEligible: emptyPlayerRowRef.current.trophyEligible !== false,
-                                   gameResults: currentValues.gameResults,
-                                  group: gameData.group,
-                                  lastName: gameData.lastName,
-                                  firstName: gameData.firstName,
-                                  rating: gameData.rating,
-                                  grade: gameData.grade,
-                                  num_games: gameData.num_games,
-                                  attendance: gameData.attendance,
-                                  phone: gameData.phone,
-                                  info: gameData.info,
-                                  school: gameData.school,
-                                  room: gameData.room,
-                                };
-                                const newRank = findNextRank(players);
-                                 const rankedPlayer = { ...newPlayer, rank: newRank };
-                                const updatedPlayers = [...players, rankedPlayer];
-                                setPlayers(updatedPlayers);
-                                savePlayers(updatedPlayers, true).catch((err) => {
-                                  console.error("Failed to save added player:", err);
-                                });
-                                const emptyReset = {
-                                  firstName: "", lastName: "", group: "", rating: 0, nRating: 0,
-                                  trophyEligible: true, grade: "", num_games: 0, attendance: 0,
-                                  phone: "", info: "", school: "", room: "",
-                                  gameResults: Array(31).fill(null),
-                                } as typeof emptyPlayerRow;
-                                setEmptyPlayerRow(emptyReset);
-                                emptyPlayerRowRef.current = emptyReset;
-                                document.querySelectorAll('[data-empty-cell]').forEach((cell) => {
-                                  cell.textContent = '';
-                                });
-                                const groupCell = document.querySelector('[data-empty-cell="1"]') as HTMLElement;
-                                if (groupCell) groupCell.focus();
-                                showToast(`${updatedPlayers.length} player(s) in ladder`);
-                              }
-                              return;
-                            }
+                             if (e.key === "Enter" && e.ctrlKey) {
+                               e.preventDefault();
+                               const currentValues = { ...emptyPlayerRowRef.current };
+                               if ((currentValues.firstName || "").trim() && (currentValues.lastName || "").trim()) {
+                                 const gameData = currentValues as typeof emptyPlayerRow & { rank?: number };
+                                 const newPlayer: PlayerData = {
+                                    rank: 0,
+                                    nRating: Math.abs(currentValues.nRating || 1),
+                                    trophyEligible: emptyPlayerRowRef.current.trophyEligible !== false,
+                                    gameResults: currentValues.gameResults,
+                                   group: gameData.group,
+                                   lastName: gameData.lastName,
+                                   firstName: gameData.firstName,
+                                   rating: gameData.rating,
+                                   grade: gameData.grade,
+                                   num_games: gameData.num_games,
+                                   attendance: gameData.attendance,
+                                   phone: gameData.phone,
+                                   info: gameData.info,
+                                   school: gameData.school,
+                                   room: gameData.room,
+                                 };
+                                 let updatedResult: PlayerData[] = [];
+                                 setPlayers((prevPlayers) => {
+                                   const newRank = findNextRank(prevPlayers);
+                                   const rankedPlayer = { ...newPlayer, rank: newRank };
+                                   updatedResult = [...prevPlayers, rankedPlayer];
+                                   savePlayers(updatedResult, true).catch((err) => {
+                                     console.error("Failed to save added player:", err);
+                                   });
+                                   return updatedResult;
+                                 });
+                                 const emptyReset = {
+                                   firstName: "", lastName: "", group: "", rating: 0, nRating: 0,
+                                   trophyEligible: true, grade: "", num_games: 0, attendance: 0,
+                                   phone: "", info: "", school: "", room: "",
+                                   gameResults: Array(31).fill(null),
+                                 } as typeof emptyPlayerRow;
+                                 setEmptyPlayerRow(emptyReset);
+                                 emptyPlayerRowRef.current = emptyReset;
+                                 document.querySelectorAll('[data-empty-cell]').forEach((cell) => {
+                                   cell.textContent = '';
+                                 });
+                                 const groupCell = document.querySelector('[data-empty-cell="1"]') as HTMLElement;
+                                 if (groupCell) groupCell.focus();
+                                 showToast(`${updatedResult.length} player(s) in ladder`);
+                               }
+                               return;
+                             }
                             if (e.key === "Enter") {
                               e.preventDefault();
                               const nextCol = colIndex + 1;
@@ -5762,41 +5765,41 @@ const handleWalkthroughNextForReview = () => {
                           
                           console.log('[EMPTY ROW] after update:', JSON.stringify(result));
                           
-                        // When both firstName and lastName are filled, create player and reset row
-                          if ((result.firstName || "").trim() && (result.lastName || "").trim()) {
-                            console.log('[EMPTY ROW] Both names filled - creating player');
-                            const gameData = result as typeof emptyPlayerRow & { rank?: number };
-                          const newPlayer: PlayerData = {
-                               rank: 0,
-                               nRating: Math.abs(result.nRating || 1),
-                               trophyEligible: true,
-                               gameResults: result.gameResults,
-                              group: gameData.group,
-                              lastName: gameData.lastName,
-                              firstName: gameData.firstName,
-                              rating: gameData.rating,
-                              grade: gameData.grade,
-                              num_games: gameData.num_games,
-                              attendance: gameData.attendance,
-                              phone: gameData.phone,
-                              info: gameData.info,
-                              school: gameData.school,
-                              room: gameData.room,
-                            };
-                            
-                           // Compute new rank from current players (fill gaps)
-                             const newRank = findNextRank(players);
-                             const rankedPlayer = { ...newPlayer, rank: newRank };
-                            const updatedPlayers = [...players, rankedPlayer];
-                            
-                            console.log('[EMPTY ROW] assigned rank:', newRank);
-                            console.log('[EMPTY ROW] new player object:', JSON.stringify(rankedPlayer));
-                            console.log('[EMPTY ROW] updatedPlayers length:', updatedPlayers.length);
-                            
-                            setPlayers(updatedPlayers);
-                             savePlayers(updatedPlayers, true).catch((err) => {
-                               console.error("Failed to save added player:", err);
-                             });
+                       // When both firstName and lastName are filled, create player and reset row
+                           if ((result.firstName || "").trim() && (result.lastName || "").trim()) {
+                             console.log('[EMPTY ROW] Both names filled - creating player');
+                             const gameData = result as typeof emptyPlayerRow & { rank?: number };
+                           const newPlayer: PlayerData = {
+                                rank: 0,
+                                nRating: Math.abs(result.nRating || 1),
+                                trophyEligible: true,
+                                gameResults: result.gameResults,
+                               group: gameData.group,
+                               lastName: gameData.lastName,
+                               firstName: gameData.firstName,
+                               rating: gameData.rating,
+                               grade: gameData.grade,
+                               num_games: gameData.num_games,
+                               attendance: gameData.attendance,
+                               phone: gameData.phone,
+                               info: gameData.info,
+                               school: gameData.school,
+                               room: gameData.room,
+                             };
+
+                            let updatedResult: PlayerData[] = [];
+                            setPlayers((prevPlayers) => {
+                              const newRank = findNextRank(prevPlayers);
+                              const rankedPlayer = { ...newPlayer, rank: newRank };
+                              updatedResult = [...prevPlayers, rankedPlayer];
+                              console.log('[EMPTY ROW] assigned rank:', newRank);
+                              console.log('[EMPTY ROW] new player object:', JSON.stringify(rankedPlayer));
+                              console.log('[EMPTY ROW] updatedPlayers length:', updatedResult.length);
+                              savePlayers(updatedResult, true).catch((err) => {
+                                console.error("Failed to save added player:", err);
+                              });
+                              return updatedResult;
+                            });
                             
                          // Reset emptyPlayerRow state and ref (not enough for contentEditable cells - React
                            // skips updating their textContent after they've been made editable)
