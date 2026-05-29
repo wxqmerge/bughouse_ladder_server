@@ -3,23 +3,17 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { log as loggerLog } from '../utils/logger.js';
 import { readLadderFile, writeLadderFile, generateTabContent, PlayerData, LadderData, withTiming, ensureDataDirectory } from './dataService.js';
-import { MiniGameData } from '../../../shared/types/index.js';
-import { calculateRatings, processGameResults, clearRankReferences } from '../../../shared/utils/hashUtils.js';
+import { MiniGameData, MINI_GAME_FILES, MINI_GAME_DIFFICULTY_ORDER } from '../../../shared/types/index.js';
+import { clearRankReferences } from '../../../shared/utils/hashUtils.js';
 import {
   copyPlayersToTarget as sharedCopyPlayersToTarget,
   mergeGameResults as sharedMergeGameResults,
-  generateClubLadderTrophies as sharedGenerateClubLadderTrophies,
-  generateMiniGameTrophies as sharedGenerateMiniGameTrophies,
-  debugLine as sharedDebugLine,
   clubLadderGamesPlayed,
+  generateTrophyReport as sharedGenerateTrophyReport,
+  parseMiniGameImportContent,
 } from '../../../shared/utils/trophyGeneration.js';
 import {
-  buildDebugHeader,
-  buildMiniGamePlayerSection,
-  buildClubLadderPlayerSection,
-  buildTrophiesSection,
   buildTrophyReportString,
-  syncEligibilityFromClubLadder,
 } from '../../../shared/utils/trophyDebugReport.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -45,27 +39,8 @@ export interface MiniGameStore {
   importMiniGameFiles(content: string): Promise<{ imported: string[]; errors: string[] }>;
 }
 
-// Mini-game file names (7 files, same as MINI_GAMES + bughouse)
-export const MINI_GAME_FILES = [
-  'BG_Game.tab',
-  'Bishop_Game.tab',
-  'Pillar_Game.tab',
-  'Kings_Cross.tab',
-  'Pawn_Game.tab',
-  'Queen_Game.tab',
-  'bughouse.tab',
-];
-
-// Mini-game difficulty order (hardest to easiest) for trophy awarding
-export const MINI_GAME_DIFFICULTY_ORDER = [
-  'Queen_Game.tab',
-  'Pawn_Game.tab',
-  'Kings_Cross.tab',
-  'Pillar_Game.tab',
-  'Bishop_Game.tab',
-  'BG_Game.tab',
-  'bughouse.tab',
-];
+// Re-export from shared for backward compatibility
+export { MINI_GAME_FILES, MINI_GAME_DIFFICULTY_ORDER };
 
 // Server-side tournament state
 export interface TournamentState {
@@ -171,8 +146,7 @@ export async function writeMiniGameFile(fileName: string, ladderData: LadderData
 // Re-export shared functions for backward compatibility
 export const copyPlayersToTarget = sharedCopyPlayersToTarget;
 export const mergeGameResults = sharedMergeGameResults;
-export const generateClubLadderTrophies = sharedGenerateClubLadderTrophies;
-export const generateMiniGameTrophies = sharedGenerateMiniGameTrophies;
+export { generateClubLadderTrophies, generateMiniGameTrophies } from '../../../shared/utils/trophyGeneration.js';
 
 // Get list of existing mini-game files
 export async function getExistingMiniGameFiles(): Promise<string[]> {
@@ -382,85 +356,8 @@ export async function generateTrophyReport(debugLevel: number = 3): Promise<{
   trophiesSection?: string[];
 }> {
   try {
-    const hasMiniGames = await hasMiniGameFiles();
-    const isClubMode = !hasMiniGames;
-
     const ladderData = await readLadderFile();
-    const players = ladderData.players;
-
-    if (players.length === 0) {
-      return { success: false, message: 'No players found' };
-    }
-
-    const minTrophies = Math.ceil(players.length / 3);
-    let trophies: any[] = [];
-    const debugLines: string[] = [];
-
-    if (debugLevel <= 5) {
-      const headerLines = buildDebugHeader(players, minTrophies, isClubMode, undefined, debugLevel);
-      debugLines.push(...headerLines);
-    }
-
-    if (isClubMode) {
-      const clubPlayerLines = buildClubLadderPlayerSection(players, debugLevel);
-      debugLines.push(...clubPlayerLines);
-      
-      trophies = sharedGenerateClubLadderTrophies(players, minTrophies);
-    } else {
-      const existingFiles = await getExistingMiniGameFiles();
-      const m = existingFiles.length;
-
-      // Recalculate ratings (5 passes) for each mini-game
-      for (const fileName of existingFiles) {
-        const miniGameData = await readMiniGameFile(fileName);
-        if (!miniGameData || miniGameData.players.length === 0) continue;
-        
-        let currentPlayers = [...miniGameData.players];
-        
-        for (let recalc = 0; recalc < 5; recalc++) {
-          const { matches } = processGameResults(currentPlayers);
-          const result = calculateRatings(currentPlayers, matches, {
-            kFactorOverride: 20,
-            blendingFactorOverride: 0.99,
-            perfMultiplierScaleOverride: 0.5,
-          });
-          currentPlayers = result.players;
-        }
-        
-        await writeMiniGameFile(fileName, {
-          ...miniGameData,
-          players: currentPlayers,
-        });
-        
-        loggerLog('[TOURNAMENT]', `Recalculated ${fileName} (5 passes)`);
-      }
-
-      // Build MiniGameData array for shared trophy generation
-      const miniGameDataList: MiniGameData[] = [];
-      for (const fileName of existingFiles) {
-        const data = await readMiniGameFile(fileName);
-        if (!data || data.players.length === 0) continue;
-        miniGameDataList.push({ fileName, players: data.players });
-      }
-      // Sync trophyEligible from club ladder (source of truth) to each mini-game file
-      syncEligibilityFromClubLadder(players, miniGameDataList);
-      
-      const miniGameLines = buildMiniGamePlayerSection(miniGameDataList, debugLevel);
-      debugLines.push(...miniGameLines);
-      
-      trophies = sharedGenerateMiniGameTrophies(players, minTrophies, miniGameDataList);
-    }
-
-    const trophiesSection = buildTrophiesSection(trophies);
-
-    return {
-      success: true,
-      message: `Generated ${trophies.length} trophies`,
-      trophies,
-      isClubMode,
-      debugInfo: debugLines.join('\n'),
-      trophiesSection: trophiesSection,
-    };
+    return sharedGenerateTrophyReport(tournamentStore, ladderData.players, debugLevel);
   } catch (error) {
     loggerLog('[TOURNAMENT]', `Trophy generation failed: ${(error as Error).message}`);
     return { success: false, message: `Trophy generation failed: ${(error as Error).message}` };
@@ -516,25 +413,15 @@ export const tournamentStore: MiniGameStore = {
   async importMiniGameFiles(content: string): Promise<{ imported: string[]; errors: string[] }> {
     const imported: string[] = [];
     const errors: string[] = [];
-    
-    const sections = content.split('=== ').filter(s => s.trim());
-    
-    for (const section of sections) {
-      const firstLine = section.split('\n')[0];
-      const fileName = firstLine.replace(' ===', '').trim();
-      
+
+    const sections = parseMiniGameImportContent(content);
+
+    for (const { fileName, fileContent } of sections) {
       if (!MINI_GAME_FILES.includes(fileName)) {
         errors.push(`Unknown file: ${fileName}`);
         continue;
       }
-      
-      const fileContent = section.substring(firstLine.length + 1).trim();
-      
-      if (!fileContent) {
-        errors.push(`Empty file: ${fileName}`);
-        continue;
-      }
-      
+
       try {
         const dataDir = path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data/ladder.tab'));
         const filePath = path.join(dataDir, fileName);
@@ -545,7 +432,7 @@ export const tournamentStore: MiniGameStore = {
         errors.push(`Failed to write ${fileName}: ${(err as Error).message}`);
       }
     }
-    
+
     return { imported, errors };
   },
 };

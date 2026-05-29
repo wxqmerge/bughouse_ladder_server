@@ -4,7 +4,7 @@
  */
 
 import { PlayerData, MiniGameData } from '../types/index.js';
-import { debugLine, clubLadderGamesPlayed, formatPlayerName } from './trophyGeneration.js';
+import { debugLine, clubLadderGamesPlayed, formatPlayerName, getPlayerTotalGames, isValidGameResult } from './trophyGeneration.js';
 
 /**
  * Sync trophyEligible from club ladder (source of truth) to each mini-game file.
@@ -80,16 +80,8 @@ export function buildDebugHeader(players: PlayerData[], minTrophies: number, isC
 }
 
 function mgdPlayersTotalGames(player: PlayerData, miniGameDataList: MiniGameData[]): number {
-  let total = 0;
-  for (const mgd of miniGameDataList) {
-    const games = mgd.players.find(p => p.rank === player.rank);
-    if (games?.gameResults) {
-      total += games.gameResults.filter(r => r && r !== '' && r !== '_').length;
-    }
-  }
-  return total;
+  return getPlayerTotalGames(player, miniGameDataList);
 }
-
 /**
  * Build the mini-game player debug section
  */
@@ -104,7 +96,7 @@ export function buildMiniGamePlayerSection(miniGameDataList: MiniGameData[], deb
       const playersWithGames = mgd.players.filter((p: PlayerData) => {
         if (!p.gameResults) return false;
         if (p.trophyEligible === false) return false;
-        return p.gameResults.some((r: string | null) => r && r !== '' && r !== '_');
+        return p.gameResults.some(isValidGameResult);
       });
       
       if (playersWithGames.length === 0) continue;
@@ -114,17 +106,17 @@ export function buildMiniGamePlayerSection(miniGameDataList: MiniGameData[], deb
       lines.push(debugLine(mgd.fileName.replace('.tab', ''), '', '', '', '', '', '', ''));
       lines.push(debugLine('Rank', 'Player', 'Gr', 'Rating', '', '', 'Games', ''));
       for (const p of sorted) {
-        const games = p.gameResults?.filter((r: string | null) => r && r !== '' && r !== '_')?.length || 0;
+        const games = p.gameResults?.filter(isValidGameResult)?.length || 0;
         lines.push(debugLine(String(p.rank), formatPlayerName(p), p.grade, String(p.nRating), '', '', String(games), ''));
       }
-      
+
       const ineligible = mgd.players.filter((p: PlayerData) => p.trophyEligible === false).sort((a: PlayerData, b: PlayerData) => b.nRating - a.nRating).slice(0, 1);
       if (ineligible.length > 0) {
         lines.push('');
         lines.push(debugLine('Top Ineligible', '', '', '', '', '', '', ''));
         lines.push(debugLine('Rank', 'Player', 'Gr', 'Rating', '', '', 'Games', ''));
         for (const p of ineligible) {
-          const games = p.gameResults?.filter((r: string | null) => r && r !== '' && r !== '_')?.length || 0;
+          const games = p.gameResults?.filter(isValidGameResult)?.length || 0;
           lines.push(debugLine(String(p.rank), formatPlayerName(p), p.grade, String(p.nRating), '', '', String(games), ''));
         }
       }

@@ -45,6 +45,26 @@ export interface ValidationResult {
   conflictingResults?: { playerRank: number; result: string }[];
 }
 
+export const MINI_GAME_FILES: string[] = [
+  'BG_Game.tab',
+  'Bishop_Game.tab',
+  'Pillar_Game.tab',
+  'Kings_Cross.tab',
+  'Pawn_Game.tab',
+  'Queen_Game.tab',
+  'bughouse.tab',
+];
+
+export const MINI_GAME_DIFFICULTY_ORDER: string[] = [
+  'Queen_Game.tab',
+  'Pawn_Game.tab',
+  'Kings_Cross.tab',
+  'Pillar_Game.tab',
+  'Bishop_Game.tab',
+  'BG_Game.tab',
+  'bughouse.tab',
+];
+
 export interface MiniGameData {
   fileName: string;
   players: PlayerData[];
