@@ -3323,14 +3323,20 @@ const handleWalkthroughNextForReview = () => {
     setShowDeleteHiddenDialog(true);
   };
 
-  const handleDeleteConfirm = () => {
-    const current = hiddenPlayersToDelete[currentDeleteIndex];
-    const remainingPlayers = players.filter(p => p.rank !== current.rank);
-    setPlayers(remainingPlayers);
-    savePlayers(remainingPlayers, true).catch((err) => {
-      console.error("Failed to save after deleting player:", err);
-    });
-    setCurrentDeleteIndex(prev => {
+ const handleDeleteConfirm = () => {
+     const current = hiddenPlayersToDelete[currentDeleteIndex];
+     const remainingPlayers = players.filter(p => p.rank !== current.rank);
+     setPlayers(remainingPlayers);
+     savePlayers(remainingPlayers, true).catch((err) => {
+       console.error("Failed to save after deleting player:", err);
+     });
+
+     // Propagate delete to all mini-game files
+     dataService.propagatePlayerDelete(current).catch((err) => {
+       console.error("Failed to propagate player delete:", err);
+     });
+
+     setCurrentDeleteIndex(prev => {
       if (prev >= hiddenPlayersToDelete.length - 1) {
         setShowDeleteHiddenDialog(false);
         setHiddenPlayersToDelete([]);
@@ -3425,12 +3431,10 @@ const handleWalkthroughNextForReview = () => {
         console.error("Failed to save added player:", err);
       });
 
-      // If tournament active, add player to all mini-game files
-      if (isMiniGameTitle(getProjectName()) && splashServerUrl) {
-        dataService.addPlayerToMiniGames(newPlayer).catch((err) => {
-          console.error("Failed to add player to mini-games:", err);
-        });
-      }
+      // Propagate player to all mini-game files or club ladder
+      dataService.propagatePlayerAdd(newPlayer).catch((err) => {
+        console.error("Failed to propagate player:", err);
+      });
 
       return updatedPlayers;
     });

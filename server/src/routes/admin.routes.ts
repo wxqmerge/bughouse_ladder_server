@@ -21,6 +21,7 @@ import {
   exportTournamentFiles,
   generateTrophyReport,
   addPlayerToAllMiniGames,
+  removePlayerFromAll,
   checkMiniGameFilesWith,
   tournamentStore,
   MINI_GAME_FILES,
@@ -567,6 +568,36 @@ router.post('/tournament/add-player-to-mini-games', async (req: Request, res: Re
     res.status(500).json({
       success: false,
       error: { message: 'Failed to add player to mini-game files' },
+    });
+  }
+});
+
+// Remove player from club ladder + all mini-game files
+router.post('/tournament/remove-player-from-all', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { lastName, firstName } = req.body;
+
+    if (!lastName || !firstName) {
+      res.status(400).json({
+        success: false,
+        error: { message: 'lastName and firstName required' },
+      });
+      return;
+    }
+
+    await removePlayerFromAll(lastName, firstName);
+
+    broadcastSSEEvent('playerRemoved', { type: 'playerRemovedFromAll', lastName, firstName });
+
+    res.json({
+      success: true,
+      data: { message: 'Player removed from all files' },
+    });
+  } catch (error) {
+    console.error('Remove player from all error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to remove player from all files' },
     });
   }
 });
