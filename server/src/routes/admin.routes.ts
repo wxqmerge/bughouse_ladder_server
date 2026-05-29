@@ -22,6 +22,7 @@ import {
   generateTrophyReport,
   addPlayerToAllMiniGames,
   removePlayerFromAll,
+  updatePlayerInAll,
   checkMiniGameFilesWith,
   tournamentStore,
   MINI_GAME_FILES,
@@ -598,6 +599,36 @@ router.post('/tournament/remove-player-from-all', async (req: Request, res: Resp
     res.status(500).json({
       success: false,
       error: { message: 'Failed to remove player from all files' },
+    });
+  }
+});
+
+// Update player info across club ladder + all mini-game files
+router.put('/tournament/update-player-in-all', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { rank, originalLastName, originalFirstName, updates } = req.body;
+
+    if (rank == null || !originalLastName || !originalFirstName || !updates) {
+      res.status(400).json({
+        success: false,
+        error: { message: 'rank, originalLastName, originalFirstName, and updates required' },
+      });
+      return;
+    }
+
+    await updatePlayerInAll(rank, originalLastName, originalFirstName, updates);
+
+    broadcastSSEEvent('playerUpdated', { type: 'playerUpdatedInAll', rank, originalLastName, originalFirstName, updates });
+
+    res.json({
+      success: true,
+      data: { message: 'Player updated in all files' },
+    });
+  } catch (error) {
+    console.error('Update player in all error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to update player in all files' },
     });
   }
 });

@@ -1200,6 +1200,31 @@ class DataService {
       }
     }
   }
+
+  async propagatePlayerUpdate(
+    rank: number,
+    originalLastName: string,
+    originalFirstName: string,
+    updates: Record<string, unknown>
+  ): Promise<void> {
+    if (this.config.mode === DataServiceMode.LOCAL) {
+      const store = this.getStore();
+      await store.updatePlayerInAllMiniGames(rank, originalLastName, originalFirstName, updates as Partial<PlayerData>);
+    } else {
+      try {
+        await gatedFetch(`${this.getApiUrl()}/api/admin/tournament/update-player-in-all`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            ...this.getAuthHeaders(),
+          },
+          body: JSON.stringify({ rank, originalLastName, originalFirstName, updates }),
+        });
+      } catch (e) {
+        console.error('[DATA-SERVICE] propagatePlayerUpdate failed:', e);
+      }
+    }
+  }
 }
 
 // Singleton instance — initialized with LOCAL, mode updated by caller
