@@ -1,6 +1,6 @@
 # Bughouse Chess Ladder - User Manual
 
-**Version: 1.3.1**
+**Version: 1.3.4**
 
 ## Getting Started
 
@@ -339,5 +339,5 @@ Fix: Use **Operations → Check Errors**, then review recent entries.
 
 ---
 
-**Version:** 1.3.1  
+**Version:** 1.3.4   
 **Last Updated:** May 2026
