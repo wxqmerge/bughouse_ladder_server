@@ -31,6 +31,7 @@ interface ErrorDialogProps {
   debugLevel?: number;
   isOverrideMode?: boolean;
   onToggleOverrideMode?: () => void;
+  onRandomResult?: (setter: (value: string) => void) => void;
 }
 
 /**
@@ -140,6 +141,7 @@ export default function ErrorDialog({
   debugLevel = 5,
   isOverrideMode = false,
   onToggleOverrideMode,
+  onRandomResult,
 }: ErrorDialogProps) {
   const [correctedResult, setCorrectedResult] = useState<string>(
     existingValue?.replace(/_$/, "") || "",
@@ -170,11 +172,22 @@ export default function ErrorDialog({
     : "";
   const inputRef = useRef<HTMLInputElement>(null);
   const justOpened = useRef(false);
+  const callbacksRef = useRef({ onEnterRecalculateSave, onRandomResult, onToggleOverrideMode, onClose, onWalkthroughPrev, onWalkthroughNext });
+  useEffect(() => {
+    callbacksRef.current = { onEnterRecalculateSave, onRandomResult, onToggleOverrideMode, onClose, onWalkthroughPrev, onWalkthroughNext };
+  });
+
+  const isWalkthrough = mode === "walkthrough";
+  const isGameEntry = mode === "game-entry";
+  const isRecalculate = mode === "recalculate";
+  const isEnterGames = mode === "enter-games";
+  const isDev = window.location.href.startsWith('http://localhost:5173');
 
   // Keyboard shortcuts: Ctrl+letter for buttons
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!e.ctrlKey) return;
+      const cb = callbacksRef.current;
 
       const key = e.key.toLowerCase();
 
@@ -185,30 +198,58 @@ export default function ErrorDialog({
           break;
         case "c":
           e.preventDefault();
-          handleClearCell();
+          if (isEnterGames) {
+            cb.onClose();
+          } else {
+            handleClearCell();
+          }
           break;
         case "p":
           e.preventDefault();
-          onWalkthroughPrev?.();
+          cb.onWalkthroughPrev?.();
           break;
         case "n":
           e.preventDefault();
-          onWalkthroughNext?.();
+          cb.onWalkthroughNext?.();
           break;
         case "x":
           e.preventDefault();
-          onClose();
+          cb.onClose();
+          break;
+        case "e":
+          e.preventDefault();
+          if (isEnterGames && cb.onEnterRecalculateSave) {
+            const value = ((inputRef.current?.value || currentInputValue) || "").toUpperCase().replace(/[^0-9WLD:]/g, "");
+            if (value.trim()) cb.onEnterRecalculateSave(value);
+          }
+          break;
+        case "r":
+          e.preventDefault();
+          if (isEnterGames && isDev && cb.onRandomResult) {
+            cb.onRandomResult((v: string) => {
+              setCurrentInputValue(v);
+              if (inputRef.current) inputRef.current.value = v;
+            });
+          }
+          break;
+        case "o":
+          if (isEnterGames && cb.onToggleOverrideMode) {
+            e.preventDefault();
+            cb.onToggleOverrideMode();
+          }
           break;
         case "escape":
-          e.preventDefault();
-          onClose();
+          if (isEnterGames) {
+            e.preventDefault();
+            cb.onClose();
+          }
           break;
       }
     };
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onWalkthroughPrev, onWalkthroughNext, onClose]);
+  }, [isEnterGames, isDev]);
 
   // Sync input value when existingValue changes (e.g., clicking different cell)
   useEffect(() => {
@@ -744,11 +785,6 @@ export default function ErrorDialog({
       }
     }
   };
-
-  const isWalkthrough = mode === "walkthrough";
-  const isGameEntry = mode === "game-entry";
-  const isRecalculate = mode === "recalculate";
-  const isEnterGames = mode === "enter-games";
 
   const displayError = error;
   const displayIndex = walkthroughIndex ?? 0;
@@ -1472,10 +1508,28 @@ export default function ErrorDialog({
           >
             {/* Enter-Games mode: Cancel + Enter_Recalculate_Save */}
 {isEnterGames ? (
-              <>
-             <button
-                   type="button"
-                   onClick={() => { console.log(`>>> [BUTTON PRESSED] Override ${isOverrideMode ? 'OFF' : 'ON'}`); onToggleOverrideMode?.(); }}
+<>
+               {isDev && onRandomResult && (
+                  <button
+                    type="button"
+                    onClick={() => { console.log('>>> [BUTTON PRESSED] Random Result'); onRandomResult?.(setCurrentInputValue); }}
+                    style={{
+                      padding: "0.5rem 0.75rem",
+                      background: "#6366f1",
+                      border: "none",
+                      borderRadius: "0.25rem",
+                      cursor: "pointer",
+                      fontSize: "0.75rem",
+                      color: "white",
+                      fontWeight: "600",
+                    }}
+                  >
+Random (Ctrl+R)
+                  </button>
+                )}
+              <button
+                    type="button"
+                    onClick={() => { console.log(`>>> [BUTTON PRESSED] Override ${isOverrideMode ? 'OFF' : 'ON'}`); onToggleOverrideMode?.(); }}
                    style={{
                      padding: "0.5rem 0.75rem",
                      background: isOverrideMode ? "#f59e0b" : "#f3f4f6",
@@ -1487,7 +1541,7 @@ export default function ErrorDialog({
                     fontWeight: isOverrideMode ? "600" : "400",
                   }}
                 >
-                  {isOverrideMode ? "⚠ Override ON" : "Override"}
+                  {isOverrideMode ? "⚠ Override ON (Ctrl+O)" : "Override (Ctrl+O)"}
                 </button>
             <button
                    type="button"
@@ -1502,7 +1556,7 @@ export default function ErrorDialog({
                      color: "#374151",
                    }}
                  >
-                   Cancel
+Cancel (Ctrl+C)
                  </button>
                  <button
                     type="button"
@@ -1522,7 +1576,7 @@ export default function ErrorDialog({
                      color: "white",
                    }}
                   >
-                    Enter_Recalculate_Save
+Enter_Recalculate_Save (Ctrl+E)
                   </button>
               </>
             ) : (
