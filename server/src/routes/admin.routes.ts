@@ -7,6 +7,7 @@ import { requireAdminKey } from '../middleware/auth.middleware.js';
 import { readLadderFile, writeLadderFile, ensureDataDirectory, PlayerData, generateTabContent, createBackup, rotateBackups, withTiming, getBackupList, restoreBackup, deleteBackup } from '../services/dataService.js';
 import { log } from '../utils/logger.js';
 import { broadcastSSEEvent } from '../services/sseService.js';
+import { isTrophyReport, isValidLadderHeader } from '../../../shared/utils/trophyFileGuard.js';
 
 import {
   loadTournamentState,
@@ -76,6 +77,29 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
         error: { message: 'Empty file' },
       });
       return;
+    }
+
+    // Guard: reject trophy report files uploaded as ladder data
+    if (isTrophyReport(content)) {
+      await withTiming('unlink(trophy)', () => fs.unlink(req.file!.path));
+      res.status(400).json({
+        success: false,
+        error: { message: 'Trophy report file detected. Trophy reports cannot be uploaded as ladder data.' },
+      });
+      return;
+    }
+
+    if (!isValidLadderHeader(content)) {
+      const allowOverride = req.body?.override === 'true' || req.query?.override === 'true';
+      if (!allowOverride) {
+        await withTiming('unlink(header)', () => fs.unlink(req.file!.path));
+        res.status(400).json({
+          success: false,
+          error: { message: 'File does not start with "Group" header. Not a valid ladder file. Retry with ?override=true to force.' },
+          needsOverride: true,
+        });
+        return;
+      }
     }
 
     // Create backup before overwriting (skip during tests)
