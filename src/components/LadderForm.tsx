@@ -371,6 +371,8 @@ export default function LadderForm({
   const initializingRef = useRef(false);
   const prevSplashServerUrlRef = useRef('');
   const prevLastFileRef = useRef<File | null>(null);
+  const debouncedSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingPlayerUpdate = useRef<{ rank: number; originalLastName: string; originalFirstName: string; updates: Record<string, unknown> } | null>(null);
 
   useEffect(() => {
     if (triggerWalkthrough && setTriggerWalkthrough) {
@@ -3388,6 +3390,25 @@ const handleWalkthroughNextForReview = () => {
     showToast(`Auto-lettered ${players.length} players`);
   };
 
+  const scheduleDebouncedSaveAndPropagate = (rank: number, originalLastName: string, originalFirstName: string, updates: Record<string, unknown>) => {
+    if (debouncedSaveTimer.current) {
+      clearTimeout(debouncedSaveTimer.current);
+    }
+    pendingPlayerUpdate.current = { rank, originalLastName, originalFirstName, updates };
+    debouncedSaveTimer.current = setTimeout(() => {
+      const update = pendingPlayerUpdate.current;
+      if (!update) return;
+      pendingPlayerUpdate.current = null;
+      savePlayers(players, true).then(() => {
+        dataService.propagatePlayerUpdate(update.rank, update.originalLastName, update.originalFirstName, update.updates).catch((err) => {
+          console.error("Failed to propagate player update:", err);
+        });
+      }).catch((err) => {
+        console.error("Failed to save player update:", err);
+      });
+    }, 1000);
+  };
+
   const handleAddPlayer = () => {
     if (shouldLog(10)) {
       console.log(">>> [MENU ACTION] Add Player");
@@ -5137,21 +5158,24 @@ const handleWalkthroughNextForReview = () => {
                                 contentEditable={true}
                                 suppressContentEditableWarning={true}
                                 data-cell={`player-${player.rank}-5`}
-                            onBlur={(e) => {
-                                    const value = (e.target.textContent || "").replace(/\n/g, "");
-                                    const val = parseInt(value) || 0;
-                                    e.target.textContent = String(Math.abs(val));
-                                    setPlayers((prevPlayers) => {
-                                      const updatedPlayers = [...prevPlayers];
-                                      const targetPlayer = updatedPlayers.find(
-                                        (p) => p.rank === player.rank,
-                                      );
-                                      if (!targetPlayer) return prevPlayers;
-                                      targetPlayer.nRating = Math.abs(val);
-                                      targetPlayer.trophyEligible = true;
-                                      return updatedPlayers;
-                                    });
-                                  }}
+onBlur={(e) => {
+                                     const value = (e.target.textContent || "").replace(/\n/g, "");
+                                     const val = parseInt(value) || 0;
+                                     e.target.textContent = String(Math.abs(val));
+                                     const origLastName = player.lastName;
+                                     const origFirstName = player.firstName;
+                                     setPlayers((prevPlayers) => {
+                                       const updatedPlayers = [...prevPlayers];
+                                       const targetPlayer = updatedPlayers.find(
+                                         (p) => p.rank === player.rank,
+                                       );
+                                       if (!targetPlayer) return prevPlayers;
+                                       targetPlayer.nRating = Math.abs(val);
+                                       targetPlayer.trophyEligible = true;
+                                       return updatedPlayers;
+                                     });
+                                     scheduleDebouncedSaveAndPropagate(player.rank, origLastName, origFirstName, { nRating: Math.abs(val), trophyEligible: true });
+                                   }}
                             onPaste={(e) => {
                                 const text = e.clipboardData.getData('text').trim();
                                 if (text === "-") {
@@ -5217,64 +5241,76 @@ const handleWalkthroughNextForReview = () => {
                                    data-cell={`player-${player.rank}-6`}
                                    style={{ cursor: "text" }}
                                    onPaste={(e) => {
-                                     const text = e.clipboardData.getData('text').trim();
-                                     e.preventDefault();
-                                     setPlayers((prevPlayers) => {
-                                       const updatedPlayers = [...prevPlayers];
-                                       const targetPlayer = updatedPlayers.find((p) => p.rank === player.rank);
-                                       if (!targetPlayer) return prevPlayers;
-                                       targetPlayer.trophyEligible = normalizeTrophy(text);
-                                        return updatedPlayers;
-                                      });
-                                    }}
-                                  onKeyDown={(e) => {
-                                       if (e.key === "Enter") {
-                                         e.preventDefault();
-                                         const current = e.currentTarget as HTMLElement;
-                                         const value = (current.textContent || "").trim();
-                                         setPlayers((prevPlayers) => {
-                                           const updatedPlayers = [...prevPlayers];
-                                           const targetPlayer = updatedPlayers.find((p) => p.rank === player.rank);
-                                           if (!targetPlayer) return prevPlayers;
-                                           targetPlayer.trophyEligible = normalizeTrophy(value);
-                                           return updatedPlayers;
-                                         });
-                                         current.blur();
-                                         setTimeout(() => {
-                                           moveFocusDown(current);
-                                         }, 10);
-                                       } else if (e.key === "Tab") {
-                                         e.preventDefault();
-                                         const current = e.currentTarget as HTMLElement;
-                                         const value = (current.textContent || "").trim();
-                                         setPlayers((prevPlayers) => {
-                                           const updatedPlayers = [...prevPlayers];
-                                           const targetPlayer = updatedPlayers.find((p) => p.rank === player.rank);
-                                           if (!targetPlayer) return prevPlayers;
-                                           targetPlayer.trophyEligible = normalizeTrophy(value);
-                                           return updatedPlayers;
-                                         });
-                                         current.blur();
-                                         setTimeout(() => {
-                                           const targetCol = e.shiftKey ? 5 : 7;
-                                           const targetCell = document.querySelector(`[data-cell="player-${player.rank}-${targetCol}"]`) as HTMLElement;
-                                           if (targetCell) targetCell.focus();
-                                         }, 10);
-                                       } else if (e.key === "Escape") {
-                                        e.preventDefault();
-                                        e.currentTarget.blur();
-                                      }
-                                    }}
-                                    onBlur={(e) => {
-                                      const value = (e.target.textContent || "").trim();
+                                      const text = e.clipboardData.getData('text').trim();
+                                      e.preventDefault();
+                                      const origLastName = player.lastName;
+                                      const origFirstName = player.firstName;
                                       setPlayers((prevPlayers) => {
                                         const updatedPlayers = [...prevPlayers];
                                         const targetPlayer = updatedPlayers.find((p) => p.rank === player.rank);
                                         if (!targetPlayer) return prevPlayers;
-                                        targetPlayer.trophyEligible = normalizeTrophy(value);
-                                        return updatedPlayers;
+                                        targetPlayer.trophyEligible = normalizeTrophy(text);
+                                         return updatedPlayers;
                                       });
+                                      scheduleDebouncedSaveAndPropagate(player.rank, origLastName, origFirstName, { trophyEligible: normalizeTrophy(text) });
                                     }}
+                                 onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                          e.preventDefault();
+                                          const current = e.currentTarget as HTMLElement;
+                                          const value = (current.textContent || "").trim();
+                                          const origLastName = player.lastName;
+                                          const origFirstName = player.firstName;
+                                          setPlayers((prevPlayers) => {
+                                            const updatedPlayers = [...prevPlayers];
+                                            const targetPlayer = updatedPlayers.find((p) => p.rank === player.rank);
+                                            if (!targetPlayer) return prevPlayers;
+                                            targetPlayer.trophyEligible = normalizeTrophy(value);
+                                            return updatedPlayers;
+                                          });
+                                          scheduleDebouncedSaveAndPropagate(player.rank, origLastName, origFirstName, { trophyEligible: normalizeTrophy(value) });
+                                          current.blur();
+                                          setTimeout(() => {
+                                            moveFocusDown(current);
+                                          }, 10);
+                                        } else if (e.key === "Tab") {
+                                          e.preventDefault();
+                                          const current = e.currentTarget as HTMLElement;
+                                          const value = (current.textContent || "").trim();
+                                          const origLastName = player.lastName;
+                                          const origFirstName = player.firstName;
+                                          setPlayers((prevPlayers) => {
+                                            const updatedPlayers = [...prevPlayers];
+                                            const targetPlayer = updatedPlayers.find((p) => p.rank === player.rank);
+                                            if (!targetPlayer) return prevPlayers;
+                                            targetPlayer.trophyEligible = normalizeTrophy(value);
+                                            return updatedPlayers;
+                                          });
+                                          scheduleDebouncedSaveAndPropagate(player.rank, origLastName, origFirstName, { trophyEligible: normalizeTrophy(value) });
+                                          current.blur();
+                                          setTimeout(() => {
+                                            const targetCol = e.shiftKey ? 5 : 7;
+                                            const targetCell = document.querySelector(`[data-cell="player-${player.rank}-${targetCol}"]`) as HTMLElement;
+                                            if (targetCell) targetCell.focus();
+                                          }, 10);
+                                        } else if (e.key === "Escape") {
+                                         e.preventDefault();
+                                         e.currentTarget.blur();
+                                       }
+                                     }}
+                                   onBlur={(e) => {
+                                       const value = (e.target.textContent || "").trim();
+                                       const origLastName = player.lastName;
+                                       const origFirstName = player.firstName;
+                                       setPlayers((prevPlayers) => {
+                                         const updatedPlayers = [...prevPlayers];
+                                         const targetPlayer = updatedPlayers.find((p) => p.rank === player.rank);
+                                         if (!targetPlayer) return prevPlayers;
+                                         targetPlayer.trophyEligible = normalizeTrophy(value);
+                                         return updatedPlayers;
+                                       });
+                                       scheduleDebouncedSaveAndPropagate(player.rank, origLastName, origFirstName, { trophyEligible: normalizeTrophy(value) });
+                                     }}
                                  >
                                    {player.trophyEligible !== false ? "+" : "-"}
                                  </span>
@@ -5308,37 +5344,44 @@ const handleWalkthroughNextForReview = () => {
                               contentEditable={field !== "rank"}
                               suppressContentEditableWarning={true}
                               data-cell={`player-${player.rank}-${INLINE_FIELD_ORDER.indexOf(field)}`}
-                              onBlur={(e) => {
-                                 let value = (e.target.textContent || "").replace(/\n/g, "");
-                                 const numericFields = ["rating", "nRating", "num_games", "attendance"];
-                                 if (numericFields.includes(field)) {
-                                   const numVal = parseInt(value) || 0;
-                                   e.target.textContent = String(numVal);
-                                 } else {
-                                   e.target.textContent = value;
-                                 }
-                                 setPlayers((prevPlayers) => {
-                                   const updatedPlayers = [...prevPlayers];
-                                   const targetPlayer = updatedPlayers.find(
-                                     (p) => p.rank === player.rank,
-                                   );
-                                   if (!targetPlayer) return prevPlayers;
-                                   switch (field) {
-                                     case "group": targetPlayer.group = value; break;
-                                     case "lastName": targetPlayer.lastName = value; break;
-                                     case "firstName": targetPlayer.firstName = value; break;
-                                     case "rating": targetPlayer.rating = parseInt(value) || 0; break;
-                                     case "grade": targetPlayer.grade = value; break;
-                                     case "num_games": targetPlayer.num_games = parseInt(value) || 0; break;
-                                     case "attendance": targetPlayer.attendance = parseInt(value) || 0; break;
-                                     case "phone": targetPlayer.phone = value; break;
-                                     case "info": targetPlayer.info = value; break;
-                                     case "school": targetPlayer.school = value; break;
-                                     case "room": targetPlayer.room = value; break;
-                                   }
-                                   return updatedPlayers;
-                                 });
-                               }}
+onBlur={(e) => {
+                                  let value = (e.target.textContent || "").replace(/\n/g, "");
+                                  const numericFields = ["rating", "nRating", "num_games", "attendance"];
+                                  if (numericFields.includes(field)) {
+                                    const numVal = parseInt(value) || 0;
+                                    e.target.textContent = String(numVal);
+                                    value = String(numVal);
+                                  } else {
+                                    e.target.textContent = value;
+                                  }
+                                  const origLastName = player.lastName;
+                                  const origFirstName = player.firstName;
+                                  const updates: Record<string, unknown> = {};
+                                  setPlayers((prevPlayers) => {
+                                    const updatedPlayers = [...prevPlayers];
+                                    const targetPlayer = updatedPlayers.find(
+                                      (p) => p.rank === player.rank,
+                                    );
+                                    if (!targetPlayer) return prevPlayers;
+                                    switch (field) {
+                                      case "group": targetPlayer.group = value; updates.group = value; break;
+                                      case "lastName": targetPlayer.lastName = value; updates.lastName = value; break;
+                                      case "firstName": targetPlayer.firstName = value; updates.firstName = value; break;
+                                      case "rating": targetPlayer.rating = parseInt(value) || 0; updates.rating = parseInt(value) || 0; break;
+                                      case "grade": targetPlayer.grade = value; updates.grade = value; break;
+                                      case "num_games": targetPlayer.num_games = parseInt(value) || 0; updates.num_games = parseInt(value) || 0; break;
+                                      case "attendance": targetPlayer.attendance = parseInt(value) || 0; updates.attendance = parseInt(value) || 0; break;
+                                      case "phone": targetPlayer.phone = value; updates.phone = value; break;
+                                      case "info": targetPlayer.info = value; updates.info = value; break;
+                                      case "school": targetPlayer.school = value; updates.school = value; break;
+                                      case "room": targetPlayer.room = value; updates.room = value; break;
+                                    }
+                                    return updatedPlayers;
+                                  });
+                                  if (Object.keys(updates).length > 0) {
+                                    scheduleDebouncedSaveAndPropagate(player.rank, origLastName, origFirstName, updates);
+                                  }
+                                }}
                             onPaste={(e) => {
                               const text = e.clipboardData.getData('text');
                               const rows = text.split('\n').filter(r => r.trim());

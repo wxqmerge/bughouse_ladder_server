@@ -339,6 +339,40 @@ export async function removePlayerFromAll(lastName: string, firstName: string): 
   }
 }
 
+export async function updatePlayerInAll(
+  rank: number,
+  originalLastName: string,
+  originalFirstName: string,
+  updates: Partial<PlayerData>
+): Promise<void> {
+  const origKey = originalLastName.toLowerCase() + '|' + originalFirstName.toLowerCase();
+
+  const ladderData = await readLadderFile();
+  const targetIdx = ladderData.players.findIndex(p => p.rank === rank);
+  if (targetIdx !== -1) {
+    const player = ladderData.players[targetIdx];
+    Object.assign(player, updates);
+    await writeLadderFile(ladderData);
+    loggerLog('[TOURNAMENT]', 'Updated player ' + originalFirstName + ' ' + originalLastName + ' (rank ' + rank + ') in club ladder');
+  }
+
+  const existingFiles = await getExistingMiniGameFiles();
+  for (const fileName of existingFiles) {
+    const miniGameData = await readMiniGameFile(fileName);
+    if (!miniGameData) continue;
+
+    const idx = miniGameData.players.findIndex(
+      p => p.lastName.toLowerCase() + '|' + p.firstName.toLowerCase() === origKey
+    );
+    if (idx !== -1) {
+      const player = miniGameData.players[idx];
+      Object.assign(player, updates);
+      await writeMiniGameFile(fileName, miniGameData);
+      loggerLog('[TOURNAMENT]', 'Updated player ' + originalFirstName + ' ' + originalLastName + ' (rank ' + player.rank + ') in ' + fileName);
+    }
+  }
+}
+
 export async function generateTrophyReport(debugLevel: number = 3): Promise<{
   success: boolean;
   message: string;
