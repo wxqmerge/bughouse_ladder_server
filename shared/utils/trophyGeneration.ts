@@ -11,17 +11,12 @@ export interface TrophyReportResult {
   trophies?: any[];
   isClubMode?: boolean;
   debugInfo?: string;
+  trophiesSection?: string[];
 }
 
-const MINI_GAME_DIFFICULTY_ORDER = [
-  'Queen_Game.tab',
-  'Pawn_Game.tab',
-  'Kings_Cross.tab',
-  'Pillar_Game.tab',
-  'Bishop_Game.tab',
-  'BG_Game.tab',
-  'bughouse.tab',
-];
+import { MINI_GAME_DIFFICULTY_ORDER as DIFFICULTY_ORDER } from '../types/index.js';
+
+const MINI_GAME_DIFFICULTY_ORDER = DIFFICULTY_ORDER;
 
 export function debugLine(col1: string, col2 = '', col3 = '', col4 = '', col5 = '', col6 = '', col7 = '', col8 = ''): string {
   return [col1, col2, col3, col4, col5, col6, col7, col8].join('\t');
@@ -90,13 +85,61 @@ export function mergeGameResults(oldResults: (string | null)[], currentResults: 
   return merged;
 }
 
+export function isValidGameResult(r: string | null): boolean {
+  return !!r && r !== '' && r !== '_';
+}
+
 function countGames(gameResults: (string | null)[] | undefined): number {
   if (!gameResults) return 0;
-  return gameResults.filter(r => r && r !== '' && r !== '_').length;
+  return gameResults.filter(isValidGameResult).length;
 }
 
 export function clubLadderGamesPlayed(player: PlayerData): number {
   return (player.num_games || 0) + countGames(player.gameResults);
+}
+
+export function getPlayerTotalGames(player: PlayerData, miniGameFiles: MiniGameData[]): number {
+  let total = 0;
+  for (const mgd of miniGameFiles) {
+    const p = mgd.players.find(p => p.rank === player.rank);
+    if (!p?.gameResults) continue;
+    total += p.gameResults.filter(isValidGameResult).length;
+  }
+  return total;
+}
+
+export interface MiniGameStoreLike {
+  readMiniGameFile(fileName: string): Promise<LadderData | null>;
+  writeMiniGameFile(fileName: string, ladderData: LadderData): Promise<void>;
+}
+
+export async function recalculateMiniGameRatings(
+  store: MiniGameStoreLike,
+  existingFiles: string[]
+): Promise<void> {
+  const { calculateRatings, processGameResults } = await import('./hashUtils.js');
+
+  for (const fileName of existingFiles) {
+    const miniGameData = await store.readMiniGameFile(fileName);
+    if (!miniGameData || miniGameData.players.length === 0) continue;
+
+    let currentPlayers = [...miniGameData.players];
+
+    for (let recalc = 0; recalc < 5; recalc++) {
+      const { matches } = processGameResults(currentPlayers);
+      const result = calculateRatings(currentPlayers, matches, {
+        kFactorOverride: 20,
+        blendingFactorOverride: 0.99,
+        perfMultiplierScaleOverride: 0.5,
+      });
+      currentPlayers = result.players;
+    }
+
+    await store.writeMiniGameFile(fileName, {
+      ...miniGameData,
+      players: currentPlayers,
+    });
+  }
 }
 
 export function generateClubLadderTrophies(players: PlayerData[], minTrophies: number): any[] {
@@ -201,16 +244,6 @@ export function generateMiniGameTrophies(
   const m = existingFiles.length;
   const t = minTrophies;
 
-  function getPlayerTotalGames(player: PlayerData): number {
-    let total = 0;
-    for (const mgd of miniGameFiles) {
-      const p = mgd.players.find(p => p.rank === player.rank);
-      if (!p?.gameResults) continue;
-      total += p.gameResults.filter((r: string | null) => r && r !== '' && r !== '_').length;
-    }
-    return total;
-  }
-
   function addTrophy(trophy: any) {
     const key = `${trophy.player}`;
     if (seenPlayers.has(key)) return false;
@@ -222,7 +255,7 @@ export function generateMiniGameTrophies(
   // Pre-calculate total games for all players
   const playerTotalGames = new Map<string, number>();
   for (const p of players) {
-    playerTotalGames.set(formatPlayerName(p), getPlayerTotalGames(p));
+    playerTotalGames.set(formatPlayerName(p), getPlayerTotalGames(p, miniGameFiles));
   }
 
   // Award places per mini-game: 1st, 2nd, 3rd, 4th, ...
@@ -241,7 +274,7 @@ export function generateMiniGameTrophies(
       const playersWithGames = mgd.players.filter(p => {
         if (!p.gameResults) return false;
         if (p.trophyEligible === false) return false;
-        return p.gameResults.some(r => r && r !== '' && r !== '_');
+        return p.gameResults.some(isValidGameResult);
       });
 
       const sortedPlayers = playersWithGames.sort((a, b) => b.nRating - a.nRating);
@@ -250,7 +283,7 @@ export function generateMiniGameTrophies(
         if (seenPlayers.has(playerName)) continue;
      if (trophies.length >= minTrophies) break;
 
-        const miniGameGames = p.gameResults?.filter(r => r && r !== '' && r !== '_')?.length || 0;
+        const miniGameGames = p.gameResults?.filter(isValidGameResult)?.length || 0;
         addTrophy({
           rank: trophies.length + 1,
           player: playerName,
@@ -270,4 +303,103 @@ export function generateMiniGameTrophies(
   }
 
   return trophies;
+}
+
+export function parseMiniGameImportContent(content: string): { fileName: string; fileContent: string }[] {
+  const result: { fileName: string; fileContent: string }[] = [];
+  const sections = content.split('=== ').filter(s => s.trim());
+
+  for (const section of sections) {
+    const firstLine = section.split('\n')[0];
+    const fileName = firstLine.replace(' ===', '').trim();
+    const fileContent = section.substring(firstLine.length + 1).trim();
+    if (fileContent) {
+      result.push({ fileName, fileContent });
+    }
+  }
+
+  return result;
+}
+
+export interface TrophyReportStore {
+  hasMiniGameFiles(): Promise<boolean>;
+  getExistingMiniGameFiles(): Promise<string[]>;
+  readMiniGameFile(fileName: string): Promise<LadderData | null>;
+  writeMiniGameFile(fileName: string, ladderData: LadderData): Promise<void>;
+}
+
+export async function generateTrophyReport(
+  store: TrophyReportStore,
+  players: PlayerData[],
+  debugLevel: number = 3
+): Promise<TrophyReportResult> {
+  try {
+    const hasMiniGames = await store.hasMiniGameFiles();
+    const isClubMode = !hasMiniGames;
+
+    if (players.length === 0) {
+      return { success: false, message: 'No players found' };
+    }
+
+    const minTrophies = Math.ceil(players.length / 3);
+    let trophies: any[] = [];
+    const debugLines: string[] = [];
+
+    // Build debug header
+    const { buildDebugHeader } = await import('./trophyDebugReport.js');
+    if (debugLevel <= 5) {
+      const headerLines = buildDebugHeader(players, minTrophies, isClubMode, undefined, debugLevel);
+      debugLines.push(...headerLines);
+    }
+
+    if (isClubMode) {
+      const { buildClubLadderPlayerSection } = await import('./trophyDebugReport.js');
+      const clubPlayerLines = buildClubLadderPlayerSection(players, debugLevel);
+      debugLines.push(...clubPlayerLines);
+
+      trophies = generateClubLadderTrophies(players, minTrophies);
+    } else {
+      const existingFiles = await store.getExistingMiniGameFiles();
+      const m = existingFiles.length;
+
+      // Recalculate ratings (5 passes) for each mini-game
+      await recalculateMiniGameRatings(store, existingFiles);
+
+      if (debugLevel <= 5) {
+        debugLines.push(debugLine('MINI-GAME PLAYERS', '(after 5 recalcs)', '', '', '', '', '', ''));
+      }
+
+      // Build MiniGameData array for shared trophy generation
+      const miniGameDataList: MiniGameData[] = [];
+      for (const fileName of existingFiles) {
+        const data = await store.readMiniGameFile(fileName);
+        if (!data || data.players.length === 0) continue;
+        miniGameDataList.push({ fileName, players: data.players });
+      }
+
+      // Sync trophyEligible from club ladder (source of truth) to each mini-game file
+      const { syncEligibilityFromClubLadder } = await import('./trophyDebugReport.js');
+      syncEligibilityFromClubLadder(players, miniGameDataList);
+
+      const { buildMiniGamePlayerSection } = await import('./trophyDebugReport.js');
+      const miniGameLines = buildMiniGamePlayerSection(miniGameDataList, debugLevel);
+      debugLines.push(...miniGameLines);
+
+      trophies = generateMiniGameTrophies(players, minTrophies, miniGameDataList);
+    }
+
+    const { buildTrophiesSection } = await import('./trophyDebugReport.js');
+    const trophiesSection = buildTrophiesSection(trophies);
+
+    return {
+      success: true,
+      message: `Generated ${trophies.length} trophies`,
+      trophies,
+      isClubMode,
+      debugInfo: debugLines.join('\n'),
+      trophiesSection,
+    };
+  } catch (error) {
+    return { success: false, message: `Trophy generation failed: ${(error as Error).message}` };
+  }
 }
