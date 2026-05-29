@@ -1364,6 +1364,27 @@ export default function LadderForm({
     return null; // No empty cells found
   };
 
+const handleRandomResult = (setter: (value: string) => void) => {
+    if (players.length < 2) return;
+    const i = Math.floor(Math.random() * players.length);
+    let j = Math.floor(Math.random() * (players.length - 1));
+    j = j >= i ? j + 1 : j;
+    const p1 = players[i];
+    const p2 = players[j];
+    const diff = (p1.nRating ?? p1.rating) - (p2.nRating ?? p2.rating);
+    const expected = 1 / (1 + Math.pow(10, -diff / 400));
+    const pickResult = () => {
+      const takeDraw = Math.min(0.05, expected) + Math.min(0.05, 1 - expected);
+      const winP = expected - Math.min(0.05, expected);
+      const r = Math.random();
+      return r < winP ? 'W' : r < winP + takeDraw ? 'D' : 'L';
+    };
+    const isDual = Math.random() < 0.3;
+    setter(isDual
+      ? `${p1.rank}${pickResult()}${pickResult()}${p2.rank}`
+      : `${p1.rank}${pickResult()}${p2.rank}`);
+  };
+
   const handleEnterRecalculateSave = async (correctedString: string) => {
     if (!entryCell) return;
 
@@ -6206,11 +6227,12 @@ onEnterRecalculateSave={handleEnterRecalculateSave}
             onUpdatePlayerData={handleUpdatePlayerData}
 isAdmin={isAdmin}
              hasAdminKey={!!loadUserSettings().apiKey?.trim()}
- onAddPlayer={(rank) => { setAddPlayerSuggestedRank(rank); setIsAddPlayerDialogOpen(true); }}
-             debugLevel={debugLevel}
-           />
-         )}
-      {currentError && (
+onAddPlayer={(rank) => { setAddPlayerSuggestedRank(rank); setIsAddPlayerDialogOpen(true); }}
+              onRandomResult={handleRandomResult}
+              debugLevel={debugLevel}
+            />
+          )}
+       {currentError && (
         <div
           style={{
             position: "fixed",
