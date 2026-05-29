@@ -368,11 +368,17 @@ export default function LadderForm({
   const [rankLoadErrors, setRankLoadErrors] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const latestPendingPlayersRef = useRef<PlayerData[] | null>(null);
+  const playersRef = useRef<PlayerData[]>(players);
   const initializingRef = useRef(false);
   const prevSplashServerUrlRef = useRef('');
   const prevLastFileRef = useRef<File | null>(null);
   const debouncedSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingPlayerUpdate = useRef<{ rank: number; originalLastName: string; originalFirstName: string; updates: Record<string, unknown> } | null>(null);
+
+  // Keep playersRef in sync with players state for use in async closures
+  useEffect(() => {
+    playersRef.current = players;
+  }, [players]);
 
   useEffect(() => {
     if (triggerWalkthrough && setTriggerWalkthrough) {
@@ -1437,16 +1443,18 @@ export default function LadderForm({
       }
 
       // Helper: fill a player's cell (in override mode, always overwrite)
-      const fillCell = (playerRank: number, resultStr: string) => {
-        const player = players.find((p) => p.rank === playerRank);
-        if (player && roundIndex >= 0 && roundIndex < 31) {
+      // Returns a NEW players array (immutable — prevents SSE refresh from losing mutations)
+      const fillCell = (playersArr: PlayerData[], playerRank: number, resultStr: string): PlayerData[] => {
+        return playersArr.map(p => {
+          if (p.rank !== playerRank || roundIndex < 0 || roundIndex >= 31) return p;
+          const currentResults = [...(p.gameResults || [])];
           if (isEnterGamesOverride) {
-            player.gameResults[roundIndex] = resultStr;
+            currentResults[roundIndex] = resultStr;
             log('[ENTER_GAMES]', 'Overwrote cell P' + playerRank + ' R' + (roundIndex + 1) + ': "' + resultStr + '"');
           } else {
-            const existingValue = player.gameResults[roundIndex]?.replace(/_+$/, "") || "";
+            const existingValue = currentResults[roundIndex]?.replace(/_+$/, "") || "";
             if (!existingValue.trim()) {
-              player.gameResults[roundIndex] = resultStr;
+              currentResults[roundIndex] = resultStr;
               log('[ENTER_GAMES]', 'Filled cell P' + playerRank + ' R' + (roundIndex + 1) + ': "' + resultStr + '"');
             } else {
               if (shouldLog(3)) {
@@ -1454,24 +1462,34 @@ export default function LadderForm({
               }
             }
           }
-        }
+          return { ...p, gameResults: currentResults };
+        });
       };
 
+      let updatedPlayers = players;
+
       if (is4Player) {
-        fillCell(p1Rank, resultToStore);
-        fillCell(p2Rank, resultToStore);
-        fillCell(p3Rank, resultToStore);
-        fillCell(p4Rank, resultToStore);
+        updatedPlayers = fillCell(updatedPlayers, p1Rank, resultToStore);
+        updatedPlayers = fillCell(updatedPlayers, p2Rank, resultToStore);
+        updatedPlayers = fillCell(updatedPlayers, p3Rank, resultToStore);
+        updatedPlayers = fillCell(updatedPlayers, p4Rank, resultToStore);
         addDelta({ type: 'GAME_RESULT', playerRank: p1Rank, round: roundIndex, result: resultToStore });
         addDelta({ type: 'GAME_RESULT', playerRank: p2Rank, round: roundIndex, result: resultToStore });
         addDelta({ type: 'GAME_RESULT', playerRank: p3Rank, round: roundIndex, result: resultToStore });
         addDelta({ type: 'GAME_RESULT', playerRank: p4Rank, round: roundIndex, result: resultToStore });
       } else {
-        fillCell(p1Rank, resultToStore);
-        fillCell(p2Rank, resultToStore);
+        updatedPlayers = fillCell(updatedPlayers, p1Rank, resultToStore);
+        updatedPlayers = fillCell(updatedPlayers, p2Rank, resultToStore);
         addDelta({ type: 'GAME_RESULT', playerRank: p1Rank, round: roundIndex, result: resultToStore });
         addDelta({ type: 'GAME_RESULT', playerRank: p2Rank, round: roundIndex, result: resultToStore });
       }
+
+    // Commit filled cells to state BEFORE async recalculateAndSave to prevent
+      // SSE refresh from overwriting with stale server data. Also update playersRef
+      // synchronously so recalculateAndSave (which runs in the same event loop) sees
+      // the mutations before the useEffect sync fires on the next render.
+      playersRef.current = updatedPlayers;
+      setPlayers(updatedPlayers);
     }
 
     // Store current cell position to find next empty cell after recalc
@@ -1745,48 +1763,67 @@ export default function LadderForm({
       }
 
      // Admin mode: fetch fresh server data, merge with local, then push back atomically
-      if (isAdmin) {
-        log('[RECALC]', 'Admin mode - fetching server data and calculating');
-        
-        // Clear save status - all cells need to be re-saved after recalculation
-        clearAllSaveStatus();
+       if (isAdmin) {
+         log('[RECALC]', 'Admin mode - fetching server data and calculating');
 
-        // Fetch fresh data from server before calculating to avoid losing user-reported games
-        const serverUrl = loadUserSettings().server?.trim();
-        let mergePlayers: PlayerData[] = players;
+         // Clear save status - all cells need to be re-saved after recalculation
+         clearAllSaveStatus();
 
-        if (serverUrl) {
-          try {
-            const response = await gatedFetch(`${serverUrl}/api/ladder`);
-            if (response.ok) {
-              const data = await response.json();
-              const serverPlayers = data.data?.players || [];
-              
-              // Merge: take gameResults + player data from server, keep local nRatings and admin edits
-              mergePlayers = serverPlayers.map((sp: PlayerData) => {
-                 const localPlayer = players.find(lp => lp.rank === sp.rank);
-                 return {
-                   ...sp,
-                   nRating: localPlayer?.nRating !== undefined ? localPlayer.nRating : sp.nRating,
-                   gameResults: sp.gameResults || new Array(31).fill(null),
-                 };
-               });
+         // Fetch fresh data from server before calculating to avoid losing user-reported games
+         const serverUrl = loadUserSettings().server?.trim();
+         // Use playersRef.current (synced on setPlayers) instead of stale closure
+         let mergePlayers: PlayerData[] = playersRef.current;
 
-               // Deduplicate merged players to prevent duplicate entries
-               const beforeCount = mergePlayers.length;
-               mergePlayers = deduplicatePlayers(mergePlayers);
-               if (beforeCount !== mergePlayers.length) {
-                 log('[RECALC]', `Deduplicated ${beforeCount} -> ${mergePlayers.length} players before recalc`);
-               }
+         if (serverUrl) {
+           try {
+             const response = await gatedFetch(`${serverUrl}/api/ladder`);
+             if (response.ok) {
+               const data = await response.json();
+               const serverPlayers = data.data?.players || [];
 
-               log('[RECALC]', `Merged ${mergePlayers.length} players from server for recalc`);
-            } else {
-              log('[RECALC]', 'Server fetch failed during merge, using local players');
-            }
-          } catch (error) {
-            log('[RECALC]', 'Error fetching server data during merge:', error);
-          }
-        }
+               // Merge: take player data from server, keep local nRatings, and merge
+               // gameResults cell-by-cell so local unconfirmed entries are not lost
+               mergePlayers = serverPlayers.map((sp: PlayerData) => {
+                  const localPlayer = playersRef.current.find(lp => lp.rank === sp.rank);
+                  const mergedResults = (sp.gameResults || new Array(31).fill(null)).map(
+                    (serverCell: string | null, idx: number) => {
+                      const localCell = localPlayer?.gameResults?.[idx];
+                      // Merge priority: local unconfirmed > server confirmed > server default
+                      if (localCell && localCell.trim() && !localCell.endsWith('_')) {
+                        return localCell;
+                      }
+                      return serverCell || localCell || null;
+                    }
+                  );
+                  return {
+                    ...sp,
+                    nRating: localPlayer?.nRating !== undefined ? localPlayer.nRating : sp.nRating,
+                    gameResults: mergedResults,
+                  };
+                });
+
+                // Add local-only players not on server (e.g., just-added players)
+                for (const lp of playersRef.current) {
+                  if (!serverPlayers.find((sp: PlayerData) => sp.rank === lp.rank)) {
+                    mergePlayers.push(lp);
+                  }
+                }
+
+                // Deduplicate merged players to prevent duplicate entries
+                const beforeCount = mergePlayers.length;
+                mergePlayers = deduplicatePlayers(mergePlayers);
+                if (beforeCount !== mergePlayers.length) {
+                  log('[RECALC]', `Deduplicated ${beforeCount} -> ${mergePlayers.length} players before recalc`);
+                }
+
+                log('[RECALC]', `Merged ${mergePlayers.length} players from server for recalc`);
+             } else {
+               log('[RECALC]', 'Server fetch failed during merge, using local players');
+             }
+           } catch (error) {
+             log('[RECALC]', 'Error fetching server data during merge:', error);
+           }
+         }
 
         // Build fresh matches from merged UI state (no caching)
         const result = checkGameErrorsWithPlayers(mergePlayers);
@@ -1908,12 +1945,13 @@ export default function LadderForm({
         return false;
       }
 
-     // User mode: calculate locally, push full table to server, pull back fresh data
-      log('[RECALC]', 'User mode - calculating locally and syncing with server');
-      
-      clearAllSaveStatus();
+    // User mode: calculate locally, push full table to server, pull back fresh data
+       log('[RECALC]', 'User mode - calculating locally and syncing with server');
 
-      const result = checkGameErrorsWithPlayers(players);
+       clearAllSaveStatus();
+
+       // Use playersRef to get the latest players (including Enter Games mutations)
+       const result = checkGameErrorsWithPlayers(playersRef.current);
 
       if (result.rankBlockingErrors && result.rankBlockingErrors.length > 0) {
         if (shouldLog(5)) {
@@ -1945,10 +1983,10 @@ export default function LadderForm({
       console.log('[RECALC_DEBUG] Input matches:', JSON.stringify(matches.map(m => ({p1:m.player1, p2:m.player2, p3:m.player3, p4:m.player4, s1:m.score1, s2:m.score2}))));
     }
 
-    if (shouldLog(2)) {
-      console.log(`[REPOPULATE] Starting repopulateGameResults (O(N*R)): ${players.length} players x ${matches.length} matches`);
-    }
-    const processedPlayers = repopulateGameResults(players, matches, 31, playerResultsByMatch);
+  if (shouldLog(2)) {
+       console.log(`[REPOPULATE] Starting repopulateGameResults (O(N*R)): ${playersRef.current.length} players x ${matches.length} matches`);
+     }
+     const processedPlayers = repopulateGameResults(playersRef.current, matches, 31, playerResultsByMatch);
     
     if (shouldLog(3)) {
       console.log('[RECALC_DEBUG] After repopulateGameResults:');
@@ -2048,6 +2086,13 @@ export default function LadderForm({
    * Called when polling detects data changes from other clients
    */
   const refreshPlayers = async () => {
+    // Skip server refresh during Enter Games mode to prevent overwriting
+    // local game result entries with stale server data
+    if (isEnterGamesMode) {
+      log('[REFRESH]', 'Skipped — Enter Games mode active');
+      return;
+    }
+
     // In admin mode, skip server refresh when local data is pending confirmation
     // (e.g., file import or backup restore preview) — local data should win
     if (pendingImport || pendingRestore) {
