@@ -127,7 +127,7 @@ class DataService {
     });
     
     this.sseEventSource.addEventListener('ladderUpdated', () => {
-      console.log('[DataService] SSE: ladderUpdated');
+      console.log('[DEBUG SSE] ladderUpdated received — will trigger refresh');
       this.notifySubscribers();
     });
     

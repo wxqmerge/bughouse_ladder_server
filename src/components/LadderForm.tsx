@@ -2052,21 +2052,32 @@ export default function LadderForm({
       log('[REFRESH]', 'Skipped — pending confirmation dialog');
       return;
     }
-    
+
     try {
-      log('[REFRESH]', 'Refreshing players using dataService');
-      
+      log('[DEBUG REFRESH]', `Starting refresh, current players.length=${players.length}`);
+      const localRanks = players.map(p => p.rank).join(',');
+      log('[DEBUG REFRESH]', `Local ranks: ${localRanks}`);
+
       const freshPlayers = await dataService.getPlayers();
-      
+
       if (freshPlayers && freshPlayers.length > 0) {
+        const serverRanks = freshPlayers.map(p => p.rank).join(',');
+        log('[DEBUG REFRESH]', `Server returned ${freshPlayers.length} players, ranks: ${serverRanks}`);
+
+        // Check if any local-only player would be lost
+        const localOnly = players.filter(lp => !freshPlayers.find(sp => sp.rank === lp.rank));
+        if (localOnly.length > 0) {
+          console.error('[DEBUG REFRESH] !!! LOCAL PLAYERS WILL BE LOST:', localOnly.map(p => `${p.firstName} ${p.lastName} rank=${p.rank}`).join('; '));
+        }
+
         const playersWithResults = freshPlayers.map((player: PlayerData) => ({
           ...player,
           gameResults: player.gameResults || new Array(31).fill(null),
         }));
-        
+
         setPlayers(playersWithResults);
-        
-        log('[REFRESH]', '✓ Refreshed ' + playersWithResults.length + ' players');
+
+        log('[DEBUG REFRESH]', `✓ Set ${playersWithResults.length} players from server`);
       } else {
         log('[REFRESH]', 'No players found');
       }
@@ -3378,10 +3389,11 @@ const handleWalkthroughNextForReview = () => {
     setIsAddPlayerDialogOpen(true);
   };
 
- const findNextRank = (cands: PlayerData[], sug?: number) => {
+ const findNextRank = (cands: PlayerData[], sug?: number, label?: string) => {
     const maxRank = cands.reduce((max, p) => Math.max(max, p.rank || 0), 0);
-    if (sug !== undefined && sug > maxRank) return sug;
-    return maxRank + 1;
+    const result = (sug !== undefined && sug > maxRank) ? sug : maxRank + 1;
+    console.log(`[DEBUG findNextRank] ${label || ''} cands.length=${cands.length} maxRank=${maxRank} sug=${sug} => result=${result}`);
+    return result;
   };
 
   const handleAddPlayerSubmit = (
@@ -5696,15 +5708,19 @@ const handleWalkthroughNextForReview = () => {
                                    room: gameData.room,
                                  };
                                  let updatedResult: PlayerData[] = [];
-                                 setPlayers((prevPlayers) => {
-                                   const newRank = findNextRank(prevPlayers);
-                                   const rankedPlayer = { ...newPlayer, rank: newRank };
-                                   updatedResult = [...prevPlayers, rankedPlayer];
-                                   savePlayers(updatedResult, true).catch((err) => {
-                                     console.error("Failed to save added player:", err);
-                                   });
-                                   return updatedResult;
-                                 });
+                                  console.log('[DEBUG CTRL+ENTER] players.length=', players.length, 'ranks:', players.map(p => p.rank).join(','));
+                                  console.log('[DEBUG CTRL+ENTER] newPlayer:', newPlayer.firstName, newPlayer.lastName);
+                                  setPlayers((prevPlayers) => {
+                                    console.log('[DEBUG CTRL+ENTER] prevPlayers.length=', prevPlayers.length, 'ranks:', prevPlayers.map(p => p.rank).join(','));
+                                    const newRank = findNextRank(prevPlayers, undefined, 'CTRL+ENTER');
+                                    const rankedPlayer = { ...newPlayer, rank: newRank };
+                                    updatedResult = [...prevPlayers, rankedPlayer];
+                                    console.log('[DEBUG CTRL+ENTER] assigned rank=', newRank, 'total players=', updatedResult.length);
+                                    savePlayers(updatedResult, true).catch((err) => {
+                                      console.error("Failed to save added player:", err);
+                                    });
+                                    return updatedResult;
+                                  });
                                  const emptyReset = {
                                    firstName: "", lastName: "", group: "", rating: 0, nRating: 0,
                                    trophyEligible: true, grade: "", num_games: 0, attendance: 0,
@@ -5784,19 +5800,20 @@ const handleWalkthroughNextForReview = () => {
                                room: gameData.room,
                              };
 
-                            let updatedResult: PlayerData[] = [];
-                            setPlayers((prevPlayers) => {
-                              const newRank = findNextRank(prevPlayers);
-                              const rankedPlayer = { ...newPlayer, rank: newRank };
-                              updatedResult = [...prevPlayers, rankedPlayer];
-                              console.log('[EMPTY ROW] assigned rank:', newRank);
-                              console.log('[EMPTY ROW] new player object:', JSON.stringify(rankedPlayer));
-                              console.log('[EMPTY ROW] updatedPlayers length:', updatedResult.length);
-                              savePlayers(updatedResult, true).catch((err) => {
-                                console.error("Failed to save added player:", err);
-                              });
-                              return updatedResult;
-                            });
+                          let updatedResult: PlayerData[] = [];
+                             console.log('[DEBUG ONBLUR] players.length=', players.length, 'ranks:', players.map(p => p.rank).join(','));
+                             console.log('[DEBUG ONBLUR] newPlayer:', newPlayer.firstName, newPlayer.lastName);
+                             setPlayers((prevPlayers) => {
+                               console.log('[DEBUG ONBLUR] prevPlayers.length=', prevPlayers.length, 'ranks:', prevPlayers.map(p => p.rank).join(','));
+                               const newRank = findNextRank(prevPlayers, undefined, 'ONBLUR');
+                               const rankedPlayer = { ...newPlayer, rank: newRank };
+                               updatedResult = [...prevPlayers, rankedPlayer];
+                               console.log('[DEBUG ONBLUR] assigned rank=', newRank, 'total players=', updatedResult.length);
+                               savePlayers(updatedResult, true).catch((err) => {
+                                 console.error("Failed to save added player:", err);
+                               });
+                               return updatedResult;
+                             });
                             
                          // Reset emptyPlayerRow state and ref (not enough for contentEditable cells - React
                            // skips updating their textContent after they've been made editable)
