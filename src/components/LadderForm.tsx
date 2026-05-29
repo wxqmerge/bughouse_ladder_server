@@ -4059,7 +4059,7 @@ const handleWalkthroughNextForReview = () => {
                 >
                   Wait ({overrideTimeout}s)
                 </button>
-                
+
                 <button
                   onClick={async () => {
                     debugClick("Override:Force");
@@ -4084,6 +4084,26 @@ const handleWalkthroughNextForReview = () => {
                   Override Lock
                 </button>
               </div>
+
+              <button
+                onClick={() => {
+                  debugClick("Override:Cancel");
+                  setShowOverrideDialog(false);
+                }}
+                style={{
+                  width: "100%",
+                  padding: "0.625rem 1rem",
+                  backgroundColor: "white",
+                  color: "#64748b",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "0.5rem",
+                  fontWeight: 500,
+                  cursor: "pointer",
+                  fontSize: "0.875rem",
+                }}
+              >
+                Cancel
+              </button>
               
               <div style={{ color: "#f59e0b", fontSize: "0.875rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
                 <span>⚠️</span> Dangerous: allows multiple admins simultaneously!
@@ -4464,7 +4484,7 @@ const handleWalkthroughNextForReview = () => {
               >
                 Wait ({overrideTimeout}s)
               </button>
-              
+
               <button
                 onClick={async () => {
                   setShowOverrideDialog(false);
@@ -4488,6 +4508,26 @@ const handleWalkthroughNextForReview = () => {
                 Override Lock
               </button>
             </div>
+
+            <button
+              onClick={() => {
+                debugClick("Override:Cancel");
+                setShowOverrideDialog(false);
+              }}
+              style={{
+                width: "100%",
+                padding: "0.625rem 1rem",
+                backgroundColor: "white",
+                color: "#64748b",
+                border: "1px solid #d1d5db",
+                borderRadius: "0.5rem",
+                fontWeight: 500,
+                cursor: "pointer",
+                fontSize: "0.875rem",
+              }}
+            >
+              Cancel
+            </button>
             
             <div style={{ color: "#f59e0b", fontSize: "0.875rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
               <span>⚠️</span> Dangerous: allows multiple admins simultaneously!
