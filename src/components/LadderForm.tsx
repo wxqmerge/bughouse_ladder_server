@@ -3386,6 +3386,7 @@ const handleWalkthroughNextForReview = () => {
     if (shouldLog(10)) {
       console.log(">>> [MENU ACTION] Add Player");
     }
+    setAddPlayerSuggestedRank(undefined);
     setIsAddPlayerDialogOpen(true);
   };
 
@@ -5866,11 +5867,11 @@ const handleWalkthroughNextForReview = () => {
                           fontSize: "0.875rem",
                         }}
                       >
-                        {field === "rank" ? (
-                          <span style={{ color: "#3b82f6", fontWeight: 600 }}>
-                            {players.length + 1}
-                          </span>
-                        ) : field === "rating" || field === "nRating" || field === "num_games" || field === "attendance" ? (
+{field === "rank" ? (
+                           <span style={{ color: "#3b82f6", fontWeight: 600 }}>
+                             {players.reduce((max, p) => Math.max(max, p.rank || 0), 0) + 1}
+                           </span>
+                         ) : field === "rating" || field === "nRating" || field === "num_games" || field === "attendance" ? (
                           emptyPlayerRow[field as keyof typeof emptyPlayerRow]
                         ) : (
                           emptyPlayerRow[field as keyof typeof emptyPlayerRow] || ""
@@ -6102,7 +6103,7 @@ isAdmin={isAdmin}
         isOpen={isAddPlayerDialogOpen}
         onClose={() => { setIsAddPlayerDialogOpen(false); setAddPlayerSuggestedRank(undefined); }}
         onAdd={handleAddPlayerSubmit}
-        currentPlayerCount={players.length}
+        currentPlayerCount={players.reduce((max, p) => Math.max(max, p.rank || 0), 0)}
         suggestedRank={addPlayerSuggestedRank}
       />
 
