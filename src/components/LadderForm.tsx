@@ -5159,40 +5159,38 @@ const handleWalkthroughNextForReview = () => {
                                 suppressContentEditableWarning={true}
                                 data-cell={`player-${player.rank}-5`}
 onBlur={(e) => {
-                                     const value = (e.target.textContent || "").replace(/\n/g, "");
-                                     const val = parseInt(value) || 0;
-                                     e.target.textContent = String(Math.abs(val));
-                                     const origLastName = player.lastName;
-                                     const origFirstName = player.firstName;
-                                     setPlayers((prevPlayers) => {
-                                       const updatedPlayers = [...prevPlayers];
-                                       const targetPlayer = updatedPlayers.find(
-                                         (p) => p.rank === player.rank,
-                                       );
-                                       if (!targetPlayer) return prevPlayers;
-                                       targetPlayer.nRating = Math.abs(val);
-                                       targetPlayer.trophyEligible = true;
-                                       return updatedPlayers;
-                                     });
-                                     scheduleDebouncedSaveAndPropagate(player.rank, origLastName, origFirstName, { nRating: Math.abs(val), trophyEligible: true });
-                                   }}
-                            onPaste={(e) => {
-                                const text = e.clipboardData.getData('text').trim();
-                                if (text === "-") {
-                                  return;
-                                }
-                                e.preventDefault();
-                                setPlayers((prevPlayers) => {
-                                  const updatedPlayers = [...prevPlayers];
-                                  const targetPlayer = updatedPlayers.find(
-                                    (p) => p.rank === player.rank,
-                                  );
-                                  if (!targetPlayer) return prevPlayers;
-                                  targetPlayer.nRating = parseInt(text) || 0;
-                                  targetPlayer.trophyEligible = true;
-                                  return updatedPlayers;
-                                });
-                              }}
+                                      const value = (e.target.textContent || "").replace(/\n/g, "");
+                                      const val = parseInt(value) || 0;
+                                      e.target.textContent = String(Math.abs(val));
+                                      const origLastName = player.lastName;
+                                      const origFirstName = player.firstName;
+                                      setPlayers((prevPlayers) => {
+                                        const updatedPlayers = [...prevPlayers];
+                                        const targetPlayer = updatedPlayers.find(
+                                          (p) => p.rank === player.rank,
+                                        );
+                                        if (!targetPlayer) return prevPlayers;
+                                        targetPlayer.nRating = Math.abs(val);
+                                        return updatedPlayers;
+                                      });
+                                      scheduleDebouncedSaveAndPropagate(player.rank, origLastName, origFirstName, { nRating: Math.abs(val) });
+                                    }}
+onPaste={(e) => {
+                                 const text = e.clipboardData.getData('text').trim();
+                                 if (text === "-") {
+                                   return;
+                                 }
+                                 e.preventDefault();
+                                 setPlayers((prevPlayers) => {
+                                   const updatedPlayers = [...prevPlayers];
+                                   const targetPlayer = updatedPlayers.find(
+                                     (p) => p.rank === player.rank,
+                                   );
+                                   if (!targetPlayer) return prevPlayers;
+                                   targetPlayer.nRating = parseInt(text) || 0;
+                                   return updatedPlayers;
+                                 });
+                               }}
                           onKeyDown={(e) => {
                                    if (e.key === "Enter") {
                                      e.preventDefault();
