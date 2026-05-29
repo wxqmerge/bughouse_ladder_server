@@ -3379,12 +3379,9 @@ const handleWalkthroughNextForReview = () => {
   };
 
  const findNextRank = (cands: PlayerData[], sug?: number) => {
-    const used = new Set(cands.map(p => p.rank));
-    if (sug !== undefined && !used.has(sug)) return sug;
-    for (let r = 1; r <= cands.length + 1; r++) {
-      if (!used.has(r)) return r;
-    }
-    return cands.length + 1;
+    const maxRank = cands.reduce((max, p) => Math.max(max, p.rank || 0), 0);
+    if (sug !== undefined && sug > maxRank) return sug;
+    return maxRank + 1;
   };
 
   const handleAddPlayerSubmit = (
