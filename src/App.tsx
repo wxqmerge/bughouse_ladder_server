@@ -460,9 +460,6 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
     const newIsMiniGame = isMiniGameTitle(newTitle);
     
     if (currentIsMiniGame && !newIsMiniGame) {
-      if (!window.confirm('End tournament and switch to Ladder? Mini-game files will remain — use Clear Mini-Games in Settings to delete them.')) {
-        return false;
-      }
       clearTournamentState();
     }
     
