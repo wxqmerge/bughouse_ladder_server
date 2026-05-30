@@ -190,7 +190,7 @@ label: "Add Player",
       ...(isAdmin && onDeleteHiddenPlayers
        ? [
            {
-label: "Delete Hidden Players",
+label: "Delete Players",
               onClick: () => handleItemClick("Delete Hidden Players", onDeleteHiddenPlayers),
               dataMenuItem: "Delete Hidden Players",
              disabled: !writePermission,
