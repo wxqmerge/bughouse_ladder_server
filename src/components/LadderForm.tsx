@@ -6207,11 +6207,12 @@ onBlur={(e) => {
           onUpdatePlayerData={handleUpdatePlayerData}
 isAdmin={isAdmin}
            hasAdminKey={!!loadUserSettings().apiKey?.trim()}
- onAddPlayer={(rank) => { setAddPlayerSuggestedRank(rank); setIsAddPlayerDialogOpen(true); }}
-          debugLevel={debugLevel}
-            />
-        );
-      })()}
+onAddPlayer={(rank) => { setAddPlayerSuggestedRank(rank); setIsAddPlayerDialogOpen(true); }}
+           debugLevel={debugLevel}
+               ladderName={projectName}
+             />
+         );
+       })()}
  {entryCell &&
          !isRecalculating &&
          !isWalkthrough &&
@@ -6243,9 +6244,10 @@ onEnterRecalculateSave={handleEnterRecalculateSave}
 isAdmin={isAdmin}
              hasAdminKey={!!loadUserSettings().apiKey?.trim()}
 onAddPlayer={(rank) => { setAddPlayerSuggestedRank(rank); setIsAddPlayerDialogOpen(true); }}
-              onRandomResult={handleRandomResult}
-              debugLevel={debugLevel}
-            />
+               onRandomResult={handleRandomResult}
+               debugLevel={debugLevel}
+               ladderName={projectName}
+             />
           )}
        {currentError && (
         <div
