@@ -339,9 +339,9 @@ export async function generateTrophyReport(
     }
 
     const minTrophies = Math.ceil(players.length / 3);
-    const allTrophies: any[] = [];
     const debugLines: string[] = [];
     const allDebugLines: string[] = [];
+    const allTrophiesSection: string[] = [];
 
     const { buildDebugHeader, buildClubLadderPlayerSection, buildMiniGamePlayerSection, buildTrophiesSection, buildSectionHeader, syncEligibilityFromClubLadder } = await import('./trophyDebugReport.js');
 
@@ -373,6 +373,7 @@ export async function generateTrophyReport(
       debugLines.push(...headerLines);
     }
 
+    // Club Ladder section (independent trophies)
     if (clubHasResults) {
       const clubDebugLines: string[] = [];
       if (debugLevel <= 5) {
@@ -380,35 +381,38 @@ export async function generateTrophyReport(
         clubDebugLines.push(...buildClubLadderPlayerSection(players, debugLevel));
       }
       const clubTrophies = generateClubLadderTrophies(players, minTrophies);
-      allTrophies.push(...clubTrophies);
+      const clubTrophiesSection = buildTrophiesSection(clubTrophies);
       allDebugLines.push(...clubDebugLines);
+      allTrophiesSection.push(...clubTrophiesSection);
     }
 
+    // Mini-game tournament section (independent trophies)
     if (miniHasResults) {
+      if (clubHasResults) {
+        allDebugLines.push('');
+        allTrophiesSection.push('');
+      }
       const mgDebugLines: string[] = [];
       if (debugLevel <= 5) {
         mgDebugLines.push(...buildSectionHeader('Mini-game tournament'));
         mgDebugLines.push(...buildMiniGamePlayerSection(miniGameDataList, debugLevel));
       }
       const mgTrophies = generateMiniGameTrophies(players, minTrophies, miniGameDataList);
-      allTrophies.push(...mgTrophies);
+      const mgTrophiesSection = buildTrophiesSection(mgTrophies);
       allDebugLines.push(...mgDebugLines);
+      allTrophiesSection.push(...mgTrophiesSection);
     }
-
-    for (let i = 0; i < allTrophies.length; i++) {
-      allTrophies[i].rank = i + 1;
-    }
-    const finalTrophiesSection = buildTrophiesSection(allTrophies);
 
     return {
       success: true,
-      message: `Generated ${allTrophies.length} trophies`,
-      trophies: allTrophies,
+      message: 'Generated trophies' + (clubHasResults ? ' for club ladder' : '') + (miniHasResults ? ' for mini-games' : ''),
+      trophies: [],
       isClubMode: clubHasResults && !miniHasResults,
       debugInfo: [...debugLines, ...allDebugLines].join('\n'),
-      trophiesSection: finalTrophiesSection,
+      trophiesSection: allTrophiesSection,
     };
   } catch (error) {
-    return { success: false, message: `Trophy generation failed: ${(error as Error).message}` };
+    return { success: false, message: 'Trophy generation failed: ' + (error as Error).message };
   }
 }
+
