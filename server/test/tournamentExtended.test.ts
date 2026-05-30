@@ -596,7 +596,7 @@ describe('Mini-game trophy stress test', () => {
       // Mini-game mode: only mini-game trophies, no club ladder section
       const numClubPlayers = miniGamePlayers[miniGameFiles[0]].length;
       
-      const headerLines = buildDebugHeader(miniGamePlayers[miniGameFiles[0]], minTrophies, false, miniGameFiles.length);
+      const headerLines = buildDebugHeader(miniGamePlayers[miniGameFiles[0]], 0, minTrophies, miniGameFiles.length, 3);
       const miniGameLines = buildMiniGamePlayerSection(miniGameDataList, 3);
       const trophiesLines = buildTrophiesSection(miniGameTrophies);
       
@@ -665,7 +665,8 @@ describe('Mini-game trophy stress test — club ladder mode', () => {
 
     const rng = mulberry32(999);
     const players = generateClubLadderPlayers(rng, 50, 15);
-    const minTrophies = Math.ceil(players.length / 3);
+    const activePlayers = players.filter(p => p.gameResults?.some(r => !!r && r !== '' && r !== '_'));
+    const minTrophies = Math.ceil(activePlayers.length / 3);
 
     const clubTrophies = generateClubLadderTrophies(players, minTrophies);
 
@@ -673,7 +674,7 @@ describe('Mini-game trophy stress test — club ladder mode', () => {
     await writeLadderFile(clubLadderData, path.join(outputDir, 'ladder.tab'));
 
     // Generate trophy report file (matches GUI format exactly with debug info)
-    const headerLines = buildDebugHeader(players, minTrophies, true);
+    const headerLines = buildDebugHeader(players, minTrophies, 0, undefined, 3);
     const clubPlayerLines = buildClubLadderPlayerSection(players, 3);
     const trophiesSectionLines = buildTrophiesSection(clubTrophies);
     

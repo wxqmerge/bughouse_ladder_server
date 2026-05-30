@@ -338,7 +338,6 @@ export async function generateTrophyReport(
       return { success: false, message: 'No players found' };
     }
 
-    const minTrophies = Math.ceil(players.length / 3);
     const debugLines: string[] = [];
     const allDebugLines: string[] = [];
     const allTrophiesSection: string[] = [];
@@ -368,8 +367,23 @@ export async function generateTrophyReport(
       return { success: false, message: 'No game results found in club ladder or mini-games' };
     }
 
+    // Compute active player counts per tournament
+    const clubActiveCount = players.filter(p => p.gameResults?.some(isValidGameResult)).length;
+    const clubMinTrophies = Math.ceil(clubActiveCount / 3);
+
+    const miniActiveNames = new Set<string>();
+    for (const mgd of miniGameDataList) {
+      for (const p of mgd.players) {
+        if (p.gameResults?.some(isValidGameResult)) {
+          miniActiveNames.add(formatPlayerName(p));
+        }
+      }
+    }
+    const miniActiveCount = miniActiveNames.size;
+    const miniMinTrophies = Math.ceil(miniActiveCount / 3);
+
     if (debugLevel <= 5) {
-      const headerLines = buildDebugHeader(players, minTrophies, false, miniGameDataList.length, debugLevel);
+      const headerLines = buildDebugHeader(players, clubMinTrophies, miniMinTrophies, miniGameDataList.length, debugLevel);
       debugLines.push(...headerLines);
     }
 
@@ -380,7 +394,7 @@ export async function generateTrophyReport(
         clubDebugLines.push(...buildSectionHeader('Club Ladder'));
         clubDebugLines.push(...buildClubLadderPlayerSection(players, debugLevel));
       }
-      const clubTrophies = generateClubLadderTrophies(players, minTrophies);
+      const clubTrophies = generateClubLadderTrophies(players, clubMinTrophies);
       const clubTrophiesSection = buildTrophiesSection(clubTrophies);
       allDebugLines.push(...clubDebugLines);
       allTrophiesSection.push(...clubTrophiesSection);
@@ -397,7 +411,7 @@ export async function generateTrophyReport(
         mgDebugLines.push(...buildSectionHeader('Mini-game tournament'));
         mgDebugLines.push(...buildMiniGamePlayerSection(miniGameDataList, debugLevel));
       }
-      const mgTrophies = generateMiniGameTrophies(players, minTrophies, miniGameDataList);
+      const mgTrophies = generateMiniGameTrophies(players, miniMinTrophies, miniGameDataList);
       const mgTrophiesSection = buildTrophiesSection(mgTrophies);
       allDebugLines.push(...mgDebugLines);
       allTrophiesSection.push(...mgTrophiesSection);
@@ -415,4 +429,5 @@ export async function generateTrophyReport(
     return { success: false, message: 'Trophy generation failed: ' + (error as Error).message };
   }
 }
+
 

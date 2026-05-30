@@ -51,33 +51,31 @@ export interface TrophyReportDebug {
 /**
  * Build the header debug section for trophy reports
  */
-export function buildDebugHeader(players: PlayerData[], minTrophies: number, isClubMode: boolean, miniGameCount?: number, debugLevel: number = 3): string[] {
+export function buildDebugHeader(players: PlayerData[], clubMinTrophies: number, miniMinTrophies: number, miniGameCount?: number, debugLevel: number = 3): string[] {
   const lines: string[] = [];
   
   if (debugLevel <= 5) {
     lines.push(debugLine('DEBUG', 'TROPHY REPORT', '', '', '', '', '', ''));
     lines.push(debugLine('Field 1', 'Field 2', 'Field 3', 'Field 4', 'Field 5', 'Field 6', 'Field 7', 'Field 8'));
     lines.push(debugLine('Players', String(players.length), '', '', '', '', '', ''));
-    lines.push(debugLine('Min Trophies', `${minTrophies} (ceil(${players.length} / 3))`, '', '', '', '', '', ''));
+    lines.push(debugLine('Min Trophies (Club)', ${clubMinTrophies} (ceil(active/3)), '', '', '', '', '', ''));
+    lines.push(debugLine('Min Trophies (Mini)', ${miniMinTrophies} (ceil(active/3)), '', '', '', '', '', ''));
     lines.push('');
   }
   
-  if (isClubMode) {
-    if (debugLevel <= 5) {
-      lines.push(debugLine('Mode', 'Club Ladder (no mini-game files)', '', '', '', '', '', ''));
-    }
-  } else if (miniGameCount !== undefined) {
+  if (miniGameCount !== undefined) {
     if (debugLevel <= 5) {
       lines.push(debugLine('Mode', 'Mini-Game Tournament', '', '', '', '', '', ''));
       lines.push(debugLine('Mini-games played', String(miniGameCount), '', '', '', '', '', ''));
-      lines.push(debugLine('Award 2nd place', `t=${minTrophies} > m=${miniGameCount} ? ${minTrophies > miniGameCount}`, '', '', '', '', '', ''));
-      lines.push(debugLine('Award grade 1st', `t=${minTrophies} > 2*m=${2 * miniGameCount} ? ${minTrophies > 2 * miniGameCount}`, '', '', '', '', '', ''));
+      lines.push(debugLine('Award 2nd place', 	= > m= ? , '', '', '', '', '', ''));
+      lines.push(debugLine('Award grade 1st', 	= > 2*m= ? , '', '', '', '', '', ''));
       lines.push('');
     }
   }
   
   return lines;
 }
+
 
 function mgdPlayersTotalGames(player: PlayerData, miniGameDataList: MiniGameData[]): number {
   return getPlayerTotalGames(player, miniGameDataList);
