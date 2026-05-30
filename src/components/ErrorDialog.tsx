@@ -32,6 +32,7 @@ interface ErrorDialogProps {
   isOverrideMode?: boolean;
   onToggleOverrideMode?: () => void;
   onRandomResult?: (setter: (value: string) => void) => void;
+  ladderName?: string;
 }
 
 /**
@@ -142,6 +143,7 @@ export default function ErrorDialog({
   isOverrideMode = false,
   onToggleOverrideMode,
   onRandomResult,
+  ladderName,
 }: ErrorDialogProps) {
   const [correctedResult, setCorrectedResult] = useState<string>(
     existingValue?.replace(/_$/, "") || "",
@@ -842,17 +844,27 @@ export default function ErrorDialog({
                       : "#ef4444",
             }}
           >
-           {isEnterGames
-               ? "Enter Games"
-               : isGameEntry
-                 ? "Edit Game Result"
-                 : hasNoErrors
-                   ? "No Errors Found"
-                   : isRecalculate
-                     ? `Recalculate Error ${displayIndex + 1} of ${displayTotal}`
-                     : isWalkthrough
-                       ? `Report Walkthrough - Report ${displayIndex + 1} of ${displayTotal}`
-                       : `Correction Required - Round ${displayCell.round + 1} of ${displayTotal}`}
+         {isEnterGames
+                ? ladderName
+                  ? `Enter Games — ${ladderName}`
+                  : "Enter Games"
+                : isGameEntry
+                  ? ladderName
+                    ? `Edit Game Result — ${ladderName}`
+                    : "Edit Game Result"
+                  : hasNoErrors
+                    ? "No Errors Found"
+                    : isRecalculate
+                      ? ladderName
+                        ? `Recalculate Error ${displayIndex + 1} of ${displayTotal} — ${ladderName}`
+                        : `Recalculate Error ${displayIndex + 1} of ${displayTotal}`
+                      : isWalkthrough
+                        ? ladderName
+                          ? `Report Walkthrough — ${ladderName}`
+                          : `Report Walkthrough - Report ${displayIndex + 1} of ${displayTotal}`
+                        : ladderName
+                          ? `Correction Required — ${ladderName}`
+                          : `Correction Required - Round ${displayCell.round + 1} of ${displayTotal}`}
           </h2>
           <button
             onClick={onClose}
