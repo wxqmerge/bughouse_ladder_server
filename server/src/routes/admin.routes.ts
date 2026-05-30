@@ -487,7 +487,7 @@ router.get('/tournament/trophies', async (req: Request, res: Response): Promise<
     // Save trophy file to server
     const dataDir = path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data'));
     const dateStr = new Date().toISOString().split('T')[0];
-    const prefix = result.isClubMode ? 'club-ladder-trophies' : 'mini-game-trophies';
+    const prefix = 'combined-trophies';
     const trophyFileName = `${prefix}_${dateStr}.tab`;
     const trophyFilePath = path.join(dataDir, trophyFileName);
     const headerLines = result.debugInfo ? result.debugInfo.split('\n') : [];
