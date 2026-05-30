@@ -58,8 +58,8 @@ export function buildDebugHeader(players: PlayerData[], clubMinTrophies: number,
     lines.push(debugLine('DEBUG', 'TROPHY REPORT', '', '', '', '', '', ''));
     lines.push(debugLine('Field 1', 'Field 2', 'Field 3', 'Field 4', 'Field 5', 'Field 6', 'Field 7', 'Field 8'));
     lines.push(debugLine('Players', String(players.length), '', '', '', '', '', ''));
-    lines.push(debugLine('Min Trophies (Club)', ${clubMinTrophies} (ceil(active/3)), '', '', '', '', '', ''));
-    lines.push(debugLine('Min Trophies (Mini)', ${miniMinTrophies} (ceil(active/3)), '', '', '', '', '', ''));
+    lines.push(debugLine('Min Trophies (Club)', `${clubMinTrophies} (ceil(active/3))`, '', '', '', '', '', ''));
+    lines.push(debugLine('Min Trophies (Mini)', `${miniMinTrophies} (ceil(active/3))`, '', '', '', '', '', ''));
     lines.push('');
   }
   
@@ -67,8 +67,8 @@ export function buildDebugHeader(players: PlayerData[], clubMinTrophies: number,
     if (debugLevel <= 5) {
       lines.push(debugLine('Mode', 'Mini-Game Tournament', '', '', '', '', '', ''));
       lines.push(debugLine('Mini-games played', String(miniGameCount), '', '', '', '', '', ''));
-      lines.push(debugLine('Award 2nd place', 	= > m= ? , '', '', '', '', '', ''));
-      lines.push(debugLine('Award grade 1st', 	= > 2*m= ? , '', '', '', '', '', ''));
+      lines.push(debugLine('Award 2nd place', `t=${miniMinTrophies} > m=${miniGameCount} ? ${miniMinTrophies > miniGameCount}`, '', '', '', '', '', ''));
+      lines.push(debugLine('Award grade 1st', `t=${miniMinTrophies} > 2*m=${2 * miniGameCount} ? ${miniMinTrophies > 2 * miniGameCount}`, '', '', '', '', '', ''));
       lines.push('');
     }
   }

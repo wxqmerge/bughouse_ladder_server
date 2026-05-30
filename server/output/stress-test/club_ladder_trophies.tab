@@ -1,7 +1,8 @@
 DEBUG	TROPHY REPORT						
 Field 1	Field 2	Field 3	Field 4	Field 5	Field 6	Field 7	Field 8
 Players	50						
-Min Trophies	17 (ceil(50 / 3))						
+Min Trophies (Club)	17 (ceil(active/3))						
+Min Trophies (Mini)	0 (ceil(active/3))						
 
 TOP 5 OVERALL	(by rating, eligible only)						
 Rank	Player	Gr	Rating			Games	
