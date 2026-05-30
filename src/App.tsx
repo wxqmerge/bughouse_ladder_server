@@ -440,7 +440,7 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
   const handleGenerateTrophies = async () => {
     try {
       const blob = await dataService.generateTrophyReport(getDebugLevel());
-      const prefix = isMiniGameTitle(getProjectName()) ? 'mini-game-trophies' : 'club-ladder-trophies';
+      const prefix = 'combined-trophies';
       downloadBlob(blob, `${prefix}_${new Date().toISOString().split('T')[0]}.tab`);
     } catch (error) {
       console.error('Failed to generate trophies:', error);

@@ -232,3 +232,10 @@ export function buildTrophyReportString(
 ): string {
   return [...headerLines, ...miniGameSectionLines, ...trophiesSectionLines].join('\n') + '\n';
 }
+
+/**
+ * Build a section header with separator lines
+ */
+export function buildSectionHeader(title: string): string[] {
+  return ['', title, ''];
+}
