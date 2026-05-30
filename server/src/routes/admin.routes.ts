@@ -487,8 +487,9 @@ router.get('/tournament/trophies', async (req: Request, res: Response): Promise<
     // Save trophy file to server
     const dataDir = path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data'));
     const dateStr = new Date().toISOString().split('T')[0];
-    const prefix = 'combined-trophies';
-    const trophyFileName = `${prefix}_${dateStr}.tab`;
+    const env = (process.env.NODE_ENV || 'development').replace(/[^a-z0-9-]/g, '');
+    const prefix = `${env}-ladder`;
+    const trophyFileName = `${prefix}-trophies_${dateStr}.tab`;
     const trophyFilePath = path.join(dataDir, trophyFileName);
     const headerLines = result.debugInfo ? result.debugInfo.split('\n') : [];
     const tabContent = buildTrophyReportString(headerLines, [], result.trophiesSection || []);
