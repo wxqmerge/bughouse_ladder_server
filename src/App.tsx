@@ -440,13 +440,12 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
   const handleGenerateTrophies = async () => {
     try {
       const blob = await dataService.generateTrophyReport(getDebugLevel());
-      const mode = dataService.getMode();
+      const segments = window.location.pathname.split('/').filter(Boolean);
       let prefix: string;
-      if (mode === DataServiceMode.LOCAL) {
-        prefix = 'localhost';
+      if (segments.length > 0 && segments[0] !== 'dist') {
+        prefix = segments[0];
       } else {
-        const name = getProjectName();
-        prefix = name.replace(/\s+/g, '-').toLowerCase().replace(/[^a-z0-9-]/g, '') || 'ladder';
+        prefix = window.location.hostname;
       }
       downloadBlob(blob, `${prefix}-trophies_${new Date().toISOString().split('T')[0]}.tab`);
     } catch (error) {
