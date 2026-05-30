@@ -12,7 +12,8 @@ async function main() {
   const filePath = path.join(__dirname, '../../src/test/unit/reports/150p_20r_150p_ng0-10.tab');
   const data = await readLadderFile(filePath);
   const players = data.players;
-  const minTrophies = Math.ceil(players.length / 3);
+  const activePlayers = players.filter(p => p.gameResults?.some(r => !!r && r !== '' && r !== '_'));
+  const minTrophies = Math.ceil(activePlayers.length / 3);
 
   console.log('Min Trophies:', minTrophies);
   console.log('Total players:', players.length);
@@ -21,7 +22,7 @@ async function main() {
 
   const trophies = generateClubLadderTrophies(players, minTrophies);
 
-  const headerLines = buildDebugHeader(players, minTrophies, true);
+  const headerLines = buildDebugHeader(players, minTrophies, 0, undefined, 3);
   const clubPlayerLines = buildClubLadderPlayerSection(players, debugLevel);
   const trophiesSectionLines = buildTrophiesSection(trophies);
 
