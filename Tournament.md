@@ -280,27 +280,32 @@ Local mode: returns combined text blob with `=== filename.tab ===` headers betwe
 
 Trophies are awarded by clicking **"Generate Trophies"** button in Settings. This is a read-only operation - it generates a report without modifying the ladder. Results go into a **trophy award tab file**.
 
-### Auto-Detection: Club Ladder vs Mini-Game Tournament
+### Combined Report
 
-The trophy system auto-detects the mode based on file presence:
+The trophy report generates a single file containing **both** club ladder and mini-game tournament sections (when both have results). Each section is an independent tournament with its own trophy rankings:
 
-- **Club ladder mode**: If NONE of the 7 mini-game files exist (`BG_Game.tab` through `bughouse.tab`) → Club ladder awards (uses club ladder rating for Gr 1st places)
-- **Mini-game tournament mode**: If ANY mini-game file exists → Mini-game tournament awards (uses mini-game performance)
+- **Club Ladder section**: Trophies ranked only against club ladder results
+- **Mini-game tournament section**: Trophies ranked only against mini-game results
+- Each section has its own "AWARDED TROPHIES" header
+- Trophies restart at rank 1 in each section (not pooled across tournaments)
 
-No toggle needed - the presence of mini-game files determines the mode.
+If only one tournament has results, only that section appears (no separator).
 
-### Trophy Pool
+### Trophy Count
 
-**Maximum 15 trophies available (mini-game tournament):**
-- 7 × 1st places (one per mini-game)
-- 7 × 2nd places (one per mini-game)
-- 1 × Most games played (across all completed mini-games)
+**Trophy count = ceil(active players / 3)** — computed independently per tournament.
 
-**Maximum 21+ trophies available (end-of-year / club ladder):**
-- 1st, 2nd, 3rd place overall + Most Games
-- Plus: 1st, 2nd, 3rd place per Gr (school grade, e.g., 5, 6, 7)
+- **Active players** = players with at least one valid game result (non-empty, non-underscore cell)
+- For mini-games, active players are deduplicated by name across all mini-game files
+- This is a floor, not a cap. Mini-game 1st/2nd places and grade trophies are always awarded regardless of count.
 
-**Trophy count = ceil(players / 3)** — this is a floor, not a cap. Mini-game 1st/2nd places and grade trophies are always awarded regardless of count.
+### Filename
+
+The output filename is derived from the URL:
+
+- `http://localhost:5173/` → `localhost-trophies_YYYY-MM-DD.tab`
+- `https://chess4.us/dc-dojo-ladder/dist/` → `dc-dojo-ladder-trophies_YYYY-MM-DD.tab`
+- `https://chess4.us/dist/` → `chess4.us-trophies_YYYY-MM-DD.tab`
 
 ### Mini-Game Difficulty Order (Hardest → Easiest)
 
@@ -320,8 +325,8 @@ Before awarding trophies:
 - Ratings are stabilized before trophy determination
 
 Let m = number of completed mini-games
-Let n = number of players
-Let t = ceil(n / 3) = available trophy slots
+Let n_active = number of unique players with at least one valid game result (deduplicated across all files)
+Let t = ceil(n_active / 3) = available trophy slots
 
 1. Award 1st place for each COMPLETED mini-game (always, hardest first: Queen → Pawn → Kings_Cross → Pillar → Bishop → BG_Game → bughouse)
    - Player must have at least one game result in that mini-game
@@ -338,8 +343,8 @@ Let t = ceil(n / 3) = available trophy slots
 ### Club Ladder Awarding Sequence
 
 ```
-Let n = number of players
-Let t = ceil(n / 3) = available trophy slots
+Let n_active = number of players with at least one valid game result
+Let t = ceil(n_active / 3) = available trophy slots
 
 1. Award 1st place overall (always) — first eligible player by rating
 2. Award 2nd place overall (always) — next eligible player by rating
@@ -354,50 +359,51 @@ Let t = ceil(n / 3) = available trophy slots
 ```
 
 **Rules for both modes:**
-- One trophy per player — first-come-first-served by award order
+- One trophy per player — first-come-first-served by award order (within each tournament)
 - If the top-ranked player already has a trophy, fall through to the next ranked player
 - If any grade gets trophies, ALL grades must receive trophies
 - Ties are OK — better to give too many trophies than too few
+- Each tournament section ranks trophies independently (not pooled across tournaments)
 
 ### Mini-Game Tournament Examples
 
-**7 players, all 7 mini-games played (t=7, m=7):**
+**7 active players, all 7 mini-games played (t=7, m=7):**
 - 7 × 1st places = 7 trophies (1 per player, all won 1st)
 - 2nd place skipped (t = m, not t > m)
 - Grade 1st skipped (t = m, not t > 2*m)
 - Total: 7 trophies
 
-**7 players, all 7 mini-games played, 21 trophy slots (t=21, m=7):**
+**7 active players, all 7 mini-games played, 21 trophy slots (t=21, m=7):**
 - 7 × 1st places = 7 trophies
 - 7 × 2nd places = 14 trophies (t > m ✓)
 - 7 × grade 1st places = 21 trophies (t > 2*m ✓, one per grade)
 - Total: 21 trophies
 
-**30 players = 10 trophy slots, all 7 mini-games played (t=10, m=7):**
+**30 active players = 10 trophy slots, all 7 mini-games played (t=10, m=7):**
 - 7 × 1st places = 7 trophies
 - 7 × 2nd places = 14 trophies (t > m ✓)
 - Grade 1st skipped (t=10 ≤ 2*m=14)
 - Total: 14 trophies
 
-**24 players = 8 trophy slots, only 4 mini-games played (t=8, m=4):**
+**24 active players = 8 trophy slots, only 4 mini-games played (t=8, m=4):**
 - 4 × 1st places = 4 trophies
 - 4 × 2nd places = 8 trophies (t > m ✓)
 - Grade 1st skipped (t=8 ≤ 2*m=8)
 - Total: 8 trophies
 
-**45 players = 15 trophy slots, all 7 mini-games played (t=15, m=7):**
+**45 active players = 15 trophy slots, all 7 mini-games played (t=15, m=7):**
 - 7 × 1st places = 7 trophies
 - 7 × 2nd places = 14 trophies (t > m ✓)
 - Grade 1st awarded (t=15 > 14 ✓, one per grade)
 - Total: 15+ trophies
 
-**60 players = 20 trophy slots, all 7 mini-games played (t=20, m=7):**
+**60 active players = 20 trophy slots, all 7 mini-games played (t=20, m=7):**
 - 7 × 1st places = 7 trophies
 - 7 × 2nd places = 14 trophies (t > m ✓)
 - Grade 1st awarded (t=20 > 14 ✓, one per grade)
 - Total: 15+ trophies
 
-**80 players = 27 trophy slots, all 7 mini-games played (t=27, m=7):**
+**80 active players = 27 trophy slots, all 7 mini-games played (t=27, m=7):**
 - 7 × 1st places = 7 trophies
 - 7 × 2nd places = 14 trophies (t > m ✓)
 - Grade 1st awarded (t=27 > 14 ✓, one per grade)
@@ -405,7 +411,7 @@ Let t = ceil(n / 3) = available trophy slots
 
 ### Club Ladder Examples
 
-**10 players = 4 trophy slots (t=4):**
+**10 active players = 4 trophy slots (t=4):**
 - 1st overall = 1 trophy (highest rated)
 - 2nd overall = 1 trophy (2nd highest rated)
 - 3rd overall = 1 trophy (3rd highest rated)
@@ -413,13 +419,13 @@ Let t = ceil(n / 3) = available trophy slots
 - Grade 1st skipped (t ≤ 4)
 - Total: 4 trophies
 
-**16 players = 6 trophy slots (t=6):**
+**16 active players = 6 trophy slots (t=6):**
 - 1st, 2nd, 3rd overall = 3 trophies
 - Most Games = 1 trophy (falls through if already won)
 - Grade 1st awarded (t > 4 ✓, one per grade)
 - Total: 5+ trophies
 
-**30 players = 10 trophy slots (t=10):**
+**30 active players = 10 trophy slots (t=10):**
 - 1st, 2nd, 3rd overall = 3 trophies
 - Most Games = 1 trophy (falls through if already won)
 - Grade 1st awarded (t > 4 ✓, one per grade)
@@ -431,34 +437,36 @@ Let t = ceil(n / 3) = available trophy slots
 Generated as a `.tab` file when admin clicks "Generate Trophies":
 
 ```
-tournament_trophies_YYYY-MM-DD.tab
+<url-prefix>-trophies_YYYY-MM-DD.tab
 
-Columns:
-Rank | Player | Gr | Rating | Trophy Type | Mini-Game/Grade | Games Played
-1    | Smith  | 10 | 1520   | 1st Place     | Queen_Game      | 12
-2    | Jones  | 11 | 1480   | 1st Place     | Pawn_Game       | 10
-3    | Lee    | 10 | 1450   | 2nd Place     | Kings_Cross     | 11
-...
----  |        |   |        |             |                 |
-      | Brown  | 12 | 1600   | 1st Place   | Gr 12           | 45
-      | Davis  | 11 | 1550   | 1st Place   | Gr 11           | 38
-      | Clark  | 10 | 1500   | 1st Place   | Gr 10           | 30
-      | White  | 12 | 1580   | 2nd Place   | Gr 12           | 42
-      | Green  | 11 | 1520   | 2nd Place   | Gr 11           | 35
-      | Adams  | 10 | 1470   | 2nd Place   | Gr 10           | 28
-      | Lee    | 12 | 1490   | 3rd Place   | Gr 12           | 40
-      | Clark  | 11 | 1460   | 3rd Place   | Gr 11           | 33
-      | White  | 10 | 1430   | 3rd Place   | Gr 10           | 26
+Club Ladder section (if club ladder has results):
+Club Ladder
+  [debug info]
+  AWARDED TROPHIES
+  Rank | Player | Trophy Type | Mini-Game/Grade | Gr | Rating | Total Games | Games Played
+  1    | Smith  | 1st Place   | Club Ladder     | 10 | 1520   | 45          | 45
+  2    | Jones  | 2nd Place   | Club Ladder     | 11 | 1480   | 38          | 38
+  ...
+
+Mini-game tournament section (if mini-games have results):
+Mini-game tournament
+  [debug info]
+  AWARDED TROPHIES
+  Rank | Player | Trophy Type | Mini-Game/Grade | Gr | Rating | Total Games | Games Played
+  1    | Lee    | 1st Place   | Queen_Game      | 10 | 1520   | 57          | 12
+  2    | Jones  | 1st Place   | Pawn_Game       | 11 | 1480   | 50          | 10
+  ...
 ```
 
-**Note**: In mini-game tournaments, grade trophies are awarded to one player per grade (highest num_games). In club ladder mode, grade 1st place goes to highest rated player per grade.
+- If both tournaments have results, a blank line separates the sections
+- Each section has independent trophy rankings (restart at rank 1)
+- If only one tournament has results, only that section appears
 
 **Note**: "Games Played" for mini-game trophies counts games from ALL sessions of that mini-game (accumulated file).
 
 **Notes:**
 - `Gr` = school grade (0=Kindergarten, 1=1st, ..., 12=12th, 13=College)
 - `Games Played` = total games in the mini-game (for mini-game trophies) or total career games (for Gr trophies)
-- Blank row separator before Gr trophies (mini-game mode only)
 - Gr column used for determining Gr trophy winners (highest Gr first: 13 → 12 → 11 → ...)
 - Group column (A, A1, B, C, D) is separate and not used for trophy awards
 
