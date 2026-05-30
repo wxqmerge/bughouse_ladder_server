@@ -275,7 +275,7 @@ label: "Add Player",
        ? [
            {
              icon: <Trash2 size={16} />,
-label: "Delete Hidden Players",
+label: "Delete Players",
               onClick: () => {
                 debugClick("Delete Hidden Players");
                 onDeleteHiddenPlayers?.();

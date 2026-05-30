@@ -3091,8 +3091,23 @@ const handleWalkthroughNextForReview = () => {
       if (!allowed) return;
     }
     
-    // Confirm when switching from Ladder to tournament mode
-    if (!currentIsMiniGame && newIsMiniGame && !isTournament) {
+    // Confirm only when a new mini-game file will be created
+    let willCreateNewFile = false;
+    if (!currentIsMiniGame && newIsMiniGame) {
+      const fileName = titleToFileName(newTitle);
+      const existingFiles = await dataService.checkMiniGameFiles();
+      if (!existingFiles.includes(fileName)) {
+        willCreateNewFile = true;
+      } else {
+        // File exists — check if empty (will recreate)
+        dataService.setMiniGameFile(fileName);
+        const checkResult = await dataService.fetchMiniGamePlayers();
+        if (checkResult.length === 0 && isAdmin) {
+          willCreateNewFile = true;
+        }
+      }
+    }
+    if (willCreateNewFile) {
       if (!window.confirm(`Start a ${newTitle} tournament? This will copy all players and ratings to ${newTitle}.tab. Games entered will be saved to this mini-game file.`)) {
         return;
       }
