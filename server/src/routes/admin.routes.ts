@@ -149,7 +149,9 @@ router.get('/export', async (_req: Request, res: Response): Promise<void> => {
 router.get('/backups', async (req: Request, res: Response): Promise<void> => {
   try {
     const ladderName = req.query.ladder as string | undefined;
+    console.log('[RESTORE BACKUP] ladderName query:', ladderName);
     const backups = await getBackupList(ladderName);
+    console.log('[RESTORE BACKUP] returned backups:', backups.length, backups.map(b => b.filename));
     
     res.json({
       success: true,
