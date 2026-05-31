@@ -21,10 +21,28 @@ interface GameResult {
   result: string;
 }
 
+function isValidGameResult(obj: unknown): obj is GameResult {
+  if (!obj || typeof obj !== 'object') return false;
+  const g = obj as Record<string, unknown>;
+  return (
+    typeof g.playerRank === 'number' &&
+    typeof g.round === 'number' &&
+    typeof g.result === 'string'
+  );
+}
+
 // Submit a single game result (requires user or admin API key)
-router.post('/submit', requireUserKey, writeLimiter, async (req: Request, res: Response): Promise<void> => {
+router.post('/', requireUserKey, writeLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
-    const { playerRank, round, result } = req.body as GameResult;
+    const body = req.body as unknown;
+    if (!isValidGameResult(body)) {
+      res.status(400).json({
+        success: false,
+        error: { message: 'Invalid game result: playerRank (number), round (number), result (string) required' },
+      });
+      return;
+    }
+    const { playerRank, round, result } = body;
 
     if (!playerRank || !round || !result) {
       res.status(400).json({

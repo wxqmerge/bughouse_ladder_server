@@ -76,17 +76,18 @@ const TOURNAMENT_STATE_FILE = path.join(
 
 // Load tournament state from file
 export async function loadTournamentState(): Promise<TournamentState> {
-  try {
-    const content = await fs.readFile(TOURNAMENT_STATE_FILE, 'utf-8');
-    tournamentState = JSON.parse(content);
-    loggerLog('[TOURNAMENT]', `Loaded tournament state: ${JSON.stringify(tournamentState)}`);
-  } catch {
-    // No state file, use defaults
-    tournamentState = {
-      active: false,
-      startedAt: '',
-    };
-  }
+ try {
+      const content = fs.readFileSync(filePath, 'utf-8');
+      const parsed = JSON.parse(content);
+      if (!parsed || typeof parsed !== 'object' || typeof parsed.active !== 'boolean' || typeof parsed.startedAt !== 'string') {
+        console.warn(`[Tournament] Tournament state file has invalid shape, returning null`);
+        return null;
+      }
+      return parsed as TournamentState;
+    } catch (error) {
+      console.error(`[Tournament] Failed to read tournament state:`, error);
+      return null;
+    }
   return tournamentState;
 }
 
