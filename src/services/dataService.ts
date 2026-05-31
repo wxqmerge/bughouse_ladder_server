@@ -384,7 +384,7 @@ class DataService {
           this.lastDataHash = newHash;
           // Save fresh server data to localStorage so getPlayers() returns it (caller handles notify)
           if (this.currentMiniGameFile) {
-            this.saveLocalMiniGamePlayers(serverPlayers, false);
+            await this.saveLocalMiniGamePlayers(serverPlayers, false);
           } else {
             this.saveLocalPlayers(serverPlayers, false);
           }
@@ -447,9 +447,9 @@ class DataService {
              if (this.lastDataHash === null && serverPlayers.length > 0) {
                this.lastDataHash = newHash;
              }
-             // Save to localStorage cache so getPlayers() always has fresh data (no notify to avoid loop)
-              if (this.currentMiniGameFile) {
-                this.saveLocalMiniGamePlayers(serverPlayers, false);
+           // Save to localStorage cache so getPlayers() always has fresh data (no notify to avoid loop)
+             if (this.currentMiniGameFile) {
+                await this.saveLocalMiniGamePlayers(serverPlayers, false);
               } else {
                 this.saveLocalPlayers(serverPlayers, false);
               }
@@ -473,7 +473,7 @@ class DataService {
   async savePlayers(players: PlayerData[]): Promise<void> {
     if (this.config.mode === DataServiceMode.LOCAL) {
       if (this.currentMiniGameFile) {
-        this.saveLocalMiniGamePlayers(players);
+        await this.saveLocalMiniGamePlayers(players);
       } else {
         this.saveLocalPlayers(players);
       }
@@ -584,10 +584,10 @@ class DataService {
     return miniGameData?.players || [];
   }
 
-  private saveLocalMiniGamePlayers(players: PlayerData[], notify: boolean = true): void {
+  private async saveLocalMiniGamePlayers(players: PlayerData[], notify: boolean = true): Promise<void> {
     if (!this.currentMiniGameFile) return;
     const store = this.getStore();
-    store.writeMiniGameFile(this.currentMiniGameFile, {
+    await store.writeMiniGameFile(this.currentMiniGameFile, {
       header: [],
       players,
       rawLines: [],
@@ -948,7 +948,7 @@ class DataService {
     return store.readMiniGameFile(fileName);
   }
 
-  async writeMiniGameFile(fileName: string, ladderData: any): Promise<void> {
+  async writeMiniGameFile(fileName: string, ladderData: any): Promise<{ identityUpdates: PlayerData[]; miniGameWritten: boolean }> {
     const store = this.getStore();
     return store.writeMiniGameFile(fileName, ladderData);
   }

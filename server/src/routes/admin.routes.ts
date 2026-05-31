@@ -15,6 +15,7 @@ import {
   isTournamentActive,
   getMiniGameFilePath,
   readMiniGameFile,
+  readMiniGameFileRaw,
   writeMiniGameFile,
   mergeGameResults,
   getExistingMiniGameFiles,
@@ -265,7 +266,7 @@ router.post('/tournament/save-mini-game', async (req: Request, res: Response): P
     const ladderData = await readLadderFile();
     
     // Check if file already exists
-    const existingFile = await readMiniGameFile(fileName);
+    const existingFile = await readMiniGameFileRaw(fileName);
     
     if (existingFile) {
       // Merge game results
