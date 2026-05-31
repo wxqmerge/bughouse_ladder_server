@@ -1,4 +1,4 @@
-import { Clock, Database, Server, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 interface StatusBannerProps {
   status: string | null;

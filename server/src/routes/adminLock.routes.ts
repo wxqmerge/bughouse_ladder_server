@@ -123,7 +123,7 @@ router.post('/refresh', (req: Request, res: Response) => {
  * Get admin lock status
  * GET /api/admin-lock/status
  */
-router.get('/status', (req: Request, res: Response) => {
+router.get('/status', (_req: Request, res: Response) => {
   const info = getAdminLockInfo();
 
   if (!info.locked) {

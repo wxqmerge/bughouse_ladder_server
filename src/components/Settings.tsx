@@ -12,11 +12,11 @@ import {
   CalendarDays,
   Eye,
   Server,
-  Key,
+
   Shield,
 } from "lucide-react";
 import "../css/index.css";
-import { getSettings, saveSettings, getServerUrl } from "../services/storageService";
+import { getSettings, saveSettings } from "../services/storageService";
 import { loadUserSettings, saveUserSettings, normalizeServerUrl, getLastWorkingConfig, type UserSettings } from "../services/userSettingsStorage";
 import { debugClick, debugInput } from "../utils/debug";
 

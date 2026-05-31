@@ -19,7 +19,7 @@ if (process.env.NODE_ENV === 'production' && (!process.env.ADMIN_API_KEY || !pro
   process.exit(1);
 }
 
-import express, { Application, Request, Response, NextFunction } from 'express';
+import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -161,7 +161,7 @@ app.use((req, res, next) => {
 });
 
 // Security logging middleware
-app.use('/api/*', (req, res, next) => {
+app.use('/api/*', (req, _res, next) => {
   const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
   const userAgent = req.headers['user-agent']?.substring(0, 50) || 'unknown';
   
@@ -175,7 +175,7 @@ app.use('/api/*', (req, res, next) => {
 });
 
 // Health check endpoint
-app.get('/health', (req: Request, res: Response) => {
+app.get('/health', (_req: Request, res: Response) => {
   const wh = getWriteHealth();
   res.json({
     status: 'ok',
@@ -212,7 +212,7 @@ if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '../../dist')));
   
   // Catch all routes for React Router
-  app.get('*', (req: Request, res: Response) => {
+  app.get('*', (_req: Request, res: Response) => {
     res.sendFile(path.join(__dirname, '../../dist/index.html'));
   });
 }
@@ -224,9 +224,7 @@ app.use(errorHandler);
 async function startServer() {
   try {
     await initializeDefaultLadder();
-     app.listen(PORT, () => {
-       const host = '0.0.0.0';
-       const serverUrl = `http://localhost:${PORT}`;
+    app.listen(PORT, () => {
        
        startHeartbeat();
 

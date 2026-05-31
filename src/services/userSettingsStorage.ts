@@ -154,7 +154,6 @@ export async function loadRemoteFile(fileUrl: string): Promise<{ success: boolea
       }
     }
 
-    const blob = new Blob([text], { type: 'text/tab-separated-values' });
     const fileName = fileUrl.split('/').pop()?.split('?')[0] || 'ladder';
     
     sessionStorage.setItem('pendingFileContent', btoa(unescape(encodeURIComponent(text))));

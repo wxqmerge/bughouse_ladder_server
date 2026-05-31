@@ -57,7 +57,7 @@ export default function RestoreBackupDialog({
 
       if (!response.ok) return;
 
-      const restoreData = await response.json();
+      await response.json();
 
       const fetchResponse = await fetch(`${serverUrl}/api/ladder`);
       if (fetchResponse.ok) {
@@ -254,7 +254,7 @@ export default function RestoreBackupDialog({
                             <div key={p.rank} style={{ fontSize: "0.7rem", marginBottom: "0.125rem" }}>
                               <span style={{ color: "#6b7280", marginRight: "0.25rem" }}>P{p.rank}</span>
                               <span style={{ display: "inline-flex", gap: "0.125rem", whiteSpace: "nowrap" }}>
-                                {(p.gameResults || []).filter((r) => r && r.trim() !== "").map((result, rIdx) => {
+                                {(p.gameResults || []).filter((r) => r && r.trim() !== "").map((result) => {
                                   const origIdx = (p.gameResults || []).indexOf(result);
                                   return (
                                     <span key={origIdx} style={{ 
