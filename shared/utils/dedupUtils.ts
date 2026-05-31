@@ -5,7 +5,7 @@ import { PlayerData } from '../types/index.js';
  * Verified cells (ending with "_") always win.
  * For unverified cells, prefer non-null values from either player.
  */
-function mergeGameResults(
+export function mergeGameResultsDedup(
   a: (string | null)[],
   b: (string | null)[]
 ): (string | null)[] {
@@ -80,7 +80,7 @@ export function deduplicatePlayers(players: PlayerData[]): PlayerData[] {
 
     for (let i = 1; i < group.length; i++) {
       const dup = group[i];
-      mergedResults = mergeGameResults(mergedResults, dup.gameResults || new Array(31).fill(null));
+      mergedResults = mergeGameResultsDedup(mergedResults, dup.gameResults || new Array(31).fill(null));
       sumNumGames += dup.num_games || 0;
       sumAttendance += dup.attendance || 0;
     }
