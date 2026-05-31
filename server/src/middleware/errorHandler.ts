@@ -34,7 +34,7 @@ export function errorHandler(
     success: false,
     error: {
       message,
-      ...(process.env.NODE_ENV === 'development' && err instanceof Error && { stack: err.stack }),
+      ...(process.env.EXPOSE_STACK_TRACES === 'true' && err instanceof Error && { stack: err.stack }),
     },
   });
 }

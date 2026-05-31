@@ -1,5 +1,6 @@
 import { loadUserSettings, saveLastWorkingConfig, getUserSettingsKey } from '../services/userSettingsStorage';
 import { gatedFetch } from './requestGate';
+import { TIMEOUTS } from './constants';
 
 // Connection state tracking
 let connectionState: {
@@ -172,6 +173,9 @@ export function onModeChange(callback: (newMode: string, oldMode: string) => voi
        console.log('[mode.ts] Auto-detect: /api/ladder status=', apiResponse.status, 'ok=', apiResponse.ok);
 
        const apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403;
+        if (apiResponse.status === 401 || apiResponse.status === 403) {
+          console.warn(`[mode.ts] Auto-detect: /api/ladder returned ${apiResponse.status} — server reachable but auth failed. Check API key in Settings.`);
+        }
 
        if (healthOk && apiOk) {
          autoDetectedUrl = origin.replace(/\/$/, '');
@@ -228,7 +232,10 @@ export function onModeChange(callback: (newMode: string, oldMode: string) => voi
              apiStatus = apiResponse.status;
              console.log('[mode.ts] Subdomain check: /api/ladder status=', apiStatus);
              apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403;
-           } catch (e) {
+              if (apiResponse.status === 401 || apiResponse.status === 403) {
+                console.warn(`[mode.ts] Subdomain check: /api/ladder returned ${apiResponse.status} — server reachable but auth failed. Check API key in Settings.`);
+              }
+            } catch (e) {
              clearTimeout(apiTimeoutId);
              console.log('[mode.ts] Subdomain check: /api/ladder error:', (e as Error).message);
            }

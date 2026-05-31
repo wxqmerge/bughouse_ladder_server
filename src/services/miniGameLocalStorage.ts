@@ -129,7 +129,8 @@ async function readMiniGameFile(fileName: string): Promise<LadderData | null> {
     const clubPlayers = getLocalPlayers();
     const mergedPlayers = mergeIdentityFromClubLadder(raw.players, clubPlayers);
     return { ...raw, players: mergedPlayers };
-  } catch {
+  } catch (e) {
+    console.warn(`[miniGameLocalStorage] Failed to read mini-game file "${fileName}" (corrupted content):`, e);
     return null;
   }
 }
