@@ -463,12 +463,6 @@ These buttons only appear when admin mode is enabled.
 | Debug Mode | Checkbox: show extra info in dialogs |
 | Restore Last Server Config | One-click restore of last working server + key |
 
----
-
-**Version:** 1.3.4   
-**Last Updated:** May 2026  
-**Prerequisites:** User Manual knowledge assumed
-
 ## Admin API Reference
 
 The following endpoints require an admin API key.

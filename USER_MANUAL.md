@@ -337,7 +337,4 @@ Two players entered incompatible results for the same game. Check both entries a
 
 Fix: Use **Operations → Check Errors**, then review recent entries.
 
----
 
-**Version:** 1.3.4   
-**Last Updated:** May 2026
