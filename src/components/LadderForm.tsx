@@ -2252,7 +2252,7 @@ const handleRandomResult = (setter: (value: string) => void) => {
         files = await dataService.checkMiniGameFiles();
       }
       setAvailableMiniGames(files);
-      // log('[MINI-GAMES]', `Found ${files.length} mini-game files: ${files.join(', ')}`);
+      log('[MINI-GAMES]', `Available: ${files.join(', ') || '(none)'}`);
     } catch (error) {
       log('[MINI-GAMES]', 'Failed to fetch mini-game availability:', error);
     }
@@ -3311,10 +3311,16 @@ const handleWalkthroughNextForReview = () => {
         willCreateNewFile = true;
       } else {
         // File exists — check if empty (will recreate)
+        const prevMiniGameFile = dataService.getMiniGameFile();
         dataService.setMiniGameFile(fileName);
-        const checkResult = await dataService.fetchMiniGamePlayers();
-        if (checkResult.length === 0 && isAdmin) {
-          willCreateNewFile = true;
+        try {
+          const checkResult = await dataService.fetchMiniGamePlayers();
+          if (checkResult.length === 0 && isAdmin) {
+            willCreateNewFile = true;
+          }
+        } finally {
+          // Restore previous mini-game file to avoid stale state
+          dataService.setMiniGameFile(prevMiniGameFile);
         }
       }
     }
@@ -3330,6 +3336,7 @@ const handleWalkthroughNextForReview = () => {
   if (newIsMiniGame) {
         // Switching to a mini-game (from ladder or from another mini-game):
         // create file if it doesn't exist or has 0 players, then switch data source
+        lastRefreshHash.current = null;
         try {
           const fileName = titleToFileName(newTitle);
           const existingFiles = await dataService.checkMiniGameFiles();
@@ -3380,9 +3387,10 @@ const handleWalkthroughNextForReview = () => {
           const fileName = titleToFileName(newTitle);
           log('[MINI-GAME SWITCH]', `Failed to switch to ${fileName}:`, error);
         }
-      } else if (currentIsMiniGame && !newIsMiniGame) {
-       // Switching away from mini-game: reset data source to ladder.tab
-       dataService.setMiniGameFile(null);
+     } else if (currentIsMiniGame && !newIsMiniGame) {
+        // Switching away from mini-game: reset data source to ladder.tab
+        lastRefreshHash.current = null;
+        dataService.setMiniGameFile(null);
        
        // Reload players from ladder
        await refreshPlayers();
@@ -3957,6 +3965,8 @@ const handleWalkthroughNextForReview = () => {
       releaseAdminLock().catch(err => console.error('[ADMIN_LOCK] Failed to release lock:', err));
       setIsAdmin(false);
       clearAdminMode();
+      // Refresh available mini-games so newly created ones appear for non-admin users
+      fetchAvailableMiniGames();
     }
   };
 

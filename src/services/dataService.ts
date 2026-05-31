@@ -921,9 +921,9 @@ class DataService {
     throw new Error('MiniGameStore not configured for this DataService instance');
   }
 
-  setMiniGameFile(fileName: string | null): void {
+ setMiniGameFile(fileName: string | null): void {
     this.currentMiniGameFile = fileName;
-    console.log(`[DataService] Mini-game file set to: ${fileName || 'none'}`);
+    this.activeRefreshCount = 0;
   }
 
   getMiniGameFile(): string | null {
