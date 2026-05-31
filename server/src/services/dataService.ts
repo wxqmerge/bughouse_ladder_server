@@ -90,6 +90,16 @@ export interface LadderData {
 // File lock mechanism - simple mutex for sequential file access
 let fileLock: { locked: boolean; waiters: (() => void)[] } | null = null;
 
+// In-memory read cache — avoids re-parsing the .tab file on every GET request.
+// Cache is invalidated on every write. TTL: 5s as fallback safety.
+interface LadderCache {
+  data: LadderData | null;
+  mtimeMs: number;
+  timestamp: number;
+}
+const ladderCache: LadderCache = { data: null, mtimeMs: 0, timestamp: 0 };
+const CACHE_TTL_MS = 5000;
+
 async function acquireLock(): Promise<void> {
   if (!fileLock || !fileLock.locked) {
     fileLock = { locked: true, waiters: [] };
@@ -115,6 +125,19 @@ function releaseLock(): void {
 export async function readLadderFile(filePath?: string): Promise<LadderData> {
   const targetPath = filePath || TAB_FILE_PATH;
   return withTiming('readLadderFile', async () => {
+    // Fast path: return cached data if file hasn't changed
+    if (!filePath) {
+      try {
+        const stat = await fs.stat(targetPath);
+        const now = Date.now();
+        if (ladderCache.data && stat.mtimeMs === ladderCache.mtimeMs && (now - ladderCache.timestamp) < CACHE_TTL_MS) {
+          return { ...ladderCache.data, players: [...ladderCache.data.players] };
+        }
+      } catch {
+        // File doesn't exist — fall through to read
+      }
+    }
+
     await acquireLock();
     
     try {
@@ -232,7 +255,21 @@ export async function readLadderFile(filePath?: string): Promise<LadderData> {
       }
     }
 
-    return { header: [], players, rawLines: dataLines };
+    const result = { header: [], players, rawLines: dataLines };
+
+    // Update cache (only for default path)
+    if (!filePath) {
+      try {
+        const stat = await fs.stat(targetPath);
+        ladderCache.data = result;
+        ladderCache.mtimeMs = stat.mtimeMs;
+        ladderCache.timestamp = Date.now();
+      } catch {
+        // Ignore stat errors
+      }
+    }
+
+    return result;
   } finally {
     releaseLock();
   }
@@ -295,6 +332,13 @@ export async function writeLadderFile(ladderData: LadderData, filePath?: string)
       
       const content = generateTabContent(ladderData);
       await fs.writeFile(targetPath, content, 'utf-8');
+
+      // Invalidate read cache after successful write
+      if (!filePath) {
+        ladderCache.data = null;
+        ladderCache.mtimeMs = 0;
+        ladderCache.timestamp = 0;
+      }
       
       writeHealth.lastWriteTime = new Date().toISOString();
       writeHealth.lastWriteSuccess = true;

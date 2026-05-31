@@ -24,7 +24,7 @@ export function createTitleMenuItem(
   const isDisabled = !isAdmin && isMiniGame && !isAvailable;
   
   return {
-    label: title,
+    label: title === "Ladder" ? "Ladder (Club)" : title,
     onClick: () => {
       if (isDisabled) {
         alert(`"${title}" is not available yet. Only admin can create mini-games.`);

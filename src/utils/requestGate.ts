@@ -4,13 +4,14 @@
  * Logs every request for debugging.
  */
 
-const MIN_INTERVAL_MS = 1000;
+const MIN_INTERVAL_MS = 50;
 let lastRequestTime = 0;
 let requestCount = 0;
 let delayedCount = 0;
+let totalDelayMs = 0;
 
 /**
- * Fetch with global cooldown. Waits up to 1s for the gate to open, then fires.
+ * Fetch with global cooldown. Waits up to 150ms for the gate to open, then fires.
  * Logs every request with [REQ-GATE] prefix.
  */
 export async function gatedFetch(
@@ -21,21 +22,25 @@ export async function gatedFetch(
   const elapsed = now - lastRequestTime;
   const method = (init && 'method' in init ? (init as any).method : 'GET').toUpperCase();
   const urlStr = url.toString().split('?')[0]; // strip query for brevity
+  const reqStart = performance.now();
 
   if (elapsed < MIN_INTERVAL_MS) {
     const wait = MIN_INTERVAL_MS - elapsed;
-    // console.log(`[REQ-GATE] ${method} ${urlStr} — DELAYED ${wait}ms (count: ${requestCount}, delayed: ${delayedCount})`);
     delayedCount++;
+    totalDelayMs += wait;
+    console.log(`[REQ-GATE] ${method} ${urlStr} — DELAYED ${wait}ms (total delays: ${delayedCount}, total delay: ${totalDelayMs}ms)`);
     await sleep(wait);
   }
 
   requestCount++;
   lastRequestTime = Date.now();
-  // console.log(`[REQ-GATE] ${method} ${urlStr} — SENT #${requestCount}`);
 
   try {
     const response = await fetch(url, init);
-    // console.log(`[REQ-GATE] ${method} ${urlStr} — ${response.status} ${response.statusText}`);
+    const reqDuration = performance.now() - reqStart;
+    if (reqDuration > 100) {
+      console.log(`[REQ-GATE] ${method} ${urlStr} — ${response.status} ${reqDuration.toFixed(0)}ms (gate wait: ${elapsed < MIN_INTERVAL_MS ? (MIN_INTERVAL_MS - elapsed) : 0}ms)`);
+    }
     return response;
   } catch (err) {
     console.warn(`[REQ-GATE] ${method} ${urlStr} — ERROR: ${(err as Error).message}`);
@@ -65,15 +70,17 @@ export function resetGate(): void {
   lastRequestTime = 0;
   requestCount = 0;
   delayedCount = 0;
+  totalDelayMs = 0;
 }
 
 /**
  * Get gate stats for debugging.
  */
-export function getGateStats(): { total: number; delayed: number; lastMsAgo: number } {
+export function getGateStats(): { total: number; delayed: number; totalDelayMs: number; lastMsAgo: number } {
   return {
     total: requestCount,
     delayed: delayedCount,
+    totalDelayMs,
     lastMsAgo: Date.now() - lastRequestTime,
   };
 }

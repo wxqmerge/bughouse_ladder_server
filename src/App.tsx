@@ -149,6 +149,15 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
             dataService.startSSE();
 
             const unsubscribe = dataService.subscribe(() => {
+              // Dedup: skip if a refresh is already in flight (300ms window)
+              // Multiple SSE events for the same server write would trigger
+              // redundant fetches; coalesce them into one.
+              const now = Date.now();
+              if ((window as any).__ladder_lastRefresh && now - (window as any).__ladder_lastRefresh < 300) {
+                console.log(`[PERF DEDUP] Skipping refresh — last was ${now - (window as any).__ladder_lastRefresh}ms ago`);
+                return;
+              }
+              (window as any).__ladder_lastRefresh = now;
               console.log('[APP] Data changed - notifying LadderForm');
               if (refreshPlayersRef.current) {
                 refreshPlayersRef.current();
