@@ -439,6 +439,7 @@ export async function getBackupList(ladderName?: string): Promise<BackupInfo[]> 
   const files = await fs.readdir(BACKUP_DIR);
   const backups: BackupInfo[] = [];
   const prefix = ladderName ? ladderToPrefix(ladderName) : null;
+  console.log('[BACKUP LIST] ladderName:', ladderName, 'prefix:', prefix, 'all files:', files.filter(f => f.endsWith('.tab') && f.includes('_backup_')));
 
   for (const file of files) {
     if (!file.endsWith('.tab') || !file.includes('_backup_')) continue;

@@ -6743,9 +6743,10 @@ debugLevel={debugLevel}
 
       {/* Restore Backup Dialog */}
       {showRestoreBackupDialog && (
-        <RestoreBackupDialog
+     <RestoreBackupDialog
           onClose={() => setShowRestoreBackupDialog(false)}
           onRestore={handleRestoreBackup}
+          ladderFile={dataService.getMiniGameFile() || 'ladder.tab'}
         />
       )}
 
