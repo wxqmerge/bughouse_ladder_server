@@ -625,8 +625,4 @@ When loading a file in admin/server mode, a confirmation dialog appears before p
 | [SECURITY.md](./SECURITY.md) | Everyone | API keys, CORS, rate limiting, access control |
 | [TESTS.md](./TESTS.md) | Developers | Test suite documentation |
 
----
 
-**Version:** 1.3.4   
-**Last Updated:** May 2026  
-**Author:** System
