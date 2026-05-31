@@ -629,7 +629,7 @@ router.put('/tournament/update-player-in-all', async (req: Request, res: Respons
   try {
     const { rank, originalLastName, originalFirstName, updates } = req.body;
 
-    if (rank == null || !originalLastName || !originalFirstName || !updates) {
+    if (rank === null || rank === undefined || !originalLastName || !originalFirstName || !updates) {
       res.status(400).json({
         success: false,
         error: { message: 'rank, originalLastName, originalFirstName, and updates required' },
