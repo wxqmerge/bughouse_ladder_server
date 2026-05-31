@@ -3,6 +3,7 @@ import { requireUserKey } from '../middleware/auth.middleware.js';
 import { writeLimiter } from '../middleware/rateLimit.middleware.js';
 import { readLadderFile, writeLadderFile, PlayerData, withTiming } from '../services/dataService.js';
 import { broadcastSSEEvent } from '../services/sseService.js';
+import { NUM_ROUNDS } from '../../../shared/utils/constants.js';
 
 interface GameResult {
   playerRank: number;
@@ -83,7 +84,7 @@ router.post('/', requireUserKey, writeLimiter, async (req: Request, res: Respons
     // Ensure gameResults array exists and has enough slots
     const player = ladderData.players[playerIndex];
     if (!player.gameResults) {
-      player.gameResults = new Array(31).fill(null);
+      player.gameResults = new Array(NUM_ROUNDS).fill(null);
     }
     while (player.gameResults.length <= round) {
       player.gameResults.push(null);
@@ -136,7 +137,7 @@ router.post('/batch', requireUserKey, writeLimiter, async (req: Request, res: Re
 
       const player = ladderData.players[playerIndex];
       if (!player.gameResults) {
-        player.gameResults = new Array(31).fill(null);
+        player.gameResults = new Array(NUM_ROUNDS).fill(null);
       }
       while (player.gameResults.length <= game.round) {
         player.gameResults.push(null);

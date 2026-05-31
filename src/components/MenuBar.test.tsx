@@ -473,7 +473,7 @@ describe("MenuBar component", () => {
       fireEvent.click(screen.getByText("View"));
       
       const menuItems = document.querySelectorAll('[data-menu-item]');
-      expect(menuItems.length).toBe(5); // 5 zoom options
+      expect(menuItems.length).toBe(6); // 5 zoom + Round Robin
     });
 
     it("should have data-menu attributes on menu triggers", () => {

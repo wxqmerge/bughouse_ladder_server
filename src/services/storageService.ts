@@ -9,6 +9,7 @@
 
 import { PlayerData, DeltaOperation } from '../../shared/types';
 import { log } from '../utils/log';
+import { NUM_ROUNDS } from '../../shared/utils/constants';
 import { dataService, DataServiceMode } from './dataService';
 import { loadUserSettings, normalizeServerUrl } from './userSettingsStorage';
 import { isValidServerUrl } from '../utils/mode';
@@ -497,7 +498,7 @@ export async function clearPlayerCell(playerRank: number, roundIndex: number): P
   const players = isInBatch() ? getCurrentPlayers() : await getPlayers();
   const player = players.find(p => p.rank === playerRank);
   if (player) {
-    if (!player.gameResults) player.gameResults = new Array(31).fill(null);
+    if (!player.gameResults) player.gameResults = new Array(NUM_ROUNDS).fill(null);
     player.gameResults[roundIndex] = null;
     if (dataService.getMode() === DataServiceMode.LOCAL) {
       await savePlayers(players);
@@ -514,7 +515,7 @@ export async function submitGameResult(playerRank: number, round: number, result
   const players = isInBatch() ? getCurrentPlayers() : await getPlayers();
   const player = players.find(p => p.rank === playerRank);
   if (player) {
-    if (!player.gameResults) player.gameResults = new Array(31).fill(null);
+    if (!player.gameResults) player.gameResults = new Array(NUM_ROUNDS).fill(null);
     player.gameResults[round] = result;
     if (dataService.getMode() === DataServiceMode.LOCAL) {
       await savePlayers(players);
