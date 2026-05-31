@@ -182,7 +182,7 @@ export async function applyMigration(
   
   try {
     serverPlayers = await dataService.getPlayers();
-    console.log('[migrationUtils] Fetched', serverPlayers.length, 'server players for migration');
+    console.debug('[migrationUtils] Fetched', serverPlayers.length, 'server players for migration');
   } catch (err) {
     console.warn('[migrationUtils] Failed to fetch server players for migration:', err);
   }

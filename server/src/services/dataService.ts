@@ -3,6 +3,7 @@ import fsSync from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { log as loggerLog } from '../utils/logger.js';
+import { MINI_GAME_FILES } from '../../../shared/types/index.js';
 export { loggerLog as log };
 
 // Server-side PlayerData - kept inline due to NodeNext module resolution constraints
@@ -400,17 +401,35 @@ export async function initializeDefaultLadder(): Promise<void> {
 
 // ── Backup System ──────────────────────────────────────────────────
 
-function getBackupFileName(date: Date): string {
+/** Convert a ladder title to a backup filename prefix. */
+function ladderToPrefix(title: string): string {
+  if (title.toLowerCase() === 'ladder') return 'ladder';
+  return title.toLowerCase().replace(/[^a-z0-9_]/g, '_');
+}
+
+/** Get the target file path for a backup based on its filename prefix. */
+function getTargetPathForBackup(filename: string): string | null {
+  const dataDir = path.dirname(TAB_FILE_PATH);
+  const match = filename.match(/^([a-z0-9_]+)_backup_\d{8}_\d{6}\.tab$/);
+  if (!match) return null;
+  const prefix = match[1];
+  if (prefix === 'ladder') return TAB_FILE_PATH;
+  // Mini-game backup: prefix is the game name (e.g. "queen_game")
+  return path.join(dataDir, `${prefix}.tab`);
+}
+
+function getBackupFileName(ladderPrefix: string, date: Date): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
   const h = String(date.getHours()).padStart(2, '0');
   const min = String(date.getMinutes()).padStart(2, '0');
   const s = String(date.getSeconds()).padStart(2, '0');
-  return `ladder_backup_${y}${m}${d}_${h}${min}${s}.tab`;
+  return `${ladderPrefix}_backup_${y}${m}${d}_${h}${min}${s}.tab`;
 }
 
-export async function getBackupList(): Promise<BackupInfo[]> {
+/** List backups, optionally filtered by ladder name. */
+export async function getBackupList(ladderName?: string): Promise<BackupInfo[]> {
   try {
     await fs.access(BACKUP_DIR);
   } catch {
@@ -419,21 +438,25 @@ export async function getBackupList(): Promise<BackupInfo[]> {
 
   const files = await fs.readdir(BACKUP_DIR);
   const backups: BackupInfo[] = [];
+  const prefix = ladderName ? ladderToPrefix(ladderName) : null;
 
   for (const file of files) {
-    if (!file.startsWith('ladder_backup_') || !file.endsWith('.tab')) continue;
-    
+    if (!file.endsWith('.tab') || !file.includes('_backup_')) continue;
+
+    // Filter by ladder prefix if specified
+    if (prefix && !file.startsWith(`${prefix}_backup_`)) continue;
+
     const filePath = path.join(BACKUP_DIR, file);
     const stats = await fs.stat(filePath);
-    
-    // Extract date from filename: ladder_backup_YYYYMMDD_HHMMSS.tab
-    const match = file.match(/ladder_backup_(\d{8})_(\d{6})\.tab$/);
+
+    // Extract date from filename: <prefix>_backup_YYYYMMDD_HHMMSS.tab
+    const match = file.match(/_backup_(\d{8})_(\d{6})\.tab$/);
     if (!match) continue;
-    
+
     const dateStr = match[1];
     const timeStr = match[2];
     const timestamp = `${dateStr.slice(0,4)}-${dateStr.slice(4,6)}-${dateStr.slice(6,8)} ${timeStr.slice(0,2)}:${timeStr.slice(2,4)}:${timeStr.slice(4,6)}`;
-    
+
     backups.push({
       version: 0,
       filename: file,
@@ -445,8 +468,8 @@ export async function getBackupList(): Promise<BackupInfo[]> {
 
   // Sort by filename (which embeds timestamp) descending - newest first
   backups.sort((a, b) => b.filename.localeCompare(a.filename));
-  
-  // Assign version numbers (1 = most recent backup that would be created next)
+
+  // Assign version numbers
   for (let i = 0; i < backups.length; i++) {
     backups[i].version = i + 1;
   }
@@ -454,10 +477,29 @@ export async function getBackupList(): Promise<BackupInfo[]> {
   return backups;
 }
 
+/** Get all existing mini-game file paths that have content. */
+async function getExistingMiniGamePaths(): Promise<string[]> {
+  const dataDir = path.dirname(TAB_FILE_PATH);
+  const result: string[] = [];
+
+  for (const fileName of MINI_GAME_FILES) {
+    const filePath = path.join(dataDir, fileName);
+    try {
+      const stats = await fs.stat(filePath);
+      if (stats.size > 0) {
+        result.push(filePath);
+      }
+    } catch {
+      // File doesn't exist, skip
+    }
+  }
+  return result;
+}
+
 export async function createBackup(): Promise<string | null> {
   try {
     await ensureBackupDirectory();
-    
+
     // Only backup if ladder.tab exists and has content
     try {
       const stats = await fs.stat(TAB_FILE_PATH);
@@ -467,12 +509,25 @@ export async function createBackup(): Promise<string | null> {
     }
 
     const timestamp = new Date();
-    const fileName = getBackupFileName(timestamp);
-    const backupPath = path.join(BACKUP_DIR, fileName);
-    
-    await fs.copyFile(TAB_FILE_PATH, backupPath);
-    loggerLog('[SERVER]', `Created backup: ${fileName}`);
-    return backupPath;
+
+    // Back up main ladder
+    const mainFileName = getBackupFileName('ladder', timestamp);
+    const mainBackupPath = path.join(BACKUP_DIR, mainFileName);
+    await fs.copyFile(TAB_FILE_PATH, mainBackupPath);
+    loggerLog('[SERVER]', `Created backup: ${mainFileName}`);
+
+    // Back up all existing mini-game files
+    const miniGamePaths = await getExistingMiniGamePaths();
+    for (const miniGamePath of miniGamePaths) {
+      const fileName = path.basename(miniGamePath, '.tab');
+      const prefix = ladderToPrefix(fileName);
+      const backupFileName = getBackupFileName(prefix, timestamp);
+      const backupPath = path.join(BACKUP_DIR, backupFileName);
+      await fs.copyFile(miniGamePath, backupPath);
+      loggerLog('[SERVER]', `Created backup: ${backupFileName}`);
+    }
+
+    return mainBackupPath;
   } catch (error) {
     loggerLog('[SERVER]', `Failed to create backup: ${(error as Error).message}`);
     return null;
@@ -489,7 +544,7 @@ export async function ensureBackupDirectory(): Promise<void> {
 
 export async function restoreBackup(filename: string): Promise<boolean> {
   const backupPath = path.join(BACKUP_DIR, filename);
-  
+
   try {
     await fs.access(backupPath);
   } catch {
@@ -498,9 +553,14 @@ export async function restoreBackup(filename: string): Promise<boolean> {
   }
 
   try {
+    const targetPath = getTargetPathForBackup(filename);
+    if (!targetPath) {
+      loggerLog('[SERVER]', `Cannot determine target for backup: ${filename}`);
+      return false;
+    }
     const content = await fs.readFile(backupPath, 'utf-8');
-    await fs.writeFile(TAB_FILE_PATH, content, 'utf-8');
-    loggerLog('[SERVER]', `Restored from backup: ${filename}`);
+    await fs.writeFile(targetPath, content, 'utf-8');
+    loggerLog('[SERVER]', `Restored from backup: ${filename} → ${path.basename(targetPath)}`);
     return true;
   } catch (error) {
     loggerLog('[SERVER]', `Failed to restore backup ${filename}: ${(error as Error).message}`);
@@ -508,9 +568,28 @@ export async function restoreBackup(filename: string): Promise<boolean> {
   }
 }
 
+export async function previewBackup(filename: string): Promise<string | null> {
+  const backupPath = path.join(BACKUP_DIR, filename);
+
+  try {
+    await fs.access(backupPath);
+  } catch {
+    loggerLog('[SERVER]', `Backup not found for preview: ${filename}`);
+    return null;
+  }
+
+  try {
+    const content = await fs.readFile(backupPath, 'utf-8');
+    return content;
+  } catch (error) {
+    loggerLog('[SERVER]', `Failed to preview backup ${filename}: ${(error as Error).message}`);
+    return null;
+  }
+}
+
 export async function deleteBackup(filename: string): Promise<boolean> {
   const backupPath = path.join(BACKUP_DIR, filename);
-  
+
   try {
     await fs.unlink(backupPath);
     loggerLog('[SERVER]', `Deleted backup: ${filename}`);
@@ -523,16 +602,36 @@ export async function deleteBackup(filename: string): Promise<boolean> {
 
 export async function rotateBackups(): Promise<void> {
   try {
-    const backups = await getBackupList();
-    
-    if (backups.length > MAX_BACKUPS) {
-      // Sort ascending (oldest first), delete excess
-      const sorted = [...backups].sort((a, b) => a.filename.localeCompare(b.filename));
-      const toDelete = sorted.slice(0, sorted.length - MAX_BACKUPS);
-      
-      for (const backup of toDelete) {
-        await fs.unlink(backup.path);
-        loggerLog('[SERVER]', `Rotated out old backup: ${backup.filename}`);
+    // Get all backup files
+    try {
+      await fs.access(BACKUP_DIR);
+    } catch {
+      return;
+    }
+
+    const files = await fs.readdir(BACKUP_DIR);
+
+    // Group by prefix
+    const groups = new Map<string, string[]>();
+    for (const file of files) {
+      if (!file.endsWith('.tab') || !file.includes('_backup_')) continue;
+      const match = file.match(/^([a-z0-9_]+)_backup_/);
+      if (match) {
+        const prefix = match[1];
+        if (!groups.has(prefix)) groups.set(prefix, []);
+        groups.get(prefix)!.push(file);
+      }
+    }
+
+    // Rotate each group independently
+    for (const [prefix, groupFiles] of groups) {
+      if (groupFiles.length > MAX_BACKUPS) {
+        const sorted = [...groupFiles].sort();
+        const toDelete = sorted.slice(0, sorted.length - MAX_BACKUPS);
+        for (const file of toDelete) {
+          await fs.unlink(path.join(BACKUP_DIR, file));
+          loggerLog('[SERVER]', `Rotated out old backup: ${file}`);
+        }
       }
     }
   } catch (error) {

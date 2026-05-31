@@ -28,7 +28,7 @@ export async function gatedFetch(
     const wait = MIN_INTERVAL_MS - elapsed;
     delayedCount++;
     totalDelayMs += wait;
-    console.log(`[REQ-GATE] ${method} ${urlStr} — DELAYED ${wait}ms (total delays: ${delayedCount}, total delay: ${totalDelayMs}ms)`);
+    console.debug(`[REQ-GATE] ${method} ${urlStr} — DELAYED ${wait}ms (total delays: ${delayedCount}, total delay: ${totalDelayMs}ms)`);
     await sleep(wait);
   }
 
@@ -39,7 +39,7 @@ export async function gatedFetch(
     const response = await fetch(url, init);
     const reqDuration = performance.now() - reqStart;
     if (reqDuration > 100) {
-      console.log(`[REQ-GATE] ${method} ${urlStr} — ${response.status} ${reqDuration.toFixed(0)}ms (gate wait: ${elapsed < MIN_INTERVAL_MS ? (MIN_INTERVAL_MS - elapsed) : 0}ms)`);
+      console.debug(`[REQ-GATE] ${method} ${urlStr} — ${response.status} ${reqDuration.toFixed(0)}ms (gate wait: ${elapsed < MIN_INTERVAL_MS ? (MIN_INTERVAL_MS - elapsed) : 0}ms)`);
     }
     return response;
   } catch (err) {

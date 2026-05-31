@@ -58,7 +58,7 @@ export default function AddPlayerDialog({
   };
 
   const handleSubmit = (e: React.FormEvent) => {
-     console.log(`>>> [BUTTON PRESSED] Add Player [submit] - Rank: ${nextRank}, Name: ${firstName} ${lastName}`);
+     console.debug(`>>> [BUTTON PRESSED] Add Player [submit] - Rank: ${nextRank}, Name: ${firstName} ${lastName}`);
      e.preventDefault();
 
     if (!lastName || !firstName) {
@@ -136,7 +136,7 @@ export default function AddPlayerDialog({
             {suggestedRank !== undefined ? `Add Player (Rank ${suggestedRank})` : 'Add New Player'}
           </h2>
       <button
-             onClick={() => { console.log(">>> [BUTTON PRESSED] X Close [AddPlayerDialog]"); onClose(); }}
+             onClick={() => { console.debug(">>> [BUTTON PRESSED] X Close [AddPlayerDialog]"); onClose(); }}
              style={{
                background: "transparent",
                border: "none",
@@ -205,7 +205,7 @@ export default function AddPlayerDialog({
               </label>
               <button
                 type="button"
-                onClick={() => { console.log(`>>> [BUTTON PRESSED] Trophy Toggle [AddPlayerDialog] -> ${!trophyEligible ? '+' : '-'}`); setTrophyEligible(!trophyEligible); }}
+                onClick={() => { console.debug(`>>> [BUTTON PRESSED] Trophy Toggle [AddPlayerDialog] -> ${!trophyEligible ? '+' : '-'}`); setTrophyEligible(!trophyEligible); }}
                 style={{
                   width: "100%",
                   padding: "0.5rem",
@@ -501,7 +501,7 @@ export default function AddPlayerDialog({
           >
     <button
                type="button"
-               onClick={() => { console.log(">>> [BUTTON PRESSED] Cancel [AddPlayerDialog]"); onClose(); }}
+               onClick={() => { console.debug(">>> [BUTTON PRESSED] Cancel [AddPlayerDialog]"); onClose(); }}
                style={{
                  padding: "0.5rem 1rem",
                  background: "#f3f4f6",

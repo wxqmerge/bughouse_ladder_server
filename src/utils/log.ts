@@ -12,5 +12,5 @@ import { getTimestamp } from '../../shared/utils/timeUtils';
  */
 export function log(category: string, message: string, ...args: any[]): void {
   const timestamp = getTimestamp();
-  console.log(`[${timestamp}] ${category}`, message, ...args);
+  console.debug(`[${timestamp}] ${category}`, message, ...args);
 }

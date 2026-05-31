@@ -75,7 +75,7 @@ export const saveUserSettings = (settings: UserSettings): void => {
   try {
     const normalizedServer = normalizeServerUrl(settings.server);
     localStorage.setItem(getUserSettingsKey(), JSON.stringify({ ...settings, server: normalizedServer }));
-    console.log('[UserSettings] Saved settings:', { server: normalizedServer || '(empty)', apiKey: settings.apiKey ? '(set)' : '(empty)' });
+    console.debug('[UserSettings] Saved settings:', { server: normalizedServer || '(empty)', apiKey: settings.apiKey ? '(set)' : '(empty)' });
   } catch (error) {
     console.error('[UserSettings] Failed to save settings:', error);
   }
@@ -86,7 +86,7 @@ export const saveUserSettings = (settings: UserSettings): void => {
  */
 const clearUserSettings = (): void => {
   localStorage.removeItem(getUserSettingsKey());
-  console.log('[UserSettings] Cleared user settings');
+  console.debug('[UserSettings] Cleared user settings');
 };
 
 function getLastWorkingConfigKey(): string {
@@ -127,7 +127,7 @@ export function getLastWorkingConfig(): LastWorkingConfig | null {
 
 function clearLastWorkingConfig(): void {
   localStorage.removeItem(getLastWorkingConfigKey());
-  console.log('[UserSettings] Cleared last working config');
+  console.debug('[UserSettings] Cleared last working config');
 }
 
 /**
@@ -160,7 +160,7 @@ export async function loadRemoteFile(fileUrl: string): Promise<{ success: boolea
     sessionStorage.setItem('pendingFileName', fileName);
     sessionStorage.setItem('pendingFileLoad', 'true');
     
-    console.log('[UserSettings] Remote file loaded:', fileName);
+    console.debug('[UserSettings] Remote file loaded:', fileName);
     return { success: true, filename: fileName };
   } catch (error) {
     console.error('[UserSettings] Failed to load remote file:', error);
@@ -196,7 +196,7 @@ export async function loadConfigFromUrl(): Promise<boolean> {
       apiKey: apiKey.trim(),
     });
 
-    console.log('[Config] Server config loaded from URL:', { server: normalized, hasKey: !!apiKey });
+    console.debug('[Config] Server config loaded from URL:', { server: normalized, hasKey: !!apiKey });
   }
   
   // Remote file load: ?config=3&file=http://host/file.tab

@@ -8,7 +8,7 @@ import {
   Check,
 } from "lucide-react";
 import { getVisibleTitles } from "../utils/titleMenu";
-import { titleToFileName } from "../../shared/utils/constants";
+import { titleToFileName, LADDER_COLORS } from "../../shared/utils/constants";
 import { debugClick } from "../utils/debug";
 
 interface MobileMenuProps {
@@ -30,7 +30,7 @@ interface MobileMenuProps {
   onDeleteHiddenPlayers?: () => void;
   onAutoLetter?: () => void;
   isAdmin: boolean;
-  tournamentMode?: boolean;
+  isTournamentActive?: boolean;
   projectName?: string;
   onSetTitle?: (title: string) => void;
   availableMiniGames?: string[];
@@ -45,6 +45,7 @@ interface MenuItem {
   dataMenuItem: string;
   hasCheckmark?: boolean;
   disabled?: boolean;
+  color?: string;
 }
 
 export default function MobileMenu({
@@ -64,7 +65,7 @@ export default function MobileMenu({
   onDeleteHiddenPlayers,
   onAutoLetter,
   isAdmin,
-  tournamentMode = false,
+  isTournamentActive = false,
   projectName,
   onSetTitle,
   availableMiniGames = [],
@@ -85,7 +86,7 @@ export default function MobileMenu({
       label: "Load",
       onClick: () => handleItemClick("Load", () => onFileAction("load")),
       dataMenuItem: "Load",
-      disabled: !isAdmin || tournamentMode,
+      disabled: !isAdmin || isTournamentActive,
     },
     {
       label: "Export",
@@ -104,6 +105,7 @@ export default function MobileMenu({
     
     return {
       label: title,
+      color: LADDER_COLORS[title],
       onClick: () => {
         if (isDisabled) {
           alert(`"${title}" is not available yet. Only admin can create mini-games.`);
@@ -284,7 +286,7 @@ label: "Restore Backup",
               backgroundColor: "transparent",
               border: "none",
               fontSize: "1rem",
-              color: item.disabled ? "#9ca3af" : "#374151",
+              color: item.disabled ? "#9ca3af" : (item.color || "#374151"),
               cursor: item.disabled ? "not-allowed" : "pointer",
               borderRadius: "0.25rem",
               marginBottom: "0.25rem",
@@ -354,7 +356,7 @@ label: "Restore Backup",
             justifyContent: "space-between",
             alignItems: "center",
             padding: "1rem",
-            backgroundColor: tournamentMode ? "#166534" : !writePermission ? "#1e40af" : "#1e293b",
+            background: isTournamentActive ? "linear-gradient(135deg, #166534 0%, #22c55e 100%)" : !writePermission ? "linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)" : "linear-gradient(135deg, #0f172a 0%, #334155 100%)",
             color: "white",
           }}
         >

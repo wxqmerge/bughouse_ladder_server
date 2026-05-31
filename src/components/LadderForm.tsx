@@ -11,8 +11,10 @@ import {
   repopulateGameResults,
   updatePlayerGameData,
 } from "../../shared/utils/hashUtils";
-import { processNewDayTransformations, isMiniGameTitle, titleToFileName, getNextTitle, SHORTCUT_TO_TITLE } from "../../shared/utils/constants";
+import { processNewDayTransformations, isMiniGameTitle, titleToFileName, getNextTitle, SHORTCUT_TO_TITLE, LADDER_COLORS } from "../../shared/utils/constants";
+import { MINI_GAME_FILES } from "../../shared/types";
 import { dataService } from "../services/dataService";
+import { miniGamesHaveResults } from "../services/miniGameLocalStorage";
 import ErrorDialog from "./ErrorDialog";
 import AddPlayerDialog from "./AddPlayerDialog";
 import { BulkPasteDialog } from "./BulkPasteDialog";
@@ -216,6 +218,7 @@ interface LadderFormProps {
   versionMismatch?: boolean;
   setVersionMismatch?: (v: boolean) => void;
   onTitleSwitch?: (newTitle: string) => Promise<boolean>;
+  onTournamentActiveChange?: (active: boolean) => void;
   testMode?: boolean;
   setTestMode?: (value: boolean) => void;
 }
@@ -233,10 +236,12 @@ export default function LadderForm({
   versionMismatch = false,
   setVersionMismatch,
   onTitleSwitch,
+  onTournamentActiveChange,
   testMode: testModeProp,
   setTestMode: _setTestModeProp,
 }: LadderFormProps = {}) {
   const [players, setPlayers] = useState<PlayerData[]>([]);
+  const [miniGamesHaveResultsFlag, setMiniGamesHaveResultsFlag] = useState(false);
   const [zoomLevel, setZoomLevel] = useState<
     "50%" | "70%" | "100%" | "140%" | "200%"
   >("100%");
@@ -244,7 +249,7 @@ export default function LadderForm({
     try {
       const serverUrl = getServerUrl();
       if (serverUrl) {
-        console.log('[INIT] Server configured, not restoring admin mode from localStorage');
+        console.debug('[INIT] Server configured, not restoring admin mode from localStorage');
         return false;
       }
       return isAdminMode();
@@ -391,7 +396,7 @@ export default function LadderForm({
     requestAnimationFrame(() => {
       const renderMs = performance.now() - renderStart;
       if (renderMs > 16) {
-        console.log(`[PERF RENDER] ${players.length} players × 31 rounds rendered in ${renderMs.toFixed(1)}ms`);
+        console.debug(`[PERF RENDER] ${players.length} players × 31 rounds rendered in ${renderMs.toFixed(1)}ms`);
       }
     });
   }, [players]);
@@ -671,7 +676,7 @@ export default function LadderForm({
   
               if (!existingFiles.includes(fileName)) {
                 isMiniGame = false;
-                console.log('[INIT] Mini-game file not found, falling back to ladder');
+                console.debug('[INIT] Mini-game file not found, falling back to ladder');
               } else {
                 apiUrl = `${serverUrl}/api/ladder/mini-games/read?fileName=${fileName}`;
               }
@@ -688,42 +693,46 @@ export default function LadderForm({
               const data = await response.json();
               const serverPlayers = data.data?.players || [];
               
-              if (serverPlayers && serverPlayers.length > 0) {
-                (window as any).__ladder_setStatus?.(`Loaded ${serverPlayers.length} players from server`);
-                const playersWithResults = serverPlayers.map((player: PlayerData) => ({
-                  ...player,
-                  gameResults: player.gameResults || new Array(31).fill(null),
-                }));
-                
-                // Mark cells as saved if they have underscores
-                playersWithResults.forEach((player: PlayerData) => {
-                  player.gameResults?.forEach((result: string | null, round: number) => {
-                    if (result && result.endsWith('_')) {
-                      markCellAsSaved(player.rank, round);
-                    }
-                  });
+              // Server responded OK — accept the data even if empty (e.g., after Clear All)
+              (window as any).__ladder_setStatus?.(`Loaded ${serverPlayers.length} players from server`);
+              const playersWithResults = serverPlayers.map((player: PlayerData) => ({
+                ...player,
+                gameResults: player.gameResults || new Array(31).fill(null),
+              }));
+              
+              // Mark cells as saved if they have underscores
+              playersWithResults.forEach((player: PlayerData) => {
+                player.gameResults?.forEach((result: string | null, round: number) => {
+                  if (result && result.endsWith('_')) {
+                    markCellAsSaved(player.rank, round);
+                  }
                 });
-                
-                setPlayers(playersWithResults);
-                lastRefreshHash.current = computePlayersHash(playersWithResults);
-                setSortBy(null);
+              });
+              
+              setPlayers(playersWithResults);
+              lastRefreshHash.current = computePlayersHash(playersWithResults);
+              setSortBy(null);
 
-                // Set mini-game file if we're in tournament mode
-                if (isMiniGame) {
-                  dataService.setMiniGameFile(titleToFileName(projectName));
-                }
-
-                // Initialize hash with fetched players to avoid redundant server request
-                dataService.setHash(serverPlayers);
-
-                console.log('[LadderForm]', `Loaded ${playersWithResults.length} players from server`);
-                (window as any).__ladder_setStatus?.(null);
-                return;
+              // Set mini-game file if we're in tournament mode
+              if (isMiniGame) {
+                dataService.setMiniGameFile(titleToFileName(projectName));
               }
+
+              // Initialize hash with fetched players to avoid redundant server request
+              dataService.setHash(serverPlayers);
+
+              if (serverPlayers.length === 0 && hasLocalPlayerData) {
+                console.warn('[INIT]', 'Server returned empty but localStorage has data — clearing stale localStorage');
+                dataService.savePlayers([]);
+              } else {
+                console.debug('[LadderForm]', `Loaded ${playersWithResults.length} players from server`);
+              }
+              (window as any).__ladder_setStatus?.(null);
+              return;
             }
             
-            // Server returned empty or error - log but continue to localStorage fallback
-            console.warn('[INIT]', 'Server fetch failed or empty, falling back to localStorage');
+            // Server returned non-OK status — fall back to localStorage
+            console.warn('[INIT]', `Server returned ${response.status}, falling back to localStorage`);
             if (!hasLocalPlayerData) {
               setRetryErrorMessage(`Server ${serverUrl} returned no data. Check the URL or load a file.`);
             }
@@ -762,7 +771,7 @@ export default function LadderForm({
             lastRefreshHash.current = computePlayersHash(playersWithResults);
             setSortBy(null);
             if (shouldLog(3)) {
-              console.log(
+              console.debug(
                 `[LadderForm] Loaded ${playersWithResults.length} players from localStorage`,
               );
             }
@@ -775,7 +784,7 @@ export default function LadderForm({
         // Load settings
         const settings = getSettings();
         if (settings) {
-          console.log(`[LadderForm] Loaded settings from storage:`, settings);
+          console.debug(`[LadderForm] Loaded settings from storage:`, settings);
         }
       } catch (err) {
         console.error("[INIT] Failed to load from storage:", err);
@@ -799,10 +808,10 @@ export default function LadderForm({
     }
 
     if (shouldLog(10)) {
-      console.log(`[LadderForm] Loading file: ${fileToLoad.name}`);
+      console.debug(`[LadderForm] Loading file: ${fileToLoad.name}`);
     }
     const projectName = fileToLoad.name.replace(/\.[^.]+$/, "");
-    console.log(
+    console.debug(
       `>>> [LOAD FILE] Setting title from filename: "${projectName}"`,
     );
     setProjectName(projectName);
@@ -862,24 +871,24 @@ export default function LadderForm({
         const player: PlayerData = {
           rank: cols[4] ? parseInt(cols[4]) : 0,
           group: cols[0] && cols[0].trim() !== "" ? cols[0].trim() : "",
-          lastName: cols[1] !== null ? cols[1] : "",
-          firstName: cols[2] !== null ? cols[2] : "",
+          lastName: cols[1] != null ? cols[1] : "",
+          firstName: cols[2] != null ? cols[2] : "",
           rating: Math.abs(parseInt(ratingStr)) || 0,
           nRating: Math.abs(parseInt(nRateStr)) || 0,
           trophyEligible: !isNegRating,
-          grade: cols[6] !== null ? cols[6] : "N/A",
+          grade: cols[6] != null ? cols[6] : "N/A",
           num_games:
-            cols[7] !== null && !isNaN(parseInt(cols[7]))
+            cols[7] != null && !isNaN(parseInt(cols[7]))
               ? parseInt(cols[7])
               : 0,
           attendance:
-            cols[8] !== null && !isNaN(parseInt(cols[8]))
+            cols[8] != null && !isNaN(parseInt(cols[8]))
               ? parseInt(cols[8])
               : 0,
-          phone: cols[9] !== null ? cols[9] : "",
-          info: cols[10] !== null ? cols[10] : "",
-          school: cols[11] !== null ? cols[11] : "",
-          room: cols[12] !== null ? cols[12] : "",
+          phone: cols[9] != null ? cols[9] : "",
+          info: cols[10] != null ? cols[10] : "",
+          school: cols[11] != null ? cols[11] : "",
+          room: cols[12] != null ? cols[12] : "",
           gameResults: [],
         };
 
@@ -900,6 +909,19 @@ export default function LadderForm({
       // Max 200 players limit
       if (loadedPlayers.length > 200) {
         loadedPlayers = loadedPlayers.slice(0, 200);
+      }
+
+      // Warn if active tournament and player count changes
+      if (loadedPlayers.length > 0 && (miniGamesHaveResultsFlag || players.some(p => (p.gameResults || []).some(r => r && r.trim() !== '')))) {
+        const oldCount = players.length;
+        const newCount = loadedPlayers.length;
+        if (oldCount !== newCount) {
+          if (!window.confirm(
+            `Active tournament detected. Loading this file will change player count from ${oldCount} to ${newCount} and could corrupt current results. Continue?`
+          )) {
+            return;
+          }
+        }
       }
 
       if (loadedPlayers.length > 0) {
@@ -989,6 +1011,165 @@ export default function LadderForm({
     };
 
     reader.readAsText(fileToLoad);
+  };
+
+  const loadZipFile = async (file: File) => {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const JSZip = (await import('jszip')).default;
+      const zip = await JSZip.loadAsync(arrayBuffer);
+
+      const imported: string[] = [];
+      const errors: string[] = [];
+      let ladderContent: string | null = null;
+
+      // Extract files from zip
+      const sortedFiles = Object.keys(zip.files).sort();
+      for (const fileName of sortedFiles) {
+        if (fileName.endsWith('/')) continue;
+        const fileContent = await zip.file(fileName)?.async('string');
+        if (!fileContent) continue;
+
+        if (fileName === 'ladder.tab') {
+          // Club ladder — load as main players
+          ladderContent = fileContent;
+          imported.push(fileName);
+        } else if (MINI_GAME_FILES.includes(fileName)) {
+          // Mini-game file — import via dataService
+          const result = await dataService.importMiniGameFiles(`=== ${fileName} ===\n${fileContent}`);
+          imported.push(...result.imported);
+          errors.push(...result.errors);
+        }
+        // Trophy files and unknown files are silently skipped
+      }
+
+      // Load club ladder data if found
+      if (ladderContent) {
+        if (isTrophyReport(ladderContent)) {
+          alert('ladder.tab appears to be a trophy report, not a ladder file.');
+          return;
+        }
+
+        const lines = ladderContent.split('\n');
+        const loadedPlayers: PlayerData[] = [];
+
+        for (const line of lines) {
+          const trimmed = line.trimEnd();
+          if (!trimmed || trimmed.startsWith('Group')) continue;
+
+          const cols = trimmed.split('\t');
+          if (cols[0].length > 2) cols.unshift(' ');
+
+          const ratingStr = String(cols[3] || '').trim();
+          const isNegRating = ratingStr.startsWith('-');
+          const nRateStr = String(cols[5] || '').trim();
+
+          const player: PlayerData = {
+            rank: cols[4] ? parseInt(cols[4]) : 0,
+            group: cols[0] && cols[0].trim() !== '' ? cols[0].trim() : '',
+            lastName: cols[1] != null ? cols[1] : '',
+            firstName: cols[2] != null ? cols[2] : '',
+            rating: Math.abs(parseInt(ratingStr)) || 0,
+            nRating: Math.abs(parseInt(nRateStr)) || 0,
+            trophyEligible: !isNegRating,
+            grade: cols[6] != null ? cols[6] : 'N/A',
+            num_games: cols[7] != null && !isNaN(parseInt(cols[7])) ? parseInt(cols[7]) : 0,
+            attendance: cols[8] != null && !isNaN(parseInt(cols[8])) ? parseInt(cols[8]) : 0,
+            phone: cols[9] != null ? cols[9] : '',
+            info: cols[10] != null ? cols[10] : '',
+            school: cols[11] != null ? cols[11] : '',
+            room: cols[12] != null ? cols[12] : '',
+            gameResults: [],
+          };
+
+          if (parseInt(String(player.rank)) > 0 && (player.lastName || player.firstName || player.nRating !== 0)) {
+            loadedPlayers.push(player);
+          }
+
+          const gameResults: (string | null)[] = [];
+          for (let g = 0; g < 31; g++) {
+            gameResults.push(cols[13 + g]);
+          }
+          player.gameResults = gameResults;
+        }
+
+        if (loadedPlayers.length > 200) {
+          loadedPlayers.splice(200);
+        }
+
+        if (loadedPlayers.length > 0) {
+          // Warn if active tournament and player count changes
+          if (miniGamesHaveResultsFlag || players.some(p => (p.gameResults || []).some(r => r && r.trim() !== ''))) {
+            const oldCount = players.length;
+            const newCount = loadedPlayers.length;
+            if (oldCount !== newCount) {
+              if (!window.confirm(
+                `Active tournament detected. Loading this file will change player count from ${oldCount} to ${newCount} and could corrupt current results. Continue?`
+              )) {
+                return;
+              }
+            }
+          }
+
+          loadedPlayers.sort((a, b) => a.rank - b.rank);
+          removeAllKeysWithPrefix(getKeyPrefix());
+
+          if (!isAdmin) {
+            await savePlayers(loadedPlayers);
+          }
+
+          if (isAdmin) {
+            const { blockingErrors, warnings, fixedPlayers } = checkPlayerRanks(loadedPlayers);
+            if (fixedPlayers) {
+              setRankLoadErrors(warnings);
+              loadedPlayers.length = 0;
+              loadedPlayers.push(...fixedPlayers);
+            } else {
+              setRankLoadErrors([...blockingErrors, ...warnings]);
+            }
+            setPendingImport({
+              players: loadedPlayers,
+              filename: file.name.replace('.zip', ''),
+              playerCount: loadedPlayers.length,
+              totalRoundsFilled: loadedPlayers.reduce(
+                (sum, p) => sum + (p.gameResults || []).filter(r => r && r.trim() !== '').length, 0
+              ),
+              totalGamesPlayed: Math.floor(
+                loadedPlayers.reduce(
+                  (sum, p) => sum + (p.gameResults || []).filter(r => r && r.trim() !== '').length, 0
+                ) / 2
+              ),
+              file,
+            });
+          } else {
+            setPlayers(loadedPlayers);
+            setSortBy(null);
+          }
+
+          const title = file.name.replace('.zip', '').replace(/\.[^.]+$/, '');
+          setProjectName(title);
+          setProjectNameStorage(title);
+        }
+      }
+
+      // Show summary
+      const uniqueImported = [...new Set(imported)];
+      let message = `Imported ${uniqueImported.length} file(s): ${uniqueImported.join(', ')}`;
+      if (ladderContent) {
+        const count = ladderContent.split('\n').filter(l => {
+          const cols = l.trimEnd().split('\t');
+          return cols[4] && parseInt(cols[4]) > 0 && (cols[1] || cols[2]);
+        }).length;
+        message += ` | Club ladder: ${count} players`;
+      }
+      if (errors.length > 0) {
+        message += `\nErrors: ${errors.join(', ')}`;
+      }
+      alert(message);
+    } catch (error) {
+      console.error('[ZIP] Failed to load zip file:', error);
+      alert('Failed to load zip file: ' + (error as Error).message);
+    }
   };
 
   const handleConfirmImport = async () => {
@@ -1081,7 +1262,7 @@ export default function LadderForm({
 
   const handleRestoreBackup = async (filename: string) => {
     debugClick(`Restore Backup:${filename}`);
-    console.log('[RESTORE_BACKUP]', 'Selected backup:', filename);
+    console.debug('[RESTORE_BACKUP]', 'Selected backup:', filename);
     setShowRestoreBackupDialog(false);
     
     (window as any).__ladder_setStatus?.('Restoring from backup...');
@@ -1091,9 +1272,13 @@ export default function LadderForm({
       
       if (serverUrl) {
         // Restore the backup on server first
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (userSettings.apiKey?.trim()) {
+          headers['X-API-Key'] = userSettings.apiKey.trim();
+        }
         const restoreResponse = await gatedFetch(`${serverUrl}/api/admin/backups/restore/${encodeURIComponent(filename)}`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
         });
         
         if (!restoreResponse.ok) {
@@ -1182,7 +1367,7 @@ export default function LadderForm({
      if (rankSet.size !== ranks.length) {
        const duplicates = ranks.filter((r, i) => ranks.indexOf(r) !== i);
        const uniqueDups = [...new Set(duplicates)];
-       console.log(`[RANK FIX] Duplicate ranks found: ${uniqueDups.join(', ')} — auto-fixing`);
+       console.debug(`[RANK FIX] Duplicate ranks found: ${uniqueDups.join(', ')} — auto-fixing`);
        const seen = new Map<number, PlayerData>();
        const fixedPlayers: PlayerData[] = [];
        for (const p of playersList) {
@@ -1191,7 +1376,7 @@ export default function LadderForm({
            let newR = p.rank + 1;
            while (used.has(newR)) newR++;
            fixedPlayers.push({ ...p, rank: newR });
-           console.log(`[RANK FIX] Moved player "${p.firstName} ${p.lastName}" from rank ${p.rank} → ${newR}`);
+           console.debug(`[RANK FIX] Moved player "${p.firstName} ${p.lastName}" from rank ${p.rank} → ${newR}`);
          } else {
            seen.set(p.rank, p);
            fixedPlayers.push(p);
@@ -1264,7 +1449,7 @@ export default function LadderForm({
     const { matches, hasErrors, errorCount, errors, playerResultsByMatch } =
       processGameResults(effectivePlayers, 31);
     if (shouldLog(4)) {
-      console.log(`Validated ${matches.length} matches, errors: ${errorCount}`);
+      console.debug(`Validated ${matches.length} matches, errors: ${errorCount}`);
     }
 
     if (warnings.length > 0 || (hasErrors && errors.length > 0)) {
@@ -1294,11 +1479,11 @@ export default function LadderForm({
   // Enter Games mode handlers
   const handleEnterGamesMenu = () => {
     debugClick("Enter Games");
-    console.log(">>> [MENU ACTION] Enter Games");
+    console.debug(">>> [MENU ACTION] Enter Games");
     
     // Exit admin mode if currently in it
     if (isAdmin) {
-      console.log(">>> [ENTER_GAMES] Exiting admin mode");
+      console.debug(">>> [ENTER_GAMES] Exiting admin mode");
       setIsAdmin(false);
     }
     
@@ -1509,7 +1694,7 @@ const handleRandomResult = (setter: (value: string) => void) => {
               log('[ENTER_GAMES]', 'Filled cell P' + playerRank + ' R' + (roundIndex + 1) + ': "' + resultStr + '"');
             } else {
               if (shouldLog(3)) {
-                console.log('[ENTER_GAMES_DEBUG] Cell SKIPPED (already filled): P' + playerRank + ' R' + (roundIndex + 1) + ' = "' + existingValue + '"');
+                console.debug('[ENTER_GAMES_DEBUG] Cell SKIPPED (already filled): P' + playerRank + ' R' + (roundIndex + 1) + ' = "' + existingValue + '"');
               }
             }
           }
@@ -1557,7 +1742,7 @@ const handleRandomResult = (setter: (value: string) => void) => {
       log('[ENTER_GAMES]', 'Errors found during recalculation - showing error dialog');
       // isRecalculating stays true, ErrorDialog shows in recalculate mode with errors
       setEnterGamesError(null);
-      console.log(">>> [ENTER_RECALCULATE_SAVE] Errors found, waiting for correction");
+      console.debug(">>> [ENTER_RECALCULATE_SAVE] Errors found, waiting for correction");
       return;
     }
     
@@ -1580,12 +1765,12 @@ const handleRandomResult = (setter: (value: string) => void) => {
     
     setEnterGamesError(null);
     setIsEnterGamesOverride(false);
-    console.log(">>> [ENTER_RECALCULATE_SAVE] Complete");
+    console.debug(">>> [ENTER_RECALCULATE_SAVE] Complete");
   };
 
   const handleEnterGamesClose = () => {
     debugClick("Enter Games:Close");
-    console.log(">>> [ENTER_GAMES_CLOSE] Exiting Enter Games mode");
+    console.debug(">>> [ENTER_GAMES_CLOSE] Exiting Enter Games mode");
     setIsEnterGamesMode(false);
     setEntryCell(null);
     setTempGameResult(null);
@@ -1594,7 +1779,7 @@ const handleRandomResult = (setter: (value: string) => void) => {
   };
 
   const recalculateRatings = async () => {
-    console.log(`>>> [BUTTON PRESSED] Recalculate Ratings - ${players.length} players, isAdmin=${isAdmin}`);
+    console.debug(`>>> [BUTTON PRESSED] Recalculate Ratings - ${players.length} players, isAdmin=${isAdmin}`);
 
     try {
       (window as any).__ladder_setStatus?.(`Recalculating ratings...`);
@@ -1609,13 +1794,13 @@ const handleRandomResult = (setter: (value: string) => void) => {
       let currentPlayers = players;
 
       // Always build fresh matches from current UI state (no caching)
-      console.log('[RECALC] Checking game errors...');
+      console.debug('[RECALC] Checking game errors...');
       const result = checkGameErrors();
-      console.log(`[RECALC] Errors: ${result.hasErrors ? result.errors.length : 'none'}, Matches: ${result.matches.length}`);
+      console.debug(`[RECALC] Errors: ${result.hasErrors ? result.errors.length : 'none'}, Matches: ${result.matches.length}`);
 
       // Auto-fix duplicate ranks
       if (result.fixedPlayers) {
-        console.log(`[RECALC] Applying auto-fixed ranks for ${result.fixedPlayers.length} players`);
+        console.debug(`[RECALC] Applying auto-fixed ranks for ${result.fixedPlayers.length} players`);
         setPlayers(result.fixedPlayers);
         currentPlayers = result.fixedPlayers;
       }
@@ -1627,9 +1812,9 @@ const handleRandomResult = (setter: (value: string) => void) => {
           try {
             const pendingNewDay = JSON.parse(pendingNewDayJson);
             if (pendingNewDay.reRank === true) {
-              console.log('[RECALC] Fixing rank warnings before New Day + ReRank');
+              console.debug('[RECALC] Fixing rank warnings before New Day + ReRank');
               const fixedPlayers = fixPlayerRanks(currentPlayers);
-              console.log(`[RECALC] Fixed ${currentPlayers.length} players to ${fixedPlayers.length} (removed duplicates)`);
+              console.debug(`[RECALC] Fixed ${currentPlayers.length} players to ${fixedPlayers.length} (removed duplicates)`);
               setPlayers(fixedPlayers);
               currentPlayers = fixedPlayers;
             }
@@ -1641,7 +1826,7 @@ const handleRandomResult = (setter: (value: string) => void) => {
 
       // If there are errors, show the error dialog and return early
       if (result.hasErrors && result.errors.length > 0) {
-        console.log(`=== RECALC PAUSED === Found ${result.errors.length} errors - showing error dialog`);
+        console.debug(`=== RECALC PAUSED === Found ${result.errors.length} errors - showing error dialog`);
         return;
       }
 
@@ -1649,16 +1834,16 @@ const handleRandomResult = (setter: (value: string) => void) => {
       let playerResultsByMatch: Map<string, PlayerMatchResult[]> | undefined =
         result.playerResultsByMatch;
 
-      console.log(`\n=== RECALC START === Matches to process: ${matches.length}`);
+      console.debug(`\n=== RECALC START === Matches to process: ${matches.length}`);
       // Count existing game results before clear
       let totalExisting = 0;
       for (const p of currentPlayers) {
         const filled = p.gameResults.filter((r) => r !== null && r !== "");
         totalExisting += filled.length;
       }
-      console.log(`Total existing game results: ${totalExisting}`);
+      console.debug(`Total existing game results: ${totalExisting}`);
 
-      console.log('[RECALC] Repopulating game results...');
+      console.debug('[RECALC] Repopulating game results...');
       const processedPlayers = repopulateGameResults(
         currentPlayers,
         matches,
@@ -1671,29 +1856,29 @@ const handleRandomResult = (setter: (value: string) => void) => {
         const filled = p.gameResults.filter((r) => r !== null && r !== "");
         totalAfterRepop += filled.length;
       }
-      console.log(`Total results after repopulation: ${totalAfterRepop}`);
+      console.debug(`Total results after repopulation: ${totalAfterRepop}`);
 
-      console.log('[RECALC] Calculating ratings...');
+      console.debug('[RECALC] Calculating ratings...');
       const calculatedPlayers = calculateRatings(processedPlayers, matches).players;
-      console.log('[RECALC] Ratings calculated.');
+      console.debug('[RECALC] Ratings calculated.');
 
       // Check for pending New Day operation (set by App.tsx before calling recalculate)
       const pendingNewDayData = getPendingNewDay();
       if (pendingNewDayData) {
-        console.log(
+        console.debug(
           `>>> [RECALC COMPLETE] Pending New Day detected: ${JSON.stringify(pendingNewDayData)}`,
         );
         try {
           const pendingNewDay = pendingNewDayData;
           const reRank = pendingNewDay.reRank === true;
-          console.log(`>>> [NEW DAY] Processing with reRank=${reRank}`);
+          console.debug(`>>> [NEW DAY] Processing with reRank=${reRank}`);
 
           // Get current title and determine next title for mini-games
           const currentTitle = getProjectName();
-          console.log(
+          console.debug(
             `>>> [NEW DAY] Current title from storage: "${currentTitle}"`,
           );
-          console.log(`>>> [NEW DAY] Next title will be: "${getNextTitle(currentTitle)}"`);
+          console.debug(`>>> [NEW DAY] Next title will be: "${getNextTitle(currentTitle)}"`);
 
       // Apply New Day transformations
          const finalPlayers = processNewDayTransformations(
@@ -1707,7 +1892,7 @@ const handleRandomResult = (setter: (value: string) => void) => {
            clearSettings();
 
            if (shouldLog(10)) {
-             console.log(
+             console.debug(
                `New Day complete - Title: ${getNextTitle(currentTitle)}, ReRank: ${reRank}\n`,
              );
            }
@@ -1726,19 +1911,19 @@ const handleRandomResult = (setter: (value: string) => void) => {
         }
       }
 
-      console.log('[RECALC] Setting players and saving...');
+      console.debug('[RECALC] Setting players and saving...');
       const normalizedPlayers = normalizePlayersAttendance(normalizePlayersTrophy(calculatedPlayers));
       setPlayers(normalizedPlayers);
       await savePlayers(normalizedPlayers);
       if (shouldLog(10)) {
-        console.log("Rating calculation complete\n");
+        console.debug("Rating calculation complete\n");
       }
 
       // End batch mode - triggers single server sync with all accumulated changes
-      console.log('[RECALC] Ending batch mode...');
+      console.debug('[RECALC] Ending batch mode...');
       await endBatch();
       
-      console.log('[RECALC] Recalculate complete.');
+      console.debug('[RECALC] Recalculate complete.');
       (window as any).__ladder_setStatus?.(null);
     } catch (err) {
       console.error('[RECALC] ERROR:', err);
@@ -1764,18 +1949,18 @@ const handleRandomResult = (setter: (value: string) => void) => {
    // Check for pending New Day operation (set by App.tsx before calling recalculate)
     const pendingNewDayData = getPendingNewDay();
     if (pendingNewDayData) {
-      console.log(
+      console.debug(
         `>>> [RECALC COMPLETE] Pending New Day detected: ${JSON.stringify(pendingNewDayData)}`,
       );
       try {
         const pendingNewDay = pendingNewDayData;
         const reRank = pendingNewDay.reRank === true;
-          console.log(`>>> [NEW DAY] Processing with reRank=${reRank}`);
+          console.debug(`>>> [NEW DAY] Processing with reRank=${reRank}`);
 
           // Get current title and determine next title for mini-games
           const currentTitle = getProjectName();
-          console.log(`>>> [NEW DAY] Current title from storage: "${currentTitle}"`);
-          console.log(`>>> [NEW DAY] Next title will be: "${getNextTitle(currentTitle)}"`);
+          console.debug(`>>> [NEW DAY] Current title from storage: "${currentTitle}"`);
+          console.debug(`>>> [NEW DAY] Next title will be: "${getNextTitle(currentTitle)}"`);
 
 
          // Fix rank issues before New Day transformations
@@ -1795,7 +1980,7 @@ const handleRandomResult = (setter: (value: string) => void) => {
           clearSettings();
 
           if (shouldLog(10)) {
-            console.log(
+            console.debug(
               `New Day complete - Title: ${getNextTitle(currentTitle)}, ReRank: ${reRank}\n`,
             );
           }
@@ -1882,7 +2067,7 @@ const handleRandomResult = (setter: (value: string) => void) => {
 
         // If there are rank blocking errors, show alert and return early
         if (result.rankBlockingErrors && result.rankBlockingErrors.length > 0) {
-          console.log(`=== RECALC PAUSED === Rank blocking errors detected`);
+          console.debug(`=== RECALC PAUSED === Rank blocking errors detected`);
           alert('Rank Errors:\n\n' + result.rankBlockingErrors.join('\n') + '\n\nPlease fix ranks before recalculating.');
           return true;
         }
@@ -1890,8 +2075,8 @@ const handleRandomResult = (setter: (value: string) => void) => {
         // If there are errors, show the error dialog and return early
         if (result.hasErrors && result.errors.length > 0) {
           if (shouldLog(5)) {
-            console.log(`\n=== RECALC PAUSED ===`);
-            console.log(
+            console.debug(`\n=== RECALC PAUSED ===`);
+            console.debug(
               `Found ${result.errors.length} errors - showing error dialog`,
             );
           }
@@ -1903,18 +2088,18 @@ const handleRandomResult = (setter: (value: string) => void) => {
           result.playerResultsByMatch;
 
         if (shouldLog(3)) {
-          console.log(`\n=== RECALC START ===`);
-          console.log(`Matches to process: ${matches.length}`);
+          console.debug(`\n=== RECALC START ===`);
+          console.debug(`Matches to process: ${matches.length}`);
           let totalExisting = 0;
           for (const p of mergePlayers) {
             const filled = p.gameResults.filter((r) => r !== null && r !== "");
             totalExisting += filled.length;
           }
-          console.log(`Total existing game results: ${totalExisting}`);
+          console.debug(`Total existing game results: ${totalExisting}`);
         }
 
         if (shouldLog(2)) {
-          console.log(`[REPOPULATE] Starting repopulateGameResults (O(N*R)): ${mergePlayers.length} players x ${matches.length} matches`);
+          console.debug(`[REPOPULATE] Starting repopulateGameResults (O(N*R)): ${mergePlayers.length} players x ${matches.length} matches`);
         }
         const processedPlayers = repopulateGameResults(
           mergePlayers,
@@ -1929,24 +2114,24 @@ const handleRandomResult = (setter: (value: string) => void) => {
             const filled = p.gameResults.filter((r) => r !== null && r !== "");
             totalAfterRepop += filled.length;
           }
-          console.log(`Total results after repopulation: ${totalAfterRepop}`);
+          console.debug(`Total results after repopulation: ${totalAfterRepop}`);
         }
 
         if (shouldLog(3)) {
-          console.log('[RECALC_DEBUG] [ADMIN] === RECALC START ===');
-          console.log('[RECALC_DEBUG] [ADMIN] Input matches count:', matches.length);
-          console.log('[RECALC_DEBUG] [ADMIN] Input matches:', JSON.stringify(matches.map(m => ({p1:m.player1, p2:m.player2, p3:m.player3, p4:m.player4, s1:m.score1, s2:m.score2}))));
+          console.debug('[RECALC_DEBUG] [ADMIN] === RECALC START ===');
+          console.debug('[RECALC_DEBUG] [ADMIN] Input matches count:', matches.length);
+          console.debug('[RECALC_DEBUG] [ADMIN] Input matches:', JSON.stringify(matches.map(m => ({p1:m.player1, p2:m.player2, p3:m.player3, p4:m.player4, s1:m.score1, s2:m.score2}))));
         }
         
         const calculatedPlayers = calculateRatings(processedPlayers, matches).players;
         const normalizedPlayers = normalizePlayersAttendance(normalizePlayersTrophy(calculatedPlayers));
 
         if (shouldLog(3)) {
-          console.log('[RECALC_DEBUG] [ADMIN] After calculateRatings + normalize:');
+          console.debug('[RECALC_DEBUG] [ADMIN] After calculateRatings + normalize:');
           for (const p of normalizedPlayers) {
             const filled = (p.gameResults || []).filter((r) => r && r.trim() && r.trim() !== '');
             if (filled.length > 0) {
-              console.log('[RECALC_DEBUG] [ADMIN] P' + p.rank + ' results:', filled.map((r, i) => 'R' + i + '=' + r));
+              console.debug('[RECALC_DEBUG] [ADMIN] P' + p.rank + ' results:', filled.map((r, i) => 'R' + i + '=' + r));
             }
           }
         }
@@ -1961,16 +2146,16 @@ const handleRandomResult = (setter: (value: string) => void) => {
         const dedupedAdminPlayers = deduplicatePlayers(lockedPlayers);
 
         if (shouldLog(3)) {
-          console.log('[RECALC_DEBUG] [ADMIN] After locking:');
+          console.debug('[RECALC_DEBUG] [ADMIN] After locking:');
           for (const p of dedupedAdminPlayers) {
             const filled = (p.gameResults || []).filter((r) => r && r.trim() && r.trim() !== '');
             if (filled.length > 0) {
-              console.log('[RECALC_DEBUG] [ADMIN] P' + p.rank + ' locked:', filled.map((r, i) => 'R' + i + '=' + r));
+              console.debug('[RECALC_DEBUG] [ADMIN] P' + p.rank + ' locked:', filled.map((r, i) => 'R' + i + '=' + r));
             }
           }
         }
         if (shouldLog(3)) {
-          console.log('[RECALC_DEBUG] [ADMIN] === RECALC END ===');
+          console.debug('[RECALC_DEBUG] [ADMIN] === RECALC END ===');
         }
 
         // Save with waitForServer=true to wait for server confirmation
@@ -2007,7 +2192,7 @@ const handleRandomResult = (setter: (value: string) => void) => {
 
       if (result.rankBlockingErrors && result.rankBlockingErrors.length > 0) {
         if (shouldLog(5)) {
-          console.log(`\n=== RECALC PAUSED === Rank blocking errors detected`);
+          console.debug(`\n=== RECALC PAUSED === Rank blocking errors detected`);
         }
         alert('Rank Errors:\n\n' + result.rankBlockingErrors.join('\n') + '\n\nPlease fix ranks before recalculating.');
         return true;
@@ -2015,8 +2200,8 @@ const handleRandomResult = (setter: (value: string) => void) => {
 
       if (result.hasErrors && result.errors.length > 0) {
         if (shouldLog(5)) {
-          console.log(`\n=== RECALC PAUSED ===`);
-          console.log(`Found ${result.errors.length} errors - showing error dialog`);
+          console.debug(`\n=== RECALC PAUSED ===`);
+          console.debug(`Found ${result.errors.length} errors - showing error dialog`);
         }
         return true;
       }
@@ -2025,27 +2210,27 @@ const handleRandomResult = (setter: (value: string) => void) => {
       let playerResultsByMatch: Map<string, PlayerMatchResult[]> | undefined = result.playerResultsByMatch;
 
       if (shouldLog(3)) {
-        console.log(`\n=== RECALC START ===`);
-        console.log(`Matches to process: ${matches.length}`);
+        console.debug(`\n=== RECALC START ===`);
+        console.debug(`Matches to process: ${matches.length}`);
       }
 
    if (shouldLog(3)) {
-      console.log('[RECALC_DEBUG] === RECALC START ===');
-      console.log('[RECALC_DEBUG] Input matches count:', matches.length);
-      console.log('[RECALC_DEBUG] Input matches:', JSON.stringify(matches.map(m => ({p1:m.player1, p2:m.player2, p3:m.player3, p4:m.player4, s1:m.score1, s2:m.score2}))));
+      console.debug('[RECALC_DEBUG] === RECALC START ===');
+      console.debug('[RECALC_DEBUG] Input matches count:', matches.length);
+      console.debug('[RECALC_DEBUG] Input matches:', JSON.stringify(matches.map(m => ({p1:m.player1, p2:m.player2, p3:m.player3, p4:m.player4, s1:m.score1, s2:m.score2}))));
     }
 
   if (shouldLog(2)) {
-       console.log(`[REPOPULATE] Starting repopulateGameResults (O(N*R)): ${playersRef.current.length} players x ${matches.length} matches`);
+       console.debug(`[REPOPULATE] Starting repopulateGameResults (O(N*R)): ${playersRef.current.length} players x ${matches.length} matches`);
      }
      const processedPlayers = repopulateGameResults(playersRef.current, matches, 31, playerResultsByMatch);
     
     if (shouldLog(3)) {
-      console.log('[RECALC_DEBUG] After repopulateGameResults:');
+      console.debug('[RECALC_DEBUG] After repopulateGameResults:');
       for (const p of processedPlayers) {
         const filled = (p.gameResults || []).filter((r) => r && r.trim() && r.trim() !== '');
         if (filled.length > 0) {
-          console.log('[RECALC_DEBUG] P' + p.rank + ' results:', filled.map((r, i) => 'R' + i + '=' + r));
+          console.debug('[RECALC_DEBUG] P' + p.rank + ' results:', filled.map((r, i) => 'R' + i + '=' + r));
         }
       }
     }
@@ -2054,11 +2239,11 @@ const handleRandomResult = (setter: (value: string) => void) => {
     const normalizedPlayers = normalizePlayersAttendance(normalizePlayersTrophy(calculatedPlayers));
 
     if (shouldLog(3)) {
-      console.log('[RECALC_DEBUG] After calculateRatings + normalize:');
+      console.debug('[RECALC_DEBUG] After calculateRatings + normalize:');
       for (const p of normalizedPlayers) {
         const filled = (p.gameResults || []).filter((r) => r && r.trim() && r.trim() !== '');
         if (filled.length > 0) {
-          console.log('[RECALC_DEBUG] P' + p.rank + ' results:', filled.map((r, i) => 'R' + i + '=' + r));
+          console.debug('[RECALC_DEBUG] P' + p.rank + ' results:', filled.map((r, i) => 'R' + i + '=' + r));
         }
       }
     }
@@ -2073,16 +2258,16 @@ const handleRandomResult = (setter: (value: string) => void) => {
     const dedupedPlayers = deduplicatePlayers(lockedPlayers);
 
     if (shouldLog(3)) {
-      console.log('[RECALC_DEBUG] After locking:');
+      console.debug('[RECALC_DEBUG] After locking:');
       for (const p of lockedPlayers) {
         const filled = (p.gameResults || []).filter((r) => r && r.trim() && r.trim() !== '');
         if (filled.length > 0) {
-          console.log('[RECALC_DEBUG] P' + p.rank + ' locked:', filled.map((r, i) => 'R' + i + '=' + r));
+          console.debug('[RECALC_DEBUG] P' + p.rank + ' locked:', filled.map((r, i) => 'R' + i + '=' + r));
         }
       }
     }
     if (shouldLog(3)) {
-      console.log('[RECALC_DEBUG] === RECALC END ===');
+      console.debug('[RECALC_DEBUG] === RECALC END ===');
     }
 
     // Push full table to server
@@ -2419,7 +2604,7 @@ const handleRandomResult = (setter: (value: string) => void) => {
 
     if (!validation.isValid) {
       const errorCode = Math.abs(validation.error || 10);
-      console.log('[submitCorrection] Invalid format:', {
+      console.debug('[submitCorrection] Invalid format:', {
         input: correctedString,
         errorCode,
         parsedPlayers: validation.parsedPlayersList,
@@ -2503,7 +2688,7 @@ const handleRandomResult = (setter: (value: string) => void) => {
 
   const handleCorrectionCancel = () => {
     if (shouldLog(10)) {
-      console.log(">>> [BUTTON PRESSED] Cancel");
+      console.debug(">>> [BUTTON PRESSED] Cancel");
     }
 
     // Clear pending New Day flag since user is cancelling
@@ -2542,13 +2727,13 @@ const handleRandomResult = (setter: (value: string) => void) => {
     // Check for pending New Day operation
     const pendingNewDayJson = getPendingNewDay();
     if (pendingNewDayJson) {
-      console.log(
+      console.debug(
         `>>> [COMPLETE CALC] Pending New Day detected: ${pendingNewDayJson}`,
       );
       try {
         const pendingNewDay = JSON.parse(pendingNewDayJson);
         const reRank = pendingNewDay.reRank === true;
-        console.log(`>>> [NEW DAY] Processing with reRank=${reRank}`);
+        console.debug(`>>> [NEW DAY] Processing with reRank=${reRank}`);
 
         // Get current title and determine next title for mini-games
         const currentTitle = getProjectName();
@@ -2573,7 +2758,7 @@ const handleRandomResult = (setter: (value: string) => void) => {
         clearSettings();
 
         if (shouldLog(10)) {
-          console.log(
+          console.debug(
             `New Day complete - Title: ${nextTitle}, ReRank: ${reRank}`,
           );
         }
@@ -2607,12 +2792,12 @@ const handleRandomResult = (setter: (value: string) => void) => {
     setEntryCell(null);
     setIsRecalculating(false);
     if (shouldLog(10)) {
-      console.log("Rating calculation complete");
+      console.debug("Rating calculation complete");
     }
   };
 
   const handleWalkthroughNext = () => {
-    console.log(`>>> [BUTTON PRESSED] Walkthrough Next (recalc) [index ${walkthroughIndex} → ${walkthroughIndex + 1}]`);
+    console.debug(`>>> [BUTTON PRESSED] Walkthrough Next (recalc) [index ${walkthroughIndex} → ${walkthroughIndex + 1}]`);
     if (walkthroughIndex < walkthroughErrors.length - 1) {
       setWalkthroughIndex(walkthroughIndex + 1);
       setEntryCell({
@@ -2625,7 +2810,7 @@ const handleRandomResult = (setter: (value: string) => void) => {
   };
 
   const handleWalkthroughPrev = () => {
-    console.log(`>>> [BUTTON PRESSED] Walkthrough Prev (recalc) [index ${walkthroughIndex} → ${walkthroughIndex - 1}]`);
+    console.debug(`>>> [BUTTON PRESSED] Walkthrough Prev (recalc) [index ${walkthroughIndex} → ${walkthroughIndex - 1}]`);
     if (walkthroughIndex > 0) {
       setWalkthroughIndex(walkthroughIndex - 1);
     }
@@ -2648,13 +2833,13 @@ const handleRandomResult = (setter: (value: string) => void) => {
   };
 
 const handleWalkthroughNextForReview = () => {
-    console.log(`>>> [BUTTON PRESSED] Walkthrough Next (review) [index ${walkthroughIndex} → ${walkthroughIndex + 1}]`);
+    console.debug(`>>> [BUTTON PRESSED] Walkthrough Next (review) [index ${walkthroughIndex} → ${walkthroughIndex + 1}]`);
     if (isWalkthrough && walkthroughIndex < getNonBlankCells().length - 1) {
       const newIndex = walkthroughIndex + 1;
       setWalkthroughIndex(newIndex);
       // Update entryCell to highlight the new cell
       const nextCell = getNonBlankCells()[newIndex];
-      console.log(`[WALKTHROUGH NAV] Next → cell #${newIndex + 1}: rank=${nextCell?.playerRank}, round=${nextCell?.round}`);
+      console.debug(`[WALKTHROUGH NAV] Next → cell #${newIndex + 1}: rank=${nextCell?.playerRank}, round=${nextCell?.round}`);
       if (nextCell) {
         setEntryCell({ playerRank: nextCell.playerRank, round: nextCell.round });
       }
@@ -2664,12 +2849,12 @@ const handleWalkthroughNextForReview = () => {
   };
 
   const handleWalkthroughPrevForReview = () => {
-    console.log(`>>> [BUTTON PRESSED] Walkthrough Prev (review) [index ${walkthroughIndex} → ${walkthroughIndex - 1}]`);
+    console.debug(`>>> [BUTTON PRESSED] Walkthrough Prev (review) [index ${walkthroughIndex} → ${walkthroughIndex - 1}]`);
     if (isWalkthrough && walkthroughIndex > 0) {
       const newIndex = walkthroughIndex - 1;
       setWalkthroughIndex(newIndex);
       const prevCell = getNonBlankCells()[newIndex];
-      console.log(`[WALKTHROUGH NAV] Prev → cell #${newIndex + 1}: rank=${prevCell?.playerRank}, round=${prevCell?.round}`);
+      console.debug(`[WALKTHROUGH NAV] Prev → cell #${newIndex + 1}: rank=${prevCell?.playerRank}, round=${prevCell?.round}`);
       if (prevCell) {
         setEntryCell({ playerRank: prevCell.playerRank, round: prevCell.round });
       }
@@ -2677,7 +2862,7 @@ const handleWalkthroughNextForReview = () => {
   };
 
   const clearCurrentCell = () => {
-    console.log(`>>> [BUTTON PRESSED] Clear Cell [${entryCell?.playerRank}:${entryCell?.round}]`);
+    console.debug(`>>> [BUTTON PRESSED] Clear Cell [${entryCell?.playerRank}:${entryCell?.round}]`);
     if (!entryCell) return;
 
     // Mark local changes if we're in server down mode
@@ -2690,11 +2875,11 @@ const handleWalkthroughNextForReview = () => {
     const rawCellValue = playerToClear?.gameResults?.[entryCell.round] || "";
     const cellValue = rawCellValue.replace(/_+$/, ""); // Strip trailing underscores
 
-    console.log(`>>> [CLEAR CELL DEBUG] Cell: ${entryCell.playerRank}:${entryCell.round}, Raw: "${rawCellValue}", Value: "${cellValue}"`);
+    console.debug(`>>> [CLEAR CELL DEBUG] Cell: ${entryCell.playerRank}:${entryCell.round}, Raw: "${rawCellValue}", Value: "${cellValue}"`);
 
     // Guard: don't process empty cells — just return silently
     if (cellValue === "") {
-      console.log(`>>> [CLEAR CELL DEBUG] Cell is already empty, skipping`);
+      console.debug(`>>> [CLEAR CELL DEBUG] Cell is already empty, skipping`);
       return;
     }
 
@@ -2715,11 +2900,11 @@ const handleWalkthroughNextForReview = () => {
       }
     }
 
-    console.log(`>>> [CLEAR CELL DEBUG] Found ${cellsToClear.length} matching cells to clear`);
+    console.debug(`>>> [CLEAR CELL DEBUG] Found ${cellsToClear.length} matching cells to clear`);
 
     // If no matches found but cell has content, debug and force-clear at least the current cell
     if (cellsToClear.length === 0 && cellValue !== "") {
-      console.log(`>>> [CLEAR CELL DEBUG] No matches found for "${cellValue}", forcing clear of current cell only`);
+      console.debug(`>>> [CLEAR CELL DEBUG] No matches found for "${cellValue}", forcing clear of current cell only`);
       cellsToClear.push({ playerRank: entryCell.playerRank, round: entryCell.round });
     }
 
@@ -2744,14 +2929,14 @@ const handleWalkthroughNextForReview = () => {
     
     setPlayers(updatedPlayers);
     dataService.savePlayers(updatedPlayers).then(() => {
-      console.log(`[CLEAR CELL] ✓ Cleared ${cellsToClear.length} matching cells with value "${cellValue}" — saved`);
+      console.debug(`[CLEAR CELL] ✓ Cleared ${cellsToClear.length} matching cells with value "${cellValue}" — saved`);
     }).catch((err: Error) => {
       console.error("Failed to save cleared cell:", err);
     });
 
     // Log how many cells were cleared
     if (cellsToClear.length > 1) {
-      console.log(`>>> [CLEAR CELL] Cleared ${cellsToClear.length} matching cells with value "${cellValue}"`);
+      console.debug(`>>> [CLEAR CELL] Cleared ${cellsToClear.length} matching cells with value "${cellValue}"`);
     }
 
     // Remove all errors for cleared cells from walkthrough
@@ -2796,18 +2981,18 @@ const handleWalkthroughNextForReview = () => {
         setWalkthroughIndex(clampedIndex);
         const currentCell = newCells[clampedIndex];
         setEntryCell({ playerRank: currentCell.playerRank, round: currentCell.round });
-        console.log(`[CLEAR CELL] Updated entryCell to walkthrough cell #${clampedIndex + 1}: rank=${currentCell.playerRank}, round=${currentCell.round}`);
+        console.debug(`[CLEAR CELL] Updated entryCell to walkthrough cell #${clampedIndex + 1}: rank=${currentCell.playerRank}, round=${currentCell.round}`);
       } else {
         setIsWalkthrough(false);
-        console.log(`[CLEAR CELL] No more non-blank cells — exiting walkthrough`);
+        console.debug(`[CLEAR CELL] No more non-blank cells — exiting walkthrough`);
       }
     }
   };
 
   const handleTeleport = async (targetLadder: string, resultString: string) => {
-    console.log(`>>> [TELEPORT] Starting teleport to ${targetLadder}`);
+    console.debug(`>>> [TELEPORT] Starting teleport to ${targetLadder}`);
     if (!entryCell || !resultString.trim()) {
-      console.log(`>>> [TELEPORT] No entry cell or empty input, aborting`);
+      console.debug(`>>> [TELEPORT] No entry cell or empty input, aborting`);
       return;
     }
 
@@ -2817,7 +3002,7 @@ const handleWalkthroughNextForReview = () => {
       // Parse the result string to get player ranks
       const parsed = updatePlayerGameData(resultString.trim().replace(/_$/, ""), true);
       if (!parsed.isValid) {
-        console.log(`>>> [TELEPORT] Invalid result string, aborting`);
+        console.debug(`>>> [TELEPORT] Invalid result string, aborting`);
         setIsTeleporting(false);
         return;
       }
@@ -2829,7 +3014,7 @@ const handleWalkthroughNextForReview = () => {
         parsed.parsedPlayer4Rank || 0,
       ].filter((r): r is number => r > 0);
 
-      console.log(`>>> [TELEPORT] Player ranks in result: ${playerRanks.join(', ')}`);
+      console.debug(`>>> [TELEPORT] Player ranks in result: ${playerRanks.join(', ')}`);
 
       // Step 1: Clear all matching cells in current ladder
       const cellValue = resultString.trim().replace(/_+$/, "");
@@ -2861,7 +3046,7 @@ const handleWalkthroughNextForReview = () => {
           });
           setPlayers(clearedPlayers);
           await dataService.savePlayers(clearedPlayers);
-          console.log(`>>> [TELEPORT] Cleared ${cellsToClear.length} matching cells in source ladder`);
+          console.debug(`>>> [TELEPORT] Cleared ${cellsToClear.length} matching cells in source ladder`);
         }
       }
 
@@ -2875,14 +3060,14 @@ const handleWalkthroughNextForReview = () => {
         const existingFiles = await dataService.checkMiniGameFiles();
 
         if (!existingFiles.includes(fileName)) {
-          console.log(`>>> [TELEPORT] Target mini-game file ${fileName} doesn't exist, aborting`);
+          console.debug(`>>> [TELEPORT] Target mini-game file ${fileName} doesn't exist, aborting`);
           setIsTeleporting(false);
           return;
         }
 
         const allowed = await onTitleSwitch(targetLadder);
         if (!allowed) {
-          console.log(`>>> [TELEPORT] Title switch not allowed, aborting`);
+          console.debug(`>>> [TELEPORT] Title switch not allowed, aborting`);
           setIsTeleporting(false);
           return;
         }
@@ -2897,12 +3082,12 @@ const handleWalkthroughNextForReview = () => {
           gameResults: p.gameResults || new Array(31).fill(null),
         }));
         setPlayers(targetPlayersWithResults);
-        console.log(`>>> [TELEPORT] Switched to ${targetLadder} with ${targetPlayersWithResults.length} players`);
+        console.debug(`>>> [TELEPORT] Switched to ${targetLadder} with ${targetPlayersWithResults.length} players`);
       } else if (!targetIsMiniGame && onTitleSwitch) {
         // Club ladder target
         const allowed = await onTitleSwitch(targetLadder);
         if (!allowed) {
-          console.log(`>>> [TELEPORT] Title switch not allowed, aborting`);
+          console.debug(`>>> [TELEPORT] Title switch not allowed, aborting`);
           setIsTeleporting(false);
           return;
         }
@@ -2917,9 +3102,9 @@ const handleWalkthroughNextForReview = () => {
           gameResults: p.gameResults || new Array(31).fill(null),
         }));
         setPlayers(targetPlayersWithResults);
-        console.log(`>>> [TELEPORT] Switched to club ladder ${targetLadder} with ${targetPlayersWithResults.length} players`);
+        console.debug(`>>> [TELEPORT] Switched to club ladder ${targetLadder} with ${targetPlayersWithResults.length} players`);
       } else {
-        console.log(`>>> [TELEPORT] Invalid target or no switch handler, aborting`);
+        console.debug(`>>> [TELEPORT] Invalid target or no switch handler, aborting`);
         setIsTeleporting(false);
         return;
       }
@@ -2940,19 +3125,19 @@ const handleWalkthroughNextForReview = () => {
         }
 
         if (nextEmptyRound === -1) {
-          console.log(`>>> [TELEPORT] No empty round for player ${player.rank}, skipping`);
+          console.debug(`>>> [TELEPORT] No empty round for player ${player.rank}, skipping`);
           return player;
         }
 
         const newResults = [...(player.gameResults || [])];
         newResults[nextEmptyRound] = cellValue;
-        console.log(`>>> [TELEPORT] Filled player ${player.rank} at round ${nextEmptyRound + 1} with "${cellValue}"`);
+        console.debug(`>>> [TELEPORT] Filled player ${player.rank} at round ${nextEmptyRound + 1} with "${cellValue}"`);
         return { ...player, gameResults: newResults };
       });
 
       setPlayers(updatedTargetPlayers);
       await dataService.savePlayers(updatedTargetPlayers);
-      console.log(`>>> [TELEPORT] Saved ${updatedTargetPlayers.length} players to ${targetLadder}`);
+      console.debug(`>>> [TELEPORT] Saved ${updatedTargetPlayers.length} players to ${targetLadder}`);
 
       // Step 4: Set entryCell to first filled player's round for review
       const firstPlayerRank = playerRanks[0];
@@ -2970,7 +3155,7 @@ const handleWalkthroughNextForReview = () => {
         }
       }
 
-      console.log(`>>> [TELEPORT] Complete! Result moved to ${targetLadder}`);
+      console.debug(`>>> [TELEPORT] Complete! Result moved to ${targetLadder}`);
     } catch (error) {
       console.error(`>>> [TELEPORT] Error:`, error);
     } finally {
@@ -2979,7 +3164,7 @@ const handleWalkthroughNextForReview = () => {
   };
 
   const handleGameEntrySubmit = (correctedString: string) => {
-    if (shouldLog(3)) console.log('[3]DEBUG-TRACE] === handleGameEntrySubmit ENTRY === correctedString="' + correctedString + '" entryCell=' + JSON.stringify(entryCell));
+    if (shouldLog(3)) console.debug('[3]DEBUG-TRACE] === handleGameEntrySubmit ENTRY === correctedString="' + correctedString + '" entryCell=' + JSON.stringify(entryCell));
     if (!entryCell) return;
 
     const parsedResult = updatePlayerGameData(
@@ -3001,7 +3186,7 @@ const handleWalkthroughNextForReview = () => {
         const valueToSave = (
           parsedResult.resultString || correctedString
         ).replace(/_$/, "");
-        if (shouldLog(3)) console.log('[3]DEBUG-TRACE] handleGameEntrySubmit SAVE: valueToSave="' + valueToSave + '" correctedString="' + correctedString + '" parsedResult.resultString="' + parsedResult.resultString + '"');
+        if (shouldLog(3)) console.debug('[3]DEBUG-TRACE] handleGameEntrySubmit SAVE: valueToSave="' + valueToSave + '" correctedString="' + correctedString + '" parsedResult.resultString="' + parsedResult.resultString + '"');
 
         const newGameResults = [...player.gameResults];
         newGameResults[entryCell.round] = valueToSave;
@@ -3015,7 +3200,7 @@ const handleWalkthroughNextForReview = () => {
         dataService.savePlayers(updatedPlayers).catch((err) => {
           console.error("Failed to save game entry:", err);
         });
-        if (shouldLog(3)) console.log('[3]DEBUG-TRACE] handleGameEntrySubmit setPlayers DONE: playerRank=' + entryCell.playerRank + ' round=' + entryCell.round + ' savedValue="' + valueToSave + '"');
+        if (shouldLog(3)) console.debug('[3]DEBUG-TRACE] handleGameEntrySubmit setPlayers DONE: playerRank=' + entryCell.playerRank + ' round=' + entryCell.round + ' savedValue="' + valueToSave + '"');
         return updatedPlayers;
       });
     }
@@ -3028,7 +3213,7 @@ const handleWalkthroughNextForReview = () => {
       pasteResults.length > 1
     ) {
       if (shouldLog(10)) {
-        console.log(
+        console.debug(
           `>>> [PASTE CONTINUE] ${pasteResults.length - 1} results remaining`,
         );
       }
@@ -3054,7 +3239,7 @@ const handleWalkthroughNextForReview = () => {
           if (!cellValue || cellValue.trim() === "") {
             foundCell = { playerRank: rank, round };
             if (shouldLog(3)) {
-              console.log(
+              console.debug(
                 `>>> [PASTE CONTINUE] Found empty cell at Rank ${rank}, Round ${round + 1}`,
               );
             }
@@ -3075,7 +3260,7 @@ const handleWalkthroughNextForReview = () => {
             if (!cellValue || cellValue.trim() === "") {
               foundCell = { playerRank: rank, round };
               if (shouldLog(3)) {
-                console.log(
+                console.debug(
                   `>>> [PASTE CONTINUE] Found empty cell at Rank ${rank}, Round ${round + 1}`,
                 );
               }
@@ -3101,7 +3286,7 @@ const handleWalkthroughNextForReview = () => {
             parsedPlayer2Rank: 0,
           });
           if (shouldLog(10)) {
-            console.log(
+            console.debug(
               `>>> [PASTE CONTINUE] Opening cell with result: "${remaining[0]}"`,
             );
           }
@@ -3111,7 +3296,7 @@ const handleWalkthroughNextForReview = () => {
         // No more empty cells or results - clear the queue
         (window as any).__pasteResults = undefined;
         if (shouldLog(10)) {
-          console.log(`>>> [PASTE CONTINUE] All results pasted!`);
+          console.debug(`>>> [PASTE CONTINUE] All results pasted!`);
         }
       }
     } else {
@@ -3227,7 +3412,7 @@ const handleWalkthroughNextForReview = () => {
   };
   const handleFileAction = (action: "load" | "export") => {
     if (shouldLog(10)) {
-      console.log(`>>> [MENU ACTION] ${action}`);
+      console.debug(`>>> [MENU ACTION] ${action}`);
     }
     switch (action) {
       case "load":
@@ -3248,7 +3433,7 @@ const handleWalkthroughNextForReview = () => {
 
   const handleSetZoom = (level: "50%" | "70%" | "100%" | "140%" | "200%") => {
     if (shouldLog(10)) {
-      console.log(`>>> [MENU ACTION] Set zoom to ${level}`);
+      console.debug(`>>> [MENU ACTION] Set zoom to ${level}`);
     }
     setZoomLevel(level);
     const zoomPercent = parseInt(level);
@@ -3257,7 +3442,7 @@ const handleWalkthroughNextForReview = () => {
 
  const handleSetTitle = async (newTitle: string) => {
     if (shouldLog(10)) {
-      console.log(`>>> [MENU ACTION] Set title to ${newTitle}`);
+      console.debug(`>>> [MENU ACTION] Set title to ${newTitle}`);
     }
     if (shouldLog(9)) {
       log('[LADDER SWITCH]', `Click: "${getProjectName()}" -> "${newTitle}"`);
@@ -3304,14 +3489,14 @@ const handleWalkthroughNextForReview = () => {
     setProjectName(newTitle);
     setProjectNameStorage(newTitle);
     
-  if (newIsMiniGame) {
+   if (newIsMiniGame) {
         // Switching to a mini-game (from ladder or from another mini-game):
         // create file if it doesn't exist or has 0 players, then switch data source
         lastRefreshHash.current = null;
         try {
           const fileName = titleToFileName(newTitle);
           const existingFiles = await dataService.checkMiniGameFiles();
-          
+
           let miniGamePlayers: PlayerData[] = [];
           if (!existingFiles.includes(fileName)) {
             log('[MINI-GAME SWITCH]', `File ${fileName} not found, isAdmin=${isAdmin}`);
@@ -3343,7 +3528,7 @@ const handleWalkthroughNextForReview = () => {
           }
 
           dataService.setMiniGameFile(fileName);
-          console.log(`[LadderForm] Switched to mini-game ${fileName}`);
+          console.debug(`[LadderForm] Switched to mini-game ${fileName}`);
 
           // Directly set players from fetched mini-game data
           if (miniGamePlayers && miniGamePlayers.length > 0) {
@@ -3353,7 +3538,7 @@ const handleWalkthroughNextForReview = () => {
             }));
             setPlayers(playersWithResults);
             log('[MINI-GAME SWITCH]', `✓ Loaded ${playersWithResults.length} players from mini-game`);
-          }
+            }
         } catch (error) {
           const fileName = titleToFileName(newTitle);
           log('[MINI-GAME SWITCH]', `Failed to switch to ${fileName}:`, error);
@@ -3368,16 +3553,16 @@ const handleWalkthroughNextForReview = () => {
        await refreshPlayers();
        log('[LADDER SWITCH]', `refreshPlayers() returned, players.length=${players.length}, currentMiniGameFile=${dataService.getMiniGameFile()}`);
      } else if (!newIsMiniGame && !currentIsMiniGame) {
-       // Switching between regular ladder titles
-       await refreshPlayers();
-     }
-    
+   // Switching between regular ladder titles
+        await refreshPlayers();
+      }
+
     return;
   };
 
   const handleBulkPaste = () => {
     if (shouldLog(10)) {
-      console.log(">>> [MENU ACTION] Paste Multiple Results");
+      console.debug(">>> [MENU ACTION] Paste Multiple Results");
     }
     setShowBulkPasteDialog(true);
   };
@@ -3386,7 +3571,7 @@ const handleWalkthroughNextForReview = () => {
     results: { cellOwnerRank: number; roundIndex: number; resultString: string }[],
   ) => {
     if (shouldLog(10)) {
-      console.log(`>>> [BULK PASTE] Applying ${results.length} entries`);
+      console.debug(`>>> [BULK PASTE] Applying ${results.length} entries`);
     }
 
     // Mark local changes if we're in server down mode
@@ -3415,7 +3600,7 @@ const handleWalkthroughNextForReview = () => {
     await savePlayers(updatedPlayers);
 
     if (shouldLog(10)) {
-      console.log(`>>> [BULK PASTE] Successfully applied ${results.length} entries`);
+      console.debug(`>>> [BULK PASTE] Successfully applied ${results.length} entries`);
     }
   };
 
@@ -3636,7 +3821,7 @@ const handleWalkthroughNextForReview = () => {
 
   const handleDeleteHiddenPlayers = () => {
     if (shouldLog(10)) {
-      console.log(">>> [MENU ACTION] Delete Hidden Players");
+      console.debug(">>> [MENU ACTION] Delete Hidden Players");
     }
     const hiddenPlayers = players.filter(p => p.group?.toLowerCase().endsWith('x'));
     if (hiddenPlayers.length > 0) {
@@ -3695,7 +3880,7 @@ const handleWalkthroughNextForReview = () => {
 
   const handleAutoLetter = () => {
     if (shouldLog(10)) {
-      console.log(">>> [MENU ACTION] Auto-Letter");
+      console.debug(">>> [MENU ACTION] Auto-Letter");
     }
     const updatedPlayers = players.map(p => {
       const effectiveRating = (p.nRating && p.nRating !== 0) ? p.nRating : p.rating;
@@ -3736,7 +3921,7 @@ const handleWalkthroughNextForReview = () => {
 
   const handleAddPlayer = () => {
     if (shouldLog(10)) {
-      console.log(">>> [MENU ACTION] Add Player");
+      console.debug(">>> [MENU ACTION] Add Player");
     }
     setAddPlayerSuggestedRank(undefined);
     setIsAddPlayerDialogOpen(true);
@@ -3745,7 +3930,7 @@ const handleWalkthroughNextForReview = () => {
  const findNextRank = (cands: PlayerData[], sug?: number, label?: string) => {
      const maxRank = cands.reduce((max, p) => Math.max(max, p.rank || 0), 0);
      const result = sug !== undefined ? sug : maxRank + 1;
-     console.log(`[DEBUG findNextRank] ${label || ''} cands.length=${cands.length} maxRank=${maxRank} sug=${sug} => result=${result}`);
+     console.debug(`[DEBUG findNextRank] ${label || ''} cands.length=${cands.length} maxRank=${maxRank} sug=${sug} => result=${result}`);
      return result;
    };
 
@@ -3753,7 +3938,7 @@ const handleWalkthroughNextForReview = () => {
        playerData: Omit<PlayerData, "rank" | "nRating" | "gameResults">,
        suggestedRank?: number,
      ) => {
-       console.log(`>>> [ACTION] handleAddPlayerSubmit - Rank: ${suggestedRank}, Name: ${playerData.firstName} ${playerData.lastName}`);
+       console.debug(`>>> [ACTION] handleAddPlayerSubmit - Rank: ${suggestedRank}, Name: ${playerData.firstName} ${playerData.lastName}`);
       // Mark local changes if we're in server down mode
       if (isServerDownMode()) {
         markLocalChanges();
@@ -3804,7 +3989,7 @@ const handleWalkthroughNextForReview = () => {
     }
 
     if (shouldLog(10)) {
-      console.log(`New player added successfully`);
+      console.debug(`New player added successfully`);
     }
   };
 
@@ -3841,7 +4026,7 @@ const handleWalkthroughNextForReview = () => {
 
   const handleToggleAdmin = async () => {
     if (shouldLog(10)) {
-      console.log(">>> [MENU ACTION] Toggle admin mode");
+      console.debug(">>> [MENU ACTION] Toggle admin mode");
     }
     
     const myClientId = getClientId();
@@ -3852,7 +4037,7 @@ const handleWalkthroughNextForReview = () => {
       // Local mode: no server configured, always allow immediately
       const serverUrl = getServerUrl();
       if (!serverUrl) {
-        console.log('[ADMIN_LOCK] Local mode - entering admin mode directly');
+        console.debug('[ADMIN_LOCK] Local mode - entering admin mode directly');
         setIsAdmin(true);
         return;
       }
@@ -3948,6 +4133,22 @@ const handleWalkthroughNextForReview = () => {
     onSetToggleAdmin?.(handleToggleAdmin);
   }, [onSetToggleAdmin, handleToggleAdmin]);
 
+  // Check if any mini-game has results (async, reads from localStorage cache)
+  useEffect(() => {
+    let cancelled = false;
+    miniGamesHaveResults().then(result => {
+      if (!cancelled) setMiniGamesHaveResultsFlag(result);
+    });
+    return () => { cancelled = true; };
+  }, [players]);
+
+  // Report tournament active status to App when it changes
+  useEffect(() => {
+    const mainHasResults = players.some(p => (p.gameResults || []).some(r => r && r.trim() !== ''));
+    const active = mainHasResults || miniGamesHaveResultsFlag;
+    onTournamentActiveChange?.(active);
+  }, [players, miniGamesHaveResultsFlag, onTournamentActiveChange]);
+
   // Keyboard shortcuts: Ctrl+1 through Ctrl+9 to switch ladders (skips current)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -3969,7 +4170,7 @@ const handleWalkthroughNextForReview = () => {
         const targetFileName = titleToFileName(targetTitle);
         const isAvailable = !targetIsMiniGame || availableMiniGames.includes(targetFileName);
         if (isAvailable) {
-          console.log(`>>> [LADDER SWITCH] Ctrl+${num} -> ${targetTitle}`);
+          console.debug(`>>> [LADDER SWITCH] Ctrl+${num} -> ${targetTitle}`);
           handleSetTitle(targetTitle);
         } else {
           log('[LADDER SWITCH]', `Ctrl+${num} -> ${targetTitle} blocked: file not available`);
@@ -4036,13 +4237,13 @@ const handleWalkthroughNextForReview = () => {
       saveLastWorkingConfig(trimmedServer, splashApiKey);
     }
     
-    console.log('[Splash] Connecting to server:', trimmedServer || '(local mode)');
+    console.debug('[Splash] Connecting to server:', trimmedServer || '(local mode)');
     window.location.reload();
   };
 
   const exportPlayers = () => {
     if (shouldLog(10)) {
-      console.log(`>>> [BUTTON PRESSED] Export - ${players.length} players`);
+      console.debug(`>>> [BUTTON PRESSED] Export - ${players.length} players`);
     }
     if (players.length === 0) {
       console.error("No players to export");
@@ -4083,7 +4284,7 @@ const handleWalkthroughNextForReview = () => {
     URL.revokeObjectURL(url);
 
     if (shouldLog(10)) {
-      console.log(`Exported ${players.length} players to ${filename}`);
+      console.debug(`Exported ${players.length} players to ${filename}`);
     }
   };
 
@@ -4294,7 +4495,7 @@ const handleWalkthroughNextForReview = () => {
           )}
         </div>
         
-        {/* Drop Zone for .tab files */}
+        {/* Drop Zone for .tab and .zip files */}
         <div
           onDragOver={(e) => {
             e.preventDefault();
@@ -4314,8 +4515,10 @@ const handleWalkthroughNextForReview = () => {
               if (ext === 'tab' || ext === 'txt' || ext === 'xls') {
                 setLastFile(file);
                 loadPlayers(file);
+              } else if (ext === 'zip') {
+                loadZipFile(file);
               } else {
-                alert('Please drop a .tab, .xls, or .txt file');
+                alert('Please drop a .tab, .xls, .txt, or .zip file');
               }
             }
           }}
@@ -4332,21 +4535,26 @@ const handleWalkthroughNextForReview = () => {
           }}
         >
           <div style={{ marginBottom: "0.5rem", fontSize: "1.5rem" }}>📄</div>
-          <p style={{ margin: 0, fontWeight: "500", color: "#374151" }}>Drop .tab, .xls, or .txt file here</p>
+          <p style={{ margin: 0, fontWeight: "500", color: "#374151" }}>Drop .tab, .xls, .txt, or .zip file here</p>
           <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.75rem" }}>or use the Load File button above</p>
         </div>
-        
+
         {/* Hidden file input for splash screen */}
         <input
           type="file"
           ref={fileInputRef}
-          accept=".txt,.tab,.xls"
+          accept=".txt,.tab,.xls,.zip"
           style={{ display: "none" }}
           onChange={(e) => {
             const file = e.target.files?.[0];
             if (file) {
-              setLastFile(file);
-              loadPlayers(file);
+              const ext = file.name.split('.').pop()?.toLowerCase();
+              if (ext === 'zip') {
+                loadZipFile(file);
+              } else {
+                setLastFile(file);
+                loadPlayers(file);
+              }
             }
           }}
         />
@@ -4363,7 +4571,7 @@ const handleWalkthroughNextForReview = () => {
       const isReachable = await testServerConnection();
       
       if (isReachable) {
-        console.log('[ServerDownDialog] Server is now reachable!');
+        console.debug('[ServerDownDialog] Server is now reachable!');
         onDismissServerDown?.();
         // Reload to reconnect properly
         setTimeout(() => window.location.reload(), 500);
@@ -4730,11 +4938,11 @@ const handleWalkthroughNextForReview = () => {
 <button
                  onClick={() => {
                    debugClick("ServerDown:Local Mode");
-                   console.log('[ServerDownDialog] Proceeding in local mode');
+                   console.debug('[ServerDownDialog] Proceeding in local mode');
                    if (splashServerUrl.trim()) {
                      saveLastWorkingConfig(splashServerUrl.trim(), splashApiKey);
                      saveUserSettings({ server: '', apiKey: '' });
-                     console.log('[ServerDownDialog] Saved last working config, clearing server URL for local mode');
+                     console.debug('[ServerDownDialog] Saved last working config, clearing server URL for local mode');
                    }
                    onDismissServerDown?.();
                    setTimeout(() => window.location.reload(), 300);
@@ -4756,7 +4964,7 @@ const handleWalkthroughNextForReview = () => {
 <button
                  onClick={() => {
                    debugClick("ServerDown:Change Settings");
-                   console.log('[ServerDownDialog] Opening settings, hiding blocking dialog');
+                   console.debug('[ServerDownDialog] Opening settings, hiding blocking dialog');
                    onDismissServerDown?.();
                    setShowSettings?.(true);
                  }}
@@ -4807,6 +5015,10 @@ const handleWalkthroughNextForReview = () => {
       </>
     );
   }
+
+  const ladderColor = LADDER_COLORS[projectName || ""] || "#555555";
+  const headerBg = ladderColor;
+  const headerBorder = "rgba(255, 255, 255, 0.15)";
 
   return (
     <>
@@ -4967,7 +5179,7 @@ const handleWalkthroughNextForReview = () => {
          onDeleteHiddenPlayers={isAdmin ? handleDeleteHiddenPlayers : undefined}
          onAutoLetter={isAdmin ? handleAutoLetter : undefined}
          isAdmin={isAdmin}
-         tournamentMode={isMiniGameTitle(projectName || "")}
+         isTournamentActive={players.some(p => (p.gameResults || []).some(r => r && r.trim() !== ''))}
          projectName={projectName}
          onSetTitle={handleSetTitle}
          availableMiniGames={availableMiniGames}
@@ -5073,7 +5285,7 @@ const handleWalkthroughNextForReview = () => {
             onSetTitle={handleSetTitle}
 
             playerCount={players.length}
-            tournamentMode={isMiniGameTitle(projectName)}
+isTournamentActive={players.some(p => (p.gameResults || []).some(r => r && r.trim() !== '')) || miniGamesHaveResultsFlag}
             
             availableMiniGames={availableMiniGames}
 
@@ -5140,64 +5352,46 @@ const handleWalkthroughNextForReview = () => {
             </button>
           </div>
         </div>
-        {isMiniGameTitle(projectName) && (
+{isMiniGameTitle(projectName) && (
           <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
 <button
-               onClick={async () => {
-                 debugClick("MiniGame:Save");
-                 try {
-                   if (window.confirm('Save current mini-game file?')) {
-                     const userSettings = loadUserSettings();
-                     const serverUrl = userSettings.server?.trim();
-                     if (serverUrl) {
-                       await dataService.saveMiniGameFile(projectName);
-                       alert('Mini-game file saved');
-                     }
-                   }
-                 } catch (error) {
-                   console.error('Failed to save mini-game file:', error);
-                   alert('Failed to save: ' + (error as Error).message);
-                 }
+                onClick={() => {
+                  debugClick("MiniGame:Enter Games");
+                  handleEnterGamesMenu();
+                }}
+               style={{
+                 padding: "0.375rem 0.75rem",
+                 backgroundColor: "#16a34a",
+                 color: "white",
+                 border: "none",
+                 borderRadius: "0.25rem",
+                 cursor: "pointer",
+                 fontSize: "0.75rem",
+                 fontWeight: 600,
                }}
-              style={{
-                padding: "0.375rem 0.75rem",
-                backgroundColor: "#16a34a",
-                color: "white",
-                border: "none",
-                borderRadius: "0.25rem",
-                cursor: "pointer",
-                fontSize: "0.75rem",
-                fontWeight: 600,
-              }}
-            >
-              Save Mini-Game
-            </button>
+             >
+               Enter Games
+             </button>
 <button
-               onClick={async () => {
-                 debugClick("MiniGame:Export Files");
-                 try {
-                   const blob = await dataService.exportTournamentFiles();
-                   downloadBlob(blob, `tournament_${new Date().toISOString().split('T')[0]}.zip`);
-                 } catch (error) {
-                   console.error('Failed to export:', error);
-                   alert('Failed to export: ' + (error as Error).message);
-                 }
+                onClick={() => {
+                  debugClick("MiniGame:Recalculate");
+                  recalculateRatings();
+                }}
+               style={{
+                 padding: "0.375rem 0.75rem",
+                 backgroundColor: "#0284c7",
+                 color: "white",
+                 border: "none",
+                 borderRadius: "0.25rem",
+                 cursor: "pointer",
+                 fontSize: "0.75rem",
+                 fontWeight: 600,
                }}
-              style={{
-                padding: "0.375rem 0.75rem",
-                backgroundColor: "#0284c7",
-                color: "white",
-                border: "none",
-                borderRadius: "0.25rem",
-                cursor: "pointer",
-                fontSize: "0.75rem",
-                fontWeight: 600,
-              }}
-            >
-              Export Files
-            </button>
-          </div>
-        )}
+             >
+               Recalculate_Save
+             </button>
+           </div>
+         )}
       </header>
 
       {/* Hidden file input */}
@@ -5267,8 +5461,8 @@ const handleWalkthroughNextForReview = () => {
                   padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                   textAlign: "right",
                   fontWeight: "500",
-                  borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
-                  backgroundColor: "#0f172a",
+                  borderBottom: `2px solid ${headerBorder}`,
+                  backgroundColor: headerBg,
                   color: "white",
                 }}
               >
@@ -5280,8 +5474,8 @@ const handleWalkthroughNextForReview = () => {
                   padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                   textAlign: "left",
                   fontWeight: "500",
-                  borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
-                  backgroundColor: "#0f172a",
+                  borderBottom: `2px solid ${headerBorder}`,
+                  backgroundColor: headerBg,
                   color: "white",
                 }}
               >
@@ -5293,8 +5487,8 @@ const handleWalkthroughNextForReview = () => {
                   padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                   textAlign: "left",
                   fontWeight: "500",
-                  borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
-                  backgroundColor: "#0f172a",
+                  borderBottom: `2px solid ${headerBorder}`,
+                  backgroundColor: headerBg,
                   color: "white",
                 }}
               >
@@ -5306,8 +5500,8 @@ const handleWalkthroughNextForReview = () => {
                   padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                   textAlign: "left",
                   fontWeight: "500",
-                  borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
-                  backgroundColor: "#0f172a",
+                  borderBottom: `2px solid ${headerBorder}`,
+                  backgroundColor: headerBg,
                   color: "white",
                 }}
               >
@@ -5319,8 +5513,8 @@ const handleWalkthroughNextForReview = () => {
                   padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                   textAlign: "right",
                   fontWeight: "500",
-                  borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
-                  backgroundColor: "#0f172a",
+                  borderBottom: `2px solid ${headerBorder}`,
+                  backgroundColor: headerBg,
                   color: "white",
                 }}
               >
@@ -5332,8 +5526,8 @@ const handleWalkthroughNextForReview = () => {
                   padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                   textAlign: "right",
                   fontWeight: "500",
-                  borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
-                  backgroundColor: "#0f172a",
+                  borderBottom: `2px solid ${headerBorder}`,
+                  backgroundColor: headerBg,
                   color: "white",
                 }}
               >
@@ -5345,8 +5539,8 @@ const handleWalkthroughNextForReview = () => {
                    padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                    textAlign: "center",
                    fontWeight: "500",
-                   borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
-                   backgroundColor: "#0f172a",
+borderBottom: `2px solid ${headerBorder}`,
+                  backgroundColor: headerBg,
                    color: "white",
                    width: "40px",
                  }}
@@ -5361,8 +5555,8 @@ const handleWalkthroughNextForReview = () => {
                       padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                       textAlign: "right",
                       fontWeight: "500",
-                      borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
-                      backgroundColor: "#0f172a",
+borderBottom: `2px solid ${headerBorder}`,
+                       backgroundColor: headerBg,
                       color: "white",
                     }}
                   >
@@ -5374,8 +5568,8 @@ const handleWalkthroughNextForReview = () => {
                       padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                       textAlign: "right",
                       fontWeight: "500",
-                      borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
-                      backgroundColor: "#0f172a",
+borderBottom: `2px solid ${headerBorder}`,
+                       backgroundColor: headerBg,
                       color: "white",
                     }}
                   >
@@ -5387,8 +5581,8 @@ const handleWalkthroughNextForReview = () => {
                       padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                       textAlign: "right",
                       fontWeight: "500",
-                      borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
-                      backgroundColor: "#0f172a",
+borderBottom: `2px solid ${headerBorder}`,
+                       backgroundColor: headerBg,
                       color: "white",
                       width: "60px",
                     }}
@@ -5401,8 +5595,8 @@ const handleWalkthroughNextForReview = () => {
                       padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                       textAlign: "left",
                       fontWeight: "500",
-                      borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
-                      backgroundColor: "#0f172a",
+borderBottom: `2px solid ${headerBorder}`,
+                       backgroundColor: headerBg,
                       color: "white",
                     }}
                   >
@@ -5414,8 +5608,8 @@ const handleWalkthroughNextForReview = () => {
                       padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                       textAlign: "left",
                       fontWeight: "500",
-                      borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
-                      backgroundColor: "#0f172a",
+borderBottom: `2px solid ${headerBorder}`,
+                       backgroundColor: headerBg,
                       color: "white",
                       width: "30px",
                     }}
@@ -5428,8 +5622,8 @@ const handleWalkthroughNextForReview = () => {
                       padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                       textAlign: "left",
                       fontWeight: "500",
-                      borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
-                      backgroundColor: "#0f172a",
+borderBottom: `2px solid ${headerBorder}`,
+                       backgroundColor: headerBg,
                       color: "white",
                       width: "30px",
                     }}
@@ -5442,8 +5636,8 @@ const handleWalkthroughNextForReview = () => {
                       padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                       textAlign: "left",
                       fontWeight: "500",
-                      borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
-                      backgroundColor: "#0f172a",
+borderBottom: `2px solid ${headerBorder}`,
+                       backgroundColor: headerBg,
                       color: "white",
                       width: "30px",
                     }}
@@ -5459,8 +5653,8 @@ const handleWalkthroughNextForReview = () => {
                     padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                     textAlign: "center",
                     fontWeight: "500",
-                    borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
-                    backgroundColor: "#0f172a",
+                    borderBottom: `2px solid ${headerBorder}`,
+                    backgroundColor: headerBg,
                     color: "white",
                   }}
                 >
@@ -5891,7 +6085,7 @@ onBlur={(e) => {
                                 onClick={() => {
                                   const result = players.find(p => p.rank === player.rank)?.gameResults?.[gCol] || '';
 
-                                  if (result.endsWith('_')) {
+if (result.endsWith('_')) {
                                     const emptyCell = findFirstEmptyCell();
                                     if (emptyCell) {
                                       setEntryCell(emptyCell);
@@ -6129,14 +6323,14 @@ onBlur={(e) => {
                                    room: gameData.room,
                                  };
                                  let updatedResult: PlayerData[] = [];
-                                  console.log('[DEBUG CTRL+ENTER] players.length=', players.length, 'ranks:', players.map(p => p.rank).join(','));
-                                  console.log('[DEBUG CTRL+ENTER] newPlayer:', newPlayer.firstName, newPlayer.lastName);
+                                  console.debug('[DEBUG CTRL+ENTER] players.length=', players.length, 'ranks:', players.map(p => p.rank).join(','));
+                                  console.debug('[DEBUG CTRL+ENTER] newPlayer:', newPlayer.firstName, newPlayer.lastName);
                                   setPlayers((prevPlayers) => {
-                                    console.log('[DEBUG CTRL+ENTER] prevPlayers.length=', prevPlayers.length, 'ranks:', prevPlayers.map(p => p.rank).join(','));
+                                    console.debug('[DEBUG CTRL+ENTER] prevPlayers.length=', prevPlayers.length, 'ranks:', prevPlayers.map(p => p.rank).join(','));
                                     const newRank = findNextRank(prevPlayers, undefined, 'CTRL+ENTER');
                                     const rankedPlayer = { ...newPlayer, rank: newRank };
                                     updatedResult = [...prevPlayers, rankedPlayer];
-                                    console.log('[DEBUG CTRL+ENTER] assigned rank=', newRank, 'total players=', updatedResult.length);
+                                    console.debug('[DEBUG CTRL+ENTER] assigned rank=', newRank, 'total players=', updatedResult.length);
                                     savePlayers(updatedResult, true).catch((err) => {
                                       console.error("Failed to save added player:", err);
                                     });
@@ -6181,9 +6375,9 @@ onBlur={(e) => {
                          onBlur={(e) => {
                            if (!isEditable || !e.target.textContent) return;
 
-                           console.log('[EMPTY ROW] onBlur triggered, field:', field, 'value:', e.target.textContent);
-                           console.log('[EMPTY ROW] current emptyPlayerRowRef:', JSON.stringify(emptyPlayerRowRef.current));
-                           console.log('[EMPTY ROW] current players count:', players.length);
+                           console.debug('[EMPTY ROW] onBlur triggered, field:', field, 'value:', e.target.textContent);
+                           console.debug('[EMPTY ROW] current emptyPlayerRowRef:', JSON.stringify(emptyPlayerRowRef.current));
+                           console.debug('[EMPTY ROW] current players count:', players.length);
 
                            const value = (e.target.textContent || "").replace(/\n/g, "");
                           
@@ -6197,11 +6391,11 @@ onBlur={(e) => {
                             result = { ...result, [field]: numVal };
                           }
                           
-                          console.log('[EMPTY ROW] after update:', JSON.stringify(result));
+                          console.debug('[EMPTY ROW] after update:', JSON.stringify(result));
                           
                        // When both firstName and lastName are filled, create player and reset row
                            if ((result.firstName || "").trim() && (result.lastName || "").trim()) {
-                             console.log('[EMPTY ROW] Both names filled - creating player');
+                             console.debug('[EMPTY ROW] Both names filled - creating player');
                              const gameData = result as typeof emptyPlayerRow & { rank?: number };
                            const newPlayer: PlayerData = {
                                 rank: 0,
@@ -6222,14 +6416,14 @@ onBlur={(e) => {
                              };
 
                           let updatedResult: PlayerData[] = [];
-                             console.log('[DEBUG ONBLUR] players.length=', players.length, 'ranks:', players.map(p => p.rank).join(','));
-                             console.log('[DEBUG ONBLUR] newPlayer:', newPlayer.firstName, newPlayer.lastName);
+                             console.debug('[DEBUG ONBLUR] players.length=', players.length, 'ranks:', players.map(p => p.rank).join(','));
+                             console.debug('[DEBUG ONBLUR] newPlayer:', newPlayer.firstName, newPlayer.lastName);
                              setPlayers((prevPlayers) => {
-                               console.log('[DEBUG ONBLUR] prevPlayers.length=', prevPlayers.length, 'ranks:', prevPlayers.map(p => p.rank).join(','));
+                               console.debug('[DEBUG ONBLUR] prevPlayers.length=', prevPlayers.length, 'ranks:', prevPlayers.map(p => p.rank).join(','));
                                const newRank = findNextRank(prevPlayers, undefined, 'ONBLUR');
                                const rankedPlayer = { ...newPlayer, rank: newRank };
                                updatedResult = [...prevPlayers, rankedPlayer];
-                               console.log('[DEBUG ONBLUR] assigned rank=', newRank, 'total players=', updatedResult.length);
+                               console.debug('[DEBUG ONBLUR] assigned rank=', newRank, 'total players=', updatedResult.length);
                                savePlayers(updatedResult, true).catch((err) => {
                                  console.error("Failed to save added player:", err);
                                });
@@ -6238,7 +6432,7 @@ onBlur={(e) => {
                             
                          // Reset emptyPlayerRow state and ref (not enough for contentEditable cells - React
                            // skips updating their textContent after they've been made editable)
-                           console.log('[EMPTY ROW] Resetting empty player row');
+                           console.debug('[EMPTY ROW] Resetting empty player row');
                           const emptyReset = {
                               firstName: "",
                               lastName: "",
@@ -6264,13 +6458,13 @@ onBlur={(e) => {
                            document.querySelectorAll('[data-empty-cell]').forEach((cell) => {
                              cell.textContent = '';
                            });
-                           console.log('[EMPTY ROW] Cleared all empty row cells in DOM');
+                           console.debug('[EMPTY ROW] Cleared all empty row cells in DOM');
                            
                            // Move focus to group field of the new empty row
                            const groupCell = document.querySelector('[data-empty-cell="1"]') as HTMLElement;
                            if (groupCell) {
                              groupCell.focus();
-                             console.log('[EMPTY ROW] Focused group cell for next player entry');
+                             console.debug('[EMPTY ROW] Focused group cell for next player entry');
                            }
                            
                            return; // Skip setEmptyPlayerRow update since we already called it above
@@ -6367,7 +6561,7 @@ onBlur={(e) => {
                 : `MISSING (index ${walkthroughIndex})`;
             })()
           : "recalculate";
-        console.log(`[WALKTHROUGH DEBUG] Showing cell #${walkthroughIndex + 1}/${isWalkthrough ? countNonBlankRounds() : walkthroughErrors.length} → ${cellInfo}`);
+        console.debug(`[WALKTHROUGH DEBUG] Showing cell #${walkthroughIndex + 1}/${isWalkthrough ? countNonBlankRounds() : walkthroughErrors.length} → ${cellInfo}`);
         return (
         <ErrorDialog
           key={`error-dialog-${isWalkthrough ? walkthroughIndex : "recalc"}`}
@@ -6402,7 +6596,7 @@ onBlur={(e) => {
                     ? (players.find((p) => p.rank === cell.playerRank)
                         ?.gameResults?.[cell.round] || "")
                     : "";
-                  console.log(`[WALKTHROUGH CELL] index=${walkthroughIndex}, cell=${cell ? `${cell.playerRank}:${cell.round}` : 'null'}, value="${value}"`);
+                  console.debug(`[WALKTHROUGH CELL] index=${walkthroughIndex}, cell=${cell ? `${cell.playerRank}:${cell.round}` : 'null'}, value="${value}"`);
                   return value;
                 })()
               : isRecalculating && walkthroughErrors[walkthroughIndex]

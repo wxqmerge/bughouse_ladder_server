@@ -4,7 +4,7 @@ import path from 'path';
 import fs from 'fs/promises';
 import archiver from 'archiver';
 import { requireAdminKey } from '../middleware/auth.middleware.js';
-import { readLadderFile, ensureDataDirectory, generateTabContent, createBackup, rotateBackups, withTiming, getBackupList, restoreBackup, deleteBackup } from '../services/dataService.js';
+import { readLadderFile, ensureDataDirectory, generateTabContent, createBackup, rotateBackups, withTiming, getBackupList, restoreBackup, previewBackup, deleteBackup } from '../services/dataService.js';
 import { log } from '../utils/logger.js';
 import { broadcastSSEEvent } from '../services/sseService.js';
 import { isTrophyReport, isValidLadderHeader } from '../../../shared/utils/trophyFileGuard.js';
@@ -22,6 +22,7 @@ import {
   checkMiniGameFilesWith,
   tournamentStore,
   MINI_GAME_FILES,
+  ZipEntry,
 } from '../services/tournamentService.js';
 import { buildTrophyReportString } from '../../../shared/utils/trophyDebugReport.js';
 
@@ -145,9 +146,10 @@ router.get('/export', async (_req: Request, res: Response): Promise<void> => {
 });
 
 // List available backups
-router.get('/backups', async (_req: Request, res: Response): Promise<void> => {
+router.get('/backups', async (req: Request, res: Response): Promise<void> => {
   try {
-    const backups = await getBackupList();
+    const ladderName = req.query.ladder as string | undefined;
+    const backups = await getBackupList(ladderName);
     
     res.json({
       success: true,
@@ -201,6 +203,41 @@ router.post('/backups/restore/:filename', async (req: Request, res: Response): P
     res.status(500).json({
       success: false,
       error: { message: 'Failed to restore backup' },
+    });
+  }
+});
+
+// Preview backup contents without restoring
+router.get('/backups/preview/:filename', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const filename = req.params.filename;
+
+    if (!filename || !filename.endsWith('.tab')) {
+      res.status(400).json({
+        success: false,
+        error: { message: 'Invalid backup filename' },
+      });
+      return;
+    }
+
+    const content = await previewBackup(filename);
+
+    if (content) {
+      res.json({
+        success: true,
+        data: { content, filename },
+      });
+    } else {
+      res.status(404).json({
+        success: false,
+        error: { message: `Backup not found: ${filename}` },
+      });
+    }
+  } catch (error) {
+    console.error('Preview backup error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to preview backup' },
     });
   }
 });
@@ -449,6 +486,16 @@ router.get('/tournament/export', async (_req: Request, res: Response): Promise<v
       return;
     }
 
+    // Generate trophy report and add to zip
+    const trophyResult = await generateTrophyReport(3);
+    if (trophyResult.success && trophyResult.trophiesSection) {
+      const dateStr = new Date().toISOString().split('T')[0];
+      const trophyFileName = `trophies_${dateStr}.tab`;
+      const headerLines = trophyResult.debugInfo ? trophyResult.debugInfo.split('\n') : [];
+      const tabContent = buildTrophyReportString(headerLines, [], trophyResult.trophiesSection);
+      result.files!.push({ name: trophyFileName, content: tabContent });
+    }
+
     // Create ZIP file
     const zipBuffer = await createZipBuffer(result.files!);
     
@@ -498,6 +545,76 @@ router.get('/tournament/trophies', async (req: Request, res: Response): Promise<
     res.status(500).json({
       success: false,
       error: { message: 'Failed to generate trophy report' },
+    });
+  }
+});
+
+// Import single .tab file into a mini-game slot
+router.post('/tournament/import-single', upload.single('file'), async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (!req.file) {
+      res.status(400).json({
+        success: false,
+        error: { message: 'No file uploaded' },
+      });
+      return;
+    }
+
+    const { targetGame } = req.body;
+    if (!targetGame || !MINI_GAME_FILES.includes(targetGame)) {
+      await withTiming('unlink(bad-target)', () => fs.unlink(req.file!.path));
+      res.status(400).json({
+        success: false,
+        error: { message: `Invalid target mini-game. Must be one of: ${MINI_GAME_FILES.join(', ')}` },
+      });
+      return;
+    }
+
+    await withTiming('ensureDataDirectory', ensureDataDirectory);
+
+    const content = await withTiming(`readFile(${req.file!.filename})`, () => fs.readFile(req.file!.path, 'utf-8'));
+
+    // Guard: reject trophy report files
+    if (isTrophyReport(content)) {
+      await withTiming('unlink(trophy)', () => fs.unlink(req.file!.path));
+      res.status(400).json({
+        success: false,
+        error: { message: 'Trophy report file detected. Trophy reports cannot be imported as mini-game data.' },
+      });
+      return;
+    }
+
+    if (!isValidLadderHeader(content)) {
+      const allowOverride = req.body?.override === 'true';
+      if (!allowOverride) {
+        await withTiming('unlink(header)', () => fs.unlink(req.file!.path));
+        res.status(400).json({
+          success: false,
+          error: { message: 'File does not start with "Group" header. Not a valid ladder file. Retry with override=true to force.' },
+          needsOverride: true,
+        });
+        return;
+      }
+    }
+
+    const dataDir = path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data/ladder.tab'));
+    const filePath = path.join(dataDir, targetGame);
+    await withTiming(`writeFile(${filePath})`, () => fs.writeFile(filePath, content + '\n', 'utf-8'));
+
+    // Clean up uploaded file
+    await withTiming('unlink(upload)', () => fs.unlink(req.file!.path));
+
+    broadcastSSEEvent('miniGameImported', { fileName: targetGame, type: 'miniGameImport' });
+
+    res.json({
+      success: true,
+      data: { message: `Imported to ${targetGame}`, fileName: targetGame },
+    });
+  } catch (error) {
+    console.error('Import single mini-game error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to import mini-game file' },
     });
   }
 });
@@ -673,7 +790,7 @@ router.get('/tournament/check-mini-games', async (_req: Request, res: Response):
 });
 
 // Helper function to create ZIP buffer
-async function createZipBuffer(files: string[]): Promise<Buffer> {
+async function createZipBuffer(files: ZipEntry[]): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const archive = archiver('zip', { zlib: { level: 9 } });
     const chunks: Buffer[] = [];
@@ -682,11 +799,12 @@ async function createZipBuffer(files: string[]): Promise<Buffer> {
     archive.on('end', () => resolve(Buffer.concat(chunks)));
     archive.on('error', (err) => reject(err));
     
-    const dataDir = path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data'));
-    
-    for (const file of files) {
-      const filePath = path.join(dataDir, file);
-      archive.file(filePath, { name: file });
+    for (const entry of files) {
+      if (entry.content) {
+        archive.append(entry.content, { name: entry.name });
+      } else if (entry.filePath) {
+        archive.file(entry.filePath, { name: entry.name });
+      }
     }
     
     archive.finalize();
@@ -697,7 +815,7 @@ async function createZipBuffer(files: string[]): Promise<Buffer> {
 router.get('/export-mini-data', async (_req: Request, res: Response): Promise<void> => {
   try {
     const dataDir = path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data'));
-    const files = ['ladder.tab'];
+    const files: ZipEntry[] = [{ name: 'ladder.tab', filePath: path.join(dataDir, 'ladder.tab') }];
     
     for (const miniGameFile of MINI_GAME_FILES) {
       const filePath = path.join(dataDir, miniGameFile);
@@ -705,7 +823,7 @@ router.get('/export-mini-data', async (_req: Request, res: Response): Promise<vo
         await fs.access(filePath);
         const content = await fs.readFile(filePath, 'utf-8');
         if (content.trim().split('\n').length > 1) {
-          files.push(miniGameFile);
+          files.push({ name: miniGameFile, filePath });
         }
       } catch {
         // File doesn't exist or is empty, skip

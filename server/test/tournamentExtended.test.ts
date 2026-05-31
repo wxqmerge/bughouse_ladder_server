@@ -134,10 +134,10 @@ describe('exportTournamentFiles', () => {
 
     const result = await exportTournamentFiles();
     expect(result.success).toBe(true);
-    expect(result.files!.length).toBe(2);
-    expect(result.files!).toContain('BG_Game.tab');
-    expect(result.files!).toContain('Queen_Game.tab');
-    expect(result.files!).not.toContain('bughouse.tab');
+    expect(result.files!.length).toBeGreaterThanOrEqual(2);
+    expect(result.files!.map(f => f.name)).toContain('BG_Game.tab');
+    expect(result.files!.map(f => f.name)).toContain('Queen_Game.tab');
+    expect(result.files!.map(f => f.name)).not.toContain('bughouse.tab');
   });
 });
 

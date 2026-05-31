@@ -9,10 +9,24 @@
 
 import { PlayerData, DeltaOperation, MiniGameStore } from '../../shared/types';
 import {
-  getPlayers as storageGetPlayers,
+  getLocalPlayers as storageGetLocalPlayers,
   savePlayers as storageSavePlayers,
   getClientId,
+  getSettings,
+  saveSettings,
+  getProjectName,
+  setProjectName,
+  getZoomLevel,
+  setZoomLevel,
+  isAdminMode,
+  setAdminMode,
+  clearAdminMode,
+  getPendingNewDay,
+  setPendingNewDay,
+  clearPendingNewDay,
+  clearSettings,
 } from './storageService';
+import { playersToTabContent } from './miniGameLocalStorage';
 import { loadUserSettings } from './userSettingsStorage';
 import { gatedFetch } from '../utils/requestGate';
 
@@ -58,7 +72,7 @@ class DataService {
     this.notifyTimer = setTimeout(() => {
       this.notifyTimer = null;
       const debounceMs = performance.now() - notifyStart;
-      console.log(`[PERF NOTIFY] Debounce elapsed: ${debounceMs.toFixed(0)}ms, subscribers: ${this.subscribers.size}`);
+      console.debug(`[PERF NOTIFY] Debounce elapsed: ${debounceMs.toFixed(0)}ms, subscribers: ${this.subscribers.size}`);
       this.subscribers.forEach(callback => callback());
     }, 100);
   }
@@ -76,14 +90,14 @@ class DataService {
     this.stopPolling();
     this.pollInterval = setInterval(async () => {
       if (this.isPolling) {
-        console.log('[DataService] Skipping poll - previous request still pending');
+        console.debug('[DataService] Skipping poll - previous request still pending');
         return;
       }
       this.isPolling = true;
       try {
         const changed = await this.refreshData();
         if (changed) {
-          console.log('[DataService] Polling detected data change - notifying subscribers');
+          console.debug('[DataService] Polling detected data change - notifying subscribers');
           this.notifySubscribers();
         }
       } catch (error) {
@@ -108,13 +122,10 @@ class DataService {
     if (this.sseEventSource) return; // Already connected
     
     const url = `${this.getApiUrl()}/api/ladder/events`;
-    // console.log('[DataService] Connecting to SSE:', url);
-    
     this.sseEventSource = new EventSource(url);
     
     this.sseEventSource.onopen = () => {
       this.sseConnected = true;
-      // console.log('[DataService] SSE connection established');
     };
     
     this.sseEventSource.addEventListener('connected', (e: MessageEvent) => {
@@ -131,7 +142,7 @@ class DataService {
       const now = Date.now();
       const sinceLast = now - this.lastSseEventTime;
       this.lastSseEventTime = now;
-      console.log(`[PERF SSE] #${this.sseEventCount} playerUpdated (since last: ${sinceLast}ms)`);
+      console.debug(`[PERF SSE] #${this.sseEventCount} playerUpdated (since last: ${sinceLast}ms)`);
       this.notifySubscribers();
     });
     
@@ -140,7 +151,7 @@ class DataService {
       const now = Date.now();
       const sinceLast = now - this.lastSseEventTime;
       this.lastSseEventTime = now;
-      console.log(`[PERF SSE] #${this.sseEventCount} cellCleared (since last: ${sinceLast}ms)`);
+      console.debug(`[PERF SSE] #${this.sseEventCount} cellCleared (since last: ${sinceLast}ms)`);
       this.notifySubscribers();
     });
     
@@ -149,7 +160,7 @@ class DataService {
       const now = Date.now();
       const sinceLast = now - this.lastSseEventTime;
       this.lastSseEventTime = now;
-      console.log(`[PERF SSE] #${this.sseEventCount} ladderUpdated (since last: ${sinceLast}ms)`);
+      console.debug(`[PERF SSE] #${this.sseEventCount} ladderUpdated (since last: ${sinceLast}ms)`);
       this.notifySubscribers();
     });
     
@@ -158,7 +169,7 @@ class DataService {
       const now = Date.now();
       const sinceLast = now - this.lastSseEventTime;
       this.lastSseEventTime = now;
-      console.log(`[PERF SSE] #${this.sseEventCount} deltasSubmitted (since last: ${sinceLast}ms)`);
+      console.debug(`[PERF SSE] #${this.sseEventCount} deltasSubmitted (since last: ${sinceLast}ms)`);
       this.notifySubscribers();
     });
     
@@ -167,7 +178,7 @@ class DataService {
       const now = Date.now();
       const sinceLast = now - this.lastSseEventTime;
       this.lastSseEventTime = now;
-      console.log(`[PERF SSE] #${this.sseEventCount} gameSubmitted (since last: ${sinceLast}ms)`);
+      console.debug(`[PERF SSE] #${this.sseEventCount} gameSubmitted (since last: ${sinceLast}ms)`);
       this.notifySubscribers();
     });
     
@@ -176,7 +187,7 @@ class DataService {
       const now = Date.now();
       const sinceLast = now - this.lastSseEventTime;
       this.lastSseEventTime = now;
-      console.log(`[PERF SSE] #${this.sseEventCount} gamesSubmitted (since last: ${sinceLast}ms)`);
+      console.debug(`[PERF SSE] #${this.sseEventCount} gamesSubmitted (since last: ${sinceLast}ms)`);
       this.notifySubscribers();
     });
     
@@ -185,7 +196,7 @@ class DataService {
       const now = Date.now();
       const sinceLast = now - this.lastSseEventTime;
       this.lastSseEventTime = now;
-      console.log(`[PERF SSE] #${this.sseEventCount} miniGameSaved (since last: ${sinceLast}ms)`);
+      console.debug(`[PERF SSE] #${this.sseEventCount} miniGameSaved (since last: ${sinceLast}ms)`);
       this.notifySubscribers();
     });
     
@@ -194,7 +205,7 @@ class DataService {
       const now = Date.now();
       const sinceLast = now - this.lastSseEventTime;
       this.lastSseEventTime = now;
-      console.log(`[PERF SSE] #${this.sseEventCount} miniGameWritten (since last: ${sinceLast}ms)`);
+      console.debug(`[PERF SSE] #${this.sseEventCount} miniGameWritten (since last: ${sinceLast}ms)`);
       this.notifySubscribers();
     });
     
@@ -203,7 +214,7 @@ class DataService {
       const now = Date.now();
       const sinceLast = now - this.lastSseEventTime;
       this.lastSseEventTime = now;
-      console.log(`[PERF SSE] #${this.sseEventCount} playersCopied (since last: ${sinceLast}ms)`);
+      console.debug(`[PERF SSE] #${this.sseEventCount} playersCopied (since last: ${sinceLast}ms)`);
       this.notifySubscribers();
     });
     
@@ -212,7 +223,7 @@ class DataService {
       const now = Date.now();
       const sinceLast = now - this.lastSseEventTime;
       this.lastSseEventTime = now;
-      console.log(`[PERF SSE] #${this.sseEventCount} playerAdded (since last: ${sinceLast}ms)`);
+      console.debug(`[PERF SSE] #${this.sseEventCount} playerAdded (since last: ${sinceLast}ms)`);
       this.notifySubscribers();
     });
     
@@ -221,7 +232,7 @@ class DataService {
       const now = Date.now();
       const sinceLast = now - this.lastSseEventTime;
       this.lastSseEventTime = now;
-      console.log(`[PERF SSE] #${this.sseEventCount} miniGamesCleared (since last: ${sinceLast}ms)`);
+      console.debug(`[PERF SSE] #${this.sseEventCount} miniGamesCleared (since last: ${sinceLast}ms)`);
       this.notifySubscribers();
     });
     
@@ -230,7 +241,7 @@ class DataService {
       const now = Date.now();
       const sinceLast = now - this.lastSseEventTime;
       this.lastSseEventTime = now;
-      console.log(`[PERF SSE] #${this.sseEventCount} miniGamesImported (since last: ${sinceLast}ms)`);
+      console.debug(`[PERF SSE] #${this.sseEventCount} miniGamesImported (since last: ${sinceLast}ms)`);
       this.notifySubscribers();
     });
     
@@ -239,7 +250,7 @@ class DataService {
       const now = Date.now();
       const sinceLast = now - this.lastSseEventTime;
       this.lastSseEventTime = now;
-      console.log(`[PERF SSE] #${this.sseEventCount} fileUploaded (since last: ${sinceLast}ms)`);
+      console.debug(`[PERF SSE] #${this.sseEventCount} fileUploaded (since last: ${sinceLast}ms)`);
       this.notifySubscribers();
     });
     
@@ -248,13 +259,13 @@ class DataService {
       const now = Date.now();
       const sinceLast = now - this.lastSseEventTime;
       this.lastSseEventTime = now;
-      console.log(`[PERF SSE] #${this.sseEventCount} backupRestored (since last: ${sinceLast}ms)`);
+      console.debug(`[PERF SSE] #${this.sseEventCount} backupRestored (since last: ${sinceLast}ms)`);
       this.notifySubscribers();
     });
     
     this.sseEventSource.onerror = (_error) => {
       this.sseConnected = false;
-      console.log('[DataService] SSE connection error - falling back to polling');
+      console.debug('[DataService] SSE connection error - falling back to polling');
       // EventSource auto-reconnects, but log for visibility
     };
   }
@@ -265,7 +276,7 @@ class DataService {
       this.sseEventSource.close();
       this.sseEventSource = null;
       this.sseConnected = false;
-      console.log('[DataService] SSE connection closed');
+      console.debug('[DataService] SSE connection closed');
     }
   }
 
@@ -338,7 +349,7 @@ class DataService {
         const data = await response.json();
         const serverPlayers = data.data?.players || [];
         this.lastDataHash = this.computeHash(serverPlayers);
-        console.log('[DataService] Reset hash after save');
+        console.debug('[DataService] Reset hash after save');
       }
     } catch (error) {
       console.error('[DataService] Failed to reset hash:', error);
@@ -385,7 +396,7 @@ class DataService {
         
         // Check if data actually changed
         if (newHash !== this.lastDataHash) {
-          console.log('[DataService] Polling detected data change');
+          console.debug('[DataService] Polling detected data change');
           this.lastDataHash = newHash;
           // Save fresh server data to localStorage so getPlayers() returns it (caller handles notify)
           if (this.currentMiniGameFile) {
@@ -410,15 +421,12 @@ class DataService {
  async getPlayers(): Promise<PlayerData[]> {
     if (this.config.mode === DataServiceMode.LOCAL) {
       if (this.currentMiniGameFile) {
-        console.log(`[DataService] getPlayers: LOCAL+miniGame=${this.currentMiniGameFile}`);
         return this.getLocalMiniGamePlayers();
       }
-      console.log(`[DataService] getPlayers: LOCAL+ladder`);
       return this.getLocalPlayers();
     } else {
       // SERVER mode with mini-game: always fetch fresh from server to avoid stale ladder cache
       if (this.currentMiniGameFile) {
-        console.log(`[DataService] getPlayers: SERVER+miniGame=${this.currentMiniGameFile}`);
         try {
           const serverPlayers = await this.fetchMiniGamePlayers();
           const newHash = this.computeHash(serverPlayers);
@@ -437,25 +445,20 @@ class DataService {
 
       // SERVER mode without mini-game: return cached local data instantly, then sync from server in background
        let cachedPlayers: PlayerData[] = await this.getLocalPlayers();
-       console.log(`[DataService] getPlayers: SERVER+ladder, cached=${cachedPlayers.length} players, activeRefreshCount=${this.activeRefreshCount}`);
 
      // Fetch from server in background to sync (deduplicated)
        if (this.activeRefreshCount === 0) {
          this.activeRefreshCount++;
-         console.log(`[DataService] getPlayers: starting background refresh (activeRefreshCount=${this.activeRefreshCount})`);
          (async () => {
            try {
              let serverPlayers: PlayerData[];
              if (this.currentMiniGameFile) {
-               console.log(`[DataService] BG refresh: fetching miniGame=${this.currentMiniGameFile}`);
                serverPlayers = await this.fetchMiniGamePlayers();
              } else {
-               console.log(`[DataService] BG refresh: fetching ladder`);
                serverPlayers = await this.fetchPlayers();
              }
            // Initialize hash on first fetch
               const newHash = this.computeHash(serverPlayers);
-              console.log(`[DataService] BG refresh: serverPlayers=${serverPlayers.length}, newHash=${newHash.slice(0, 12)}, lastDataHash=${this.lastDataHash?.slice(0, 12)}`);
               if (this.lastDataHash === null && serverPlayers.length > 0) {
                 this.lastDataHash = newHash;
               }
@@ -468,18 +471,14 @@ class DataService {
                // Only notify if data actually changed (prevents infinite loop)
                if (this.lastDataHash !== null && newHash !== this.lastDataHash) {
                  this.lastDataHash = newHash;
-                 console.log(`[DataService] BG refresh: data changed, notifying subscribers`);
                  this.notifySubscribers();
-               } else {
-                 console.log(`[DataService] BG refresh: data unchanged, skipping notify`);
                }
-            } catch (err) {
-              // Server fetch failed silently — UI keeps showing cached local data
-              console.error(`[DataService] BG refresh: FAILED`, err);
-            } finally {
-              this.activeRefreshCount--;
-              console.log(`[DataService] BG refresh: done, activeRefreshCount=${this.activeRefreshCount}`);
-            }
+           } catch (err) {
+             // Server fetch failed silently — UI keeps showing cached local data
+             console.error(`[DataService] BG refresh: FAILED`, err);
+           } finally {
+             this.activeRefreshCount--;
+           }
          })();
        }
 
@@ -545,8 +544,8 @@ class DataService {
   // ==================== LOCAL STORAGE IMPLEMENTATIONS ====================
 
   private async getLocalPlayers(): Promise<PlayerData[]> {
-    // Delegate to storageService for localStorage access
-    return storageGetPlayers();
+    // Read directly from localStorage to avoid circular call through storageService.getPlayers()
+    return storageGetLocalPlayers();
   }
 
   private saveLocalPlayers(players: PlayerData[], notify: boolean = true): void {
@@ -708,7 +707,6 @@ class DataService {
 
     const data = await response.json();
     const players = data.data.players || [];
-    console.log(`[DataService] fetchMiniGamePlayers: ${this.currentMiniGameFile} → ${players.length} players (response.playerCount=${data.data.playerCount})`);
     // Cache in localStorage mini-game store
     if (this.currentMiniGameFile && players.length > 0) {
       const store = this.getStore();
@@ -1013,11 +1011,11 @@ if (!response.ok) {
   }
 
   async copyPlayersToMiniGame(fileName: string): Promise<any> {
-    console.log('[DataService] copyPlayersToMiniGame: mode=' + this.config.mode + ', file=' + fileName);
+    console.debug('[DataService] copyPlayersToMiniGame: mode=' + this.config.mode + ', file=' + fileName);
     if (this.config.mode === DataServiceMode.LOCAL) {
       const store = this.getStore();
       const players = await this.getLocalPlayers();
-      console.log('[DataService] copyPlayersToMiniGame: LOCAL mode, ' + players.length + ' players');
+      console.debug('[DataService] copyPlayersToMiniGame: LOCAL mode, ' + players.length + ' players');
       
       if (players.length === 0) {
         console.warn('[DataService] copyPlayersToMiniGame: LOCAL mode has 0 players in club ladder. Import ladder data first.');
@@ -1033,10 +1031,10 @@ if (!response.ok) {
         players: targetPlayers,
         rawLines: [],
       });
-      console.log('[DataService] copyPlayersToMiniGame: LOCAL write complete');
+      console.debug('[DataService] copyPlayersToMiniGame: LOCAL write complete');
       return { message: `Copied ${players.length} players to ${fileName}` };
     } else {
-      console.log('[DataService] copyPlayersToMiniGame: SERVER mode, URL=' + this.getApiUrl());
+      console.debug('[DataService] copyPlayersToMiniGame: SERVER mode, URL=' + this.getApiUrl());
       const response = await gatedFetch(`${this.getApiUrl()}/api/admin/tournament/copy-players`, {
         method: 'POST',
         headers: {
@@ -1045,14 +1043,14 @@ if (!response.ok) {
         },
         body: JSON.stringify({ fileName }),
       });
-      console.log('[DataService] copyPlayersToMiniGame: response status=' + response.status);
+      console.debug('[DataService] copyPlayersToMiniGame: response status=' + response.status);
 
       if (!response.ok) {
         throw new Error(`Failed to copy players to: ${fileName} (HTTP ${response.status})`);
       }
 
       const data = await response.json();
-      console.log('[DataService] copyPlayersToMiniGame: SERVER success');
+      console.debug('[DataService] copyPlayersToMiniGame: SERVER success');
       return data.data;
     }
   }
@@ -1124,16 +1122,33 @@ if (!response.ok) {
       const zip = new JSZip();
       const store = this.getStore();
       const existingFiles = await store.getExistingMiniGameFiles();
-      
-      if (existingFiles.length === 0) {
-        throw new Error('No mini-game files found');
+
+      // Add club ladder
+      const clubPlayers = await this.getLocalPlayers();
+      if (clubPlayers.length > 0) {
+        zip.file('ladder.tab', playersToTabContent(clubPlayers));
       }
 
+      // Add mini-game files
       for (const fileName of existingFiles) {
         const fileData = await store.readMiniGameFile(fileName);
         if (fileData) {
           zip.file(fileName, fileData.rawLines.join('\n') + '\n');
         }
+      }
+
+      // Add trophy report
+      const trophyResult = await store.generateTrophyReport(clubPlayers, 3);
+      if (trophyResult.success && trophyResult.trophiesSection) {
+        const dateStr = new Date().toISOString().split('T')[0];
+        const trophyFileName = `trophies_${dateStr}.tab`;
+        const headerLines = trophyResult.debugInfo ? trophyResult.debugInfo.split('\n') : [];
+        const trophyContent = [...headerLines, '', ...trophyResult.trophiesSection].join('\n') + '\n';
+        zip.file(trophyFileName, trophyContent);
+      }
+
+      if (existingFiles.length === 0 && clubPlayers.length === 0) {
+        throw new Error('No files found');
       }
 
       const blob = await zip.generateAsync({
@@ -1275,6 +1290,38 @@ if (!response.ok) {
 
       if (!response.ok) {
         throw new Error('Failed to import mini-game files');
+      }
+
+      const data = await response.json();
+      return data.data;
+    }
+  }
+
+  async importSingleMiniGameFile(file: File, targetGame: string): Promise<{ message: string; fileName: string }> {
+    if (this.config.mode === DataServiceMode.LOCAL) {
+      const store = this.getStore();
+      const text = await file.text();
+      const result = await store.importMiniGameFiles(`=== ${targetGame} ===\n${text}`);
+      if (result.errors.length > 0) {
+        throw new Error(result.errors.join(', '));
+      }
+      return { message: `Imported to ${targetGame}`, fileName: targetGame };
+    } else {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('targetGame', targetGame);
+
+      const response = await gatedFetch(`${this.getApiUrl()}/api/admin/tournament/import-single`, {
+        method: 'POST',
+        headers: {
+          ...this.getAuthHeaders(),
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || 'Failed to import mini-game file');
       }
 
       const data = await response.json();
