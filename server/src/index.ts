@@ -30,14 +30,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Import routes
-import { router as authRouter } from './routes/auth.routes.js';
 import { router as ladderRouter } from './routes/ladder.routes.js';
 import { router as gameRouter } from './routes/game.routes.js';
 import { router as adminRouter } from './routes/admin.routes.js';
 import { router as adminLockRouter } from './routes/adminLock.routes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { initializeDefaultLadder } from './services/dataService.js';
-import { generatePerformanceReport, clearSlowOperations } from './utils/performance.js';
+
 import { getWriteHealth } from './services/dataService.js';
 import { addSSEClient, getSSEClientCount, startHeartbeat } from './services/sseService.js';
 
@@ -86,18 +85,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// Rate limiting for authentication endpoints (strict - prevent brute force)
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 20,
-  message: {
-    success: false,
-    error: { message: 'Too many authentication attempts. Please try again later.' },
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
 // General API rate limiter (scaled for concurrent clients polling ladder + admin-lock)
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -134,7 +121,6 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
 }));
 
-app.use('/api/auth', authLimiter);
 app.use('/api/admin-lock', adminLockLimiter); // Apply lenient limiter to admin-lock
 app.use('/api', apiLimiter); // General limiter for other API routes
 
@@ -216,7 +202,6 @@ app.get('/api/ladder/events', (req: Request, res: Response) => {
 });
 
 // API Routes
-app.use('/api/auth', authRouter);
 app.use('/api/ladder', ladderRouter);
 app.use('/api/games', gameRouter);
 app.use('/api/admin', adminRouter);
