@@ -1,18 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { 
-  addDelta, 
-  submitGameResult, 
-  updatePlayer, 
-  clearPlayerCell, 
+import {
+  addDelta,
+  submitGameResult,
+  updatePlayer,
+  clearPlayerCell,
   getPendingDeltaCount,
   clearPendingSyncQueue
 } from '../../services/storageService';
 import { dataService, DataServiceMode } from '../../services/dataService';
 
-import { PlayerData, DeltaOperation } from '../../src/shared/types';
+import { PlayerData, DeltaOperation } from '../../shared/types';
+import { NUM_ROUNDS } from '../../../shared/utils/constants';
 
 // Mock dataService
-vi.mock('../../src/services/dataService', () => ({
+vi.mock('../../services/dataService', () => ({
   dataService: {
     getMode: vi.fn().mockReturnValue('SERVER'),
     submitDeltaBatch: vi.fn().mockResolvedValue(undefined),
@@ -56,7 +57,7 @@ describe('storageService Delta Queue', () => {
     phone: '',
     school: '',
     room: '',
-    gameResults: new Array(31).fill(null),
+    gameResults: new Array(NUM_ROUNDS).fill(null),
   };
 
   beforeEach(() => {

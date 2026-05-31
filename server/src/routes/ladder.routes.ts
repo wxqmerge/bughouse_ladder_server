@@ -12,6 +12,7 @@ import { log, logError } from '../utils/logger.js';
 import { broadcastSSEEvent } from '../services/sseService.js';
 import { checkMiniGameFilesWith, readMiniGameFile, writeMiniGameFile, MINI_GAME_FILES } from '../services/tournamentService.js';
 import { deduplicatePlayers } from '../../../shared/utils/dedupUtils.js';
+import { NUM_ROUNDS } from '../../../shared/utils/constants.js';
 
 const router = Router();
 
@@ -150,7 +151,7 @@ router.delete('/:rank/round/:roundIndex', requireUserKey, writeLimiter, async (r
     
     // Clear the cell
     if (!player.gameResults) {
-      player.gameResults = new Array(31).fill(null);
+      player.gameResults = new Array(NUM_ROUNDS).fill(null);
     }
     player.gameResults[roundIndex] = null;
 
@@ -311,7 +312,7 @@ router.post('/batch', requireUserKey, writeLimiter, async (req: Request, res: Re
 
       const player = ladderData.players[playerIndex];
       if (!player.gameResults) {
-        player.gameResults = new Array(31).fill(null);
+        player.gameResults = new Array(NUM_ROUNDS).fill(null);
       }
       while (player.gameResults.length <= delta.round) {
         player.gameResults.push(null);
