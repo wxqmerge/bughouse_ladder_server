@@ -50,18 +50,6 @@ export const RESULT_STRING = "OLDWXYZ__________" as const;
 /**
  * VB6 Line: 61 - Group codes for player classification
  */
-export const GROUP_CODES = "A1xAxBxCxDxExFxGxHxIxZx   " as const;
-
-/**
- * VB6 Line: 77 - Sort options
- */
-export const SORT_OPTIONS = {
-  SORT_RANK: 0,
-  SORT_NAME: 1,
-  SORT_FIRST_NAME: 2,
-  SORT_RATING: 3,
-} as const;
-
 /**
  * Convert a score code (0=O, 1=L, 2=D, 3=W) to its letter representation.
  */

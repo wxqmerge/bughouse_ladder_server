@@ -48,43 +48,6 @@ export async function gatedFetch(
   }
 }
 
-/**
- * Check if a request can be sent immediately without delay.
- */
-export function canSendNow(): boolean {
-  return Date.now() - lastRequestTime >= MIN_INTERVAL_MS;
-}
-
-/**
- * Milliseconds until the next request slot opens.
- */
-export function msUntilNext(): number {
-  const elapsed = Date.now() - lastRequestTime;
-  return Math.max(0, MIN_INTERVAL_MS - elapsed);
-}
-
-/**
- * Reset gate state (for tests).
- */
-export function resetGate(): void {
-  lastRequestTime = 0;
-  requestCount = 0;
-  delayedCount = 0;
-  totalDelayMs = 0;
-}
-
-/**
- * Get gate stats for debugging.
- */
-export function getGateStats(): { total: number; delayed: number; totalDelayMs: number; lastMsAgo: number } {
-  return {
-    total: requestCount,
-    delayed: delayedCount,
-    totalDelayMs,
-    lastMsAgo: Date.now() - lastRequestTime,
-  };
-}
-
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
