@@ -12,6 +12,7 @@ import {
   getKeyPrefix,
   getPlayers as storageGetPlayers,
   savePlayers as storageSavePlayers,
+  getClientId,
 } from './storageService';
 import { loadUserSettings } from './userSettingsStorage';
 import { gatedFetch } from '../utils/requestGate';
@@ -117,8 +118,13 @@ class DataService {
       // console.log('[DataService] SSE connection established');
     };
     
-    this.sseEventSource.addEventListener('connected', (e: any) => {
-      // console.log('[DataService] SSE: connected event received');
+    this.sseEventSource.addEventListener('connected', (e: MessageEvent) => {
+      try {
+        const data = e.data ? JSON.parse(e.data) : null;
+        if (data?.clientId && data?.clientId !== getClientId()) {
+          // Another client connected, may trigger sync
+        }
+      } catch { /* ignore parse errors on connected event */ }
     });
     
     this.sseEventSource.addEventListener('playerUpdated', () => {
@@ -617,12 +623,20 @@ class DataService {
     });
     
     if (!response.ok) {
-      const error = new Error(`Failed to fetch players: ${response.status}`);
+      let errorMsg = `HTTP ${response.status}`;
+      try {
+        const errData = await response.json();
+        errorMsg = errData?.error?.message || errData?.message || errorMsg;
+      } catch { /* response body not JSON */ }
+      const error = new Error(`Failed to fetch players: ${errorMsg}`);
       (error as any).status = response.status;
       throw error;
     }
 
     const data = await response.json();
+    if (!data || !data.data || !Array.isArray(data.data.players)) {
+      throw new Error('Invalid server response: missing data.players array');
+    }
     // Cache in localStorage via storageService (skip server sync - we're fetching FROM server)
     storageSavePlayers(data.data.players, false, true);
     return data.data.players;
@@ -636,6 +650,9 @@ class DataService {
 
     if (!response.ok) return undefined;
     const data = await response.json();
+    if (!data || !data.data) {
+      return undefined;
+    }
     return data.data;
   }
 
@@ -650,7 +667,12 @@ class DataService {
     });
 
     if (!response.ok) {
-      const error = new Error(`Failed to update players: ${response.status}`);
+      let errorMsg = `HTTP ${response.status}`;
+      try {
+        const errData = await response.json();
+        errorMsg = errData?.error?.message || errData?.message || errorMsg;
+      } catch { /* response body not JSON */ }
+      const error = new Error(`Failed to update players: ${errorMsg}`);
       (error as any).status = response.status;
       throw error;
     }
@@ -667,12 +689,20 @@ class DataService {
     if (this.config.mode === DataServiceMode.LOCAL) {
       return this.getLocalMiniGamePlayers();
     }
-    const response = await gatedFetch(
-      `${this.getApiUrl()}/api/ladder/mini-games/read?fileName=${this.currentMiniGameFile}`
-    );
+    if (!this.currentMiniGameFile) {
+        throw new Error('No mini-game file configured');
+      }
+      const response = await gatedFetch(
+        `${this.getApiUrl()}/api/ladder/mini-games/read?fileName=${encodeURIComponent(this.currentMiniGameFile)}`
+      );
 
     if (!response.ok) {
-      const error = new Error(`Failed to fetch mini-game players: ${response.status}`);
+      let errorMsg = `HTTP ${response.status}`;
+      try {
+        const errData = await response.json();
+        errorMsg = errData?.error?.message || errData?.message || errorMsg;
+      } catch { /* response body not JSON */ }
+      const error = new Error(`Failed to fetch mini-game players: ${errorMsg}`);
       (error as any).status = response.status;
       throw error;
     }
@@ -706,7 +736,12 @@ class DataService {
     });
 
     if (!response.ok) {
-      const error = new Error(`Failed to update mini-game players: ${response.status}`);
+      let errorMsg = `HTTP ${response.status}`;
+      try {
+        const errData = await response.json();
+        errorMsg = errData?.error?.message || errData?.message || errorMsg;
+      } catch { /* response body not JSON */ }
+      const error = new Error(`Failed to update mini-game players: ${errorMsg}`);
       (error as any).status = response.status;
       throw error;
     }
@@ -830,12 +865,17 @@ class DataService {
         }),
       });
 
-      if (!response.ok) {
-        const error = new Error(`Failed to submit delta batch: ${response.status}`);
-        (error as any).status = response.status;
-        throw error;
-      }
-      // SSE 'miniGameWritten' event triggers refresh
+if (!response.ok) {
+      let errorMsg = `HTTP ${response.status}`;
+      try {
+        const errData = await response.json();
+        errorMsg = errData?.error?.message || errData?.message || errorMsg;
+      } catch { /* response body not JSON */ }
+      const error = new Error(`Failed to submit delta batch: ${errorMsg}`);
+      (error as any).status = response.status;
+      throw error;
+    }
+    // SSE 'miniGameWritten' event triggers refresh
     } else {
       const response = await gatedFetch(`${this.getApiUrl()}/api/ladder/batch`, {
         method: 'POST',
@@ -846,12 +886,17 @@ class DataService {
         body: JSON.stringify({ deltas }),
       });
 
-      if (!response.ok) {
-        const error = new Error(`Failed to submit delta batch: ${response.status}`);
-        (error as any).status = response.status;
-        throw error;
-      }
-      // SSE 'deltasSubmitted' event triggers refresh
+if (!response.ok) {
+      let errorMsg = `HTTP ${response.status}`;
+      try {
+        const errData = await response.json();
+        errorMsg = errData?.error?.message || errData?.message || errorMsg;
+      } catch { /* response body not JSON */ }
+      const error = new Error(`Failed to submit delta batch: ${errorMsg}`);
+      (error as any).status = response.status;
+      throw error;
+    }
+    // SSE 'deltasSubmitted' event triggers refresh
     }
   }
 

@@ -113,8 +113,8 @@ export function getLastWorkingConfig(): LastWorkingConfig | null {
     const stored = localStorage.getItem(getLastWorkingConfigKey());
     if (stored) {
       const parsed = JSON.parse(stored);
-      if (parsed && typeof parsed === 'object' && typeof parsed.server === 'string') {
-        return parsed as LastWorkingConfig;
+      if (parsed && typeof parsed === 'object' && typeof parsed.server === 'string' && typeof parsed.apiKey === 'string') {
+        return { server: parsed.server, apiKey: parsed.apiKey };
       }
       console.warn('[UserSettings] Corrupted last working config in localStorage, ignoring');
       return null;
