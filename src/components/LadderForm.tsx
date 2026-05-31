@@ -224,6 +224,8 @@ interface LadderFormProps {
   versionMismatch?: boolean;
   setVersionMismatch?: (v: boolean) => void;
   onTitleSwitch?: (newTitle: string) => Promise<boolean>;
+  testMode?: boolean;
+  setTestMode?: (value: boolean) => void;
 }
 
 export default function LadderForm({
@@ -239,6 +241,8 @@ export default function LadderForm({
   versionMismatch = false,
   setVersionMismatch,
   onTitleSwitch,
+  testMode: testModeProp,
+  setTestMode: setTestModeProp,
 }: LadderFormProps = {}) {
   const [players, setPlayers] = useState<PlayerData[]>([]);
   const [zoomLevel, setZoomLevel] = useState<
@@ -257,6 +261,9 @@ export default function LadderForm({
     }
   });
   const [showOverrideDialog, setShowOverrideDialog] = useState(false);
+  useEffect(() => {
+    localStorage.setItem('testMode', String(testModeProp ?? false));
+  }, [testModeProp]);
   const [overrideLockHolder, setOverrideLockHolder] = useState<string | null>(null);
   const [overrideTimeout, setOverrideTimeout] = useState<number>(0);
   const [showVersionWarningDialog, setShowVersionWarningDialog] = useState(false);
@@ -2230,31 +2237,37 @@ const handleRandomResult = (setter: (value: string) => void) => {
     }
   };
 
+  const fetchAvailableMiniGames = async () => {
+    try {
+      let files: string[] = [];
+      // Use direct fetch if server configured (dataService may not be in SERVER mode yet)
+      const sUrl = getServerUrl();
+      if (sUrl) {
+        const checkResp = await gatedFetch(`${sUrl}/api/ladder/mini-games/check`);
+        if (checkResp.ok) {
+          const checkData = await checkResp.json();
+          files = checkData.data?.files || [];
+        }
+      } else {
+        files = await dataService.checkMiniGameFiles();
+      }
+      setAvailableMiniGames(files);
+      // log('[MINI-GAMES]', `Found ${files.length} mini-game files: ${files.join(', ')}`);
+    } catch (error) {
+      log('[MINI-GAMES]', 'Failed to fetch mini-game availability:', error);
+    }
+  };
+
   // Fetch available mini-games on mount
   useEffect(() => {
-    const fetchAvailableMiniGames = async () => {
-      try {
-        let files: string[] = [];
-        // Use direct fetch if server configured (dataService may not be in SERVER mode yet)
-        const sUrl = getServerUrl();
-        if (sUrl) {
-          const checkResp = await gatedFetch(`${sUrl}/api/ladder/mini-games/check`);
-          if (checkResp.ok) {
-            const checkData = await checkResp.json();
-            files = checkData.data?.files || [];
-          }
-        } else {
-          files = await dataService.checkMiniGameFiles();
-        }
-        setAvailableMiniGames(files);
-        // log('[MINI-GAMES]', `Found ${files.length} mini-game files: ${files.join(', ')}`);
-      } catch (error) {
-        log('[MINI-GAMES]', 'Failed to fetch mini-game availability:', error);
-      }
-    };
-
     fetchAvailableMiniGames();
   }, []);
+
+  // Refresh available mini-games on SSE events (mini-game created/cleared/imported)
+  useEffect(() => {
+    const unsubscribe = dataService.subscribe(fetchAvailableMiniGames);
+    return () => unsubscribe?.();
+  }, [dataService]);
 
   // Expose refreshPlayers function to App.tsx
   useEffect(() => {
@@ -6433,15 +6446,16 @@ onBlur={(e) => {
 isAdmin={isAdmin}
            hasAdminKey={!!loadUserSettings().apiKey?.trim()}
 onAddPlayer={(rank) => { setAddPlayerSuggestedRank(rank); setIsAddPlayerDialogOpen(true); }}
-           debugLevel={debugLevel}
-                ladderName={projectName}
-                onTeleport={handleTeleport}
-                availableMiniGames={availableMiniGames}
-                isTeleporting={isTeleporting}
-              />
-         );
-       })()}
- {entryCell &&
+debugLevel={debugLevel}
+                 testMode={testModeProp ?? false}
+                 ladderName={projectName}
+                 onTeleport={handleTeleport}
+                 availableMiniGames={availableMiniGames}
+                 isTeleporting={isTeleporting}
+               />
+          );
+        })()}
+  {entryCell &&
          !isRecalculating &&
          !isWalkthrough &&
          walkthroughErrors.length === 0 && (
@@ -6473,8 +6487,9 @@ isAdmin={isAdmin}
              hasAdminKey={!!loadUserSettings().apiKey?.trim()}
 onAddPlayer={(rank) => { setAddPlayerSuggestedRank(rank); setIsAddPlayerDialogOpen(true); }}
                onRandomResult={handleRandomResult}
-               debugLevel={debugLevel}
-                ladderName={projectName}
+debugLevel={debugLevel}
+                 testMode={testModeProp ?? false}
+                 ladderName={projectName}
                 onTeleport={handleTeleport}
                 availableMiniGames={availableMiniGames}
                 isTeleporting={isTeleporting}

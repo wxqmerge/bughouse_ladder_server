@@ -652,6 +652,9 @@ class DataService {
   }
 
   public async fetchMiniGamePlayers(): Promise<PlayerData[]> {
+    if (this.config.mode === DataServiceMode.LOCAL) {
+      return this.getLocalMiniGamePlayers();
+    }
     const response = await gatedFetch(
       `${this.getApiUrl()}/api/ladder/mini-games/read?fileName=${this.currentMiniGameFile}`
     );
@@ -960,6 +963,9 @@ class DataService {
       const players = await this.getLocalPlayers();
       console.log('[DataService] copyPlayersToMiniGame: LOCAL mode, ' + players.length + ' players');
       
+      if (players.length === 0) {
+        console.warn('[DataService] copyPlayersToMiniGame: LOCAL mode has 0 players in club ladder. Import ladder data first.');
+      }
       const targetPlayers = players.map(player => ({
         ...player,
         gameResults: Array(31).fill(null),
@@ -972,7 +978,7 @@ class DataService {
         rawLines: [],
       });
       console.log('[DataService] copyPlayersToMiniGame: LOCAL write complete');
-      return { message: `Copied players to ${fileName}` };
+      return { message: `Copied ${players.length} players to ${fileName}` };
     } else {
       console.log('[DataService] copyPlayersToMiniGame: SERVER mode, URL=' + this.getApiUrl());
       const response = await gatedFetch(`${this.getApiUrl()}/api/admin/tournament/copy-players`, {
