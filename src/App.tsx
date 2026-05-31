@@ -70,7 +70,16 @@ function App() {
   // Show server-down blocking dialog on first load if server is unreachable
   const [showServerDownBlocking, setShowServerDownBlocking] = useState(false);
   const [versionMismatch, setVersionMismatch] = useState(false);
-const [urlConfigApplied, setUrlConfigApplied] = useState(false);
+const [testMode, setTestMode] = useState(() => {
+    try {
+      const stored = localStorage.getItem('testMode');
+      if (stored !== null) return stored === 'true';
+    } catch {
+      // ignore
+    }
+    return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  });
+  const [urlConfigApplied, setUrlConfigApplied] = useState(false);
   const [status, setStatus] = useState<string | null>("Initializing...");
   const [currentMode, setCurrentMode] = useState<'local' | 'server_down' | 'server' | null>(null);
   const recalculateRef = useRef<(() => void) | undefined>(undefined);
@@ -699,9 +708,11 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
         onDismissServerDown={() => setShowServerDownBlocking(false)}
         versionMismatch={versionMismatch}
         setVersionMismatch={setVersionMismatch}
-        onTitleSwitch={handleTitleSwitch}
-        
-      />
+onTitleSwitch={handleTitleSwitch}
+        testMode={testMode}
+        setTestMode={setTestMode}
+
+       />
       {showSettings && (
         <Settings
           onClose={() => setShowSettings(false)}
@@ -717,8 +728,10 @@ const [urlConfigApplied, setUrlConfigApplied] = useState(false);
 isTournamentActive={isMiniGameTitle(getProjectName())}
            isAdmin={isAdmin}
            onToggleAdmin={toggleAdminRef.current}
-          onSaveBeforeAction={handleSaveSettingsForAction}
-        />
+onSaveBeforeAction={handleSaveSettingsForAction}
+           testMode={testMode}
+           setTestMode={setTestMode}
+         />
       )}
     </>
   );
