@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { X, Plus } from "lucide-react";
 import type { ValidationResult, PlayerData } from "../utils/hashUtils";
 import { updatePlayerGameData, normalize4Player, normalize2Player } from "../utils/hashUtils";
-import { getValidationErrorMessage } from "../utils/constants";
+import { getValidationErrorMessage, fileNameToTitle } from "../utils/constants";
 import { debugInput, shouldLog } from "../utils/debug";
 
 interface ErrorDialogProps {
@@ -33,6 +33,9 @@ interface ErrorDialogProps {
   onToggleOverrideMode?: () => void;
   onRandomResult?: (setter: (value: string) => void) => void;
   ladderName?: string;
+  onTeleport?: (targetLadder: string, resultString: string) => void;
+  availableMiniGames?: string[];
+  isTeleporting?: boolean;
 }
 
 /**
@@ -144,6 +147,9 @@ export default function ErrorDialog({
   onToggleOverrideMode,
   onRandomResult,
   ladderName,
+  onTeleport,
+  availableMiniGames,
+  isTeleporting = false,
 }: ErrorDialogProps) {
   const [correctedResult, setCorrectedResult] = useState<string>(
     existingValue?.replace(/_$/, "") || "",
@@ -168,6 +174,7 @@ export default function ErrorDialog({
   const [extractedResults, setExtractedResults] = useState<string[]>([]);
   const [invalidPlayerRanks, setInvalidPlayerRanks] = useState<Map<number, number>>(new Map());
   const [hasOtherResultInRound, setHasOtherResultInRound] = useState(false);
+  const [teleportTargetLadder, setTeleportTargetLadder] = useState<string>("");
 
   const displayOriginalString = error
     ? error.originalString?.toUpperCase() || ""
@@ -1507,8 +1514,61 @@ export default function ErrorDialog({
                     >
                       + Add Player (Rank {r})
                     </button>
-                  );
+                 );
                 })}
+            </div>
+          )}
+          {isAdmin && hasAdminKey && onTeleport && availableMiniGames && availableMiniGames.length > 0 && !isEnterGames && (
+            <div style={{ marginTop: "0.5rem", marginBottom: "1rem", padding: "0.75rem", backgroundColor: "#f0f9ff", borderRadius: "0.25rem", border: "1px solid #bfdbfe" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                <span style={{ fontSize: "0.875rem", color: "#1e40af", fontWeight: "500" }}>Teleport to:</span>
+                <select
+                  value={teleportTargetLadder}
+                  onChange={(e) => setTeleportTargetLadder(e.target.value)}
+                  style={{
+                    flex: 1,
+                    padding: "0.375rem",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "0.25rem",
+                    fontSize: "0.875rem",
+                    backgroundColor: "white",
+                  }}
+                >
+                  <option value="">-- Select ladder --</option>
+                  {availableMiniGames.map((game) => {
+                    const title = fileNameToTitle(game);
+                    return (
+                      <option key={game} value={title}>{title}</option>
+                    );
+                  })}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (teleportTargetLadder && currentInputValue.trim()) {
+                      console.log(`>>> [BUTTON PRESSED] Teleport to ${teleportTargetLadder}`);
+                      onTeleport(teleportTargetLadder, currentInputValue.trim());
+                    }
+                  }}
+                  disabled={!teleportTargetLadder || !currentInputValue.trim() || isTeleporting}
+                  style={{
+                    padding: "0.375rem 0.75rem",
+                    backgroundColor: !teleportTargetLadder || !currentInputValue.trim() || isTeleporting ? "#9ca3af" : "#8b5cf6",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "0.25rem",
+                    cursor: !teleportTargetLadder || !currentInputValue.trim() || isTeleporting ? "not-allowed" : "pointer",
+                    fontSize: "0.875rem",
+                    fontWeight: "500",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {isTeleporting ? "..." : "Teleport"}
+                </button>
+              </div>
+              <p style={{ fontSize: "0.75rem", color: "#6b7280", marginBottom: 0 }}>
+                Moves result to next empty round in target ladder. Clears matching cells in source.
+              </p>
             </div>
           )}
           <div
