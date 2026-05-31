@@ -4,22 +4,16 @@ import path from 'path';
 import fs from 'fs/promises';
 import archiver from 'archiver';
 import { requireAdminKey } from '../middleware/auth.middleware.js';
-import { readLadderFile, writeLadderFile, ensureDataDirectory, PlayerData, generateTabContent, createBackup, rotateBackups, withTiming, getBackupList, restoreBackup, deleteBackup } from '../services/dataService.js';
+import { readLadderFile, ensureDataDirectory, generateTabContent, createBackup, rotateBackups, withTiming, getBackupList, restoreBackup, deleteBackup } from '../services/dataService.js';
 import { log } from '../utils/logger.js';
 import { broadcastSSEEvent } from '../services/sseService.js';
 import { isTrophyReport, isValidLadderHeader } from '../../../shared/utils/trophyFileGuard.js';
 
 import {
-  loadTournamentState,
-  getTournamentState,
-  isTournamentActive,
-  getMiniGameFilePath,
   readMiniGameFile,
   readMiniGameFileRaw,
   writeMiniGameFile,
   mergeGameResults,
-  getExistingMiniGameFiles,
-  hasMiniGameFiles,
   exportTournamentFiles,
   generateTrophyReport,
   addPlayerToAllMiniGames,
@@ -28,7 +22,6 @@ import {
   checkMiniGameFilesWith,
   tournamentStore,
   MINI_GAME_FILES,
-  MINI_GAME_DIFFICULTY_ORDER,
 } from '../services/tournamentService.js';
 import { buildTrophyReportString } from '../../../shared/utils/trophyDebugReport.js';
 
@@ -43,7 +36,7 @@ const upload = multer({
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB limit
   },
-  fileFilter: (req, file, cb) => {
+  fileFilter: (_req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
     if (file.mimetype === 'text/tab-separated-values' || ext === '.tab' || ext === '.xls') {
       cb(null, true);
@@ -134,7 +127,7 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
 });
 
 // Export ladder data as .tab file
-router.get('/export', async (req: Request, res: Response): Promise<void> => {
+router.get('/export', async (_req: Request, res: Response): Promise<void> => {
   try {
     const ladderData = await readLadderFile();
     const content = generateTabContent(ladderData);
@@ -152,7 +145,7 @@ router.get('/export', async (req: Request, res: Response): Promise<void> => {
 });
 
 // List available backups
-router.get('/backups', async (req: Request, res: Response): Promise<void> => {
+router.get('/backups', async (_req: Request, res: Response): Promise<void> => {
   try {
     const backups = await getBackupList();
     
@@ -444,7 +437,7 @@ router.post('/tournament/copy-players', async (req: Request, res: Response): Pro
 });
 
 // Export tournament files
-router.get('/tournament/export', async (req: Request, res: Response): Promise<void> => {
+router.get('/tournament/export', async (_req: Request, res: Response): Promise<void> => {
   try {
     const result = await exportTournamentFiles();
     
@@ -540,7 +533,7 @@ router.post('/tournament/import', async (req: Request, res: Response): Promise<v
 });
 
 // Clear all mini-game files
-router.post('/tournament/clear-mini-games', async (req: Request, res: Response): Promise<void> => {
+router.post('/tournament/clear-mini-games', async (_req: Request, res: Response): Promise<void> => {
   try {
     const dataDir = path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data'));
     let deletedCount = 0;
@@ -662,7 +655,7 @@ router.put('/tournament/update-player-in-all', async (req: Request, res: Respons
 });
 
 // Check which mini-game files have data
-router.get('/tournament/check-mini-games', async (req: Request, res: Response): Promise<void> => {
+router.get('/tournament/check-mini-games', async (_req: Request, res: Response): Promise<void> => {
   try {
     const filesWith = await checkMiniGameFilesWith();
     
@@ -701,7 +694,7 @@ async function createZipBuffer(files: string[]): Promise<Buffer> {
 }
 
 // Export all data TAB files (ladder + mini-games) into a zip
-router.get('/export-mini-data', async (req: Request, res: Response): Promise<void> => {
+router.get('/export-mini-data', async (_req: Request, res: Response): Promise<void> => {
   try {
     const dataDir = path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data'));
     const files = ['ladder.tab'];

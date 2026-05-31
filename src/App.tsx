@@ -1,11 +1,11 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import LadderForm from "./components/LadderForm";
 import Settings from "./components/Settings";
 import { MigrationDialog } from "./components/MigrationDialog";
 import { ReconnectDialog } from "./components/ReconnectDialog";
 import { StatusBanner } from "./components/StatusBanner";
 import { loadSampleData } from "./components/LadderForm";
-import type { PlayerData } from "../shared/types";
+
 import { getNextTitle, processNewDayTransformations, isMiniGameTitle } from "../shared/utils/constants";
 import { downloadBlob } from "./utils/downloadBlob";
 import { formatPrefixToTitle } from "./utils/titleUtils";
@@ -24,7 +24,7 @@ import {
 import { loadUserSettings, loadConfigFromUrl, getUserSettingsKey } from "./services/userSettingsStorage";
 import { dataService, DataServiceMode } from "./services/dataService";
 import { miniGameStore } from "./services/miniGameLocalStorage";
-import { clearTournamentState, getSettings, saveSettings } from "./services/storageService";
+import { clearTournamentState, saveSettings } from "./services/storageService";
 import { saveUserSettings, type UserSettings } from "./services/userSettingsStorage";
 import { checkMigrationNeeded, storeCurrentMode } from "./utils/migrationUtils";
 import {
@@ -81,7 +81,7 @@ const [testMode, setTestMode] = useState(() => {
   });
   const [urlConfigApplied, setUrlConfigApplied] = useState(false);
   const [status, setStatus] = useState<string | null>("Initializing...");
-  const [currentMode, setCurrentMode] = useState<'local' | 'server_down' | 'server' | null>(null);
+  
   const recalculateRef = useRef<(() => void) | undefined>(undefined);
   const refreshPlayersRef = useRef<(() => void) | undefined>(undefined);
   const toggleAdminRef = useRef<(() => Promise<void>) | undefined>(undefined);
@@ -536,8 +536,7 @@ const [testMode, setTestMode] = useState(() => {
             if (localPlayer && localPlayer.gameResults) {
               const mergedGameResults = [...(sp.gameResults || new Array(31).fill(null))];
               for (let r = 0; r < 31; r++) {
-                const localResult = localPlayer.gameResults[r];
-                const serverResult = sp.gameResults?.[r];
+              const localResult = localPlayer.gameResults[r];
                 // Preserve local unconfirmed entries
                 if (localResult && localResult.trim() && !localResult.endsWith('_')) {
                   mergedGameResults[r] = localResult;

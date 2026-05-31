@@ -23,7 +23,7 @@ export function MigrationDialog({ isAdmin, onClose }: MigrationDialogProps) {
   // Custom merge options
   const [nonResultStrategy, setNonResultStrategy] = useState<MigrationNonResultStrategy>('use-server');
   const [resultsStrategy, setResultsStrategy] = useState<MigrationResultsStrategy>('merge');
-  const [selectedOption, setSelectedOption] = useState<'simple' | 'custom'>('simple');
+  
 
   useEffect(() => {
     const prefix = getKeyPrefix();

@@ -2,20 +2,16 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { log as loggerLog } from '../utils/logger.js';
-import { readLadderFile, writeLadderFile, generateTabContent, PlayerData, LadderData, withTiming, ensureDataDirectory } from './dataService.js';
-import { MiniGameData, MINI_GAME_FILES, MINI_GAME_DIFFICULTY_ORDER } from '../../../shared/types/index.js';
+import { readLadderFile, writeLadderFile, PlayerData, LadderData, ensureDataDirectory } from './dataService.js';
+import { MINI_GAME_FILES, MINI_GAME_DIFFICULTY_ORDER } from '../../../shared/types/index.js';
 import { clearRankReferences } from '../../../shared/utils/hashUtils.js';
 import { IDENTITY_FIELDS, mergeIdentityFromClubLadder, splitIdentityChanges } from '../../../shared/utils/identityMerge.js';
 import {
   copyPlayersToTarget as sharedCopyPlayersToTarget,
   mergeGameResults as sharedMergeGameResults,
-  clubLadderGamesPlayed,
   generateTrophyReport as sharedGenerateTrophyReport,
   parseMiniGameImportContent,
 } from '../../../shared/utils/trophyGeneration.js';
-import {
-  buildTrophyReportString,
-} from '../../../shared/utils/trophyDebugReport.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -513,7 +509,7 @@ export const tournamentStore: MiniGameStore = {
     await addPlayerToAllMiniGames(newPlayer);
   },
 
-  async generateTrophyReport(players: PlayerData[]) {
+  async generateTrophyReport(_players: PlayerData[]) {
     return generateTrophyReport();
   },
 

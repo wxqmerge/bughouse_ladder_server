@@ -11,52 +11,46 @@ import {
   repopulateGameResults,
   updatePlayerGameData,
 } from "../../shared/utils/hashUtils";
-import { MINI_GAMES, MINI_GAMES_WITH_BUGHOUSE, processNewDayTransformations, isMiniGameTitle, titleToFileName, getNextTitle, fileNameToTitle, SHORTCUT_TO_TITLE } from "../../shared/utils/constants";
+import { processNewDayTransformations, isMiniGameTitle, titleToFileName, getNextTitle, SHORTCUT_TO_TITLE } from "../../shared/utils/constants";
 import { dataService } from "../services/dataService";
-import ErrorDialog, { findConflictForEntry } from "./ErrorDialog";
+import ErrorDialog from "./ErrorDialog";
 import AddPlayerDialog from "./AddPlayerDialog";
 import { BulkPasteDialog } from "./BulkPasteDialog";
 import MenuBar from "./MenuBar";
 import MobileMenu from "./MobileMenu";
 import { Menu as MenuIcon, Server } from "lucide-react";
 import { shouldLog, debugClick, debugInput } from "../utils/debug";
-import { getVersionString, isLocalMode, isServerDownMode, getProgramMode, testServerConnection, isValidServerUrl } from "../utils/mode";
+import { getVersionString, isServerDownMode, getProgramMode, testServerConnection, isValidServerUrl } from "../utils/mode";
 import { log } from "../utils/log";
 import { gatedFetch } from "../utils/requestGate";
 import { downloadBlob } from "../utils/downloadBlob";
-import { getFontSize, getScaledPadding, getScaledGap, getScaledLineHeight } from "../utils/getFontSize";
+import { getFontSize, getScaledPadding, getScaledGap } from "../utils/getFontSize";
 import { useIntervalCheck } from "../utils/useIntervalCheck";
 import { mergeServerWithLocal as _mergeServerWithLocal } from "../utils/mergeUtils";
 import { deduplicatePlayers } from "../../shared/utils/dedupUtils";
 import { isTrophyReport, isValidLadderHeader } from "../../shared/utils/trophyFileGuard";
 import { loadUserSettings, saveUserSettings, saveLastWorkingConfig, normalizeServerUrl } from "../services/userSettingsStorage";
-import { 
-  getKeyPrefix, 
-  startBatch, 
-  endBatch, 
-  saveToServer, 
-  clearAllSaveStatus, 
-  isCellSaved, 
-  markCellAsSaved, 
-  markLocalChanges, 
-  getHasLocalChanges, 
-  clearLocalChangesFlag, 
-  getPendingDeletes, 
-  clearPendingDeletes, 
-  queueDelete, 
+import {
+  getKeyPrefix,
+  startBatch,
+  endBatch,
+  clearAllSaveStatus,
+  isCellSaved,
+  markCellAsSaved,
+  markLocalChanges,
+  clearLocalChangesFlag,
+    clearPendingDeletes,
   addDelta,
-  isAdminLocked, 
-  tryAcquireAdminLock, 
-  forceAcquireAdminLock, 
-  releaseAdminLock, 
-  getAdminLockInfo, 
-  getClientId, 
+  tryAcquireAdminLock,
+  forceAcquireAdminLock,
+  releaseAdminLock,
+  getAdminLockInfo,
+  getClientId,
   getServerUrl,
   isAdminMode,
   setAdminMode,
   clearAdminMode,
   getPendingNewDay,
-  setPendingNewDay,
   clearPendingNewDay,
   clearSettings,
   getLocalPlayers,
@@ -64,10 +58,8 @@ import {
   checkWritePermission
 } from "../services/storageService";
 import {
-  getPlayers,
   savePlayers,
   getSettings,
-  saveSettings,
   getProjectName,
   setProjectName as setProjectNameStorage,
   getZoomLevel,
@@ -242,7 +234,7 @@ export default function LadderForm({
   setVersionMismatch,
   onTitleSwitch,
   testMode: testModeProp,
-  setTestMode: setTestModeProp,
+  setTestMode: _setTestModeProp,
 }: LadderFormProps = {}) {
   const [players, setPlayers] = useState<PlayerData[]>([]);
   const [zoomLevel, setZoomLevel] = useState<
@@ -359,14 +351,14 @@ export default function LadderForm({
   const [debugLevel, setDebugLevel] = useState(5);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   // Enter Games mode state
-  const [enterGamesError, setEnterGamesError] = useState<ValidationResult | null>(null);
+  const [, setEnterGamesError] = useState<ValidationResult | null>(null);
   const [isEnterGamesMode, setIsEnterGamesMode] = useState(false);
   const [isEnterGamesOverride, setIsEnterGamesOverride] = useState(false);
   const [isTeleporting, setIsTeleporting] = useState(false);
   // Splash screen server configuration state
   const [splashServerUrl, setSplashServerUrl] = useState('');
   const [splashApiKey, setSplashApiKey] = useState('');
-  const [hadExistingUserSettings, setHadExistingUserSettings] = useState(false);
+  const [, setHadExistingUserSettings] = useState(false);
   const [hasLocalPlayerData, setHasLocalPlayerData] = useState(false);
   const [isRetryingConnection, setIsRetryingConnection] = useState(false);
   const [retryErrorMessage, setRetryErrorMessage] = useState<string | null>(null);
@@ -406,7 +398,7 @@ export default function LadderForm({
 
   // Save pending data to localStorage before page unload to prevent data loss
   useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+    const handleBeforeUnload = (_e: BeforeUnloadEvent) => {
       if (players.length === 0) return;
       try {
         // Synchronous save to localStorage — this is the only reliable way
@@ -556,15 +548,6 @@ export default function LadderForm({
         }
       } catch (err) {
         console.error('[ADMIN_LOCK] Failed to re-acquire lock:', err);
-        setIsAdmin(false);
-      }
-    };
-    
-    // Check write permissions
-    const checkPermissions = async () => {
-      const canWrite = await checkWritePermission();
-      if (!canWrite) {
-        console.warn('[LADDER] Server rejected write access - entering view-only mode');
         setIsAdmin(false);
       }
     };
@@ -1308,18 +1291,6 @@ export default function LadderForm({
     return { hasErrors, matches, errors, errorCount, playerResultsByMatch, rankBlockingErrors: blockingErrors.length > 0 ? blockingErrors : undefined, rankWarnings: warnings.length > 0 ? warnings : undefined, fixedPlayers };
   };
 
-  /**
-   * Merge server players with local changes
-   * Preserves: local unconfirmed entries, pending deletes
-   */
-  const mergeServerWithLocal = (
-    serverPlayers: PlayerData[],
-    localPlayers: PlayerData[]
-  ): PlayerData[] => {
-    const pendingDeletes = getPendingDeletes();
-    return _mergeServerWithLocal(serverPlayers, localPlayers, pendingDeletes);
-  };
-
   // Enter Games mode handlers
   const handleEnterGamesMenu = () => {
     debugClick("Enter Games");
@@ -1662,7 +1633,7 @@ const handleRandomResult = (setter: (value: string) => void) => {
               setPlayers(fixedPlayers);
               currentPlayers = fixedPlayers;
             }
-          } catch {
+} catch (_e) {
             // ignore
           }
         }
@@ -1973,7 +1944,7 @@ const handleRandomResult = (setter: (value: string) => void) => {
         if (shouldLog(3)) {
           console.log('[RECALC_DEBUG] [ADMIN] After calculateRatings + normalize:');
           for (const p of normalizedPlayers) {
-            const filled = (p.gameResults || []).filter((r, i) => r && r.trim() && r.trim() !== '');
+            const filled = (p.gameResults || []).filter((r) => r && r.trim() && r.trim() !== '');
             if (filled.length > 0) {
               console.log('[RECALC_DEBUG] [ADMIN] P' + p.rank + ' results:', filled.map((r, i) => 'R' + i + '=' + r));
             }
@@ -1992,7 +1963,7 @@ const handleRandomResult = (setter: (value: string) => void) => {
         if (shouldLog(3)) {
           console.log('[RECALC_DEBUG] [ADMIN] After locking:');
           for (const p of dedupedAdminPlayers) {
-            const filled = (p.gameResults || []).filter((r, i) => r && r.trim() && r.trim() !== '');
+            const filled = (p.gameResults || []).filter((r) => r && r.trim() && r.trim() !== '');
             if (filled.length > 0) {
               console.log('[RECALC_DEBUG] [ADMIN] P' + p.rank + ' locked:', filled.map((r, i) => 'R' + i + '=' + r));
             }
@@ -2072,7 +2043,7 @@ const handleRandomResult = (setter: (value: string) => void) => {
     if (shouldLog(3)) {
       console.log('[RECALC_DEBUG] After repopulateGameResults:');
       for (const p of processedPlayers) {
-        const filled = (p.gameResults || []).filter((r, i) => r && r.trim() && r.trim() !== '');
+        const filled = (p.gameResults || []).filter((r) => r && r.trim() && r.trim() !== '');
         if (filled.length > 0) {
           console.log('[RECALC_DEBUG] P' + p.rank + ' results:', filled.map((r, i) => 'R' + i + '=' + r));
         }
@@ -2085,7 +2056,7 @@ const handleRandomResult = (setter: (value: string) => void) => {
     if (shouldLog(3)) {
       console.log('[RECALC_DEBUG] After calculateRatings + normalize:');
       for (const p of normalizedPlayers) {
-        const filled = (p.gameResults || []).filter((r, i) => r && r.trim() && r.trim() !== '');
+        const filled = (p.gameResults || []).filter((r) => r && r.trim() && r.trim() !== '');
         if (filled.length > 0) {
           console.log('[RECALC_DEBUG] P' + p.rank + ' results:', filled.map((r, i) => 'R' + i + '=' + r));
         }
@@ -2104,7 +2075,7 @@ const handleRandomResult = (setter: (value: string) => void) => {
     if (shouldLog(3)) {
       console.log('[RECALC_DEBUG] After locking:');
       for (const p of lockedPlayers) {
-        const filled = (p.gameResults || []).filter((r, i) => r && r.trim() && r.trim() !== '');
+        const filled = (p.gameResults || []).filter((r) => r && r.trim() && r.trim() !== '');
         if (filled.length > 0) {
           console.log('[RECALC_DEBUG] P' + p.rank + ' locked:', filled.map((r, i) => 'R' + i + '=' + r));
         }
@@ -2153,7 +2124,7 @@ const handleRandomResult = (setter: (value: string) => void) => {
           } else {
             setPlayers(normalizedPlayers);
           }
-       } catch {
+} catch (_e) {
          setPlayers(normalizedPlayers);
        }
 
@@ -2225,7 +2196,6 @@ const handleRandomResult = (setter: (value: string) => void) => {
         }));
         const mapMs = performance.now() - mapStart;
 
-        const setStart = performance.now();
         setPlayers(playersWithResults);
         const totalMs = performance.now() - refreshStart;
 
@@ -3296,7 +3266,6 @@ const handleWalkthroughNextForReview = () => {
     const currentTitle = getProjectName();
     const currentIsMiniGame = isMiniGameTitle(currentTitle);
     const newIsMiniGame = isMiniGameTitle(newTitle);
-    const isTournament = isMiniGameTitle(currentTitle);
     log('[LADDER SWITCH]', `currentTitle=${currentTitle}, currentIsMiniGame=${currentIsMiniGame}, newIsMiniGame=${newIsMiniGame}, currentMiniGameFile=${dataService.getMiniGameFile()}`);
     
     if (onTitleSwitch) {
@@ -5748,7 +5717,7 @@ onBlur={(e) => {
                                   const origLastName = player.lastName;
                                   const origFirstName = player.firstName;
                                   const updates: Record<string, unknown> = {};
-                                  const getUpdatedFields = (p: typeof player): Partial<typeof player> => {
+                                  const getUpdatedFields = (_p: typeof player): Partial<typeof player> => {
                                     switch (field) {
                                       case "group": return { group: value };
                                       case "lastName": return { lastName: value };
@@ -6125,7 +6094,7 @@ onBlur={(e) => {
                                   cell.textContent = '';
                                 });
                                 
-                                const firstFilledCol = result.remainingCols.findIndex((c, idx) => {
+                                const firstFilledCol = result.remainingCols.findIndex((_c, idx) => {
                                   const field = INLINE_FIELD_ORDER[colIndex + idx];
                                   if (!field || field === "rank") return false;
                                   return (newEmptyRow as any)[field] && String((newEmptyRow as any)[field]).trim();

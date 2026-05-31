@@ -1,6 +1,6 @@
 import { loadUserSettings, saveLastWorkingConfig, getUserSettingsKey } from '../services/userSettingsStorage';
 import { gatedFetch } from './requestGate';
-import { TIMEOUTS } from './constants';
+
 
 // Connection state tracking
 let connectionState: {

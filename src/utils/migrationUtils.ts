@@ -1,7 +1,7 @@
 import { PlayerData } from '../../shared/types';
-import { getKeyPrefix, getLocalPlayers, setJson } from '../services/storageService';
+import { getLocalPlayers, setJson } from '../services/storageService';
 import { loadUserSettings } from '../services/userSettingsStorage';
-import { dataService, DataServiceMode } from '../services/dataService';
+import { dataService } from '../services/dataService';
 import type { ProgramMode } from './mode';
 
 const SESSION_LAST_MODE_KEY = 'ladder_last_mode';
