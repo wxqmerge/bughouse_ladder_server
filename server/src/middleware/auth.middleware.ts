@@ -37,11 +37,9 @@ export function requireUserKey(
 
   // If user key is configured, validate it
   if (getUserKey()) {
-    if (!apiKey) {
-      if (process.env.NODE_ENV !== 'production') {
-        console.log(`[USER_AUTH] 401 - Missing API key | IP: ${req.ip} | Path: ${req.path}`);
-      }
-      res.status(401).json({
+     if (!apiKey) {
+        console.warn(`[USER_AUTH] 401 - Missing API key | IP: ${req.ip} | Path: ${req.path}`);
+        res.status(401).json({
         success: false,
         error: { message: 'User API key required' },
       });
@@ -49,7 +47,7 @@ export function requireUserKey(
     }
 
     if (apiKey !== getUserKey()) {
-      console.log(`[USER_AUTH] 401 - Invalid API key | IP: ${req.ip} | Path: ${req.path}`);
+      console.warn(`[USER_AUTH] 401 - Invalid API key | IP: ${req.ip} | Path: ${req.path}`);
       res.status(401).json({
         success: false,
         error: { message: 'Invalid user API key' },
@@ -64,7 +62,7 @@ export function requireUserKey(
   // USER_API_KEY is not configured
   if (!getAdminKey()) {
     // Neither USER_API_KEY nor ADMIN_API_KEY configured — view-only mode, reject all writes
-    console.log(`[USER_AUTH] 403 - No API keys configured (view-only mode) | IP: ${req.ip} | Path: ${req.path}`);
+    console.warn(`[USER_AUTH] 403 - No API keys configured (view-only mode) | IP: ${req.ip} | Path: ${req.path}`);
     res.status(403).json({
       success: false,
       error: { message: 'Write operations not available — no API keys configured on server' },
@@ -74,7 +72,7 @@ export function requireUserKey(
 
   // ADMIN_API_KEY is configured but USER_API_KEY is not — admin key was already checked above
   // and didn't match, so reject
-  console.log(`[USER_AUTH] 401 - Invalid API key | IP: ${req.ip} | Path: ${req.path}`);
+  console.warn(`[USER_AUTH] 401 - Invalid API key | IP: ${req.ip} | Path: ${req.path}`);
   res.status(401).json({
     success: false,
     error: { message: 'Invalid user API key' },
@@ -95,7 +93,7 @@ export function requireAdminKey(
 
   const adminKey = getAdminKey();
   if (!adminKey) {
-    console.log(`[ADMIN_AUTH] 403 - ADMIN_API_KEY not configured | IP: ${req.ip} | Path: ${req.path}`);
+    console.warn(`[ADMIN_AUTH] 403 - ADMIN_API_KEY not configured | IP: ${req.ip} | Path: ${req.path}`);
     res.status(403).json({
       success: false,
       error: { message: 'Admin API key not configured on server' },
@@ -106,7 +104,7 @@ export function requireAdminKey(
   const apiKey = req.headers['x-api-key'] as string;
 
   if (!apiKey) {
-    console.log(`[ADMIN_AUTH] 401 - Missing API key | IP: ${req.ip} | Path: ${req.path}`);
+    console.warn(`[ADMIN_AUTH] 401 - Missing API key | IP: ${req.ip} | Path: ${req.path}`);
     res.status(401).json({
       success: false,
       error: { message: 'Admin API key required' },
@@ -129,7 +127,7 @@ export function requireAdminKey(
       providedBuffer.copy(paddedProvided);
 
       if (!crypto.timingSafeEqual(paddedKey, paddedProvided)) {
-        console.log(`[ADMIN_AUTH] 401 - Invalid API key | IP: ${req.ip} | Path: ${req.path}`);
+        console.warn(`[ADMIN_AUTH] 401 - Invalid API key | IP: ${req.ip} | Path: ${req.path}`);
         res.status(401).json({
           success: false,
           error: { message: 'Invalid admin API key' },
@@ -137,7 +135,7 @@ export function requireAdminKey(
         return;
       }
     } else if (!crypto.timingSafeEqual(keyBuffer, providedBuffer)) {
-      console.log(`[ADMIN_AUTH] 401 - Invalid API key | IP: ${req.ip} | Path: ${req.path}`);
+      console.warn(`[ADMIN_AUTH] 401 - Invalid API key | IP: ${req.ip} | Path: ${req.path}`);
       res.status(401).json({
         success: false,
         error: { message: 'Invalid admin API key' },
@@ -145,9 +143,7 @@ export function requireAdminKey(
       return;
     }
   } catch (error) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(`[ADMIN_AUTH] 401 - Key validation error | IP: ${req.ip} | Path: ${req.path} | Error: ${(error as Error).message}`);
-    }
+    console.warn(`[ADMIN_AUTH] 401 - Key validation error | IP: ${req.ip} | Path: ${req.path} | Error: ${(error as Error).message}`);
     res.status(401).json({
       success: false,
       error: { message: 'Invalid admin API key' },

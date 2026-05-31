@@ -54,10 +54,13 @@ export const loadUserSettings = (): UserSettings => {
     const stored = localStorage.getItem(getUserSettingsKey());
     if (stored) {
       const parsed = JSON.parse(stored);
-      return {
-        server: parsed.server || '',
-        apiKey: parsed.apiKey || '',
-      };
+      if (parsed && typeof parsed === 'object') {
+        return {
+          server: parsed.server || '',
+          apiKey: parsed.apiKey || '',
+        };
+      }
+      return { server: '', apiKey: '' };
     }
   } catch (error) {
     console.error('[UserSettings] Failed to load settings:', error);
@@ -109,7 +112,12 @@ export function getLastWorkingConfig(): LastWorkingConfig | null {
   try {
     const stored = localStorage.getItem(getLastWorkingConfigKey());
     if (stored) {
-      return JSON.parse(stored);
+      const parsed = JSON.parse(stored);
+      if (parsed && typeof parsed === 'object' && typeof parsed.server === 'string') {
+        return parsed as LastWorkingConfig;
+      }
+      console.warn('[UserSettings] Corrupted last working config in localStorage, ignoring');
+      return null;
     }
   } catch (error) {
     console.error('[UserSettings] Failed to load last working config:', error);

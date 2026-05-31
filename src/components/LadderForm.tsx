@@ -1634,6 +1634,9 @@ const handleRandomResult = (setter: (value: string) => void) => {
       // Start batch mode - defer server sync until all operations complete
       startBatch();
 
+      // Track current working players to avoid mutating React state
+      let currentPlayers = players;
+
       // Always build fresh matches from current UI state (no caching)
       console.log('[RECALC] Checking game errors...');
       const result = checkGameErrors();
@@ -1643,8 +1646,7 @@ const handleRandomResult = (setter: (value: string) => void) => {
       if (result.fixedPlayers) {
         console.log(`[RECALC] Applying auto-fixed ranks for ${result.fixedPlayers.length} players`);
         setPlayers(result.fixedPlayers);
-        players.length = 0;
-        players.push(...result.fixedPlayers);
+        currentPlayers = result.fixedPlayers;
       }
 
       // Fix rank warnings (missing/duplicate ranks) before New Day + ReRank
@@ -1655,11 +1657,10 @@ const handleRandomResult = (setter: (value: string) => void) => {
             const pendingNewDay = JSON.parse(pendingNewDayJson);
             if (pendingNewDay.reRank === true) {
               console.log('[RECALC] Fixing rank warnings before New Day + ReRank');
-              const fixedPlayers = fixPlayerRanks(players);
-              console.log(`[RECALC] Fixed ${players.length} players to ${fixedPlayers.length} (removed duplicates)`);
+              const fixedPlayers = fixPlayerRanks(currentPlayers);
+              console.log(`[RECALC] Fixed ${currentPlayers.length} players to ${fixedPlayers.length} (removed duplicates)`);
               setPlayers(fixedPlayers);
-              players.length = 0;
-              players.push(...fixedPlayers);
+              currentPlayers = fixedPlayers;
             }
           } catch {
             // ignore
@@ -1680,7 +1681,7 @@ const handleRandomResult = (setter: (value: string) => void) => {
       console.log(`\n=== RECALC START === Matches to process: ${matches.length}`);
       // Count existing game results before clear
       let totalExisting = 0;
-      for (const p of players) {
+      for (const p of currentPlayers) {
         const filled = p.gameResults.filter((r) => r !== null && r !== "");
         totalExisting += filled.length;
       }
@@ -1688,7 +1689,7 @@ const handleRandomResult = (setter: (value: string) => void) => {
 
       console.log('[RECALC] Repopulating game results...');
       const processedPlayers = repopulateGameResults(
-        players,
+        currentPlayers,
         matches,
         31,
         playerResultsByMatch,
@@ -5554,16 +5555,15 @@ onBlur={(e) => {
                                       e.target.textContent = String(Math.abs(val));
                                       const origLastName = player.lastName;
                                       const origFirstName = player.firstName;
-                                      setPlayers((prevPlayers) => {
-                                        const updatedPlayers = [...prevPlayers];
-                                        const targetPlayer = updatedPlayers.find(
-                                          (p) => p.rank === player.rank,
-                                        );
-                                        if (!targetPlayer) return prevPlayers;
-                                        targetPlayer.nRating = Math.abs(val);
-                                        return updatedPlayers;
-                                      });
-                                      scheduleDebouncedSaveAndPropagate(player.rank, origLastName, origFirstName, { nRating: Math.abs(val) });
+                                     setPlayers((prevPlayers) =>
+                                        prevPlayers.map(
+                                          (p) =>
+                                            p.rank === player.rank
+                                              ? { ...p, nRating: Math.abs(val) }
+                                              : p,
+                                        ),
+                                      );
+                                       scheduleDebouncedSaveAndPropagate(player.rank, origLastName, origFirstName, { nRating: Math.abs(val) });
                                     }}
 onPaste={(e) => {
                                  const text = e.clipboardData.getData('text').trim();
@@ -5571,15 +5571,14 @@ onPaste={(e) => {
                                    return;
                                  }
                                  e.preventDefault();
-                                 setPlayers((prevPlayers) => {
-                                   const updatedPlayers = [...prevPlayers];
-                                   const targetPlayer = updatedPlayers.find(
-                                     (p) => p.rank === player.rank,
-                                   );
-                                   if (!targetPlayer) return prevPlayers;
-                                   targetPlayer.nRating = parseInt(text) || 0;
-                                   return updatedPlayers;
-                                 });
+                               setPlayers((prevPlayers) =>
+                                    prevPlayers.map(
+                                      (p) =>
+                                        p.rank === player.rank
+                                          ? { ...p, nRating: parseInt(text) || 0 }
+                                          : p,
+                                    ),
+                                  );
                                }}
                           onKeyDown={(e) => {
                                    if (e.key === "Enter") {
@@ -5633,14 +5632,15 @@ onPaste={(e) => {
                                       e.preventDefault();
                                       const origLastName = player.lastName;
                                       const origFirstName = player.firstName;
-                                      setPlayers((prevPlayers) => {
-                                        const updatedPlayers = [...prevPlayers];
-                                        const targetPlayer = updatedPlayers.find((p) => p.rank === player.rank);
-                                        if (!targetPlayer) return prevPlayers;
-                                        targetPlayer.trophyEligible = normalizeTrophy(text);
-                                         return updatedPlayers;
-                                      });
-                                      scheduleDebouncedSaveAndPropagate(player.rank, origLastName, origFirstName, { trophyEligible: normalizeTrophy(text) });
+                                      setPlayers((prevPlayers) =>
+                                         prevPlayers.map(
+                                           (p) =>
+                                             p.rank === player.rank
+                                               ? { ...p, trophyEligible: normalizeTrophy(text) }
+                                               : p,
+                                         ),
+                                       );
+                                       scheduleDebouncedSaveAndPropagate(player.rank, origLastName, origFirstName, { trophyEligible: normalizeTrophy(text) });
                                     }}
                                  onKeyDown={(e) => {
                                         if (e.key === "Enter") {
@@ -5649,35 +5649,37 @@ onPaste={(e) => {
                                           const value = (current.textContent || "").trim();
                                           const origLastName = player.lastName;
                                           const origFirstName = player.firstName;
-                                          setPlayers((prevPlayers) => {
-                                            const updatedPlayers = [...prevPlayers];
-                                            const targetPlayer = updatedPlayers.find((p) => p.rank === player.rank);
-                                            if (!targetPlayer) return prevPlayers;
-                                            targetPlayer.trophyEligible = normalizeTrophy(value);
-                                            return updatedPlayers;
-                                          });
-                                          scheduleDebouncedSaveAndPropagate(player.rank, origLastName, origFirstName, { trophyEligible: normalizeTrophy(value) });
-                                          current.blur();
-                                          setTimeout(() => {
-                                            moveFocusDown(current);
-                                          }, 10);
+                                          setPlayers((prevPlayers) =>
+                                             prevPlayers.map(
+                                               (p) =>
+                                                 p.rank === player.rank
+                                                   ? { ...p, trophyEligible: normalizeTrophy(value) }
+                                                   : p,
+                                             ),
+                                           );
+                                           scheduleDebouncedSaveAndPropagate(player.rank, origLastName, origFirstName, { trophyEligible: normalizeTrophy(value) });
+                                           current.blur();
+                                           setTimeout(() => {
+                                             moveFocusDown(current);
+                                           }, 10);
                                         } else if (e.key === "Tab") {
                                           e.preventDefault();
                                           const current = e.currentTarget as HTMLElement;
                                           const value = (current.textContent || "").trim();
                                           const origLastName = player.lastName;
                                           const origFirstName = player.firstName;
-                                          setPlayers((prevPlayers) => {
-                                            const updatedPlayers = [...prevPlayers];
-                                            const targetPlayer = updatedPlayers.find((p) => p.rank === player.rank);
-                                            if (!targetPlayer) return prevPlayers;
-                                            targetPlayer.trophyEligible = normalizeTrophy(value);
-                                            return updatedPlayers;
-                                          });
-                                          scheduleDebouncedSaveAndPropagate(player.rank, origLastName, origFirstName, { trophyEligible: normalizeTrophy(value) });
-                                          current.blur();
-                                          setTimeout(() => {
-                                            const targetCol = e.shiftKey ? 5 : 7;
+                                          setPlayers((prevPlayers) =>
+                                             prevPlayers.map(
+                                               (p) =>
+                                                 p.rank === player.rank
+                                                   ? { ...p, trophyEligible: normalizeTrophy(value) }
+                                                   : p,
+                                             ),
+                                           );
+                                           scheduleDebouncedSaveAndPropagate(player.rank, origLastName, origFirstName, { trophyEligible: normalizeTrophy(value) });
+                                           current.blur();
+                                           setTimeout(() => {
+                                             const targetCol = e.shiftKey ? 5 : 7;
                                             const targetCell = document.querySelector(`[data-cell="player-${player.rank}-${targetCol}"]`) as HTMLElement;
                                             if (targetCell) targetCell.focus();
                                           }, 10);
@@ -5690,15 +5692,16 @@ onPaste={(e) => {
                                        const value = (e.target.textContent || "").trim();
                                        const origLastName = player.lastName;
                                        const origFirstName = player.firstName;
-                                       setPlayers((prevPlayers) => {
-                                         const updatedPlayers = [...prevPlayers];
-                                         const targetPlayer = updatedPlayers.find((p) => p.rank === player.rank);
-                                         if (!targetPlayer) return prevPlayers;
-                                         targetPlayer.trophyEligible = normalizeTrophy(value);
-                                         return updatedPlayers;
-                                       });
-                                       scheduleDebouncedSaveAndPropagate(player.rank, origLastName, origFirstName, { trophyEligible: normalizeTrophy(value) });
-                                     }}
+                                       setPlayers((prevPlayers) =>
+                                          prevPlayers.map(
+                                            (p) =>
+                                              p.rank === player.rank
+                                                ? { ...p, trophyEligible: normalizeTrophy(value) }
+                                                : p,
+                                          ),
+                                        );
+                                        scheduleDebouncedSaveAndPropagate(player.rank, origLastName, origFirstName, { trophyEligible: normalizeTrophy(value) });
+                                      }}
                                  >
                                    {player.trophyEligible !== false ? "+" : "-"}
                                  </span>
@@ -5745,27 +5748,32 @@ onBlur={(e) => {
                                   const origLastName = player.lastName;
                                   const origFirstName = player.firstName;
                                   const updates: Record<string, unknown> = {};
-                                  setPlayers((prevPlayers) => {
-                                    const updatedPlayers = [...prevPlayers];
-                                    const targetPlayer = updatedPlayers.find(
-                                      (p) => p.rank === player.rank,
-                                    );
-                                    if (!targetPlayer) return prevPlayers;
+                                  const getUpdatedFields = (p: typeof player): Partial<typeof player> => {
                                     switch (field) {
-                                      case "group": targetPlayer.group = value; updates.group = value; break;
-                                      case "lastName": targetPlayer.lastName = value; updates.lastName = value; break;
-                                      case "firstName": targetPlayer.firstName = value; updates.firstName = value; break;
-                                      case "rating": targetPlayer.rating = parseInt(value) || 0; updates.rating = parseInt(value) || 0; break;
-                                      case "grade": targetPlayer.grade = value; updates.grade = value; break;
-                                      case "num_games": targetPlayer.num_games = parseInt(value) || 0; updates.num_games = parseInt(value) || 0; break;
-                                      case "attendance": targetPlayer.attendance = parseInt(value) || 0; updates.attendance = parseInt(value) || 0; break;
-                                      case "phone": targetPlayer.phone = value; updates.phone = value; break;
-                                      case "info": targetPlayer.info = value; updates.info = value; break;
-                                      case "school": targetPlayer.school = value; updates.school = value; break;
-                                      case "room": targetPlayer.room = value; updates.room = value; break;
+                                      case "group": return { group: value };
+                                      case "lastName": return { lastName: value };
+                                      case "firstName": return { firstName: value };
+                                      case "rating": return { rating: parseInt(value) || 0 };
+                                      case "grade": return { grade: value };
+                                      case "num_games": return { num_games: parseInt(value) || 0 };
+                                      case "attendance": return { attendance: parseInt(value) || 0 };
+                                      case "phone": return { phone: value };
+                                      case "info": return { info: value };
+                                      case "school": return { school: value };
+                                      case "room": return { room: value };
+                                      default: return {};
                                     }
-                                    return updatedPlayers;
-                                  });
+                                  };
+                                  const newFields = getUpdatedFields(player);
+                                  Object.assign(updates, newFields);
+                                  setPlayers((prevPlayers) =>
+                                    prevPlayers.map(
+                                      (p) =>
+                                        p.rank === player.rank
+                                          ? { ...p, ...getUpdatedFields(p) }
+                                          : p,
+                                    ),
+                                  );
                                   if (Object.keys(updates).length > 0) {
                                     scheduleDebouncedSaveAndPropagate(player.rank, origLastName, origFirstName, updates);
                                   }
@@ -5884,19 +5892,23 @@ onBlur={(e) => {
                                   }
                                 }}
                                 onBlur={(e) => {
-                                  const value = e.target.textContent || "";
-                                  setPlayers((prevPlayers) => {
-                                    const updatedPlayers = [...prevPlayers];
-                                    const targetPlayer = players.find(
-                                      (p) => p.rank === player.rank,
-                                    );
-                                    if (!targetPlayer) return prevPlayers;
-                                    const newResults = [...(targetPlayer.gameResults || new Array(31).fill(null))];
-                                    newResults[gCol] = value.trim() || null;
-                                    targetPlayer.gameResults = newResults;
-                                    return updatedPlayers;
-                                  });
-                                }}
+                                   const value = e.target.textContent || "";
+                                   setPlayers((prevPlayers) =>
+                                     prevPlayers.map(
+                                       (p) =>
+                                         p.rank === player.rank
+                                           ? {
+                                               ...p,
+                                               gameResults: [
+                                                 ...(p.gameResults || new Array(31).fill(null)),
+                                               ].map((r, i) =>
+                                                 i === gCol ? value.trim() || null : r,
+                                               ),
+                                             }
+                                           : p,
+                                     ),
+                                   );
+                                 }}
                              >
                                  {displayValue}
                                </span>
@@ -5951,19 +5963,23 @@ onBlur={(e) => {
                                    }
                                  }}
                                onBlur={(e) => {
-                                 const value = e.target.textContent || "";
-                                 setPlayers((prevPlayers) => {
-                                   const updatedPlayers = [...prevPlayers];
-                                   const targetPlayer = updatedPlayers.find(
-                                     (p) => p.rank === player.rank,
-                                   );
-                                   if (!targetPlayer) return prevPlayers;
-                                   const newResults = [...(targetPlayer.gameResults || new Array(31).fill(null))];
-                                   newResults[gCol] = value.trim() || null;
-                                   targetPlayer.gameResults = newResults;
-                                   return updatedPlayers;
-                                 });
-                               }}
+                                  const value = e.target.textContent || "";
+                                  setPlayers((prevPlayers) =>
+                                    prevPlayers.map(
+                                      (p) =>
+                                        p.rank === player.rank
+                                          ? {
+                                              ...p,
+                                              gameResults: [
+                                                ...(p.gameResults || new Array(31).fill(null)),
+                                              ].map((r, i) =>
+                                                i === gCol ? value.trim() || null : r,
+                                              ),
+                                            }
+                                          : p,
+                                    ),
+                                  );
+                                }}
                              >
                                {displayValue}{tempResult}
                              </span>
