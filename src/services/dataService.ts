@@ -405,12 +405,15 @@ class DataService {
  async getPlayers(): Promise<PlayerData[]> {
     if (this.config.mode === DataServiceMode.LOCAL) {
       if (this.currentMiniGameFile) {
+        console.log(`[DataService] getPlayers: LOCAL+miniGame=${this.currentMiniGameFile}`);
         return this.getLocalMiniGamePlayers();
       }
+      console.log(`[DataService] getPlayers: LOCAL+ladder`);
       return this.getLocalPlayers();
     } else {
       // SERVER mode with mini-game: always fetch fresh from server to avoid stale ladder cache
       if (this.currentMiniGameFile) {
+        console.log(`[DataService] getPlayers: SERVER+miniGame=${this.currentMiniGameFile}`);
         try {
           const serverPlayers = await this.fetchMiniGamePlayers();
           const newHash = this.computeHash(serverPlayers);
@@ -429,40 +432,49 @@ class DataService {
 
       // SERVER mode without mini-game: return cached local data instantly, then sync from server in background
        let cachedPlayers: PlayerData[] = await this.getLocalPlayers();
-       // console.log(`[DataService] getPlayers: mode=${this.config.mode}, miniGame=${this.currentMiniGameFile || 'none'}, cached=${cachedPlayers.length} players`);
+       console.log(`[DataService] getPlayers: SERVER+ladder, cached=${cachedPlayers.length} players, activeRefreshCount=${this.activeRefreshCount}`);
 
      // Fetch from server in background to sync (deduplicated)
        if (this.activeRefreshCount === 0) {
          this.activeRefreshCount++;
+         console.log(`[DataService] getPlayers: starting background refresh (activeRefreshCount=${this.activeRefreshCount})`);
          (async () => {
            try {
              let serverPlayers: PlayerData[];
              if (this.currentMiniGameFile) {
+               console.log(`[DataService] BG refresh: fetching miniGame=${this.currentMiniGameFile}`);
                serverPlayers = await this.fetchMiniGamePlayers();
              } else {
+               console.log(`[DataService] BG refresh: fetching ladder`);
                serverPlayers = await this.fetchPlayers();
              }
-             // Initialize hash on first fetch
-             const newHash = this.computeHash(serverPlayers);
-             if (this.lastDataHash === null && serverPlayers.length > 0) {
-               this.lastDataHash = newHash;
-             }
-           // Save to localStorage cache so getPlayers() always has fresh data (no notify to avoid loop)
-             if (this.currentMiniGameFile) {
-                await this.saveLocalMiniGamePlayers(serverPlayers, false);
-              } else {
-                this.saveLocalPlayers(serverPlayers, false);
-              }
-              // Only notify if data actually changed (prevents infinite loop)
-              if (this.lastDataHash !== null && newHash !== this.lastDataHash) {
+           // Initialize hash on first fetch
+              const newHash = this.computeHash(serverPlayers);
+              console.log(`[DataService] BG refresh: serverPlayers=${serverPlayers.length}, newHash=${newHash.slice(0, 12)}, lastDataHash=${this.lastDataHash?.slice(0, 12)}`);
+              if (this.lastDataHash === null && serverPlayers.length > 0) {
                 this.lastDataHash = newHash;
-                this.notifySubscribers();
               }
-           } catch {
-             // Server fetch failed silently — UI keeps showing cached local data
-           } finally {
-             this.activeRefreshCount--;
-           }
+            // Save to localStorage cache so getPlayers() always has fresh data (no notify to avoid loop)
+              if (this.currentMiniGameFile) {
+                 await this.saveLocalMiniGamePlayers(serverPlayers, false);
+               } else {
+                 this.saveLocalPlayers(serverPlayers, false);
+               }
+               // Only notify if data actually changed (prevents infinite loop)
+               if (this.lastDataHash !== null && newHash !== this.lastDataHash) {
+                 this.lastDataHash = newHash;
+                 console.log(`[DataService] BG refresh: data changed, notifying subscribers`);
+                 this.notifySubscribers();
+               } else {
+                 console.log(`[DataService] BG refresh: data unchanged, skipping notify`);
+               }
+            } catch (err) {
+              // Server fetch failed silently — UI keeps showing cached local data
+              console.error(`[DataService] BG refresh: FAILED`, err);
+            } finally {
+              this.activeRefreshCount--;
+              console.log(`[DataService] BG refresh: done, activeRefreshCount=${this.activeRefreshCount}`);
+            }
          })();
        }
 
