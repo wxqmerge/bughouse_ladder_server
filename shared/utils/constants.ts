@@ -21,18 +21,45 @@ export const MINI_GAMES_WITH_BUGHOUSE = [
   "Bughouse",
 ] as const;
 
+/** Fixed keyboard shortcut mapping for ladder switching (Ctrl+1 through Ctrl+8) */
+export const LADDER_SHORTCUTS: Record<string, number> = {
+  "Ladder": 1,
+  "BG_Game": 2,
+  "Bishop_Game": 3,
+  "Pillar_Game": 4,
+  "Kings_Cross": 5,
+  "Pawn_Game": 6,
+  "Queen_Game": 7,
+  "Bughouse": 8,
+};
+
+/** Reverse mapping: shortcut number → title */
+export const SHORTCUT_TO_TITLE: Record<number, string> = Object.fromEntries(
+  Object.entries(LADDER_SHORTCUTS).map(([title, num]) => [num, title])
+) as Record<number, string>;
+
 export function isMiniGameTitle(title: string): boolean {
   const normalized = String(title || "").toLowerCase().trim();
   return MINI_GAMES_WITH_BUGHOUSE.some(game => game.toLowerCase() === normalized);
 }
 
 export function titleToFileName(title: string): string {
-  const normalized = String(title || "").toLowerCase().trim();
-  if (normalized === "bughouse") {
-    return "bughouse.tab";
-  }
-  return `${title}.tab`;
-}
+   const normalized = String(title || "").toLowerCase().trim();
+   if (normalized === "bughouse") {
+     return "bughouse.tab";
+   }
+   return `${title}.tab`;
+ }
+
+ export function fileNameToTitle(fileName: string): string {
+   const normalized = String(fileName || "").trim();
+   if (normalized.toLowerCase() === "bughouse.tab") {
+     return "Bughouse";
+   }
+   const withoutExt = normalized.replace(/\.tab$/i, "");
+   const match = MINI_GAMES_WITH_BUGHOUSE.find(g => g.toLowerCase() === withoutExt.toLowerCase());
+   return match || withoutExt;
+ }
 
 export const ERROR_MESSAGES: Record<number, string> = {
   1: "Invalid characters",

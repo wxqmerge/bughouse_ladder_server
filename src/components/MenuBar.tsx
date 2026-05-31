@@ -3,7 +3,7 @@ import { getVersionString, getProgramMode } from "../utils/mode";
 import { getVisibleTitles } from "../utils/titleMenu";
 import { getFontSize, getScaledPadding, getScaledGap, getScaledLineHeight } from "../utils/getFontSize";
 import { useIntervalCheck } from "../utils/useIntervalCheck";
-import { titleToFileName } from "../utils/constants";
+import { titleToFileName, fileNameToTitle, LADDER_SHORTCUTS } from "../utils/constants";
 import { debugClick } from "../utils/debug";
 import {
   Folder,
@@ -62,6 +62,7 @@ interface MenuItem {
   dataMenuItem: string;
   hasCheckmark?: boolean;
   disabled?: boolean;
+  shortcut?: string;
 }
 
 export default function MenuBar({
@@ -135,29 +136,33 @@ export default function MenuBar({
 
   const visibleTitles = getVisibleTitles(isAdmin, availableMiniGames);
 
-  const titleMenuItems: MenuItem[] = visibleTitles.map((title) => {
-    const isMiniGame = title !== "Ladder";
-    const fileName = isMiniGame ? titleToFileName(title) : null;
-    const isAvailable = fileName ? availableMiniGames.includes(fileName) : true;
-    const isDisabled = !isAdmin && isMiniGame && !isAvailable;
-    
-    return {
-      icon: <Type size={16} />,
-      label: title,
-      onClick: () => {
-        if (isDisabled) {
-          alert(`"${title}" is not available yet. Only admin can create mini-games.`);
-          return;
-        }
-        debugClick(`Title:${title}`);
-        onSetTitle?.(title);
-        closeAllMenus();
-      },
-      dataMenuItem: `Title-${title}`,
-      hasCheckmark: projectName?.toLowerCase() === title.toLowerCase(),
-      disabled: isDisabled,
-    };
-  });
+  const titleMenuItems: MenuItem[] = visibleTitles
+    .sort((a, b) => (LADDER_SHORTCUTS?.[a] ?? 99) - (LADDER_SHORTCUTS?.[b] ?? 99))
+    .map((title) => {
+      const isMiniGame = title !== "Ladder";
+      const fileName = isMiniGame ? titleToFileName(title) : null;
+      const isAvailable = fileName ? availableMiniGames.includes(fileName) : true;
+      const isDisabled = !isAdmin && isMiniGame && !isAvailable;
+      const shortcutNum = LADDER_SHORTCUTS?.[title];
+      
+      return {
+        icon: <Type size={16} />,
+        label: title,
+        shortcut: shortcutNum ? `Ctrl+${shortcutNum}` : undefined,
+        onClick: () => {
+          if (isDisabled) {
+            alert(`"${title}" is not available yet. Only admin can create mini-games.`);
+            return;
+          }
+          debugClick(`Title:${title}`);
+          onSetTitle?.(title);
+          closeAllMenus();
+        },
+        dataMenuItem: `Title-${title}`,
+        hasCheckmark: projectName?.toLowerCase() === title.toLowerCase(),
+        disabled: isDisabled,
+      };
+    });
 
   const sortMenuItems: MenuItem[] = [
     {
@@ -434,12 +439,17 @@ label: "Restore Backup",
         >
           {item.icon}
           {menuType === "title" && item.hasCheckmark && (
-            <Check size={14} style={{ marginLeft: "auto", color: "#3b82f6" }} />
+            <Check size={14} style={{ color: "#3b82f6" }} />
           )}
-          <span>{item.label}</span>
+          <span style={{ flex: 1 }}>{item.label}</span>
           {item.disabled && (
-            <span style={{ marginLeft: "auto", fontSize: "0.75rem", color: "#9ca3af" }}>
+            <span style={{ fontSize: "0.75rem", color: "#9ca3af" }}>
               (not available)
+            </span>
+          )}
+          {item.shortcut && (
+            <span style={{ marginLeft: "0.5rem", fontSize: "0.75rem", color: "#9ca3af", whiteSpace: "nowrap" }}>
+              {item.shortcut}
             </span>
           )}
         </div>
