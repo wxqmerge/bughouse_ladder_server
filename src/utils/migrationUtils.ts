@@ -34,7 +34,10 @@ function detectCurrentMode(): ProgramMode {
  */
 function getLastStoredMode(): ProgramMode | null {
   const stored = sessionStorage.getItem(SESSION_LAST_MODE_KEY);
-  return (stored as ProgramMode) || null;
+  if (stored === 'local' || stored === 'server' || stored === 'server_down') {
+    return stored;
+  }
+  return null;
 }
 
 /**

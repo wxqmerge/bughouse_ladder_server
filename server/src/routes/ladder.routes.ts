@@ -175,11 +175,44 @@ router.delete('/:rank/round/:roundIndex', requireUserKey, writeLimiter, async (r
   }
 });
 
+function isValidPlayerData(obj: unknown): obj is PlayerData {
+  if (!obj || typeof obj !== 'object') return false;
+  const p = obj as Record<string, unknown>;
+  return (
+    typeof p.rank === 'number' &&
+    typeof p.group === 'string' &&
+    typeof p.lastName === 'string' &&
+    typeof p.firstName === 'string' &&
+    typeof p.rating === 'number' &&
+    typeof p.nRating === 'number' &&
+    typeof p.trophyEligible === 'boolean' &&
+    typeof p.grade === 'string' &&
+    typeof p.num_games === 'number' &&
+    typeof p.attendance === 'number' &&
+    typeof p.info === 'string' &&
+    typeof p.phone === 'string' &&
+    typeof p.school === 'string' &&
+    typeof p.room === 'string' &&
+    Array.isArray(p.gameResults)
+  );
+}
+
+function isValidDelta(obj: unknown): obj is { playerRank: number; round: number; result: string } {
+  if (!obj || typeof obj !== 'object') return false;
+  const d = obj as Record<string, unknown>;
+  return (
+    typeof d.playerRank === 'number' &&
+    typeof d.round === 'number' &&
+    typeof d.result === 'string'
+  );
+}
+
 // Bulk update players (requires user or admin API key)
 router.put('/', requireUserKey, writeLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
-    const { players } = req.body as { players: PlayerData[] };
-    
+    const body = req.body as { players?: unknown };
+    const players = body.players;
+
     if (!players || !Array.isArray(players)) {
       res.status(400).json({
         success: false,
@@ -188,10 +221,21 @@ router.put('/', requireUserKey, writeLimiter, async (req: Request, res: Response
       return;
     }
 
+    const invalidIndices = players.map((p, i) => isValidPlayerData(p) ? -1 : i).filter(i => i !== -1);
+    if (invalidIndices.length > 0) {
+      res.status(400).json({
+        success: false,
+        error: { message: `Players at index(es) ${invalidIndices.join(', ')} missing required fields` },
+      });
+      return;
+    }
+
+    const typedPlayers = players as PlayerData[];
+
     const ladderData: LadderData = await withTiming(`readLadderFile(bulk)`, readLadderFile);
 
     // Log game results that contain W/L for bulk save
-    for (const p of players) {
+    for (const p of typedPlayers) {
       if (p.gameResults) {
         for (let r = 0; r < p.gameResults.length; r++) {
           const result = p.gameResults[r];
@@ -203,8 +247,8 @@ router.put('/', requireUserKey, writeLimiter, async (req: Request, res: Response
     }
 
     // Deduplicate players before saving to prevent duplicate entries
-    const beforeCount = players.length;
-    ladderData.players = deduplicatePlayers(players);
+    const beforeCount = typedPlayers.length;
+    ladderData.players = deduplicatePlayers(typedPlayers);
     const afterCount = ladderData.players.length;
     if (beforeCount !== afterCount) {
       log('[SERVER_BULK]', `Deduplicated ${beforeCount} -> ${afterCount} players (${beforeCount - afterCount} duplicates removed)`);
@@ -212,11 +256,11 @@ router.put('/', requireUserKey, writeLimiter, async (req: Request, res: Response
 
     await withTiming(`writeLadderFile(bulk-${afterCount})`, () => writeLadderFile(ladderData));
 
-    broadcastSSEEvent('ladderUpdated', { type: 'bulkUpdate', count: players.length });
+    broadcastSSEEvent('ladderUpdated', { type: 'bulkUpdate', count: typedPlayers.length });
 
     res.json({
       success: true,
-      data: { message: 'Players updated successfully', count: players.length },
+      data: { message: 'Players updated successfully', count: typedPlayers.length },
     });
   } catch (error) {
     logError('[SERVER]', 'Error bulk updating players:', error);
@@ -230,7 +274,8 @@ router.put('/', requireUserKey, writeLimiter, async (req: Request, res: Response
 // Batch update game results (requires user or admin API key)
 router.post('/batch', requireUserKey, writeLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
-    const { deltas } = req.body as { deltas: Array<{ playerRank: number; round: number; result: string }> };
+    const body = req.body as { deltas?: unknown };
+    const deltas = body.deltas;
 
     if (!deltas || !Array.isArray(deltas)) {
       res.status(400).json({
@@ -240,12 +285,23 @@ router.post('/batch', requireUserKey, writeLimiter, async (req: Request, res: Re
       return;
     }
 
+    const invalidDeltas = deltas.map((d, i) => isValidDelta(d) ? -1 : i).filter(i => i !== -1);
+    if (invalidDeltas.length > 0) {
+      res.status(400).json({
+        success: false,
+        error: { message: `Deltas at index(es) ${invalidDeltas.join(', ')} missing required fields` },
+      });
+      return;
+    }
+
+    const typedDeltas = deltas as Array<{ playerRank: number; round: number; result: string }>;
+
     const ladderData = await withTiming(`readLadderFile(batch)`, readLadderFile);
     const results: any[] = [];
 
-    console.log('[SERVER_BATCH] Received deltas:', JSON.stringify(deltas));
+    console.log('[SERVER_BATCH] Received deltas:', JSON.stringify(typedDeltas));
 
-    for (const delta of deltas) {
+    for (const delta of typedDeltas) {
       const playerIndex = ladderData.players.findIndex((p: PlayerData) => p.rank === delta.playerRank);
 
       if (playerIndex === -1) {

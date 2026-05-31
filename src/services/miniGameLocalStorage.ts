@@ -57,21 +57,23 @@ function parseTabContent(content: string): LadderData {
     const isNegRating = ratingStr.startsWith("-");
     const nRateStr = String(cols[5] || "").trim();
 
+    const safeInt = (val: string | null | undefined, fallback: number = 0): number => {
+      if (val === null || val === undefined || val.trim() === '') return fallback;
+      const n = parseInt(val, 10);
+      return isNaN(n) ? fallback : n;
+    };
+
     const player: PlayerData = {
-      rank: cols[4] ? parseInt(cols[4]) : 0,
+      rank: safeInt(cols[4]),
       group: cols[0] && cols[0].trim() !== "" ? cols[0].trim() : "",
       lastName: cols[1] !== null ? cols[1] : "",
       firstName: cols[2] !== null ? cols[2] : "",
-      rating: Math.abs(parseInt(ratingStr)) || 0,
-      nRating: Math.abs(parseInt(nRateStr)) || 0,
+      rating: Math.abs(safeInt(ratingStr)),
+      nRating: Math.abs(safeInt(nRateStr)),
       trophyEligible: !isNegRating,
       grade: cols[6] !== null ? cols[6] : "N/A",
-      num_games: cols[7] !== null && !isNaN(parseInt(cols[7]))
-        ? parseInt(cols[7])
-        : 0,
-      attendance: cols[8] !== null && !isNaN(parseInt(cols[8]))
-        ? parseInt(cols[8])
-        : 0,
+      num_games: safeInt(cols[7]),
+      attendance: safeInt(cols[8]),
       phone: cols[9] !== null ? cols[9] : "",
       info: cols[10] !== null ? cols[10] : "",
       school: cols[11] !== null ? cols[11] : "",
@@ -81,7 +83,8 @@ function parseTabContent(content: string): LadderData {
 
     const gameResults: (string | null)[] = [];
     for (let g = 0; g < 31; g++) {
-      gameResults.push(cols[13 + g]);
+      const idx = 13 + g;
+      gameResults.push(idx < cols.length ? cols[idx] : null);
     }
     player.gameResults = gameResults;
 
