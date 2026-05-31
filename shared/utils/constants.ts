@@ -2,15 +2,6 @@
  * Shared constants for the Bughouse Ladder application
  */
 
-export const MINI_GAMES = [
-  "BG_Game",
-  "Bishop_Game",
-  "Pillar_Game",
-  "Kings_Cross",
-  "Pawn_Game",
-  "Queen_Game",
-] as const;
-
 export const MINI_GAMES_WITH_BUGHOUSE = [
   "BG_Game",
   "Bishop_Game",
@@ -90,12 +81,6 @@ export function getValidationErrorMessage(errorCode: number): string {
   return ERROR_MESSAGES[errorCode] || "Unknown error";
 }
 
-import { PlayerData } from "../types/index.js";
-
-export function hasGameReports(players: PlayerData[]): boolean {
-  return players.some((p) => p.gameResults?.some((r) => r !== null && r !== ""));
-}
-
 export function getNextTitle(currentTitle: string): string {
   const normalizedTitle = String(currentTitle || "")
     .toLowerCase()
@@ -108,6 +93,8 @@ export function getNextTitle(currentTitle: string): string {
   }
   return currentTitle;
 }
+
+import { PlayerData } from "../types/index.js";
 
 export function processNewDayTransformations(
   players: PlayerData[],
