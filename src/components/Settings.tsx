@@ -41,6 +41,8 @@ interface SettingsProps {
   isAdmin: boolean;
   onToggleAdmin?: () => Promise<void>;
   onSaveBeforeAction?: (settings: ActionSettings, userSettings: UserSettings) => void;
+  testMode: boolean;
+  setTestMode: (value: boolean) => void;
 }
 
 export default function Settings({
@@ -58,6 +60,8 @@ export default function Settings({
   isAdmin,
   onToggleAdmin,
   onSaveBeforeAction,
+  testMode,
+  setTestMode,
 }: SettingsProps) {
   const [showRatings, setShowRatings] = useState(true);
   const [debugLevel, setDebugLevel] = useState(5);
@@ -67,6 +71,7 @@ export default function Settings({
   const [apiKey, setApiKey] = useState('');
   const [lastWorkingConfig, setLastWorkingConfig] = useState<{ server: string; apiKey: string } | null>(null);
   const [adminToggleLoading, setAdminToggleLoading] = useState(false);
+  const hasAdminKey = !!loadUserSettings().apiKey?.trim();
 
   useEffect(() => {
     const savedSettings = getSettings();
@@ -726,6 +731,22 @@ export default function Settings({
                   : !serverUrl.trim()
                     ? "Local mode: enter admin mode to access configuration and actions."
                     : "Enter admin mode to access configuration and actions."}
+              </p>
+            </div>
+          )}
+          {isAdmin && hasAdminKey && (
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={testMode}
+                  onChange={(e) => setTestMode(e.target.checked)}
+                  style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                />
+                <span style={{ fontSize: '0.875rem', fontWeight: '500' }}>Test Mode</span>
+              </label>
+              <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem', marginLeft: '1.25rem' }}>
+                Enable random result buttons in Enter Games mode for testing.
               </p>
             </div>
           )}

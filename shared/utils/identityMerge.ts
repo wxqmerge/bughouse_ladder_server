@@ -76,8 +76,13 @@ export function splitIdentityChanges(
 			}
 		}
 
-		if (identityChanged) {
-			identityUpdates.push({ ...incoming });
+	if (identityChanged) {
+			// Only copy identity fields to avoid overwriting club nRating/gameResults
+			const identityOnly: PlayerData = { ...clubPlayer };
+			for (const field of IDENTITY_FIELDS) {
+				(identityOnly as any)[field] = (incoming as any)[field];
+			}
+			identityUpdates.push(identityOnly);
 		}
 
 		// Always merge: club identity + mini-game nRating/gameResults

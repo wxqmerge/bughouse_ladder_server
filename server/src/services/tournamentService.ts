@@ -5,7 +5,7 @@ import { log as loggerLog } from '../utils/logger.js';
 import { readLadderFile, writeLadderFile, generateTabContent, PlayerData, LadderData, withTiming, ensureDataDirectory } from './dataService.js';
 import { MiniGameData, MINI_GAME_FILES, MINI_GAME_DIFFICULTY_ORDER } from '../../../shared/types/index.js';
 import { clearRankReferences } from '../../../shared/utils/hashUtils.js';
-import { mergeIdentityFromClubLadder, splitIdentityChanges } from '../../../shared/utils/identityMerge.js';
+import { IDENTITY_FIELDS, mergeIdentityFromClubLadder, splitIdentityChanges } from '../../../shared/utils/identityMerge.js';
 import {
   copyPlayersToTarget as sharedCopyPlayersToTarget,
   mergeGameResults as sharedMergeGameResults,
@@ -216,7 +216,11 @@ export async function writeMiniGameFile(
 			for (const update of identityUpdates) {
 				const idx = clubLadder.players.findIndex(p => p.rank === update.rank);
 				if (idx !== -1) {
-					clubLadder.players[idx] = { ...clubLadder.players[idx], ...update };
+					// Only apply identity fields, preserve club player's nRating/gameResults
+					const clubPlayer = clubLadder.players[idx];
+					for (const field of IDENTITY_FIELDS) {
+						(clubPlayer as any)[field] = (update as any)[field];
+					}
 				} else {
 					clubLadder.players.push(update);
 				}

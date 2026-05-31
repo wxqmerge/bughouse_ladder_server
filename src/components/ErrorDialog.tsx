@@ -32,7 +32,8 @@ interface ErrorDialogProps {
   isOverrideMode?: boolean;
   onToggleOverrideMode?: () => void;
   onRandomResult?: (setter: (value: string) => void) => void;
-  ladderName?: string;
+   testMode?: boolean;
+   ladderName?: string;
   onTeleport?: (targetLadder: string, resultString: string) => void;
   availableMiniGames?: string[];
   isTeleporting?: boolean;
@@ -145,8 +146,9 @@ export default function ErrorDialog({
   debugLevel = 5,
   isOverrideMode = false,
   onToggleOverrideMode,
-  onRandomResult,
-  ladderName,
+ onRandomResult,
+   testMode = false,
+   ladderName,
   onTeleport,
   availableMiniGames,
   isTeleporting = false,
@@ -234,7 +236,7 @@ export default function ErrorDialog({
           break;
         case "r":
           e.preventDefault();
-          if (isEnterGames && isDev && cb.onRandomResult) {
+          if (isEnterGames && (isDev || testMode) && cb.onRandomResult) {
             cb.onRandomResult((v: string) => {
               setCurrentInputValue(v);
               if (inputRef.current) inputRef.current.value = v;
@@ -258,7 +260,7 @@ export default function ErrorDialog({
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isEnterGames, isDev]);
+  }, [isEnterGames, isDev, testMode]);
 
   // Sync input value when existingValue changes (e.g., clicking different cell)
   useEffect(() => {
@@ -1582,7 +1584,7 @@ export default function ErrorDialog({
             {/* Enter-Games mode: Cancel + Enter_Recalculate_Save */}
 {isEnterGames ? (
 <>
-               {isDev && onRandomResult && (
+               {(isDev || testMode) && onRandomResult && (
                   <button
                     type="button"
                     onClick={() => { console.log('>>> [BUTTON PRESSED] Random Result'); onRandomResult?.(setCurrentInputValue); }}
