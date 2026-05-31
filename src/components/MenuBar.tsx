@@ -43,6 +43,8 @@ interface MenuBarProps {
   onRestoreBackup?: () => void;
   onDeleteHiddenPlayers?: () => void;
   onAutoLetter?: () => void;
+  showRoundRobin?: boolean;
+  onToggleRoundRobin?: () => void;
   isAdmin: boolean;
   zoomLevel: "50%" | "70%" | "100%" | "140%" | "200%";
   projectName?: string;
@@ -80,6 +82,8 @@ export default function MenuBar({
   onRestoreBackup,
   onDeleteHiddenPlayers,
   onAutoLetter,
+  showRoundRobin = false,
+  onToggleRoundRobin,
   isAdmin,
   zoomLevel,
   projectName,
@@ -400,6 +404,16 @@ label: "Restore Backup",
       },
       dataMenuItem: "Zoom 200%",
     },
+    {
+      icon: <span style={{ fontWeight: "bold", fontSize: "14px" }}>R</span>,
+      label: "Round Robin",
+      onClick: () => {
+        debugClick("Round Robin");
+        onToggleRoundRobin?.();
+      },
+      dataMenuItem: "Round Robin",
+      hasCheckmark: showRoundRobin,
+    },
   ];
 
   const renderMenuItems = (items: MenuItem[], menuType?: string) => (
@@ -439,7 +453,7 @@ label: "Restore Backup",
           }}
         >
           {item.icon}
-          {menuType === "title" && item.hasCheckmark && (
+          {(menuType === "title" || menuType === "view") && item.hasCheckmark && (
             <Check size={14} style={{ color: "#3b82f6" }} />
           )}
           <span style={{ flex: 1 }}>{item.label}</span>
@@ -552,7 +566,7 @@ label: "Restore Backup",
             <SettingsIcon size={16} />,
             operationsMenuItems,
           )}
-          {renderMenuTrigger("View", <ZoomIn size={16} />, viewMenuItems)}
+          {renderMenuTrigger("View", <ZoomIn size={16} />, viewMenuItems, "view")}
         </div>
 
         {/* Title and player count */}

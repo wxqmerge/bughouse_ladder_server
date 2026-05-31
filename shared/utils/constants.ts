@@ -2,6 +2,8 @@
  * Shared constants for the Bughouse Ladder application
  */
 
+export const NUM_ROUNDS = 31;
+
 export const MINI_GAMES_WITH_BUGHOUSE = [
   "BG_Game",
   "Bishop_Game",
@@ -122,16 +124,28 @@ export function processNewDayTransformations(
     return newDayPlayers;
   }
 
-  const sortedPlayers = [...newDayPlayers].sort((a, b) => {
-    const pseudoA = a.trophyEligible !== false ? a.rating : -a.rating;
-    const pseudoB = b.trophyEligible !== false ? b.rating : -b.rating;
-
-    if (pseudoA !== pseudoB) return pseudoB - pseudoA;
-    return a.rank - b.rank;
-  });
+  const sortedPlayers = [...newDayPlayers].sort((a, b) => compareByPseudoRating(a, b, p => p.rating));
 
   return sortedPlayers.map((player, index) => ({
     ...player,
     rank: index + 1,
   }));
+}
+
+export function compareByPseudoRating<T extends { trophyEligible?: boolean | undefined; rank: number }>(
+  a: T,
+  b: T,
+  ratingFn: (p: T) => number
+): number {
+  const pseudoA = a.trophyEligible !== false ? ratingFn(a) : -ratingFn(a);
+  const pseudoB = b.trophyEligible !== false ? ratingFn(b) : -ratingFn(b);
+  if (pseudoA !== pseudoB) return pseudoB - pseudoA;
+  return a.rank - b.rank;
+}
+
+export function formatRatingForExport(rating: number | undefined, trophyEligible: boolean | undefined | null): string {
+  if (trophyEligible === false) {
+    return `-${rating}`;
+  }
+  return String(rating);
 }

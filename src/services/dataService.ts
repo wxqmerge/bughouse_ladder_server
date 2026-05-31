@@ -8,6 +8,7 @@
  */
 
 import { PlayerData, DeltaOperation, MiniGameStore } from '../../shared/types';
+import { NUM_ROUNDS } from '../../shared/utils/constants';
 import {
   getLocalPlayers as storageGetLocalPlayers,
   savePlayers as storageSavePlayers,
@@ -29,6 +30,18 @@ import {
 import { playersToTabContent } from './miniGameLocalStorage';
 import { loadUserSettings } from './userSettingsStorage';
 import { gatedFetch } from '../utils/requestGate';
+
+async function throwIfNotOk(response: Response, context: string): Promise<void> {
+  if (response.ok) return;
+  let errorMsg = `HTTP ${response.status}`;
+  try {
+    const errData = await response.json();
+    errorMsg = errData?.error?.message || errData?.message || errorMsg;
+  } catch { /* response body not JSON */ }
+  const error = new Error(`${context}: ${errorMsg}`);
+  (error as any).status = response.status;
+  throw error;
+}
 
 export enum DataServiceMode {
   LOCAL = 'LOCAL',
@@ -574,7 +587,7 @@ class DataService {
     const player = players.find(p => p.rank === playerRank);
     if (player) {
       if (!player.gameResults) {
-        player.gameResults = new Array(31).fill(null);
+        player.gameResults = new Array(NUM_ROUNDS).fill(null);
       }
       player.gameResults[round] = result;
       this.saveLocalPlayers(players);
@@ -586,7 +599,7 @@ class DataService {
     const player = players.find(p => p.rank === playerRank);
     if (player) {
       if (!player.gameResults) {
-        player.gameResults = new Array(31).fill(null);
+        player.gameResults = new Array(NUM_ROUNDS).fill(null);
       }
       player.gameResults[roundIndex] = null;
       this.saveLocalPlayers(players);
@@ -620,16 +633,7 @@ class DataService {
       headers: this.getAuthHeaders(),
     });
     
-    if (!response.ok) {
-      let errorMsg = `HTTP ${response.status}`;
-      try {
-        const errData = await response.json();
-        errorMsg = errData?.error?.message || errData?.message || errorMsg;
-      } catch { /* response body not JSON */ }
-      const error = new Error(`Failed to fetch players: ${errorMsg}`);
-      (error as any).status = response.status;
-      throw error;
-    }
+    await throwIfNotOk(response, 'Failed to fetch players');
 
     const data = await response.json();
     if (!data || !data.data || !Array.isArray(data.data.players)) {
@@ -664,16 +668,7 @@ class DataService {
       body: JSON.stringify({ players }),
     });
 
-    if (!response.ok) {
-      let errorMsg = `HTTP ${response.status}`;
-      try {
-        const errData = await response.json();
-        errorMsg = errData?.error?.message || errData?.message || errorMsg;
-      } catch { /* response body not JSON */ }
-      const error = new Error(`Failed to update players: ${errorMsg}`);
-      (error as any).status = response.status;
-      throw error;
-    }
+    await throwIfNotOk(response, 'Failed to update players');
 
     // Update localStorage cache only (skipServerSync=true because updatePlayers already PUT to server)
     storageSavePlayers(players, false, true);
@@ -694,16 +689,7 @@ class DataService {
         `${this.getApiUrl()}/api/ladder/mini-games/read?fileName=${encodeURIComponent(this.currentMiniGameFile)}`
       );
 
-    if (!response.ok) {
-      let errorMsg = `HTTP ${response.status}`;
-      try {
-        const errData = await response.json();
-        errorMsg = errData?.error?.message || errData?.message || errorMsg;
-      } catch { /* response body not JSON */ }
-      const error = new Error(`Failed to fetch mini-game players: ${errorMsg}`);
-      (error as any).status = response.status;
-      throw error;
-    }
+    await throwIfNotOk(response, 'Failed to fetch mini-game players');
 
     const data = await response.json();
     const players = data.data.players || [];
@@ -732,16 +718,7 @@ class DataService {
       }),
     });
 
-    if (!response.ok) {
-      let errorMsg = `HTTP ${response.status}`;
-      try {
-        const errData = await response.json();
-        errorMsg = errData?.error?.message || errData?.message || errorMsg;
-      } catch { /* response body not JSON */ }
-      const error = new Error(`Failed to update mini-game players: ${errorMsg}`);
-      (error as any).status = response.status;
-      throw error;
-    }
+    await throwIfNotOk(response, 'Failed to update mini-game players');
     // SSE 'miniGameWritten' event triggers refresh
   }
 
@@ -780,9 +757,7 @@ class DataService {
       );
     }
 
-    if (!response.ok) {
-      throw new Error('Failed to update player');
-    }
+    await throwIfNotOk(response, 'Failed to update player');
     // SSE 'playerUpdated'/'miniGameWritten' event triggers refresh
   }
 
@@ -800,7 +775,7 @@ class DataService {
         return;
       }
       if (!player.gameResults) {
-        player.gameResults = new Array(31).fill(null);
+        player.gameResults = new Array(NUM_ROUNDS).fill(null);
       }
       player.gameResults[round] = result;
       player.num_games = (player.num_games || 0) + 1;
@@ -827,9 +802,7 @@ class DataService {
       });
     }
 
-    if (!response.ok) {
-      throw new Error('Failed to submit game');
-    }
+    await throwIfNotOk(response, 'Failed to submit game');
     // SSE 'gameSubmitted'/'miniGameWritten' event triggers refresh
   }
 
@@ -842,7 +815,7 @@ class DataService {
           const player = players.find(p => p.rank === delta.playerRank);
           if (player) {
             if (!player.gameResults) {
-              player.gameResults = new Array(31).fill(null);
+              player.gameResults = new Array(NUM_ROUNDS).fill(null);
             }
             player.gameResults[delta.round] = delta.result;
             player.num_games = (player.num_games || 0) + 1;
@@ -862,16 +835,7 @@ class DataService {
         }),
       });
 
-if (!response.ok) {
-      let errorMsg = `HTTP ${response.status}`;
-      try {
-        const errData = await response.json();
-        errorMsg = errData?.error?.message || errData?.message || errorMsg;
-      } catch { /* response body not JSON */ }
-      const error = new Error(`Failed to submit delta batch: ${errorMsg}`);
-      (error as any).status = response.status;
-      throw error;
-    }
+await throwIfNotOk(response, 'Failed to submit delta batch');
     // SSE 'miniGameWritten' event triggers refresh
     } else {
       const response = await gatedFetch(`${this.getApiUrl()}/api/ladder/batch`, {
@@ -883,16 +847,7 @@ if (!response.ok) {
         body: JSON.stringify({ deltas }),
       });
 
-if (!response.ok) {
-      let errorMsg = `HTTP ${response.status}`;
-      try {
-        const errData = await response.json();
-        errorMsg = errData?.error?.message || errData?.message || errorMsg;
-      } catch { /* response body not JSON */ }
-      const error = new Error(`Failed to submit delta batch: ${errorMsg}`);
-      (error as any).status = response.status;
-      throw error;
-    }
+await throwIfNotOk(response, 'Failed to submit delta batch');
     // SSE 'deltasSubmitted' event triggers refresh
     }
   }
@@ -928,9 +883,7 @@ if (!response.ok) {
       );
     }
 
-    if (!response.ok) {
-      throw new Error('Failed to clear cell');
-    }
+    await throwIfNotOk(response, 'Failed to clear cell');
 
     // Also update localStorage cache
     const players = await this.getLocalPlayers();
@@ -1045,9 +998,7 @@ if (!response.ok) {
       });
       console.debug('[DataService] copyPlayersToMiniGame: response status=' + response.status);
 
-      if (!response.ok) {
-        throw new Error(`Failed to copy players to: ${fileName} (HTTP ${response.status})`);
-      }
+      await throwIfNotOk(response, `Failed to copy players to: ${fileName}`);
 
       const data = await response.json();
       console.debug('[DataService] copyPlayersToMiniGame: SERVER success');
@@ -1107,9 +1058,7 @@ if (!response.ok) {
         body: JSON.stringify({ fileName }),
       });
 
-      if (!response.ok) {
-        throw new Error(`Failed to save mini-game file: ${fileName}`);
-      }
+      await throwIfNotOk(response, `Failed to save mini-game file: ${fileName}`);
 
       const data = await response.json();
       return data.data;
@@ -1162,9 +1111,7 @@ if (!response.ok) {
         headers: this.getAuthHeaders(),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to export tournament files');
-      }
+      await throwIfNotOk(response, 'Failed to export tournament files');
 
       return response.blob();
     }
@@ -1198,9 +1145,7 @@ if (!response.ok) {
         headers: this.getAuthHeaders(),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to generate trophy report');
-      }
+      await throwIfNotOk(response, 'Failed to generate trophy report');
 
       return response.blob();
     }
@@ -1216,9 +1161,7 @@ if (!response.ok) {
         headers: this.getAuthHeaders(),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to clear mini-game files');
-      }
+      await throwIfNotOk(response, 'Failed to clear mini-game files');
 
       const data = await response.json();
       return data.data;
@@ -1240,9 +1183,7 @@ if (!response.ok) {
         body: JSON.stringify({ player }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to add player to mini-game files');
-      }
+      await throwIfNotOk(response, 'Failed to add player to mini-game files');
 
       const data = await response.json();
       return data.data;
@@ -1288,9 +1229,7 @@ if (!response.ok) {
         body: JSON.stringify({ content }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to import mini-game files');
-      }
+      await throwIfNotOk(response, 'Failed to import mini-game files');
 
       const data = await response.json();
       return data.data;
@@ -1319,10 +1258,7 @@ if (!response.ok) {
         body: formData,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || 'Failed to import mini-game file');
-      }
+      await throwIfNotOk(response, 'Failed to import mini-game file');
 
       const data = await response.json();
       return data.data;

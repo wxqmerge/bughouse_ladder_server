@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import type {
   PlayerData,
   ValidationResult,
@@ -11,7 +11,7 @@ import {
   repopulateGameResults,
   updatePlayerGameData,
 } from "../../shared/utils/hashUtils";
-import { processNewDayTransformations, isMiniGameTitle, titleToFileName, getNextTitle, SHORTCUT_TO_TITLE, LADDER_COLORS } from "../../shared/utils/constants";
+import { processNewDayTransformations, isMiniGameTitle, titleToFileName, getNextTitle, SHORTCUT_TO_TITLE, LADDER_COLORS, compareByPseudoRating, formatRatingForExport, NUM_ROUNDS } from "../../shared/utils/constants";
 import { MINI_GAME_FILES } from "../../shared/types";
 import { dataService } from "../services/dataService";
 import { miniGamesHaveResults } from "../services/miniGameLocalStorage";
@@ -245,6 +245,7 @@ export default function LadderForm({
   const [zoomLevel, setZoomLevel] = useState<
     "50%" | "70%" | "100%" | "140%" | "200%"
   >("100%");
+  const [showRoundRobin, setShowRoundRobin] = useState(false);
  const [isAdmin, setIsAdmin] = useState(() => {
     try {
       const serverUrl = getServerUrl();
@@ -305,7 +306,7 @@ export default function LadderForm({
     info: "",
     school: "",
     room: "",
-    gameResults: new Array(31).fill(null),
+    gameResults: new Array(NUM_ROUNDS).fill(null),
   });
   const emptyPlayerRowRef = useRef(emptyPlayerRow);
   emptyPlayerRowRef.current = emptyPlayerRow;
@@ -381,11 +382,21 @@ export default function LadderForm({
   const debouncedSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingPlayerUpdate = useRef<{ rank: number; originalLastName: string; originalFirstName: string; updates: Record<string, unknown> } | null>(null);
   const lastRefreshHash = useRef<string | null>(null);
+  const hiddenPlayersToDeleteRef = useRef<PlayerData[]>([]);
+  const currentDeleteIndexRef = useRef(0);
 
   // Keep playersRef in sync with players state for use in async closures
   useEffect(() => {
     playersRef.current = players;
   }, [players]);
+
+  useEffect(() => {
+    hiddenPlayersToDeleteRef.current = hiddenPlayersToDelete;
+  }, [hiddenPlayersToDelete]);
+
+  useEffect(() => {
+    currentDeleteIndexRef.current = currentDeleteIndex;
+  }, [currentDeleteIndex]);
 
   // Performance: measure React render time after players state changes
   useEffect(() => {
@@ -697,7 +708,7 @@ export default function LadderForm({
               (window as any).__ladder_setStatus?.(`Loaded ${serverPlayers.length} players from server`);
               const playersWithResults = serverPlayers.map((player: PlayerData) => ({
                 ...player,
-                gameResults: player.gameResults || new Array(31).fill(null),
+                gameResults: player.gameResults || new Array(NUM_ROUNDS).fill(null),
               }));
               
               // Mark cells as saved if they have underscores
@@ -765,7 +776,7 @@ export default function LadderForm({
           try {
             const playersWithResults = localPlayers.map((player) => ({
               ...player,
-              gameResults: player.gameResults || new Array(31).fill(null),
+              gameResults: player.gameResults || new Array(NUM_ROUNDS).fill(null),
             }));
             setPlayers(playersWithResults);
             lastRefreshHash.current = computePlayersHash(playersWithResults);
@@ -931,25 +942,9 @@ export default function LadderForm({
         if (sortBy === "rank") {
           loadedPlayers.sort((a, b) => a.rank - b.rank);
         } else if (sortBy === "nRating") {
-          loadedPlayers.sort((a, b) => {
-            // Pseudo-rating: eligible = effective rating, ineligible = -effective rating
-            // Descending: highest + first, then lowest - first
-            const effectiveA = (a.nRating && a.nRating !== 0) ? a.nRating : a.rating;
-            const effectiveB = (b.nRating && b.nRating !== 0) ? b.nRating : b.rating;
-            const pseudoA = a.trophyEligible !== false ? effectiveA : -effectiveA;
-            const pseudoB = b.trophyEligible !== false ? effectiveB : -effectiveB;
-            if (pseudoA !== pseudoB) return pseudoB - pseudoA;
-            return a.rank - b.rank;
-          });
+          loadedPlayers.sort((a, b) => compareByPseudoRating(a, b, p => (p.nRating && p.nRating !== 0) ? p.nRating : p.rating));
         } else if (sortBy === "rating") {
-          loadedPlayers.sort((a, b) => {
-            // Pseudo-rating: eligible = rating, ineligible = -rating
-            // Descending: highest + first, then lowest - first
-            const pseudoA = a.trophyEligible !== false ? (a.rating || 0) : -(a.rating || 0);
-            const pseudoB = b.trophyEligible !== false ? (b.rating || 0) : -(b.rating || 0);
-            if (pseudoA !== pseudoB) return pseudoB - pseudoA;
-            return a.rank - b.rank;
-          });
+          loadedPlayers.sort((a, b) => compareByPseudoRating(a, b, p => p.rating || 0));
         } else if (sortBy === "byLastName") {
           loadedPlayers.sort((a, b) => Chess_Compare(a, b, "last", 0));
         } else if (sortBy === "byFirstName") {
@@ -1243,7 +1238,7 @@ export default function LadderForm({
           if (serverPlayers && serverPlayers.length > 0) {
             setPlayers(serverPlayers.map((p: PlayerData) => ({
               ...p,
-              gameResults: p.gameResults || new Array(31).fill(null),
+              gameResults: p.gameResults || new Array(NUM_ROUNDS).fill(null),
             })));
             log('[LOAD_FILE]', '✓ Restored from server');
           } else {
@@ -1297,7 +1292,7 @@ export default function LadderForm({
           if (serverPlayers && serverPlayers.length > 0) {
             const restoredPlayers = serverPlayers.map((p: PlayerData) => ({
               ...p,
-              gameResults: p.gameResults || new Array(31).fill(null),
+              gameResults: p.gameResults || new Array(NUM_ROUNDS).fill(null),
             }));
             log('[RESTORE_BACKUP]', '✓ Backup data loaded for preview');
             
@@ -2022,7 +2017,7 @@ const handleRandomResult = (setter: (value: string) => void) => {
                // gameResults cell-by-cell so local unconfirmed entries are not lost
                mergePlayers = serverPlayers.map((sp: PlayerData) => {
                   const localPlayer = playersRef.current.find(lp => lp.rank === sp.rank);
-                  const mergedResults = (sp.gameResults || new Array(31).fill(null)).map(
+                  const mergedResults = (sp.gameResults || new Array(NUM_ROUNDS).fill(null)).map(
                     (serverCell: string | null, idx: number) => {
                       const localCell = localPlayer?.gameResults?.[idx];
                       // Merge priority: local unconfirmed > server confirmed > server default
@@ -2377,7 +2372,7 @@ const handleRandomResult = (setter: (value: string) => void) => {
         const mapStart = performance.now();
         const playersWithResults = freshPlayers.map((player: PlayerData) => ({
           ...player,
-          gameResults: player.gameResults || new Array(31).fill(null),
+          gameResults: player.gameResults || new Array(NUM_ROUNDS).fill(null),
         }));
         const mapMs = performance.now() - mapStart;
 
@@ -2445,11 +2440,67 @@ const handleRandomResult = (setter: (value: string) => void) => {
     return count;
   };
 
-  /**
-   * Get display value for a game result cell
-   * Adds "_" suffix if result is valid AND saved
-   */
-  const getCellDisplayValue = (playerRank: number, round: number, result: string | null): string => {
+ /**
+    * Parse game result to extract opponent rank and W/L for Round Robin view
+    */
+   function parseRoundRobinResult(resultStr: string | null, playerRank: number): { opponent: number; result: string } | null {
+     if (!resultStr || resultStr.trim() === '') return null;
+     const s = resultStr.replace(/_+$/, '').trim();
+     if (!s) return null;
+
+     const is4P = s.includes(':');
+     if (is4P) {
+       const m = s.match(/(\d+):(\d+)([WLDSH])(\d+):(\d+)/);
+       if (!m) return null;
+       const [_, p1, p2, res, p3, p4] = m;
+       const ranks = [+p1, +p2, +p3, +p4];
+       const idx = ranks.indexOf(playerRank);
+       if (idx < 0) return null;
+       const team = idx < 2 ? [ranks[0], ranks[1]] : [ranks[2], ranks[3]];
+       const opponents = idx < 2 ? [ranks[2], ranks[3]] : [ranks[0], ranks[1]];
+       return { opponent: opponents[0], result: res };
+     }
+
+     const m2 = s.match(/(\d+)([WLDSH])(\d+)/);
+     if (!m2) return null;
+     const [_, r1, res, r2] = m2;
+     const opp = +r1 === playerRank ? +r2 : +r1;
+     const myRes = +r1 === playerRank ? res : (res === 'W' ? 'L' : res === 'L' ? 'W' : res);
+      return { opponent: opp, result: myRes };
+    }
+
+    /**
+     * Stable content key for Round Robin lookup — only changes when game
+     * result strings actually differ, not on every setPlayers call.
+     */
+    const rrContentKey = useMemo(() =>
+      players.map(p => p.rank + ':' + p.gameResults.join(',')).join('|'),
+      [players]
+    );
+
+    /**
+     * Memoized Round Robin lookup table: [rowPlayerRank][colPlayerRank] -> W/L
+     * Only recomputes when game result content actually changes.
+     */
+    const rrLookup = useMemo(() => {
+      const table: Record<number, Record<number, string | null>> = {};
+      for (const player of players) {
+        table[player.rank] = {};
+        for (const gr of player.gameResults) {
+          const parsed = parseRoundRobinResult(gr, player.rank);
+          if (parsed) {
+            table[player.rank][parsed.opponent] = parsed.result;
+          }
+        }
+      }
+      return table;
+    }, [rrContentKey]);
+
+   /**
+    * Get display value for a game result cell
+    * Adds "_" suffix if result is valid AND saved
+    */
+   const getCellDisplayValue = (playerRank: number, round: number, result: string | null): string => {
     if (!result || result.trim() === '') {
       return '';
     }
@@ -2522,28 +2573,18 @@ const handleRandomResult = (setter: (value: string) => void) => {
     // In recalculate mode, use entryCell or walkthroughErrors since currentError is null
     if (!currentError && !entryCell) return;
 
-    // Handle empty string from "Clear Cell" - treat as valid (no result)
+   // Handle empty string from "Clear Cell" - treat as valid (no result)
     if (!correctedString.trim()) {
-      const updatedPlayers = players.map((p) => ({ ...p }));
-      const pendingUpdatedPlayers = pendingPlayers.map((p) => ({ ...p }));
-
-      // Update the cell where the error was detected (entryCell)
-      if (entryCell) {
-        const player = updatedPlayers.find(
-          (p) => p.rank === entryCell.playerRank,
-        );
-        const pendingPlayer = pendingUpdatedPlayers.find(
-          (p) => p.rank === entryCell.playerRank,
-        );
-        if (player && pendingPlayer) {
-          const newGameResults = [...player.gameResults];
-          const newPendingGameResults = [...pendingPlayer.gameResults];
-          newGameResults[entryCell.round] = "";
-          newPendingGameResults[entryCell.round] = "";
-          player.gameResults = newGameResults;
-          pendingPlayer.gameResults = newPendingGameResults;
-        }
-      }
+      const updatedPlayers = players.map(p =>
+        entryCell && p.rank === entryCell.playerRank
+          ? { ...p, gameResults: [...p.gameResults].map((r, i) => i === entryCell!.round ? "" : r) }
+          : p
+      );
+      const pendingUpdatedPlayers = pendingPlayers.map(p =>
+        entryCell && p.rank === entryCell.playerRank
+          ? { ...p, gameResults: [...p.gameResults].map((r, i) => i === entryCell!.round ? "" : r) }
+          : p
+      );
 
       setPlayers(updatedPlayers);
       setPendingPlayers(pendingUpdatedPlayers);
@@ -2614,26 +2655,22 @@ const handleRandomResult = (setter: (value: string) => void) => {
       return;
     }
 
-    const updatedPlayers = players.map((p) => ({ ...p }));
-    const pendingUpdatedPlayers = pendingPlayers.map((p) => ({ ...p }));
-
-    // Update the cell where the error was detected (entryCell)
-    if (entryCell) {
-      const player = updatedPlayers.find(
-        (p) => p.rank === entryCell.playerRank,
-      );
-      const pendingPlayer = pendingUpdatedPlayers.find(
-        (p) => p.rank === entryCell.playerRank,
-      );
-      if (player && pendingPlayer) {
-        const newGameResults = [...player.gameResults];
-        const newPendingGameResults = [...pendingPlayer.gameResults];
-        newGameResults[entryCell.round] = correctedString + "_";
-        newPendingGameResults[entryCell.round] = correctedString + "_";
-        player.gameResults = newGameResults;
-        pendingPlayer.gameResults = newPendingGameResults;
+    const updatedPlayers = players.map(p => {
+      if (entryCell && p.rank === entryCell.playerRank) {
+        const newGr = [...p.gameResults];
+        newGr[entryCell.round] = correctedString + "_";
+        return { ...p, gameResults: newGr };
       }
-    }
+      return p;
+    });
+    const pendingUpdatedPlayers = pendingPlayers.map(p => {
+      if (entryCell && p.rank === entryCell.playerRank) {
+        const newGr = [...p.gameResults];
+        newGr[entryCell.round] = correctedString + "_";
+        return { ...p, gameResults: newGr };
+      }
+      return p;
+    });
 
     // Remove this error from the walkthrough errors list (match both playerRank and resultIndex)
     const currentPlayerRank = entryCell?.playerRank ?? -1;
@@ -3079,7 +3116,7 @@ const handleWalkthroughNextForReview = () => {
         const targetPlayers = await dataService.fetchMiniGamePlayers();
         targetPlayersWithResults = targetPlayers.map((p: PlayerData) => ({
           ...p,
-          gameResults: p.gameResults || new Array(31).fill(null),
+          gameResults: p.gameResults || new Array(NUM_ROUNDS).fill(null),
         }));
         setPlayers(targetPlayersWithResults);
         console.debug(`>>> [TELEPORT] Switched to ${targetLadder} with ${targetPlayersWithResults.length} players`);
@@ -3099,7 +3136,7 @@ const handleWalkthroughNextForReview = () => {
         const targetPlayers = await dataService.getPlayers();
         targetPlayersWithResults = targetPlayers.map((p: PlayerData) => ({
           ...p,
-          gameResults: p.gameResults || new Array(31).fill(null),
+          gameResults: p.gameResults || new Array(NUM_ROUNDS).fill(null),
         }));
         setPlayers(targetPlayersWithResults);
         console.debug(`>>> [TELEPORT] Switched to club ladder ${targetLadder} with ${targetPlayersWithResults.length} players`);
@@ -3362,27 +3399,16 @@ const handleWalkthroughNextForReview = () => {
 
     const playersWithResults = players.map((player) => ({
       ...player,
-      gameResults: player.gameResults || new Array(31).fill(null),
+      gameResults: player.gameResults || new Array(NUM_ROUNDS).fill(null),
     }));
 
     playersWithResults.sort((a, b) => {
       if (sortMethod === "rank") {
         return a.rank - b.rank;
       } else if (sortMethod === "nRating") {
-        const effA = (a.nRating && a.nRating !== 0) ? a.nRating : a.rating;
-        const effB = (b.nRating && b.nRating !== 0) ? b.nRating : b.rating;
-        const pseudoA = a.trophyEligible !== false ? effA : -effA;
-        const pseudoB = b.trophyEligible !== false ? effB : -effB;
-        if (pseudoA !== pseudoB) return pseudoB - pseudoA;
-        return a.rank - b.rank;
+        return compareByPseudoRating(a, b, p => (p.nRating && p.nRating !== 0) ? p.nRating : p.rating);
       } else if (sortMethod === "rating") {
-
-        // Pseudo-rating: eligible = rating, ineligible = -rating
-        // Descending: highest + first, then lowest - first
-        const pseudoA = a.trophyEligible !== false ? (a.rating || 0) : -(a.rating || 0);
-        const pseudoB = b.trophyEligible !== false ? (b.rating || 0) : -(b.rating || 0);
-        if (pseudoA !== pseudoB) return pseudoB - pseudoA;
-        return a.rank - b.rank;
+        return compareByPseudoRating(a, b, p => p.rating || 0);
       } else if (sortMethod === "byLastName") {
         const resultA = a.lastName || "";
         const resultB = b.lastName || "";
@@ -3534,7 +3560,7 @@ const handleWalkthroughNextForReview = () => {
           if (miniGamePlayers && miniGamePlayers.length > 0) {
             const playersWithResults = miniGamePlayers.map((player: PlayerData) => ({
               ...player,
-              gameResults: player.gameResults || new Array(31).fill(null),
+              gameResults: player.gameResults || new Array(NUM_ROUNDS).fill(null),
             }));
             setPlayers(playersWithResults);
             log('[MINI-GAME SWITCH]', `✓ Loaded ${playersWithResults.length} players from mini-game`);
@@ -3579,22 +3605,16 @@ const handleWalkthroughNextForReview = () => {
       markLocalChanges();
     }
 
-    const updatedPlayers = (() => {
-      const playersCopy = players.map((p) => ({ ...p }));
-      for (const result of results) {
-        const playerIndex = playersCopy.findIndex(
-          (p) => p.rank === result.cellOwnerRank,
-        );
-        if (playerIndex !== -1) {
-          const player = playersCopy[playerIndex];
-          if (!player.gameResults) {
-            player.gameResults = new Array(31).fill(null);
-          }
-          player.gameResults[result.roundIndex] = result.resultString;
-        }
+  const updatedPlayers = players.map(p => {
+      const playerResults = results.filter(r => r.cellOwnerRank === p.rank);
+      if (playerResults.length === 0) return p;
+      const src = p.gameResults || new Array(NUM_ROUNDS).fill(null);
+      const newGr = [...src];
+      for (const r of playerResults) {
+        newGr[r.roundIndex] = r.resultString;
       }
-      return playersCopy;
-    })();
+      return { ...p, gameResults: newGr };
+    });
 
     setPlayers(updatedPlayers);
     await savePlayers(updatedPlayers);
@@ -3649,7 +3669,7 @@ const handleWalkthroughNextForReview = () => {
       info: String(mapped.info || '').trim() || lastPlayer?.info || "",
       school: String(mapped.school || '').trim() || lastPlayer?.school || "",
       room: String(mapped.room || '').trim() || lastPlayer?.room || "",
-      gameResults: ((mapped as any).gameResults as (string | null)[]) || new Array(31).fill(null),
+      gameResults: ((mapped as any).gameResults as (string | null)[]) || new Array(NUM_ROUNDS).fill(null),
     };
   };
 
@@ -3686,7 +3706,7 @@ const handleWalkthroughNextForReview = () => {
         }
       });
 
-      (mapped as any).gameResults = gameResults.length ? gameResults : new Array(31).fill(null);
+      (mapped as any).gameResults = gameResults.length ? gameResults : new Array(NUM_ROUNDS).fill(null);
 
       const hasNames = String(mapped.lastName || '').trim() && String(mapped.firstName || '').trim();
 
@@ -3776,12 +3796,14 @@ const handleWalkthroughNextForReview = () => {
     const rows = text.split('\n').filter((r: string) => r.trim());
     if (rows.length <= 1) return;
     e.preventDefault();
-    const updatedPlayers = [...players];
+    // Collect per-player updates immutably
+    const updates: Map<number, Record<string, string | number>> = new Map();
     let col = startCol;
     for (let r = 0; r < rows.length; r++) {
       const cols = rows[r].split('\t');
-      let playerIdx = updatedPlayers.findIndex(p => p.rank === playerRank + r);
-      if (playerIdx < 0) continue;
+      const targetRank = playerRank + r;
+      if (!players.find(p => p.rank === targetRank)) continue;
+      if (!updates.has(targetRank)) updates.set(targetRank, {});
       for (let c = 0; c < cols.length; c++) {
         const fieldIndex = col + c;
         if (fieldIndex >= INLINE_FIELD_ORDER.length) break;
@@ -3789,34 +3811,31 @@ const handleWalkthroughNextForReview = () => {
         if (field === 'rank' || field === 'trophyEligible') continue;
         const value = cols[c].trim();
         if (!value) continue;
-        const targetPlayer = updatedPlayers[playerIdx];
-        if (!targetPlayer) continue;
-        if (field === 'rating' || field === 'nRating' || field === 'num_games' || field === 'attendance') {
-          (targetPlayer as any)[field] = parseInt(value) || 0;
-        } else {
-          (targetPlayer as any)[field] = value;
-        }
+        const parsed = field === 'rating' || field === 'nRating' || field === 'num_games' || field === 'attendance'
+          ? parseInt(value) || 0
+          : value;
+        updates.get(targetRank)![field] = parsed;
       }
       col = startCol;
     }
-    setPlayers(updatedPlayers);
+    setPlayers(players.map(p => {
+      const u = updates.get(p.rank);
+      return u ? { ...p, ...u } : p;
+    }));
   };
 
-  const handleGameCellPaste = (e: any, playerRank: number, startRound: number) => {
+ const handleGameCellPaste = (e: any, playerRank: number, startRound: number) => {
     const text = e.clipboardData?.getData('text') || '';
     const rows = text.split('\n').filter((r: string) => r.trim());
     if (rows.length <= 1) return;
     e.preventDefault();
-    const updatedPlayers = [...players];
-    const playerIdx = updatedPlayers.findIndex((p: PlayerData) => p.rank === playerRank);
-    if (playerIdx < 0) return;
-    const targetPlayer = updatedPlayers[playerIdx];
-    const newResults = [...(targetPlayer.gameResults || new Array(31).fill(null))];
+    const newResults = [...(players.find(p => p.rank === playerRank)?.gameResults || new Array(NUM_ROUNDS).fill(null))];
     for (let i = 0; i < rows.length && (startRound + i) < 31; i++) {
       newResults[startRound + i] = rows[i].trim() || null;
     }
-    targetPlayer.gameResults = newResults;
-    setPlayers(updatedPlayers);
+    setPlayers(players.map(p =>
+      p.rank === playerRank ? { ...p, gameResults: newResults } : p
+    ));
   };
 
   const handleDeleteHiddenPlayers = () => {
@@ -3835,21 +3854,24 @@ const handleWalkthroughNextForReview = () => {
     setShowDeleteHiddenDialog(true);
   };
 
- const handleDeleteConfirm = () => {
-     const current = hiddenPlayersToDelete[currentDeleteIndex];
-     const remainingPlayers = players.filter(p => p.rank !== current.rank);
-     setPlayers(remainingPlayers);
-     savePlayers(remainingPlayers, true).catch((err) => {
-       console.error("Failed to save after deleting player:", err);
-     });
+const handleDeleteConfirm = () => {
+    const toDelete = hiddenPlayersToDeleteRef.current;
+    const idx = currentDeleteIndexRef.current;
+    const current = toDelete[idx];
+    if (!current) return;
+    const remainingPlayers = playersRef.current.filter(p => p.rank !== current.rank);
+    setPlayers(remainingPlayers);
+    savePlayers(remainingPlayers, true).catch((err) => {
+      console.error("Failed to save after deleting player:", err);
+    });
 
-     // Propagate delete to all mini-game files
-     dataService.propagatePlayerDelete(current).catch((err) => {
-       console.error("Failed to propagate player delete:", err);
-     });
+    // Propagate delete to all mini-game files
+    dataService.propagatePlayerDelete(current).catch((err) => {
+      console.error("Failed to propagate player delete:", err);
+    });
 
-     setCurrentDeleteIndex(prev => {
-      if (prev >= hiddenPlayersToDelete.length - 1) {
+    setCurrentDeleteIndex(prev => {
+      if (prev >= toDelete.length - 1) {
         setShowDeleteHiddenDialog(false);
         setHiddenPlayersToDelete([]);
         setDeleteAllPlayers(false);
@@ -3860,8 +3882,9 @@ const handleWalkthroughNextForReview = () => {
   };
 
   const handleDeleteSkip = () => {
+    const toDelete = hiddenPlayersToDeleteRef.current;
     setCurrentDeleteIndex(prev => {
-      if (prev >= hiddenPlayersToDelete.length - 1) {
+      if (prev >= toDelete.length - 1) {
         setShowDeleteHiddenDialog(false);
         setHiddenPlayersToDelete([]);
         setDeleteAllPlayers(false);
@@ -3909,7 +3932,7 @@ const handleWalkthroughNextForReview = () => {
       const update = pendingPlayerUpdate.current;
       if (!update) return;
       pendingPlayerUpdate.current = null;
-      savePlayers(players, true).then(() => {
+      savePlayers(playersRef.current, true).then(() => {
         dataService.propagatePlayerUpdate(update.rank, update.originalLastName, update.originalFirstName, update.updates).catch((err) => {
           console.error("Failed to propagate player update:", err);
         });
@@ -3952,7 +3975,7 @@ const handleWalkthroughNextForReview = () => {
          rank: newRank,
          nRating: Math.abs(playerData.rating || 1),
          trophyEligible: true,
-         gameResults: new Array(31).fill(null),
+         gameResults: new Array(NUM_ROUNDS).fill(null),
        };
 
        const updatedPlayers = [...prevPlayers, newPlayer];
@@ -3979,7 +4002,7 @@ const handleWalkthroughNextForReview = () => {
         rank: newRank,
         nRating: Math.abs(playerData.rating || 1),
         trophyEligible: true,
-        gameResults: new Array(31).fill(null),
+        gameResults: new Array(NUM_ROUNDS).fill(null),
       };
 
       const updatedPending = [...pendingPlayers, newPlayer];
@@ -4263,9 +4286,9 @@ const handleWalkthroughNextForReview = () => {
     let output = headerLine + "\n";
 
     players.forEach((player) => {
-      const gameResults = player.gameResults || new Array(31).fill(null);
+      const gameResults = player.gameResults || new Array(NUM_ROUNDS).fill(null);
 
-      output += `${player.group || ""}\t${player.lastName || ""}\t${player.firstName || ""}\t${player.trophyEligible !== false ? player.rating : "-" + player.rating}\t${player.rank}\t${player.trophyEligible !== false ? player.nRating : "-" + player.nRating}\t${player.grade || ""}\t${player.num_games || 0}\t${player.attendance || ""}\t${player.phone || ""}\t${player.info || ""}\t${player.school || ""}\t${player.room || ""}`;
+      output += `${player.group || ""}\t${player.lastName || ""}\t${player.firstName || ""}\t${formatRatingForExport(player.rating, player.trophyEligible)}\t${player.rank}\t${formatRatingForExport(player.nRating, player.trophyEligible)}\t${player.grade || ""}\t${player.num_games || 0}\t${player.attendance || ""}\t${player.phone || ""}\t${player.info || ""}\t${player.school || ""}\t${player.room || ""}`;
 
       output += "\t" + gameResults.map((r) => r || "").join("\t");
       output += "\n";
@@ -5279,6 +5302,8 @@ const handleWalkthroughNextForReview = () => {
           onRestoreBackup={isAdmin ? () => setShowRestoreBackupDialog(true) : undefined}
           onDeleteHiddenPlayers={isAdmin ? handleDeleteHiddenPlayers : undefined}
           onAutoLetter={isAdmin ? handleAutoLetter : undefined}
+          showRoundRobin={showRoundRobin}
+          onToggleRoundRobin={() => setShowRoundRobin(prev => !prev)}
           isAdmin={isAdmin}
           zoomLevel={zoomLevel}
           projectName={projectName}
@@ -5646,7 +5671,10 @@ borderBottom: `2px solid ${headerBorder}`,
                   </th>
                 </>
               )}
-              {Array.from({ length: 31 }).map((_, round) => (
+              {Array.from({ length: 31 }).map((_, round) => {
+                  const rrRanks = showRoundRobin ? players.map(p => p.rank) : [];
+                  const rrRank = rrRanks[round];
+                  return (
                 <th
                   key={`head-round-${round}`}
                   style={{
@@ -5656,17 +5684,19 @@ borderBottom: `2px solid ${headerBorder}`,
                     borderBottom: `2px solid ${headerBorder}`,
                     backgroundColor: headerBg,
                     color: "white",
+                    display: showRoundRobin && !rrRank ? "none" : "table-cell",
                   }}
                 >
-                  Round {round + 1}
+                  {showRoundRobin ? rrRank : `Round ${round + 1}`}
                 </th>
-              ))}
+              );
+              })}
             </tr>
           </thead>
           <tbody>
             {(isAdmin ? players : players.filter(p => !p.group?.toLowerCase().endsWith('x'))).map((player, rowIndex) => {
               const gameResults =
-                player.gameResults || new Array(31).fill(null);
+                player.gameResults || new Array(NUM_ROUNDS).fill(null);
 
               return (
                 <tr
@@ -5977,126 +6007,67 @@ onBlur={(e) => {
                       </td>
                     );
                   })}
-                {gameResults.map((result, gCol) => {
-                     const displayValue = getCellDisplayValue(player.rank, gCol, result);
-                     const tempResult = tempGameResult &&
-                         tempGameResult.playerRank === player.rank &&
-                         tempGameResult.round === gCol
-                       ? tempGameResult.resultString
-                       : "";
-                     return (
-                       <td
-                         key={`game-${player.rank}-${gCol}`}
-                         style={{
-                           padding: getScaledPadding(zoomLevel, 0.5, 0.75),
-                           borderBottom: "1px solid #e2e8f0",
-                           verticalAlign: "middle",
-                           borderRight: "1px solid #e2e8f0",
-                           backgroundColor:
-                             entryCell &&
-                             entryCell.playerRank === player.rank &&
-                             entryCell.round === gCol
-                               ? "#fef3c7"
-                               : rowIndex % 2 >= 1
+{gameResults.map((result, gCol) => {
+                     // Round Robin: columns represent actual player ranks, show W/L
+                       const rrOpponent = showRoundRobin ? players[gCol]?.rank : 0;
+                       const rrResult = showRoundRobin && rrOpponent && rrOpponent !== player.rank
+                         ? rrLookup[player.rank]?.[rrOpponent] ?? null
+                         : null;
+                      const displayValue = getCellDisplayValue(player.rank, gCol, result);
+                      const tempResult = tempGameResult &&
+                          tempGameResult.playerRank === player.rank &&
+                          tempGameResult.round === gCol
+                        ? tempGameResult.resultString
+                        : "";
+                      return (
+<td
+                          key={`game-${player.rank}-${gCol}`}
+                          style={{
+                            padding: getScaledPadding(zoomLevel, 0.5, 0.75),
+                            borderBottom: "1px solid #e2e8f0",
+                            verticalAlign: "middle",
+                            borderRight: "1px solid #e2e8f0",
+                            display: showRoundRobin && !rrOpponent ? "none" : "table-cell",
+                            backgroundColor:
+                              !showRoundRobin &&
+                              entryCell &&
+                              entryCell.playerRank === player.rank &&
+                              entryCell.round === gCol
+                                ? "#fef3c7"
+                                : rowIndex % 2 >= 1
                                  ? "#f8fafc"
                                  : "transparent",
-                           fontSize: getFontSize(zoomLevel),
-                           cursor: isAdmin ? "default" : "pointer",
-                           borderColor:
-                             entryCell &&
-                             entryCell.playerRank === player.rank &&
-                             entryCell.round === gCol
-                               ? "#f59e0b"
-                               : tempGameResult &&
+fontSize: getFontSize(zoomLevel),
+                            cursor: showRoundRobin ? "default" : (isAdmin ? "default" : "pointer"),
+borderColor:
+                              !showRoundRobin &&
+                              entryCell &&
+                              entryCell.playerRank === player.rank &&
+                              entryCell.round === gCol
+                                ? "#f59e0b"
+                                : tempGameResult &&
                                    tempGameResult.playerRank === player.rank &&
                                    tempGameResult.round === gCol
                                  ? "#3b82f6"
                                  : "#e2e8f0",
                          }}
                          >
-                           {isAdmin ? (
-                             // Admin mode: always allow editing any game result cell
-                             <span
-                               contentEditable={true}
-                               suppressContentEditableWarning={true}
-                               data-cell={`player-${player.rank}-game-${gCol}`}
-                               style={{ cursor: "text" }}
-                               onClick={() => {
-                                 setEntryCell({
-                                   playerRank: player.rank,
-                                   round: gCol,
-                                 });
-                               }}
-                               onPaste={(e) => {
-                                 const text = e.clipboardData.getData('text');
-                                 const rows = text.split('\n').filter(r => r.trim());
-                                 if (rows.length <= 1) return;
-                                 e.preventDefault();
-                                 handleGameCellPaste(e, player.rank, gCol);
-                               }}
-                              onKeyDown={(e) => {
-                                  if (e.key === "Enter") {
-                                    e.preventDefault();
-                                    const current = e.currentTarget as HTMLElement;
-                                    current.blur();
-                                    setTimeout(() => {
-                                      moveFocus(current, 'next');
-                                    }, 10);
-                                  } else if (e.key === "Tab") {
-                                    e.preventDefault();
-                                    const current = e.currentTarget as HTMLElement;
-                                    current.blur();
-                                    setTimeout(() => {
-                                      moveFocus(current, e.shiftKey ? 'prev' : 'next');
-                                    }, 10);
-                                  } else if (e.key === "Escape") {
-                                    e.preventDefault();
-                                    e.currentTarget.blur();
-                                  }
-                                }}
-                                onBlur={(e) => {
-                                   const value = e.target.textContent || "";
-                                   setPlayers((prevPlayers) =>
-                                     prevPlayers.map(
-                                       (p) =>
-                                         p.rank === player.rank
-                                           ? {
-                                               ...p,
-                                               gameResults: [
-                                                 ...(p.gameResults || new Array(31).fill(null)),
-                                               ].map((r, i) =>
-                                                 i === gCol ? value.trim() || null : r,
-                                               ),
-                                             }
-                                           : p,
-                                     ),
-                                   );
-                                 }}
-                             >
-                                 {displayValue}
+                            {showRoundRobin ? (
+                               <span data-cell={`player-${player.rank}-game-${gCol}`}>
+                                 {rrOpponent === player.rank ? "*" : (rrResult || "")}
                                </span>
-                             ) : (
-                               // User mode: only editable when entryCell points to this cell and write permission
-                                <span
-                                  contentEditable={!!(entryCell && entryCell.playerRank === player.rank && entryCell.round === gCol) && writePermission}
-                                 suppressContentEditableWarning={true}
-                                 data-cell={`player-${player.rank}-game-${gCol}`}
-                                 style={{ cursor: "text" }}
+                            ) : isAdmin ? (
+                              // Admin mode: always allow editing any game result cell
+                              <span
+                                contentEditable={true}
+                                suppressContentEditableWarning={true}
+                                data-cell={`player-${player.rank}-game-${gCol}`}
+                                style={{ cursor: "text" }}
                                 onClick={() => {
-                                  const result = players.find(p => p.rank === player.rank)?.gameResults?.[gCol] || '';
-
-if (result.endsWith('_')) {
-                                    const emptyCell = findFirstEmptyCell();
-                                    if (emptyCell) {
-                                      setEntryCell(emptyCell);
-                                      return;
-                                    }
-                                  }
-
                                   setEntryCell({
-                                     playerRank: player.rank,
-                                     round: gCol,
-                                   });
+                                    playerRank: player.rank,
+                                    round: gCol,
+                                  });
                                 }}
                                 onPaste={(e) => {
                                   const text = e.clipboardData.getData('text');
@@ -6105,13 +6076,13 @@ if (result.endsWith('_')) {
                                   e.preventDefault();
                                   handleGameCellPaste(e, player.rank, gCol);
                                 }}
-                              onKeyDown={(e) => {
+                               onKeyDown={(e) => {
                                    if (e.key === "Enter") {
                                      e.preventDefault();
                                      const current = e.currentTarget as HTMLElement;
                                      current.blur();
                                      setTimeout(() => {
-                                       moveFocusDown(current);
+                                       moveFocus(current, 'next');
                                      }, 10);
                                    } else if (e.key === "Tab") {
                                      e.preventDefault();
@@ -6125,29 +6096,100 @@ if (result.endsWith('_')) {
                                      e.currentTarget.blur();
                                    }
                                  }}
-                               onBlur={(e) => {
-                                  const value = e.target.textContent || "";
-                                  setPlayers((prevPlayers) =>
-                                    prevPlayers.map(
-                                      (p) =>
-                                        p.rank === player.rank
-                                          ? {
-                                              ...p,
-                                              gameResults: [
-                                                ...(p.gameResults || new Array(31).fill(null)),
-                                              ].map((r, i) =>
-                                                i === gCol ? value.trim() || null : r,
-                                              ),
-                                            }
-                                          : p,
-                                    ),
-                                  );
-                                }}
+                                 onBlur={(e) => {
+                                    const value = e.target.textContent || "";
+                                    setPlayers((prevPlayers) =>
+                                      prevPlayers.map(
+                                        (p) =>
+                                          p.rank === player.rank
+                                            ? {
+                                                ...p,
+                                                gameResults: [
+                                                  ...(p.gameResults || new Array(NUM_ROUNDS).fill(null)),
+                                                ].map((r, i) =>
+                                                  i === gCol ? value.trim() || null : r,
+                                                ),
+                                              }
+                                            : p,
+                                      ),
+                                    );
+                                  }}
+                              >
+                                   {displayValue}
+                                </span>
+                              ) : (
+                                // User mode: only editable when entryCell points to this cell and write permission
+                                 <span
+                                   contentEditable={!!(entryCell && entryCell.playerRank === player.rank && entryCell.round === gCol) && writePermission}
+                                  suppressContentEditableWarning={true}
+                                  data-cell={`player-${player.rank}-game-${gCol}`}
+                                  style={{ cursor: "text" }}
+                                 onClick={() => {
+                                   const result = players.find(p => p.rank === player.rank)?.gameResults?.[gCol] || '';
+
+if (result.endsWith('_')) {
+                                     const emptyCell = findFirstEmptyCell();
+                                     if (emptyCell) {
+                                       setEntryCell(emptyCell);
+                                       return;
+                                     }
+                                   }
+
+                                   setEntryCell({
+                                      playerRank: player.rank,
+                                      round: gCol,
+                                    });
+                                 }}
+                                 onPaste={(e) => {
+                                   const text = e.clipboardData.getData('text');
+                                   const rows = text.split('\n').filter(r => r.trim());
+                                   if (rows.length <= 1) return;
+                                   e.preventDefault();
+                                   handleGameCellPaste(e, player.rank, gCol);
+                                 }}
+                               onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                      e.preventDefault();
+                                      const current = e.currentTarget as HTMLElement;
+                                      current.blur();
+                                      setTimeout(() => {
+                                        moveFocusDown(current);
+                                      }, 10);
+                                    } else if (e.key === "Tab") {
+                                      e.preventDefault();
+                                      const current = e.currentTarget as HTMLElement;
+                                      current.blur();
+                                      setTimeout(() => {
+                                        moveFocus(current, e.shiftKey ? 'prev' : 'next');
+                                      }, 10);
+                                    } else if (e.key === "Escape") {
+                                      e.preventDefault();
+                                      e.currentTarget.blur();
+                                    }
+                                  }}
+                                onBlur={(e) => {
+                                   const value = e.target.textContent || "";
+                                   setPlayers((prevPlayers) =>
+                                     prevPlayers.map(
+                                       (p) =>
+                                         p.rank === player.rank
+                                           ? {
+                                               ...p,
+                                               gameResults: [
+                                                 ...(p.gameResults || new Array(NUM_ROUNDS).fill(null)),
+                                               ].map((r, i) =>
+                                                 i === gCol ? value.trim() || null : r,
+                                               ),
+                                             }
+                                           : p,
+                                     ),
+                                   );
+                                 }}
                              >
-                               {displayValue}{tempResult}
-                             </span>
-                           )}
-                        </td>
+                                 {displayValue}{tempResult}
+                               </span>
+                            )}
+                         </td>
                       );
                     })}
                   {Array.from({

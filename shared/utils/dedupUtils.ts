@@ -1,4 +1,5 @@
 import { PlayerData } from '../types/index.js';
+import { NUM_ROUNDS } from './constants.js';
 
 /**
  * Merge game results from two players with the same name.
@@ -9,7 +10,7 @@ function mergeGameResultsDedup(
   a: (string | null)[],
   b: (string | null)[]
 ): (string | null)[] {
-  const maxLen = Math.max(a.length, b.length, 31);
+  const maxLen = Math.max(a.length, b.length, NUM_ROUNDS);
   const result: (string | null)[] = new Array(maxLen).fill(null);
 
   for (let i = 0; i < maxLen; i++) {
@@ -74,13 +75,13 @@ export function deduplicatePlayers(players: PlayerData[]): PlayerData[] {
     const base = group[0];
 
     // Merge all duplicates into the base
-    let mergedResults = [...(base.gameResults || new Array(31).fill(null))];
+    let mergedResults = [...(base.gameResults || new Array(NUM_ROUNDS).fill(null))];
     let sumNumGames = base.num_games || 0;
     let sumAttendance = base.attendance || 0;
 
     for (let i = 1; i < group.length; i++) {
       const dup = group[i];
-      mergedResults = mergeGameResultsDedup(mergedResults, dup.gameResults || new Array(31).fill(null));
+      mergedResults = mergeGameResultsDedup(mergedResults, dup.gameResults || new Array(NUM_ROUNDS).fill(null));
       sumNumGames += dup.num_games || 0;
       sumAttendance += dup.attendance || 0;
     }

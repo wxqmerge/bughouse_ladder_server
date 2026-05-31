@@ -5,6 +5,7 @@
 
 import { PlayerData, LadderData, MiniGameStore, MINI_GAME_FILES } from '../../shared/types';
 import { clearRankReferences } from '../../shared/utils/hashUtils';
+import { NUM_ROUNDS } from '../../shared/utils/constants';
 import { mergeIdentityFromClubLadder, splitIdentityChanges } from '../../shared/utils/identityMerge';
 import { getLocalPlayers, setJson } from './storageService';
 import {
@@ -100,7 +101,7 @@ function generateTabContent(ladderData: LadderData): string {
 }
 
 export function playersToTabContent(players: PlayerData[]): string {
-  const header = ['Group', 'Last Name', 'First Name', 'Rating', 'Rank', 'NRate', 'Grade', 'Num Games', 'Attendance', 'Phone', 'Info', 'School', 'Room', ...Array(31).fill('')].join('\t');
+  const header = ['Group', 'Last Name', 'First Name', 'Rating', 'Rank', 'NRate', 'Grade', 'Num Games', 'Attendance', 'Phone', 'Info', 'School', 'Room', ...Array(NUM_ROUNDS).fill('')].join('\t');
   const lines = [header];
 
   for (const p of players) {
@@ -283,7 +284,7 @@ export const miniGameStore: MiniGameStore = {
       if (!exists) {
         miniGameData.players.push({
           ...newPlayer,
-          gameResults: new Array(31).fill(null),
+          gameResults: new Array(NUM_ROUNDS).fill(null),
         });
         await this.writeMiniGameFile(fileName, miniGameData);
       }
