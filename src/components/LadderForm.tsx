@@ -2189,9 +2189,9 @@ const handleRandomResult = (setter: (value: string) => void) => {
 
     const refreshStart = performance.now();
     try {
-      log('[DEBUG REFRESH]', `Starting refresh, current players.length=${players.length}`);
+      log('[REFRESH]', `Starting refresh, players.length=${players.length}, miniGameFile=${dataService.getMiniGameFile()}, lastHash=${lastRefreshHash.current?.slice(0, 12)}`);
       const localRanks = players.map(p => p.rank).join(',');
-      log('[DEBUG REFRESH]', `Local ranks: ${localRanks}`);
+      log('[REFRESH]', `Local ranks: ${localRanks}`);
 
       const fetchStart = performance.now();
       const freshPlayers = await dataService.getPlayers();
@@ -2199,14 +2199,14 @@ const handleRandomResult = (setter: (value: string) => void) => {
 
       if (freshPlayers && freshPlayers.length > 0) {
         const serverRanks = freshPlayers.map(p => p.rank).join(',');
-        log('[DEBUG REFRESH]', `Server returned ${freshPlayers.length} players, ranks: ${serverRanks} (fetch: ${fetchMs.toFixed(0)}ms)`);
+        log('[REFRESH]', `getPlayers() returned ${freshPlayers.length} players, ranks: ${serverRanks} (fetch: ${fetchMs.toFixed(0)}ms)`);
 
         // Guard: skip if data hasn't actually changed (breaks SSE refresh loop)
         const hashStart = performance.now();
         const newHash = computePlayersHash(freshPlayers);
         const hashMs = performance.now() - hashStart;
         if (newHash === lastRefreshHash.current) {
-          log('[DEBUG REFRESH]', `⊘ Data unchanged — skipping setPlayers (hash: ${hashMs.toFixed(1)}ms)`);
+          log('[REFRESH]', `⊘ Data unchanged (hash=${newHash.slice(0, 12)}) — skipping setPlayers (hash: ${hashMs.toFixed(1)}ms)`);
           return;
         }
         lastRefreshHash.current = newHash;
@@ -3284,7 +3284,7 @@ const handleWalkthroughNextForReview = () => {
     setZoomLevelStorage(zoomPercent);
   };
 
-  const handleSetTitle = async (newTitle: string) => {
+ const handleSetTitle = async (newTitle: string) => {
     if (shouldLog(10)) {
       console.log(`>>> [MENU ACTION] Set title to ${newTitle}`);
     }
@@ -3296,6 +3296,7 @@ const handleWalkthroughNextForReview = () => {
     const currentIsMiniGame = isMiniGameTitle(currentTitle);
     const newIsMiniGame = isMiniGameTitle(newTitle);
     const isTournament = isMiniGameTitle(currentTitle);
+    log('[LADDER SWITCH]', `currentTitle=${currentTitle}, currentIsMiniGame=${currentIsMiniGame}, newIsMiniGame=${newIsMiniGame}, currentMiniGameFile=${dataService.getMiniGameFile()}`);
     
     if (onTitleSwitch) {
       const allowed = await onTitleSwitch(newTitle);
@@ -3389,11 +3390,13 @@ const handleWalkthroughNextForReview = () => {
         }
      } else if (currentIsMiniGame && !newIsMiniGame) {
         // Switching away from mini-game: reset data source to ladder.tab
+        log('[LADDER SWITCH]', `← Switching FROM mini-game (${dataService.getMiniGameFile()}) TO club ladder`);
         lastRefreshHash.current = null;
         dataService.setMiniGameFile(null);
-       
+        log('[LADDER SWITCH]', `Mini-game file cleared, calling refreshPlayers()`);
        // Reload players from ladder
        await refreshPlayers();
+       log('[LADDER SWITCH]', `refreshPlayers() returned, players.length=${players.length}, currentMiniGameFile=${dataService.getMiniGameFile()}`);
      } else if (!newIsMiniGame && !currentIsMiniGame) {
        // Switching between regular ladder titles
        await refreshPlayers();
