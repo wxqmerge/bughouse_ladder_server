@@ -8,6 +8,7 @@ import {
   mergeGameResults,
   getExistingMiniGameFiles,
   clearMiniGames,
+  clearMiniGameCache,
   hasMiniGameFiles,
   exportTournamentFiles,
   addPlayerToAllMiniGames,
@@ -34,6 +35,7 @@ describe('clearMiniGames', () => {
   const testDir = path.join(os.tmpdir(), `bughouse-clear-test-${Date.now()}`);
 
   beforeEach(async () => {
+    clearMiniGameCache();
     await fs.mkdir(testDir, { recursive: true });
     process.env.TAB_FILE_PATH = path.join(testDir, 'ladder.tab');
   });
@@ -77,6 +79,7 @@ describe('hasMiniGameFiles', () => {
   const testDir = path.join(os.tmpdir(), `bughouse-has-test-${Date.now()}`);
 
   beforeEach(async () => {
+    clearMiniGameCache();
     await fs.mkdir(testDir, { recursive: true });
     process.env.TAB_FILE_PATH = path.join(testDir, 'ladder.tab');
   });
@@ -110,6 +113,7 @@ describe('exportTournamentFiles', () => {
   const testDir = path.join(os.tmpdir(), `bughouse-export-test-${Date.now()}`);
 
   beforeEach(async () => {
+    clearMiniGameCache();
     await fs.mkdir(testDir, { recursive: true });
     process.env.TAB_FILE_PATH = path.join(testDir, 'ladder.tab');
   });
@@ -141,6 +145,7 @@ describe('addPlayerToAllMiniGames', () => {
   const testDir = path.join(os.tmpdir(), `bughouse-addplayer-test-${Date.now()}`);
 
   beforeEach(async () => {
+    clearMiniGameCache();
     await fs.mkdir(testDir, { recursive: true });
     process.env.TAB_FILE_PATH = path.join(testDir, 'ladder.tab');
   });
@@ -290,6 +295,7 @@ describe('Gr trophy generation - mini-game tournament mode', () => {
   const testDir = path.join(os.tmpdir(), `bughouse-gr-test-${Date.now()}`);
 
   beforeEach(async () => {
+    clearMiniGameCache();
     await fs.mkdir(testDir, { recursive: true });
     process.env.TAB_FILE_PATH = path.join(testDir, 'ladder.tab');
   });
@@ -382,6 +388,7 @@ describe('Gr trophy ties', () => {
 describe('countGamesAcrossMiniGames', () => {
   // This tests the internal logic indirectly through addPlayerToAllMiniGames
   it('should not duplicate player when adding to files they already exist in', async () => {
+    clearMiniGameCache();
     const testDir2 = path.join(os.tmpdir(), `bughouse-count-test-${Date.now()}`);
     await fs.mkdir(testDir2, { recursive: true });
     process.env.TAB_FILE_PATH = path.join(testDir2, 'ladder.tab');

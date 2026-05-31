@@ -110,7 +110,7 @@ export function getPlayerTotalGames(player: PlayerData, miniGameFiles: MiniGameD
 
 export interface MiniGameStoreLike {
   readMiniGameFile(fileName: string): Promise<LadderData | null>;
-  writeMiniGameFile(fileName: string, ladderData: LadderData): Promise<void>;
+  writeMiniGameFile(fileName: string, ladderData: LadderData): Promise<{ identityUpdates: PlayerData[]; miniGameWritten: boolean }>;
 }
 
 export async function recalculateMiniGameRatings(
@@ -325,7 +325,7 @@ export interface TrophyReportStore {
   hasMiniGameFiles(): Promise<boolean>;
   getExistingMiniGameFiles(): Promise<string[]>;
   readMiniGameFile(fileName: string): Promise<LadderData | null>;
-  writeMiniGameFile(fileName: string, ladderData: LadderData): Promise<void>;
+  writeMiniGameFile(fileName: string, ladderData: LadderData): Promise<{ identityUpdates: PlayerData[]; miniGameWritten: boolean }>;
 }
 
 export async function generateTrophyReport(

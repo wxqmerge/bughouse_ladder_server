@@ -5,6 +5,8 @@
 
 import { PlayerData, LadderData, MiniGameStore, MiniGameData, MINI_GAME_FILES } from '../../shared/types';
 import { clearRankReferences } from '../../shared/utils/hashUtils';
+import { mergeIdentityFromClubLadder, splitIdentityChanges } from '../../shared/utils/identityMerge';
+import { getLocalPlayers, setJson } from './storageService';
 import {
   copyPlayersToTarget as sharedCopyPlayersToTarget,
   mergeGameResults as sharedMergeGameResults,
@@ -123,15 +125,41 @@ async function readMiniGameFile(fileName: string): Promise<LadderData | null> {
   try {
     const content = localStorage.getItem(getStorageKey(fileName));
     if (!content) return null;
-    return parseTabContent(content);
+    const raw = parseTabContent(content);
+    const clubPlayers = getLocalPlayers();
+    const mergedPlayers = mergeIdentityFromClubLadder(raw.players, clubPlayers);
+    return { ...raw, players: mergedPlayers };
   } catch {
     return null;
   }
 }
 
-async function writeMiniGameFile(fileName: string, ladderData: LadderData): Promise<void> {
-  const content = generateTabContent(ladderData);
+async function writeMiniGameFile(fileName: string, ladderData: LadderData): Promise<{ identityUpdates: PlayerData[]; miniGameWritten: boolean }> {
+  const clubPlayers = getLocalPlayers();
+  const { identityUpdates, miniGamePlayers } = splitIdentityChanges(
+    ladderData.players,
+    clubPlayers
+  );
+
+  // Write identity updates to club ladder localStorage
+  if (identityUpdates.length > 0) {
+    const updatedClub = [...clubPlayers];
+    for (const update of identityUpdates) {
+      const idx = updatedClub.findIndex(p => p.rank === update.rank);
+      if (idx !== -1) {
+        updatedClub[idx] = { ...updatedClub[idx], ...update };
+      } else {
+        updatedClub.push(update);
+      }
+    }
+    setJson('ladder_players', updatedClub);
+  }
+
+  // Write mini-game file with merged identity + original nRating/gameResults
+  const content = generateTabContent({ ...ladderData, players: miniGamePlayers });
   localStorage.setItem(getStorageKey(fileName), content);
+
+  return { identityUpdates, miniGameWritten: true };
 }
 
 export const miniGameStore: MiniGameStore = {
@@ -144,7 +172,7 @@ export const miniGameStore: MiniGameStore = {
   },
 
   async writeMiniGameFile(fileName: string, ladderData: LadderData) {
-    await writeMiniGameFile(fileName, ladderData);
+    return writeMiniGameFile(fileName, ladderData);
   },
 
   copyPlayersToTarget(sourcePlayers: PlayerData[], targetPlayers: PlayerData[]) {

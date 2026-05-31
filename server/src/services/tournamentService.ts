@@ -5,6 +5,7 @@ import { log as loggerLog } from '../utils/logger.js';
 import { readLadderFile, writeLadderFile, generateTabContent, PlayerData, LadderData, withTiming, ensureDataDirectory } from './dataService.js';
 import { MiniGameData, MINI_GAME_FILES, MINI_GAME_DIFFICULTY_ORDER } from '../../../shared/types/index.js';
 import { clearRankReferences } from '../../../shared/utils/hashUtils.js';
+import { mergeIdentityFromClubLadder, splitIdentityChanges } from '../../../shared/utils/identityMerge.js';
 import {
   copyPlayersToTarget as sharedCopyPlayersToTarget,
   mergeGameResults as sharedMergeGameResults,
@@ -22,7 +23,7 @@ const __dirname = path.dirname(__filename);
 export interface MiniGameStore {
   getMiniGameFiles(): string[];
   readMiniGameFile(fileName: string): Promise<LadderData | null>;
-  writeMiniGameFile(fileName: string, ladderData: LadderData): Promise<void>;
+  writeMiniGameFile(fileName: string, ladderData: LadderData): Promise<{ identityUpdates: PlayerData[]; miniGameWritten: boolean }>;
   copyPlayersToTarget(sourcePlayers: PlayerData[], targetPlayers: PlayerData[]): PlayerData[];
   mergeGameResults(oldResults: (string | null)[], currentResults: (string | null)[]): (string | null)[];
   getExistingMiniGameFiles(): Promise<string[]>;
@@ -56,6 +57,11 @@ interface MiniGameCache {
 }
 const miniGameCache = new Map<string, MiniGameCache>();
 const MINI_GAME_CACHE_TTL_MS = 5000;
+
+// For testing: clear the mini-game read cache
+export function clearMiniGameCache(): void {
+  miniGameCache.clear();
+}
 
 // In-memory tournament state (persisted to file on changes)
 let tournamentState: TournamentState = {
@@ -134,14 +140,14 @@ export function getMiniGameFilePath(fileName: string): string {
   return path.join(dataDir, fileName);
 }
 
-// Read a mini-game file
-export async function readMiniGameFile(fileName: string): Promise<LadderData | null> {
+// Read a mini-game file (raw, no identity merge)
+export async function readMiniGameFileRaw(fileName: string): Promise<LadderData | null> {
   const filePath = getMiniGameFilePath(fileName);
   try {
     await fs.access(filePath);
 
-    // Check cache
-    const cached = miniGameCache.get(fileName);
+    // Check cache (use full path as key to avoid cross-test collisions)
+    const cached = miniGameCache.get(filePath);
     const stat = await fs.stat(filePath);
     const now = Date.now();
     if (cached && cached.data && stat.mtimeMs === cached.mtimeMs && (now - cached.timestamp) < MINI_GAME_CACHE_TTL_MS) {
@@ -151,7 +157,7 @@ export async function readMiniGameFile(fileName: string): Promise<LadderData | n
     const result = await readLadderFile(filePath);
 
     // Update cache
-    miniGameCache.set(fileName, { data: result, mtimeMs: stat.mtimeMs, timestamp: now });
+    miniGameCache.set(filePath, { data: result, mtimeMs: stat.mtimeMs, timestamp: now });
 
     return result;
   } catch {
@@ -159,13 +165,83 @@ export async function readMiniGameFile(fileName: string): Promise<LadderData | n
   }
 }
 
-// Write a mini-game file
-export async function writeMiniGameFile(fileName: string, ladderData: LadderData): Promise<void> {
-  const filePath = getMiniGameFilePath(fileName);
-  await ensureDataDirectory();
-  await writeLadderFile(ladderData, filePath);
-  // Invalidate mini-game cache
-  miniGameCache.delete(fileName);
+// Read a mini-game file with club ladder identity merged in
+export async function readMiniGameFile(fileName: string): Promise<LadderData | null> {
+  const raw = await readMiniGameFileRaw(fileName);
+  if (!raw) return null;
+
+  let clubLadder: LadderData | null = null;
+  const clubLadderPath = path.join(path.dirname(getMiniGameFilePath(fileName)), 'ladder.tab');
+  try {
+    clubLadder = await readLadderFile(clubLadderPath);
+  } catch {
+    // Club ladder doesn't exist — return raw data
+  }
+
+  if (clubLadder && clubLadder.players.length > 0) {
+    const mergedPlayers = mergeIdentityFromClubLadder(raw.players, clubLadder.players);
+    return {
+      ...raw,
+      players: mergedPlayers,
+    };
+  }
+
+  return raw;
+}
+
+// Write a mini-game file with identity split to club ladder
+export async function writeMiniGameFile(
+	fileName: string,
+	ladderData: LadderData
+): Promise<{ identityUpdates: PlayerData[]; miniGameWritten: boolean }> {
+	let identityUpdates: PlayerData[] = [];
+	let clubLadder: LadderData | null = null;
+	// Read club ladder from the same directory as the mini-game file
+	const clubLadderPath = path.join(path.dirname(getMiniGameFilePath(fileName)), 'ladder.tab');
+	try {
+		clubLadder = await readLadderFile(clubLadderPath);
+	} catch {
+		// Club ladder doesn't exist yet — skip identity merge
+	}
+
+	if (clubLadder && clubLadder.players.length > 0) {
+		const { identityUpdates: updates, miniGamePlayers } = splitIdentityChanges(
+			ladderData.players,
+			clubLadder.players
+		);
+		identityUpdates = updates;
+
+		// Write identity updates to club ladder
+		if (identityUpdates.length > 0) {
+			for (const update of identityUpdates) {
+				const idx = clubLadder.players.findIndex(p => p.rank === update.rank);
+				if (idx !== -1) {
+					clubLadder.players[idx] = { ...clubLadder.players[idx], ...update };
+				} else {
+					clubLadder.players.push(update);
+				}
+			}
+			await writeLadderFile(clubLadder, clubLadderPath);
+			loggerLog('[IDENTITY MERGE]', `Wrote ${identityUpdates.length} identity updates to club ladder`);
+		}
+
+		// Write mini-game file with merged identity + original nRating/gameResults
+		const filePath = getMiniGameFilePath(fileName);
+		await ensureDataDirectory();
+		await writeLadderFile({
+			...ladderData,
+			players: miniGamePlayers,
+		}, filePath);
+	} else {
+		// No club ladder — write as-is
+		const filePath = getMiniGameFilePath(fileName);
+		await ensureDataDirectory();
+		await writeLadderFile(ladderData, filePath);
+	}
+	// Invalidate mini-game cache (use full path as key)
+	miniGameCache.delete(getMiniGameFilePath(fileName));
+
+	return { identityUpdates, miniGameWritten: true };
 }
 
 // Re-export shared functions for backward compatibility
@@ -276,7 +352,7 @@ export async function addPlayerToAllMiniGames(newPlayer: PlayerData): Promise<vo
   const existingFiles = await getExistingMiniGameFiles();
   
   for (const fileName of existingFiles) {
-    const miniGameData = await readMiniGameFile(fileName);
+    const miniGameData = await readMiniGameFileRaw(fileName);
     if (!miniGameData) continue;
     
     // Check if player already exists in this file
@@ -291,6 +367,8 @@ export async function addPlayerToAllMiniGames(newPlayer: PlayerData): Promise<vo
         ...newPlayer,
         gameResults: new Array(31).fill(null),
       });
+      // Invalidate cache before write to ensure fresh state
+      miniGameCache.delete(getMiniGameFilePath(fileName));
       await writeMiniGameFile(fileName, miniGameData);
       loggerLog('[TOURNAMENT]', `Added player ${newPlayer.firstName} ${newPlayer.lastName} to ${fileName}`);
     }
@@ -318,7 +396,7 @@ export async function removePlayerFromAll(lastName: string, firstName: string): 
 
   const existingFiles = await getExistingMiniGameFiles();
   for (const fileName of existingFiles) {
-    const miniGameData = await readMiniGameFile(fileName);
+    const miniGameData = await readMiniGameFileRaw(fileName);
     if (!miniGameData) continue;
 
     const idx = miniGameData.players.findIndex(
@@ -357,7 +435,7 @@ export async function updatePlayerInAll(
 
   const existingFiles = await getExistingMiniGameFiles();
   for (const fileName of existingFiles) {
-    const miniGameData = await readMiniGameFile(fileName);
+    const miniGameData = await readMiniGameFileRaw(fileName);
     if (!miniGameData) continue;
 
     const idx = miniGameData.players.findIndex(
@@ -400,7 +478,7 @@ export const tournamentStore: MiniGameStore = {
   },
 
   async writeMiniGameFile(fileName: string, ladderData: LadderData) {
-    await writeMiniGameFile(fileName, ladderData);
+    return writeMiniGameFile(fileName, ladderData);
   },
 
   copyPlayersToTarget(sourcePlayers: PlayerData[], targetPlayers: PlayerData[]) {
