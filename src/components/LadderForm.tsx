@@ -2639,7 +2639,7 @@ const handleRandomResult = (setter: (value: string) => void) => {
       if (gameResults.length === 0) continue;
       for (let roundIdx = 0; roundIdx < gameResults.length; roundIdx++) {
         const result = gameResults[roundIdx];
-        if (result != null && result.trim() !== "") {
+        if (result !== null && result !== undefined && result.trim() !== "") {
           cells.push({ playerRank: player.rank, round: roundIdx });
         }
       }
