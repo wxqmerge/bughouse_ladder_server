@@ -27,17 +27,17 @@ export function MigrationDialog({ isAdmin, onClose }: MigrationDialogProps) {
 
   useEffect(() => {
     const prefix = getKeyPrefix();
-    console.log('[MigrationDialog] Key prefix:', prefix);
+    console.debug('[MigrationDialog] Key prefix:', prefix);
     
     const local = getJson<PlayerData[]>('ladder_players') || [];
     
-    console.log('[MigrationDialog] Local data key:', prefix + 'ladder_players', 'count:', local.length, 'players:', local.map(p => p.rank + ':' + p.lastName));
-    console.log('[MigrationDialog] All localStorage keys:', Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i)).filter(k => k && k.startsWith('ladder_')));
+    console.debug('[MigrationDialog] Local data key:', prefix + 'ladder_players', 'count:', local.length, 'players:', local.map(p => p.rank + ':' + p.lastName));
+    console.debug('[MigrationDialog] All localStorage keys:', Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i)).filter(k => k && k.startsWith('ladder_')));
     
     setLocalPlayers(local);
     
     dataService.getPlayers().then((server) => {
-      console.log('[MigrationDialog] Server data from API', 'count:', server.length, 'players:', server.map(p => p.rank + ':' + p.lastName));
+      console.debug('[MigrationDialog] Server data from API', 'count:', server.length, 'players:', server.map(p => p.rank + ':' + p.lastName));
       setServerPlayers(server);
       
       const mismatchInfo = detectRankNameMismatches(local, server);

@@ -67,7 +67,7 @@ export function mergeServerWithLocal(
     if (!serverHasRank) {
       result.push({ ...lp });
     } else {
-      console.log(`[DEBUG MERGE] DROPPED local player "${lp.firstName} ${lp.lastName}" rank=${lp.rank} — server already has "${serverHasRank.firstName} ${serverHasRank.lastName}" at that rank`);
+      console.debug(`[DEBUG MERGE] DROPPED local player "${lp.firstName} ${lp.lastName}" rank=${lp.rank} — server already has "${serverHasRank.firstName} ${serverHasRank.lastName}" at that rank`);
     }
   }
 

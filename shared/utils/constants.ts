@@ -38,6 +38,18 @@ export const SHORTCUT_TO_TITLE: Record<number, string> = Object.fromEntries(
   Object.entries(LADDER_SHORTCUTS).map(([title, num]) => [num, title])
 ) as Record<number, string>;
 
+/** Per-ladder colors: 60% black + 40% base color. Constant for each ladder. */
+export const LADDER_COLORS: Record<string, string> = {
+  "Ladder": "#555555",
+  "BG_Game": "#664400",
+  "Bishop_Game": "#553366",
+  "Pillar_Game": "#334455",
+  "Kings_Cross": "#553333",
+  "Pawn_Game": "#335533",
+  "Queen_Game": "#333355",
+  "Bughouse": "#444444",
+};
+
 export function isMiniGameTitle(title: string): boolean {
   const normalized = String(title || "").toLowerCase().trim();
   return MINI_GAMES_WITH_BUGHOUSE.some(game => game.toLowerCase() === normalized);
@@ -79,6 +91,10 @@ export function getValidationErrorMessage(errorCode: number): string {
 }
 
 import { PlayerData } from "../types/index.js";
+
+export function hasGameReports(players: PlayerData[]): boolean {
+  return players.some((p) => p.gameResults?.some((r) => r !== null && r !== ""));
+}
 
 export function getNextTitle(currentTitle: string): string {
   const normalizedTitle = String(currentTitle || "")

@@ -28,13 +28,20 @@ http://your-domain.com/?config=1&server=http://your-server:port&key=your-api-key
 
 Drag a `.tab`, `.xls`, or `.txt` file onto the splash screen (no server needed).
 
+**Safety guard:** If a tournament is active (any game results exist in the main ladder or mini-games) and the loaded file has a different player count, you will see a confirmation dialog warning that the change could corrupt current results.
+
 ### API Key Access
 
 | Key Status | What You Can Do |
 |-----------|-----------------|
-| No key / wrong key | View data only (read-only, blue menu bar) |
+| No key / wrong key | View data only (read-only, blue gradient header) |
 | Valid user key | Enter games and save results |
 | Admin key | Full access including admin features |
+
+**Header color indicator:** The header bar changes color to show current status:
+- **Green gradient** — Tournament active (game results exist in main ladder or any mini-game)
+- **Blue gradient** — View-only mode (no valid write API key)
+- **Dark slate gradient** — Normal editing mode (valid key, no results yet)
 
 Production servers require an API key. Without one, the client runs in view-only mode with all edit operations disabled. See [SECURITY.md](./SECURITY.md) for key generation details.
 
@@ -42,11 +49,34 @@ Production servers require an API key. Without one, the client runs in view-only
 
 ## Table of Contents
 
-1. [Entering Game Results](#entering-game-results)
-2. [Game Result Formats](#game-result-formats)
-3. [Error Checking and Correction](#error-checking-and-correction)
-4. [Bulk Operations](#bulk-operations)
-5. [Tips and Best Practices](#tips-and-best-practices)
+1. [Mobile Interface](#mobile-interface)
+2. [Entering Game Results](#entering-game-results)
+3. [Game Result Formats](#game-result-formats)
+4. [Error Checking and Correction](#error-checking-and-correction)
+5. [Bulk Operations](#bulk-operations)
+6. [Tips and Best Practices](#tips-and-best-practices)
+
+---
+
+## Mobile Interface
+
+On screens narrower than 768px, the app switches to a mobile layout with a slide-out menu and a compact header.
+
+### Mobile Header Quick-Actions
+
+When viewing a mini-game, the mobile header shows two quick-action buttons:
+
+| Button | Action |
+|--------|--------|
+| **Enter Games** (green) | Opens the Enter Games dialog to input results cell by cell |
+| **Recalculate_Save** (blue) | Recalculates ratings and saves the current mini-game |
+
+### Header Color Indicator
+
+The mobile header uses the same color gradients as the desktop header:
+- **Green gradient** — Tournament active (game results exist in main ladder or any mini-game)
+- **Blue gradient** — View-only mode (no valid write API key)
+- **Dark slate gradient** — Normal editing mode (valid key, no results yet)
 
 ---
 
@@ -224,7 +254,8 @@ Click **Operations → Enter Games**, enter results, click "Enter_Recalculate_Sa
 
 ## Tips and Best Practices
 
-1. **Read the ErrorDialog feedback** — After entering a result, the dialog shows player names and parsed result. Verify it matches your intent.
+1. **Watch the header color** — When you enter your first game result, the header turns green to indicate tournament mode. It stays green as long as any results exist (main ladder or mini-games). This is a visual reminder that loading a different file could corrupt data.
+2. **Read the ErrorDialog feedback** — After entering a result, the dialog shows player names and parsed result. Verify it matches your intent.
 
 2. **Team games: all teammates share results** — If you enter `1:2LL3:4`, both players 1 and 2 get two Losses.
 

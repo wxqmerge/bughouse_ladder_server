@@ -112,14 +112,14 @@ export function onModeChange(callback: (newMode: string, oldMode: string) => voi
         const serverUrl = userSettings.server.trim();
         // Validate stored server URL before using it
         if (!isValidServerUrl(serverUrl)) {
-          console.log('[mode.ts] Stored server URL invalid (missing subdomain prefix), clearing and re-running auto-detection');
+console.debug('[mode.ts] Stored server URL invalid (missing subdomain prefix), clearing and re-running auto-detection');
           // Clear the invalid stored URL
           const settings = loadUserSettings();
           localStorage.setItem(getUserSettingsKey(), JSON.stringify({ server: '', apiKey: settings.apiKey }));
         } else {
           const isValid = await validateServerUrl(serverUrl);
           if (!isValid) {
-            console.log('[mode.ts] Stored server URL unreachable, clearing and re-running auto-detection');
+console.debug('[mode.ts] Stored server URL unreachable, clearing and re-running auto-detection');
             const settings = loadUserSettings();
             localStorage.setItem(getUserSettingsKey(), JSON.stringify({ server: '', apiKey: settings.apiKey }));
           } else {
@@ -144,7 +144,7 @@ export function onModeChange(callback: (newMode: string, oldMode: string) => voi
    const pathname = window.location.pathname;
    const subdomainMatch = pathname.match(/^\/([^/]+)\/dist(?:\/.*)?$/);
    const origin = window.location.origin;
-   console.log('[mode.ts] Auto-detect: origin=', origin, 'subdomainPath=', !!subdomainMatch);
+console.debug('[mode.ts] Auto-detect: origin=', origin, 'subdomainPath=', !!subdomainMatch);
 
    // Only run same-origin check if NOT in a subdomain path (skip unnecessary requests)
    if (!subdomainMatch) {
@@ -158,7 +158,7 @@ export function onModeChange(callback: (newMode: string, oldMode: string) => voi
          signal: healthController.signal,
        });
        clearTimeout(healthTimeoutId);
-       console.log('[mode.ts] Auto-detect: /health status=', healthResponse.status, 'ok=', healthResponse.ok);
+console.debug('[mode.ts] Auto-detect: /health status=', healthResponse.status, 'ok=', healthResponse.ok);
 
        const healthOk = healthResponse.ok;
 
@@ -170,7 +170,7 @@ export function onModeChange(callback: (newMode: string, oldMode: string) => voi
          signal: apiController.signal,
        });
        clearTimeout(apiTimeoutId);
-       console.log('[mode.ts] Auto-detect: /api/ladder status=', apiResponse.status, 'ok=', apiResponse.ok);
+console.debug('[mode.ts] Auto-detect: /api/ladder status=', apiResponse.status, 'ok=', apiResponse.ok);
 
        const apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403;
         if (apiResponse.status === 401 || apiResponse.status === 403) {
@@ -179,12 +179,12 @@ export function onModeChange(callback: (newMode: string, oldMode: string) => voi
 
        if (healthOk && apiOk) {
          autoDetectedUrl = origin.replace(/\/$/, '');
-         console.log('[mode.ts] Same-origin auto-detected:', autoDetectedUrl);
+console.debug('[mode.ts] Same-origin auto-detected:', autoDetectedUrl);
        } else {
-         console.log('[mode.ts] Same-origin detection FAILED: healthOk=', healthOk, 'apiOk=', apiOk);
+console.debug('[mode.ts] Same-origin detection FAILED: healthOk=', healthOk, 'apiOk=', apiOk);
        }
      } catch (e) {
-       console.log('[mode.ts] Same-origin detection threw error:', (e as Error).message);
+console.debug('[mode.ts] Same-origin detection threw error:', (e as Error).message);
      }
    }
 
@@ -198,7 +198,7 @@ export function onModeChange(callback: (newMode: string, oldMode: string) => voi
        if (match) {
          const projectName = match[1];
          const candidateUrl = `https://${projectName}.${hostname}`;
-         console.log('[mode.ts] Subdomain candidate from path:', projectName, '→', candidateUrl);
+console.debug('[mode.ts] Subdomain candidate from path:', projectName, '→', candidateUrl);
 
          // Validate candidate
          const healthController = new AbortController();
@@ -211,7 +211,7 @@ export function onModeChange(callback: (newMode: string, oldMode: string) => voi
              signal: healthController.signal,
            });
            clearTimeout(healthTimeoutId);
-           console.log('[mode.ts] Subdomain check: /health status=', healthResponse.status);
+console.debug('[mode.ts] Subdomain check: /health status=', healthResponse.status);
            healthOk = healthResponse.ok || healthResponse.status === 404;
          } catch {
            clearTimeout(healthTimeoutId);
@@ -230,30 +230,30 @@ export function onModeChange(callback: (newMode: string, oldMode: string) => voi
              });
              clearTimeout(apiTimeoutId);
              apiStatus = apiResponse.status;
-             console.log('[mode.ts] Subdomain check: /api/ladder status=', apiStatus);
+console.debug('[mode.ts] Subdomain check: /api/ladder status=', apiStatus);
              apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403;
               if (apiResponse.status === 401 || apiResponse.status === 403) {
                 console.warn(`[mode.ts] Subdomain check: /api/ladder returned ${apiResponse.status} — server reachable but auth failed. Check API key in Settings.`);
               }
             } catch (e) {
              clearTimeout(apiTimeoutId);
-             console.log('[mode.ts] Subdomain check: /api/ladder error:', (e as Error).message);
+console.debug('[mode.ts] Subdomain check: /api/ladder error:', (e as Error).message);
            }
 
            if (apiOk) {
              autoDetectedUrl = candidateUrl;
-             console.log('[mode.ts] Subdomain auto-detected:', autoDetectedUrl);
+console.debug('[mode.ts] Subdomain auto-detected:', autoDetectedUrl);
            } else {
-             console.log('[mode.ts] Subdomain detection FAILED: apiOk=', apiOk, 'apiStatus=', apiStatus);
+console.debug('[mode.ts] Subdomain detection FAILED: apiOk=', apiOk, 'apiStatus=', apiStatus);
            }
          } else {
-           console.log('[mode.ts] Subdomain /health check failed');
+console.debug('[mode.ts] Subdomain /health check failed');
          }
        } else {
-         console.log('[mode.ts] No project name found in path:', pathname, '(expected /{project-name}/dist/)');
+console.debug('[mode.ts] No project name found in path:', pathname, '(expected /{project-name}/dist/)');
        }
      } catch (e) {
-       console.log('[mode.ts] Subdomain detection threw error:', (e as Error).message);
+console.debug('[mode.ts] Subdomain detection threw error:', (e as Error).message);
      }
    }
    
@@ -307,12 +307,12 @@ export async function testServerConnection(): Promise<boolean> {
     // console.log('[mode.ts] testServerConnection: /health status=', healthStatus);
   } catch (e) {
     clearTimeout(healthTimeoutId);
-    console.log('[mode.ts] testServerConnection: /health error:', (e as Error).message);
+console.debug('[mode.ts] testServerConnection: /health error:', (e as Error).message);
     return false;
   }
   
   if (!healthOk) {
-    console.log('[mode.ts] testServerConnection: /health not ok (status', healthStatus, ')');
+console.debug('[mode.ts] testServerConnection: /health not ok (status', healthStatus, ')');
     return false;
   }
   

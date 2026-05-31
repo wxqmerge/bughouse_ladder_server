@@ -1,6 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { AlertTriangle, Check, Trash2, Loader2 } from "lucide-react";
 import { loadUserSettings } from "../services/userSettingsStorage";
+import { gatedFetch } from "../utils/requestGate";
+import { parseTabContent } from "../services/miniGameLocalStorage";
 
 interface PlayerData {
   rank: number;
@@ -24,11 +26,13 @@ interface BackupFile {
 interface RestoreBackupDialogProps {
   onClose: () => void;
   onRestore: (filename: string) => void;
+  projectName?: string;
 }
 
 export default function RestoreBackupDialog({
   onClose,
   onRestore,
+  projectName,
 }: RestoreBackupDialogProps) {
   const [backups, setBackups] = useState<BackupFile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,6 +41,7 @@ export default function RestoreBackupDialog({
   const [error, setError] = useState<string | null>(null);
   const [previewPlayers, setPreviewPlayers] = useState<Record<string, PlayerData[]>>({});
   const [previewLoading, setPreviewLoading] = useState<Record<string, boolean>>({});
+  const loadingRef = useRef(false);
 
   useEffect(() => {
     loadBackups();
@@ -44,26 +49,27 @@ export default function RestoreBackupDialog({
 
   const loadBackupPreview = async (filename: string) => {
     if (previewPlayers[filename]) return;
-    
+
     setPreviewLoading(prev => ({ ...prev, [filename]: true }));
     try {
       const userSettings = loadUserSettings();
       const serverUrl = (userSettings.server || "").trim();
-      
-      const response = await fetch(`${serverUrl}/api/admin/backups/restore/${encodeURIComponent(filename)}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (userSettings.apiKey?.trim()) {
+        headers['X-API-Key'] = userSettings.apiKey.trim();
+      }
+      const response = await gatedFetch(`${serverUrl}/api/admin/backups/preview/${encodeURIComponent(filename)}`, {
+        headers,
       });
 
       if (!response.ok) return;
 
-      await response.json();
-
-      const fetchResponse = await fetch(`${serverUrl}/api/ladder`);
-      if (fetchResponse.ok) {
-        const fetchData = await fetchResponse.json();
-        const serverPlayers = fetchData.data?.players || [];
-        setPreviewPlayers(prev => ({ ...prev, [filename]: serverPlayers }));
+      const data = await response.json();
+      const content = data.data?.content;
+      if (content) {
+        const parsed = parseTabContent(content);
+        setPreviewPlayers(prev => ({ ...prev, [filename]: parsed.players }));
       }
     } catch (err) {
       console.error("Failed to load backup preview:", err);
@@ -73,6 +79,8 @@ export default function RestoreBackupDialog({
   };
 
   const loadBackups = async () => {
+    if (loadingRef.current) return;
+    loadingRef.current = true;
     try {
       setLoading(true);
       setError(null);
@@ -84,8 +92,13 @@ export default function RestoreBackupDialog({
         return;
       }
 
-      const response = await fetch(`${serverUrl}/api/admin/backups`, {
-        headers: { "Content-Type": "application/json" },
+      const ladderParam = projectName ? `?ladder=${encodeURIComponent(projectName)}` : '';
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (userSettings.apiKey?.trim()) {
+        headers['X-API-Key'] = userSettings.apiKey.trim();
+      }
+      const response = await gatedFetch(`${serverUrl}/api/admin/backups${ladderParam}`, {
+        headers,
       });
 
       if (!response.ok) {
@@ -104,6 +117,7 @@ export default function RestoreBackupDialog({
       setError(err.message || "Failed to load backups");
     } finally {
       setLoading(false);
+      loadingRef.current = false;
     }
   };
 
@@ -126,9 +140,13 @@ export default function RestoreBackupDialog({
       const userSettings = loadUserSettings();
       const serverUrl = (userSettings.server || "").trim();
 
-      const response = await fetch(`${serverUrl}/api/admin/backups/${filename}`, {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (userSettings.apiKey?.trim()) {
+        headers['X-API-Key'] = userSettings.apiKey.trim();
+      }
+      const response = await gatedFetch(`${serverUrl}/api/admin/backups/${filename}`, {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
+        headers,
       });
 
       if (!response.ok) {
@@ -242,9 +260,19 @@ export default function RestoreBackupDialog({
               </thead>
               <tbody>
                  {backups.map((backup) => (
-                  <tr key={backup.filename} style={{ borderTop: "1px solid #f3f4f6" }}>
-                    <td style={{ padding: "0.5rem" }}>{backup.filename}</td>
-                    <td style={{ padding: "0.5rem", color: "#6b7280" }}>{formatDate(backup.timestamp)}</td>
+                   <tr
+                     key={backup.filename}
+                     style={{
+                       borderTop: "1px solid #f3f4f6",
+                       cursor: "pointer",
+                       transition: "background-color 0.15s",
+                     }}
+                     onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#f0fdf4")}
+                     onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+                     onClick={() => handleRestore(backup.filename)}
+                   >
+                     <td style={{ padding: "0.5rem", fontWeight: 600, color: "#16a34a" }}>{backup.filename}</td>
+                     <td style={{ padding: "0.5rem", color: "#6b7280" }}>{formatDate(backup.timestamp)}</td>
                     <td style={{ padding: "0.5rem", textAlign: "center" }}>
                       {previewLoading[backup.filename] ? (
                         <Loader2 size={14} style={{ animation: "spin 1s linear infinite", display: "inline-block" }} />
@@ -254,19 +282,18 @@ export default function RestoreBackupDialog({
                             <div key={p.rank} style={{ fontSize: "0.7rem", marginBottom: "0.125rem" }}>
                               <span style={{ color: "#6b7280", marginRight: "0.25rem" }}>P{p.rank}</span>
                               <span style={{ display: "inline-flex", gap: "0.125rem", whiteSpace: "nowrap" }}>
-                                {(p.gameResults || []).filter((r) => r && r.trim() !== "").map((result) => {
-                                  const origIdx = (p.gameResults || []).indexOf(result);
-                                  return (
-                                    <span key={origIdx} style={{ 
-                                      padding: "0 0.25rem",
-                                      backgroundColor: "#e0f2fe",
-                                      borderRadius: "0.125rem",
-                                      fontSize: "0.65rem",
-                                    }}>
-                                      {(result || "").replace(/_+$/, "")}
-                                    </span>
-                                  );
-                                })}
+                                {(p.gameResults || []).map((result, roundIdx) =>
+                                   result && result.trim() !== "" ? (
+                                     <span key={roundIdx} style={{
+                                       padding: "0 0.25rem",
+                                       backgroundColor: "#e0f2fe",
+                                       borderRadius: "0.125rem",
+                                       fontSize: "0.65rem",
+                                     }}>
+                                       {(result || "").replace(/_+$/, "")}
+                                     </span>
+                                   ) : null
+                                 )}
                               </span>
                             </div>
                           ))}
@@ -283,16 +310,17 @@ export default function RestoreBackupDialog({
                     <td style={{ padding: "0.5rem", textAlign: "center" }}>
                       <div style={{ display: "flex", gap: "0.25rem", justifyContent: "center" }}>
                         <button
-                          onClick={() => handleRestore(backup.filename)}
+                          onClick={(e) => { e.stopPropagation(); handleRestore(backup.filename); }}
                           disabled={restoring !== null || deleting !== null}
                           style={{
                             padding: "0.375rem 0.75rem",
-                            backgroundColor: "#f0fdf4",
-                            border: "1px solid #86efac",
+                            backgroundColor: restoring === backup.filename ? "#bbf7d0" : "#16a34a",
+                            border: "1px solid #16a34a",
                             borderRadius: "0.25rem",
                             cursor: restoring === backup.filename ? "not-allowed" : "pointer",
                             fontSize: "0.75rem",
-                            color: "#16a34a",
+                            fontWeight: 600,
+                            color: "white",
                             display: "flex",
                             alignItems: "center",
                             gap: "0.25rem",
@@ -306,16 +334,17 @@ export default function RestoreBackupDialog({
                           Restore
                         </button>
                         <button
-                          onClick={() => handleDelete(backup.filename)}
+                          onClick={(e) => { e.stopPropagation(); handleDelete(backup.filename); }}
                           disabled={restoring !== null || deleting !== null}
                           style={{
                             padding: "0.375rem 0.75rem",
-                            backgroundColor: "#fef2f2",
-                            border: "1px solid #fecaca",
+                            backgroundColor: deleting === backup.filename ? "#fecaca" : "#dc2626",
+                            border: "1px solid #dc2626",
                             borderRadius: "0.25rem",
                             cursor: deleting === backup.filename ? "not-allowed" : "pointer",
                             fontSize: "0.75rem",
-                            color: "#dc2626",
+                            fontWeight: 600,
+                            color: "white",
                             display: "flex",
                             alignItems: "center",
                             gap: "0.25rem",

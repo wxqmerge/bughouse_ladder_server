@@ -497,9 +497,9 @@ export default function ErrorDialog({
 
   const cleanInput = (): string => {
     const raw = (currentInputValue || "").toUpperCase();
-    if (shouldLog(3)) console.log('[3]DEBUG-TRACE] === cleanInput ENTRY === currentInputValue="' + currentInputValue + '" raw="' + raw + '"');
+    if (shouldLog(3)) console.debug('[3]DEBUG-TRACE] === cleanInput ENTRY === currentInputValue="' + currentInputValue + '" raw="' + raw + '"');
     const cleaned = raw.replace(/[^0-9WLD:]/g, "");
-    if (shouldLog(3)) console.log('[3]DEBUG-TRACE] cleanInput cleaned="' + cleaned + '"');
+    if (shouldLog(3)) console.debug('[3]DEBUG-TRACE] cleanInput cleaned="' + cleaned + '"');
     if (cleaned !== raw) {
       setCurrentInputValue(cleaned);
       if (inputRef.current) inputRef.current.value = cleaned;
@@ -511,18 +511,18 @@ export default function ErrorDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log(">>> [BUTTON PRESSED] Save (Game Result)");
+    console.debug(">>> [BUTTON PRESSED] Save (Game Result)");
     const value = cleanInput();
-    if (shouldLog(3)) console.log('[3]DEBUG-TRACE] === handleSubmit === value="' + value + '"');
+    if (shouldLog(3)) console.debug('[3]DEBUG-TRACE] === handleSubmit === value="' + value + '"');
     if (!value.trim()) return;
     onSubmit(value);
   };
 
   const handleEnterRecalculateSave = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log(">>> [BUTTON PRESSED] Enter_Recalculate_Save");
+    console.debug(">>> [BUTTON PRESSED] Enter_Recalculate_Save");
     const value = cleanInput();
-    if (shouldLog(3)) console.log('[3]DEBUG-TRACE] === handleEnterRecalculateSave === value="' + value + '"');
+    if (shouldLog(3)) console.debug('[3]DEBUG-TRACE] === handleEnterRecalculateSave === value="' + value + '"');
     if (!value.trim()) return;
     if (onEnterRecalculateSave) {
       onEnterRecalculateSave(value);
@@ -532,7 +532,7 @@ export default function ErrorDialog({
   };
 
   const handleClearCell = () => {
-    console.log(">>> [BUTTON PRESSED] Clear Cell");
+    console.debug(">>> [BUTTON PRESSED] Clear Cell");
     cleanInput();
     setCorrectedResult("");
     setCurrentInputValue("");
@@ -546,7 +546,7 @@ export default function ErrorDialog({
 
     // Use onClearCell prop if provided (clears all matching cells)
     if (onClearCell) {
-      console.log(">>> [CLEAR CELL] Calling onClearCell callback");
+      console.debug(">>> [CLEAR CELL] Calling onClearCell callback");
       onClearCell();
       
       // In recalculate/walkthrough mode, don't close dialog - let user continue
@@ -587,14 +587,14 @@ export default function ErrorDialog({
 
     if (results.length > 1) {
       // Multiple results detected - log and store them
-      console.log(
+      console.debug(
         `>>> [PASTE DETECTED] ${results.length} tab-delimited results`,
       );
       const cleanedResults = results.map((r) =>
         r.toUpperCase().replace(/[^0-9WLD:]/g, ""),
       );
       results.forEach((result, idx) => {
-        console.log(`>>> [PASTE RESULT] ${idx + 1}: "${result.trim()}"`);
+        console.debug(`>>> [PASTE RESULT] ${idx + 1}: "${result.trim()}"`);
       });
 
       // Store in window for LadderForm to access
@@ -615,7 +615,7 @@ export default function ErrorDialog({
         setParseStatus({ isValid: false, error: validation.error });
       }
 
-      console.log(
+      console.debug(
         `>>> [PASTE RESULT] Pasted first result: "${firstResult}" (${cleanedResults.length - 1} remaining)`,
       );
     } else {
@@ -625,7 +625,7 @@ export default function ErrorDialog({
       if (inputRef.current) {
         inputRef.current.value = singleValue;
       }
-      console.log(`>>> [PASTE RESULT] Single value: "${singleValue}"`);
+      console.debug(`>>> [PASTE RESULT] Single value: "${singleValue}"`);
     }
   };
 
@@ -640,11 +640,11 @@ export default function ErrorDialog({
     // Check for tab-delimited paste (fallback if onPaste didn't trigger)
     if (rawValue.includes("\t")) {
       const results = rawValue.split("\t").filter((r) => r.trim() !== "");
-      console.log(
+      console.debug(
         `>>> [PASTE DETECTED] ${results.length} tab-delimited results`,
       );
       results.forEach((result, idx) => {
-        console.log(`>>> [PASTE RESULT] ${idx + 1}: "${result.trim()}"`);
+        console.debug(`>>> [PASTE RESULT] ${idx + 1}: "${result.trim()}"`);
       });
 
       // Use first result
@@ -667,7 +667,7 @@ export default function ErrorDialog({
         });
       }
 
-      console.log(`>>> [PASTE RESULT] Pasted first result: "${firstResult}"`);
+      console.debug(`>>> [PASTE RESULT] Pasted first result: "${firstResult}"`);
       return;
     }
 
@@ -1317,7 +1317,7 @@ export default function ErrorDialog({
                      return (
                        <button
                          key={r}
-                         onClick={() => { console.log(`>>> [BUTTON PRESSED] + Add Player (Rank ${r}) [inline error]`); onAddPlayer(r); }}
+                         onClick={() => { console.debug(`>>> [BUTTON PRESSED] + Add Player (Rank ${r}) [inline error]`); onAddPlayer(r); }}
                         style={{
                           marginRight: "0.5rem",
                           padding: "0.25rem 0.75rem",
@@ -1501,7 +1501,7 @@ export default function ErrorDialog({
                   return (
                     <button
                       key={r}
-                      onClick={() => { console.log(`>>> [BUTTON PRESSED] + Add Player (Rank ${r}) [inline enter-games]`); onAddPlayer(r); }}
+                      onClick={() => { console.debug(`>>> [BUTTON PRESSED] + Add Player (Rank ${r}) [inline enter-games]`); onAddPlayer(r); }}
                       style={{
                         marginRight: "0.5rem",
                         padding: "0.25rem 0.75rem",
@@ -1549,7 +1549,7 @@ export default function ErrorDialog({
                   type="button"
                   onClick={() => {
                     if (teleportTargetLadder && currentInputValue.trim()) {
-                      console.log(`>>> [BUTTON PRESSED] Teleport to ${teleportTargetLadder}`);
+                      console.debug(`>>> [BUTTON PRESSED] Teleport to ${teleportTargetLadder}`);
                       onTeleport(teleportTargetLadder, currentInputValue.trim());
                     }
                   }}
@@ -1587,7 +1587,7 @@ export default function ErrorDialog({
                {(isDev || testMode) && onRandomResult && (
                   <button
                     type="button"
-                    onClick={() => { console.log('>>> [BUTTON PRESSED] Random Result'); onRandomResult?.(setCurrentInputValue); }}
+                    onClick={() => { console.debug('>>> [BUTTON PRESSED] Random Result'); onRandomResult?.(setCurrentInputValue); }}
                     style={{
                       padding: "0.5rem 0.75rem",
                       background: "#6366f1",
@@ -1604,7 +1604,7 @@ Random (Ctrl+R)
                 )}
               <button
                     type="button"
-                    onClick={() => { console.log(`>>> [BUTTON PRESSED] Override ${isOverrideMode ? 'OFF' : 'ON'}`); onToggleOverrideMode?.(); }}
+                    onClick={() => { console.debug(`>>> [BUTTON PRESSED] Override ${isOverrideMode ? 'OFF' : 'ON'}`); onToggleOverrideMode?.(); }}
                    style={{
                      padding: "0.5rem 0.75rem",
                      background: isOverrideMode ? "#f59e0b" : "#f3f4f6",
@@ -1620,7 +1620,7 @@ Random (Ctrl+R)
                 </button>
             <button
                    type="button"
-                   onClick={() => { console.log(">>> [BUTTON PRESSED] Cancel [enter-games error dialog]"); onClose(); }}
+                   onClick={() => { console.debug(">>> [BUTTON PRESSED] Cancel [enter-games error dialog]"); onClose(); }}
                    style={{
                      padding: "0.5rem 1rem",
                      background: "#f3f4f6",
@@ -1791,7 +1791,7 @@ Enter_Recalculate_Save (Ctrl+E)
            <button
                type="button"
                onClick={() => {
-                 console.log(">>> [BUTTON PRESSED] Add Player [bottom banner]");
+                 console.debug(">>> [BUTTON PRESSED] Add Player [bottom banner]");
                  onAddPlayer();
                  onClose();
                }}

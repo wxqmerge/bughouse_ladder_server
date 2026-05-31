@@ -3,7 +3,7 @@ import { getVersionString, getProgramMode } from "../utils/mode";
 import { getVisibleTitles } from "../utils/titleMenu";
 import { getFontSize, getScaledPadding, getScaledGap } from "../utils/getFontSize";
 import { useIntervalCheck } from "../utils/useIntervalCheck";
-import { titleToFileName, LADDER_SHORTCUTS } from "../../shared/utils/constants";
+import { titleToFileName, LADDER_SHORTCUTS, LADDER_COLORS } from "../../shared/utils/constants";
 import { debugClick } from "../utils/debug";
 import {
   Folder,
@@ -50,7 +50,7 @@ interface MenuBarProps {
   playerCount?: number;
   serverUrl?: string | null;
   hasAdminApiKey?: boolean;
-  tournamentMode?: boolean;
+  isTournamentActive?: boolean;
   availableMiniGames?: string[];
   writePermission?: boolean;
 }
@@ -63,6 +63,7 @@ interface MenuItem {
   hasCheckmark?: boolean;
   disabled?: boolean;
   shortcut?: string;
+  color?: string;
 }
 
 export default function MenuBar({
@@ -86,7 +87,7 @@ export default function MenuBar({
   playerCount,
   serverUrl,
   hasAdminApiKey = false,
-  tournamentMode = false,
+  isTournamentActive = false,
   availableMiniGames = [],
   writePermission = true,
 }: MenuBarProps) {
@@ -119,7 +120,7 @@ export default function MenuBar({
         closeAllMenus();
       },
       dataMenuItem: "Load",
-      disabled: !isAdmin || tournamentMode,
+      disabled: !isAdmin || isTournamentActive,
     },
     {
       icon: <Download size={16} />,
@@ -147,6 +148,7 @@ export default function MenuBar({
       return {
         icon: <Type size={16} />,
         label: title,
+        color: LADDER_COLORS[title],
         shortcut: shortcutNum ? `Ctrl+${shortcutNum}` : undefined,
         onClick: () => {
           if (isDisabled) {
@@ -420,7 +422,7 @@ label: "Restore Backup",
             display: "flex",
             alignItems: "center",
             gap: getScaledGap(zoomLevel, 0.75),
-            color: item.disabled ? "#9ca3af" : "#374151",
+            color: item.disabled ? "#9ca3af" : (item.color || "#374151"),
             backgroundColor: "white",
             opacity: item.disabled ? 0.5 : 1,
             fontStyle: item.disabled ? "italic" : "normal",
@@ -524,7 +526,9 @@ label: "Restore Backup",
         style={{
           display: "flex",
           alignItems: "center",
-          backgroundColor: tournamentMode ? "#166534" : !writePermission ? "#1e40af" : "#1e293b",
+          background: isTournamentActive ? "linear-gradient(135deg, #166534 0%, #22c55e 100%)"
+            : !writePermission ? "linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)"
+            : "linear-gradient(135deg, #0f172a 0%, #334155 100%)",
           borderBottom: "1px solid #334155",
           fontSize: getFontSize(zoomLevel),
         }}
@@ -578,13 +582,13 @@ label: "Restore Backup",
           </h1>
         )}
         {playerCount !== undefined && (
-          <div style={{ padding: getScaledPadding(zoomLevel, 0.75, 1) }}>
+          <div style={{ padding: getScaledPadding(zoomLevel, 0.75, 1), display: "flex", alignItems: "baseline", gap: "0.5rem" }}>
             <span style={{ color: "rgba(255, 255, 255, 0.7)" }}>
               Total Players
             </span>
-            <div style={{ fontWeight: "600", color: "white" }}>
+            <span style={{ fontWeight: "600", color: "white" }}>
               {playerCount}
-            </div>
+            </span>
           </div>
         )}
       </div>
