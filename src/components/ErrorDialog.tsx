@@ -1518,7 +1518,7 @@ export default function ErrorDialog({
                 })}
             </div>
           )}
-          {isAdmin && hasAdminKey && onTeleport && !isEnterGames && (
+          {isAdmin && hasAdminKey && onTeleport && availableMiniGames && availableMiniGames.length > 0 && !isEnterGames && (
             <div style={{ marginTop: "0.5rem", marginBottom: "1rem", padding: "0.75rem", backgroundColor: "#f0f9ff", borderRadius: "0.25rem", border: "1px solid #bfdbfe" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
                 <span style={{ fontSize: "0.875rem", color: "#1e40af", fontWeight: "500" }}>Teleport to:</span>
@@ -1536,7 +1536,7 @@ export default function ErrorDialog({
                 >
                  <option value="">-- Select ladder --</option>
                    <option value="Ladder">Ladder (Club)</option>
-                   {availableMiniGames?.map((game) => {
+                   {availableMiniGames.map((game) => {
                      const title = fileNameToTitle(game);
                      return (
                        <option key={game} value={title}>{title}</option>
