@@ -3993,10 +3993,16 @@ const handleWalkthroughNextForReview = () => {
       e.preventDefault();
       const targetTitle = SHORTCUT_TO_TITLE[num];
       if (targetTitle) {
+        const targetIsMiniGame = isMiniGameTitle(targetTitle);
+        // Allow shortcut for Ladder (club ladder) unconditionally;
+        // for mini-games, only allow if the file exists on server
         const targetFileName = titleToFileName(targetTitle);
-        if (availableMiniGames.includes(targetFileName)) {
+        const isAvailable = !targetIsMiniGame || availableMiniGames.includes(targetFileName);
+        if (isAvailable) {
           console.log(`>>> [LADDER SWITCH] Ctrl+${num} -> ${targetTitle}`);
           handleSetTitle(targetTitle);
+        } else {
+          log('[LADDER SWITCH]', `Ctrl+${num} -> ${targetTitle} blocked: file not available`);
         }
       }
     };
