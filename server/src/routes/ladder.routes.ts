@@ -366,12 +366,15 @@ router.post('/mini-games/write', requireUserKey, writeLimiter, async (req: Reque
       return;
     }
 
-    await writeMiniGameFile(fileName, {
+    const result = await writeMiniGameFile(fileName, {
       header: [],
       players,
       rawLines: [],
     });
 
+    if (result.identityUpdates.length > 0) {
+      broadcastSSEEvent('ladderUpdated', { type: 'bulkUpdate', count: result.identityUpdates.length, identityMerge: true });
+    }
     broadcastSSEEvent('miniGameWritten', { fileName, type: 'miniGameWrite' });
 
     res.json({

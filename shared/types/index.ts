@@ -123,7 +123,7 @@ export interface LadderData {
 export interface MiniGameStore {
   getMiniGameFiles(): string[];
   readMiniGameFile(fileName: string): Promise<LadderData | null>;
-  writeMiniGameFile(fileName: string, ladderData: LadderData): Promise<void>;
+  writeMiniGameFile(fileName: string, ladderData: LadderData): Promise<{ identityUpdates: PlayerData[]; miniGameWritten: boolean }>;
   copyPlayersToTarget(sourcePlayers: PlayerData[], targetPlayers: PlayerData[]): PlayerData[];
   mergeGameResults(oldResults: (string | null)[], currentResults: (string | null)[]): (string | null)[];
   getExistingMiniGameFiles(): Promise<string[]>;
