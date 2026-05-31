@@ -31,8 +31,3 @@ export function getScaledGap(zoomLevel: string, base: number): string {
   const s = getZoomScale(zoomLevel);
   return `${base * s}rem`;
 }
-
-export function getScaledLineHeight(zoomLevel: string, base: number): string {
-  const s = getZoomScale(zoomLevel);
-  return String(base * s);
-}

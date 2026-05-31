@@ -110,7 +110,7 @@ export default function RestoreBackupDialog({
       const data = await response.json();
       console.log('[RESTORE BACKUP] server response:', JSON.stringify(data));
       const backupsList = data.data?.backups || [];
-      console.log('[RESTORE BACKUP] backupsList:', backupsList.length, backupsList.map(b => b.filename));
+      console.log('[RESTORE BACKUP] backupsList:', backupsList.length, backupsList.map((b: any) => b.filename));
       setBackups(backupsList);
 
       // Load preview for each backup
