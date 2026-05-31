@@ -26,13 +26,13 @@ interface BackupFile {
 interface RestoreBackupDialogProps {
   onClose: () => void;
   onRestore: (filename: string) => void;
-  projectName?: string;
+  ladderFile?: string;
 }
 
 export default function RestoreBackupDialog({
   onClose,
   onRestore,
-  projectName,
+  ladderFile,
 }: RestoreBackupDialogProps) {
   const [backups, setBackups] = useState<BackupFile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -92,7 +92,9 @@ export default function RestoreBackupDialog({
         return;
       }
 
-      const ladderParam = projectName ? `?ladder=${encodeURIComponent(projectName)}` : '';
+      const ladderPrefix = ladderFile ? ladderFile.replace('.tab', '') : undefined;
+      const ladderParam = ladderPrefix ? `?ladder=${encodeURIComponent(ladderPrefix)}` : '';
+      console.log('[RESTORE BACKUP] ladderFile:', ladderFile, 'ladderPrefix:', ladderPrefix, 'ladderParam:', ladderParam);
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (userSettings.apiKey?.trim()) {
         headers['X-API-Key'] = userSettings.apiKey.trim();
@@ -106,7 +108,9 @@ export default function RestoreBackupDialog({
       }
 
       const data = await response.json();
+      console.log('[RESTORE BACKUP] server response:', JSON.stringify(data));
       const backupsList = data.data?.backups || [];
+      console.log('[RESTORE BACKUP] backupsList:', backupsList.length, backupsList.map(b => b.filename));
       setBackups(backupsList);
 
       // Load preview for each backup
@@ -190,7 +194,7 @@ export default function RestoreBackupDialog({
           backgroundColor: "white",
           borderRadius: "0.5rem",
           padding: "1.5rem",
-          maxWidth: "600px",
+          maxWidth: "900px",
           width: "90%",
           maxHeight: "80vh",
           display: "flex",
@@ -252,10 +256,11 @@ export default function RestoreBackupDialog({
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.875rem" }}>
               <thead>
                 <tr style={{ backgroundColor: "#f9fafb" }}>
-                  <th style={{ padding: "0.5rem", textAlign: "left", borderBottom: "1px solid #e5e7eb", fontWeight: 600 }}>Backup</th>
-                  <th style={{ padding: "0.5rem", textAlign: "left", borderBottom: "1px solid #e5e7eb", fontWeight: 600 }}>Timestamp</th>
-                  <th style={{ padding: "0.5rem", textAlign: "center", borderBottom: "1px solid #e5e7eb", fontWeight: 600, width: "200px" }}>Game Results</th>
                   <th style={{ padding: "0.5rem", textAlign: "center", borderBottom: "1px solid #e5e7eb", fontWeight: 600 }}>Actions</th>
+                  <th style={{ padding: "0.5rem", textAlign: "center", borderBottom: "1px solid #e5e7eb", fontWeight: 600, width: "60px" }}>Players</th>
+                  <th style={{ padding: "0.5rem", textAlign: "center", borderBottom: "1px solid #e5e7eb", fontWeight: 600, width: "200px" }}>Game Results</th>
+                  <th style={{ padding: "0.5rem", textAlign: "left", borderBottom: "1px solid #e5e7eb", fontWeight: 600 }}>Timestamp</th>
+                  <th style={{ padding: "0.5rem", textAlign: "right", borderBottom: "1px solid #e5e7eb", fontWeight: 600 }}>Backup</th>
                 </tr>
               </thead>
               <tbody>
@@ -271,94 +276,97 @@ export default function RestoreBackupDialog({
                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
                      onClick={() => handleRestore(backup.filename)}
                    >
-                     <td style={{ padding: "0.5rem", fontWeight: 600, color: "#16a34a" }}>{backup.filename}</td>
-                     <td style={{ padding: "0.5rem", color: "#6b7280" }}>{formatDate(backup.timestamp)}</td>
-                    <td style={{ padding: "0.5rem", textAlign: "center" }}>
-                      {previewLoading[backup.filename] ? (
-                        <Loader2 size={14} style={{ animation: "spin 1s linear infinite", display: "inline-block" }} />
-                      ) : previewPlayers[backup.filename] && previewPlayers[backup.filename].length > 0 ? (
-                        <div style={{ maxHeight: "60px", overflowX: "auto", overflowY: "hidden" }}>
-                          {previewPlayers[backup.filename].filter((p) => (p.gameResults || []).some((r) => r && r.trim() !== "")).slice(0, 3).map((p) => (
-                            <div key={p.rank} style={{ fontSize: "0.7rem", marginBottom: "0.125rem" }}>
-                              <span style={{ color: "#6b7280", marginRight: "0.25rem" }}>P{p.rank}</span>
-                              <span style={{ display: "inline-flex", gap: "0.125rem", whiteSpace: "nowrap" }}>
-                                {(p.gameResults || []).map((result, roundIdx) =>
-                                   result && result.trim() !== "" ? (
-                                     <span key={roundIdx} style={{
-                                       padding: "0 0.25rem",
-                                       backgroundColor: "#e0f2fe",
-                                       borderRadius: "0.125rem",
-                                       fontSize: "0.65rem",
-                                     }}>
-                                       {(result || "").replace(/_+$/, "")}
-                                     </span>
-                                   ) : null
-                                 )}
-                              </span>
-                            </div>
-                          ))}
-                          {previewPlayers[backup.filename].some((p) => (p.gameResults || []).some((r) => r && r.trim() !== "")) && (
-                            <div style={{ fontSize: "0.65rem", color: "#9ca3af" }}>
-                              +{previewPlayers[backup.filename].filter(p => (p.gameResults || []).some(r => r && r.trim() !== '')).length - 3} more
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <span style={{ fontSize: "0.75rem", color: "#9ca3af" }}>No results</span>
-                      )}
-                    </td>
-                    <td style={{ padding: "0.5rem", textAlign: "center" }}>
-                      <div style={{ display: "flex", gap: "0.25rem", justifyContent: "center" }}>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleRestore(backup.filename); }}
-                          disabled={restoring !== null || deleting !== null}
-                          style={{
-                            padding: "0.375rem 0.75rem",
-                            backgroundColor: restoring === backup.filename ? "#bbf7d0" : "#16a34a",
-                            border: "1px solid #16a34a",
-                            borderRadius: "0.25rem",
-                            cursor: restoring === backup.filename ? "not-allowed" : "pointer",
-                            fontSize: "0.75rem",
-                            fontWeight: 600,
-                            color: "white",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "0.25rem",
-                          }}
-                        >
-                          {restoring === backup.filename ? (
-                            <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />
-                          ) : (
-                            <Check size={14} />
-                          )}
-                          Restore
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleDelete(backup.filename); }}
-                          disabled={restoring !== null || deleting !== null}
-                          style={{
-                            padding: "0.375rem 0.75rem",
-                            backgroundColor: deleting === backup.filename ? "#fecaca" : "#dc2626",
-                            border: "1px solid #dc2626",
-                            borderRadius: "0.25rem",
-                            cursor: deleting === backup.filename ? "not-allowed" : "pointer",
-                            fontSize: "0.75rem",
-                            fontWeight: 600,
-                            color: "white",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "0.25rem",
-                          }}
-                        >
-                          {deleting === backup.filename ? (
-                            <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />
-                          ) : (
-                            <Trash2 size={14} />
-                          )}
-                          Delete
-                        </button>
-                      </div>
-                    </td>
+                     <td style={{ padding: "0.5rem", textAlign: "center" }}>
+                       <div style={{ display: "flex", gap: "0.25rem", justifyContent: "center" }}>
+                         <button
+                           onClick={(e) => { e.stopPropagation(); handleRestore(backup.filename); }}
+                           disabled={restoring !== null || deleting !== null}
+                           style={{
+                             padding: "0.375rem 0.75rem",
+                             backgroundColor: restoring === backup.filename ? "#bbf7d0" : "#16a34a",
+                             border: "1px solid #16a34a",
+                             borderRadius: "0.25rem",
+                             cursor: restoring === backup.filename ? "not-allowed" : "pointer",
+                             fontSize: "0.75rem",
+                             fontWeight: 600,
+                             color: "white",
+                             display: "flex",
+                             alignItems: "center",
+                             gap: "0.25rem",
+                           }}
+                         >
+                           {restoring === backup.filename ? (
+                             <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />
+                           ) : (
+                             <Check size={14} />
+                           )}
+                           Restore
+                         </button>
+                         <button
+                           onClick={(e) => { e.stopPropagation(); handleDelete(backup.filename); }}
+                           disabled={restoring !== null || deleting !== null}
+                           style={{
+                             padding: "0.375rem 0.75rem",
+                             backgroundColor: deleting === backup.filename ? "#fecaca" : "#dc2626",
+                             border: "1px solid #dc2626",
+                             borderRadius: "0.25rem",
+                             cursor: deleting === backup.filename ? "not-allowed" : "pointer",
+                             fontSize: "0.75rem",
+                             fontWeight: 600,
+                             color: "white",
+                             display: "flex",
+                             alignItems: "center",
+                             gap: "0.25rem",
+                           }}
+                         >
+                           {deleting === backup.filename ? (
+                             <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />
+                           ) : (
+                             <Trash2 size={14} />
+                           )}
+                           Delete
+                         </button>
+                       </div>
+                     </td>
+                     <td style={{ padding: "0.5rem", textAlign: "center", fontWeight: 600, color: "#374151" }}>
+                       {previewPlayers[backup.filename]?.length ?? (previewLoading[backup.filename] ? '-' : '-')}
+                     </td>
+                     <td style={{ padding: "0.5rem", textAlign: "center" }}>
+                       {previewLoading[backup.filename] ? (
+                         <Loader2 size={14} style={{ animation: "spin 1s linear infinite", display: "inline-block" }} />
+                       ) : previewPlayers[backup.filename] && previewPlayers[backup.filename].length > 0 ? (
+                         <div style={{ maxHeight: "60px", overflowX: "auto", overflowY: "hidden" }}>
+                           {previewPlayers[backup.filename].filter((p) => (p.gameResults || []).some((r) => r && r.trim() !== "")).slice(0, 3).map((p) => (
+                             <div key={p.rank} style={{ fontSize: "0.7rem", marginBottom: "0.125rem" }}>
+                               <span style={{ color: "#6b7280", marginRight: "0.25rem" }}>P{p.rank}</span>
+                               <span style={{ display: "inline-flex", gap: "0.125rem", whiteSpace: "nowrap" }}>
+                                 {(p.gameResults || []).map((result, roundIdx) =>
+                                    result && result.trim() !== "" ? (
+                                      <span key={roundIdx} style={{
+                                        padding: "0 0.25rem",
+                                        backgroundColor: "#e0f2fe",
+                                        borderRadius: "0.125rem",
+                                        fontSize: "0.65rem",
+                                      }}>
+                                        {(result || "").replace(/_+$/, "")}
+                                      </span>
+                                    ) : null
+                                  )}
+                               </span>
+                             </div>
+                           ))}
+                           {previewPlayers[backup.filename].some((p) => (p.gameResults || []).some((r) => r && r.trim() !== "")) && (
+                             <div style={{ fontSize: "0.65rem", color: "#9ca3af" }}>
+                               +{previewPlayers[backup.filename].filter(p => (p.gameResults || []).some(r => r && r.trim() !== '')).length - 3} more
+                             </div>
+                           )}
+                         </div>
+                       ) : (
+                         <span style={{ fontSize: "0.75rem", color: "#9ca3af" }}>No results</span>
+                       )}
+                     </td>
+                      <td style={{ padding: "0.5rem", color: "#6b7280" }}>{formatDate(backup.timestamp)}</td>
+                      <td style={{ padding: "0.5rem", fontWeight: 600, color: "#16a34a", textAlign: "right" }}>{backup.filename}</td>
                   </tr>
                 ))}
               </tbody>
