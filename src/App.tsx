@@ -205,8 +205,9 @@ const [testMode, setTestMode] = useState(() => {
                     console.warn(`[APP] Server write errors: ${wh.consecutiveFailures} consecutive failures. Last error: ${wh.lastError}`);
                   }
                 }
-              } catch {
-                // Health check failed - server unreachable, no action needed
+              } catch (e) {
+                // Health check failed - server unreachable, log for observability
+                console.warn('[APP] Periodic health check failed (server may be unreachable):', e);
               } finally {
                 healthCheckPending = false;
               }
@@ -790,6 +791,9 @@ async function determineMode(): Promise<{ mode: DataServiceMode; serverUrl?: str
       console.log('[App] Auto-detect: /api/ladder status=', apiResponse.status, 'ok=', apiResponse.ok);
       // 404 means Express routes aren't registered (invalid server)
       const apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403;
+      if (apiResponse.status === 401 || apiResponse.status === 403) {
+        console.warn(`[App] Auto-detect: /api/ladder returned ${apiResponse.status} — server reachable but auth failed. Check API key in Settings.`);
+      }
       
       if (healthOk && apiOk) {
         autoDetectedUrl = origin.replace(/\/$/, '');
@@ -832,6 +836,9 @@ async function determineMode(): Promise<{ mode: DataServiceMode; serverUrl?: str
             console.log('[App] Subdomain check: /api/ladder status=', apiStatus);
             // 404 means Express routes aren't registered (invalid server)
             apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403;
+            if (apiResponse.status === 401 || apiResponse.status === 403) {
+              console.warn(`[App] Subdomain check: /api/ladder returned ${apiResponse.status} — server reachable but auth failed. Check API key in Settings.`);
+            }
           } catch (e) {
             clearTimeout(apiTimeoutId);
             console.log('[App] Subdomain check: /api/ladder error:', (e as Error).message);

@@ -1143,7 +1143,9 @@ export function calculateRatings(
         const parsed = JSON.parse(settingsValue);
         kFactor = parsed.kFactor ?? 20;
       }
-    } catch {}
+    } catch (e) {
+      console.error('[hashUtils] Failed to read kFactor from ladder_settings (using default 20). Corrupted localStorage may produce wrong ratings:', e);
+    }
   }
 
   trace.kFactor = kFactor;
@@ -1159,7 +1161,9 @@ export function calculateRatings(
         const parsed2 = JSON.parse(settingsValue);
         blendingFactor = parsed2.performanceBlendingFactor ?? 0.99;
       }
-    } catch {}
+    } catch (e) {
+      console.error('[hashUtils] Failed to read blendingFactor from ladder_settings (using default 0.99). Corrupted localStorage may produce wrong ratings:', e);
+    }
   }
 
   let perfMultiplierScale = 0.5;

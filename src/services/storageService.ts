@@ -253,21 +253,34 @@ loadPendingSyncQueue();
 
 let deltaQueue: DeltaOperation[] = [];
 let flushInterval: ReturnType<typeof setInterval> | null = null;
+let deltaFlushFailures = 0;
+const MAX_DELTA_FAILURES = 5;
+const MAX_DELTA_QUEUE_SIZE = 500;
 
 export function addDelta(op: DeltaOperation): void {
+  if (deltaQueue.length >= MAX_DELTA_QUEUE_SIZE) {
+    console.error('[STORAGE] Delta queue full (' + MAX_DELTA_QUEUE_SIZE + '). Dropping oldest entry. Server may be unreachable.');
+    deltaQueue.shift();
+  }
   deltaQueue.push(op);
 }
 
 async function flushDeltas(): Promise<void> {
   if (deltaQueue.length === 0) return;
+  if (deltaFlushFailures >= MAX_DELTA_FAILURES) {
+    console.error('[STORAGE] Delta flush disabled after ' + MAX_DELTA_FAILURES + ' consecutive failures. ' + deltaQueue.length + ' pending deltas may be lost. Fix server connection to resume.');
+    return;
+  }
   const batch = [...deltaQueue];
   try {
     if (dataService.getMode() !== DataServiceMode.LOCAL) {
       await dataService.submitDeltaBatch(batch);
     }
     deltaQueue = [];
+    deltaFlushFailures = 0;
   } catch (error: any) {
-    log('[STORAGE]', 'Failed to flush deltas, re-queueing:', error);
+    deltaFlushFailures++;
+    console.error(`[STORAGE] Failed to flush deltas (attempt ${deltaFlushFailures}/${MAX_DELTA_FAILURES}), re-queueing:`, error);
   }
 }
 
@@ -376,6 +389,7 @@ async function commitBatchBuffer(): Promise<void> {
       clearTimeout(timeoutId);
     } catch (error: any) {
       clearTimeout(timeoutId);
+      console.error('[STORAGE] Batch commit server sync failed — local data saved but server is stale:', error);
     }
   }
 }
@@ -388,6 +402,7 @@ export async function getPlayers(): Promise<PlayerData[]> {
   try {
     return await dataService.getPlayers();
   } catch (error) {
+    console.warn('[STORAGE] Server fetch failed, falling back to potentially stale localStorage data:', error);
     return getJsonArray<PlayerData>('ladder_players');
   }
 }
@@ -596,10 +611,16 @@ export async function tryAcquireAdminLock(clientName?: string): Promise<boolean>
   }
   try {
     const res = await gatedFetch(`${url}/api/admin-lock/acquire`, { method: 'POST', headers, body: JSON.stringify({ clientId: id, clientName: name }) });
-    if (!res.ok) return false;
+    if (!res.ok) {
+      console.warn(`[STORAGE] Admin lock acquire failed: HTTP ${res.status}`);
+      return false;
+    }
     const data = await res.json();
     return data.success;
-  } catch { return false; }
+  } catch (e) {
+    console.error('[STORAGE] Admin lock acquire request failed (server unreachable):', e);
+    return false;
+  }
 }
 
 export async function forceAcquireAdminLock(clientName?: string): Promise<boolean> {
@@ -614,10 +635,16 @@ export async function forceAcquireAdminLock(clientName?: string): Promise<boolea
   }
   try {
     const res = await gatedFetch(`${url}/api/admin-lock/force`, { method: 'POST', headers, body: JSON.stringify({ clientId: id, clientName: name }) });
-    if (!res.ok) return false;
+    if (!res.ok) {
+      console.warn(`[STORAGE] Admin lock force-acquire failed: HTTP ${res.status}`);
+      return false;
+    }
     const data = await res.json();
     return data.success;
-  } catch { return false; }
+  } catch (e) {
+    console.error('[STORAGE] Admin lock force-acquire request failed (server unreachable):', e);
+    return false;
+  }
 }
 
 export async function releaseAdminLock(): Promise<void> {
@@ -628,7 +655,7 @@ export async function releaseAdminLock(): Promise<void> {
   if (settings.apiKey && settings.apiKey.trim()) {
     headers['X-API-Key'] = settings.apiKey.trim();
   }
-  try { await gatedFetch(`${url}/api/admin-lock/release`, { method: 'POST', headers, body: JSON.stringify({ clientId: getClientId() }) }); } catch {}
+  try { await gatedFetch(`${url}/api/admin-lock/release`, { method: 'POST', headers, body: JSON.stringify({ clientId: getClientId() }) }); } catch (e) { console.error('[STORAGE] Failed to release admin lock (lock may be orphaned on server):', e); }
 }
 
 export async function refreshAdminLock(): Promise<void> {
@@ -639,7 +666,7 @@ export async function refreshAdminLock(): Promise<void> {
   if (settings.apiKey && settings.apiKey.trim()) {
     headers['X-API-Key'] = settings.apiKey.trim();
   }
-  try { await gatedFetch(`${url}/api/admin-lock/refresh`, { method: 'POST', headers, body: JSON.stringify({ clientId: getClientId() }) }); } catch {}
+  try { await gatedFetch(`${url}/api/admin-lock/refresh`, { method: 'POST', headers, body: JSON.stringify({ clientId: getClientId() }) }); } catch (e) { console.error('[STORAGE] Failed to refresh admin lock (lock may expire and orphan):', e); }
 }
 
 export async function getAdminLockInfo(): Promise<{ locked: boolean; holderId?: string; holderName?: string; expiresAt?: number; serverReachable?: boolean; adminBlocked?: boolean }> {
