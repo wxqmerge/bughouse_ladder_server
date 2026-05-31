@@ -20,7 +20,7 @@ function getStorageKey(fileName: string): string {
   return MINI_GAME_PREFIX + fileName;
 }
 
-function parseTabContent(content: string): LadderData {
+export function parseTabContent(content: string): LadderData {
   let lines = content.split('\n').filter(line => line.trim());
   if (lines.length === 0) {
     return { header: [], players: [], rawLines: [] };
@@ -99,6 +99,34 @@ function generateTabContent(ladderData: LadderData): string {
   return ladderData.rawLines.join('\n') + '\n';
 }
 
+export function playersToTabContent(players: PlayerData[]): string {
+  const header = ['Group', 'Last Name', 'First Name', 'Rating', 'Rank', 'NRate', 'Grade', 'Num Games', 'Attendance', 'Phone', 'Info', 'School', 'Room', ...Array(31).fill('')].join('\t');
+  const lines = [header];
+
+  for (const p of players) {
+    const ratingStr = p.trophyEligible ? String(p.rating) : `-${p.rating}`;
+    const cols = [
+      p.group || '',
+      p.lastName || '',
+      p.firstName || '',
+      ratingStr,
+      String(p.rank),
+      String(p.nRating),
+      p.grade || 'N/A',
+      String(p.num_games),
+      String(p.attendance),
+      p.phone || '',
+      p.info || '',
+      p.school || '',
+      p.room || '',
+      ...(p.gameResults || []).map(r => r || ''),
+    ];
+    lines.push(cols.join('\t'));
+  }
+
+  return lines.join('\n') + '\n';
+}
+
 export async function importMiniGameFiles(content: string): Promise<{ imported: string[]; errors: string[] }> {
   const imported: string[] = [];
   const errors: string[] = [];
@@ -121,6 +149,20 @@ export async function importMiniGameFiles(content: string): Promise<{ imported: 
   }
 
   return { imported, errors };
+}
+
+/**
+ * Check if any cached mini-game file has filled game results.
+ * Reads from localStorage only — no network calls.
+ */
+export async function miniGamesHaveResults(): Promise<boolean> {
+  for (const fileName of MINI_GAME_FILES) {
+    const data = await readMiniGameFile(fileName);
+    if (data?.players?.some(p => (p.gameResults || []).some(r => r && r.trim() !== ''))) {
+      return true;
+    }
+  }
+  return false;
 }
 
 async function readMiniGameFile(fileName: string): Promise<LadderData | null> {

@@ -24,7 +24,7 @@ import {
 import { loadUserSettings, loadConfigFromUrl, getUserSettingsKey } from "./services/userSettingsStorage";
 import { dataService, DataServiceMode } from "./services/dataService";
 import { miniGameStore } from "./services/miniGameLocalStorage";
-import { clearTournamentState, saveSettings } from "./services/storageService";
+import { saveSettings } from "./services/storageService";
 import { saveUserSettings, type UserSettings } from "./services/userSettingsStorage";
 import { checkMigrationNeeded, storeCurrentMode } from "./utils/migrationUtils";
 import {
@@ -70,7 +70,8 @@ function App() {
   // Show server-down blocking dialog on first load if server is unreachable
   const [showServerDownBlocking, setShowServerDownBlocking] = useState(false);
   const [versionMismatch, setVersionMismatch] = useState(false);
-const [testMode, setTestMode] = useState(() => {
+const [tournamentActive, setTournamentActive] = useState(false);
+  const [testMode, setTestMode] = useState(() => {
     try {
       const stored = localStorage.getItem('testMode');
       if (stored !== null) return stored === 'true';
@@ -144,7 +145,7 @@ const [testMode, setTestMode] = useState(() => {
 
           // Show blocking dialog on first load if server is unreachable
           if (mode === 'server_down') {
-            console.log('[APP] Server unreachable on initial load - showing blocking dialog');
+            console.debug('[APP] Server unreachable on initial load - showing blocking dialog');
             setShowServerDownBlocking(true);
           }
 
@@ -163,11 +164,11 @@ const [testMode, setTestMode] = useState(() => {
               // redundant fetches; coalesce them into one.
               const now = Date.now();
               if ((window as any).__ladder_lastRefresh && now - (window as any).__ladder_lastRefresh < 300) {
-                console.log(`[PERF DEDUP] Skipping refresh — last was ${now - (window as any).__ladder_lastRefresh}ms ago`);
+                console.debug(`[PERF DEDUP] Skipping refresh — last was ${now - (window as any).__ladder_lastRefresh}ms ago`);
                 return;
               }
               (window as any).__ladder_lastRefresh = now;
-              console.log('[APP] Data changed - notifying LadderForm');
+              console.debug('[APP] Data changed - notifying LadderForm');
               if (refreshPlayersRef.current) {
                 refreshPlayersRef.current();
               }
@@ -228,7 +229,7 @@ const [testMode, setTestMode] = useState(() => {
 
       // Step 4: Set up mode change callback
       onModeChange((newMode: string, oldMode: string) => {
-        console.log(`[MODE CHANGE] ${oldMode} -> ${newMode}`);
+        console.debug(`[MODE CHANGE] ${oldMode} -> ${newMode}`);
 
         if (!initialDetectionDone) {
           setLastKnownMode(newMode as 'local' | 'server_down' | 'server');
@@ -247,17 +248,17 @@ const [testMode, setTestMode] = useState(() => {
         }
 
         if (oldMode === 'local' && newMode === 'server') {
-          console.log('[MODE CHANGE] Local -> Server: fetching fresh data');
+          console.debug('[MODE CHANGE] Local -> Server: fetching fresh data');
           dataService.initializeHash().then(async () => {
             dataService.startPolling(60000);
             dataService.startSSE();
             if (refreshPlayersRef.current) {
-              console.log('[MODE CHANGE] Calling refreshPlayersRef.current()');
+              console.debug('[MODE CHANGE] Calling refreshPlayersRef.current()');
               await refreshPlayersRef.current();
             } else {
               console.warn('[MODE CHANGE] refreshPlayersRef.current is not set yet, fetching directly');
               const freshPlayers = await dataService.getPlayers();
-              console.log('[MODE CHANGE] Fetched', freshPlayers.length, 'players directly');
+              console.debug('[MODE CHANGE] Fetched', freshPlayers.length, 'players directly');
             }
           }).catch(console.error);
         }
@@ -275,7 +276,7 @@ const [testMode, setTestMode] = useState(() => {
 
       const mode = getProgramMode();
       if (mode !== 'local' && mode !== 'server_down') {
-        console.log('[APP] Stopping data polling and SSE');
+        console.debug('[APP] Stopping data polling and SSE');
         dataService.stopPolling();
         dataService.stopSSE();
 
@@ -296,17 +297,24 @@ const [testMode, setTestMode] = useState(() => {
     window.location.reload();
   };
 
-  const handleClearAll = async () => {
+const handleClearAll = async () => {
+    console.log('[App] Clear All: starting...');
     try {
       await dataService.clearMiniGames();
+      console.log('[App] Clear All: mini-games cleared');
     } catch (error) {
-      console.error('Failed to clear mini-games:', error);
+      console.error('[App] Clear All: failed to clear mini-games:', error);
     }
-    
-    clearTournamentState();
-    
-    await savePlayers([]);
+
+    try {
+      await dataService.savePlayers([]);
+      console.log('[App] Clear All: players cleared');
+    } catch (error) {
+      console.error('[App] Clear All: failed to clear players:', error);
+    }
+
     clearSettings();
+    console.log('[App] Clear All: settings cleared, reloading...');
     window.location.reload();
   };
 
@@ -319,7 +327,6 @@ const [testMode, setTestMode] = useState(() => {
       return;
     }
     
-    clearTournamentState();
     setProjectName('Ladder');
     setProjectNameStorage('Ladder');
     window.location.reload();
@@ -339,7 +346,7 @@ const [testMode, setTestMode] = useState(() => {
             
             if (serverUrl) {
               await dataService.saveMiniGameFile(currentTitle);
-              console.log(`[App] Saved mini-game file: ${currentTitle}`);
+              console.debug(`[App] Saved mini-game file: ${currentTitle}`);
             }
           } catch (error) {
             console.error(`Failed to save mini-game file ${currentTitle}:`, error);
@@ -361,12 +368,12 @@ const [testMode, setTestMode] = useState(() => {
   };
 
   const triggerNewDay = (reRank: boolean) => {
-    console.log(`>>> [NEW DAY TRIGGERED] reRank=${reRank}`);
+    console.debug(`>>> [NEW DAY TRIGGERED] reRank=${reRank}`);
     // First, trigger recalculate ratings to check for errors
     if (recalculateRef.current) {
       // Set a flag indicating New Day is pending
       setPendingNewDay({ reRank });
-      console.log(
+      console.debug(
         `>>> [NEW DAY] Pending flag set: ${JSON.stringify({ reRank })}`,
       );
       // Call recalculate - if there are errors, it will show the error dialog
@@ -386,7 +393,14 @@ const [testMode, setTestMode] = useState(() => {
   const handleExportTournamentFiles = async () => {
     try {
       const blob = await dataService.exportTournamentFiles();
-      downloadBlob(blob, `tournament_${new Date().toISOString().split('T')[0]}.zip`);
+      const segments = window.location.pathname.split('/').filter(Boolean);
+      let prefix: string;
+      if (segments.length > 0 && segments[0] !== 'dist') {
+        prefix = segments[0];
+      } else {
+        prefix = window.location.hostname;
+      }
+      downloadBlob(blob, `${prefix}_${new Date().toISOString().split('T')[0]}.zip`);
     } catch (error) {
       console.error('Failed to export tournament files:', error);
       alert('Failed to export: ' + (error as Error).message);
@@ -456,6 +470,51 @@ const [testMode, setTestMode] = useState(() => {
     }
   };
 
+  const handleImportSingleMiniGame = async () => {
+    const MINI_GAME_FILES = [
+      'BG_Game.tab',
+      'Bishop_Game.tab',
+      'Pillar_Game.tab',
+      'Kings_Cross.tab',
+      'Pawn_Game.tab',
+      'Queen_Game.tab',
+      'bughouse.tab',
+    ];
+    const targetGame = prompt(
+      `Import .tab file into a mini-game slot.\nSelect one:\n${MINI_GAME_FILES.map((f, i) => `${i + 1}. ${f}`).join('\n')}\n\nEnter number:`
+    );
+    if (!targetGame) return;
+    const index = parseInt(targetGame) - 1;
+    if (index < 0 || index >= MINI_GAME_FILES.length) {
+      alert('Invalid selection');
+      return;
+    }
+    const selectedGame = MINI_GAME_FILES[index];
+
+    try {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.tab,.xls';
+      input.onchange = async (e) => {
+        const file = (e.target as HTMLInputElement).files?.[0];
+        if (!file) return;
+        try {
+          const result = await dataService.importSingleMiniGameFile(file, selectedGame);
+          setProjectName(selectedGame.replace('.tab', ''));
+          setProjectNameStorage(selectedGame.replace('.tab', ''));
+          alert(result.message);
+        } catch (error) {
+          console.error('Failed to import:', error);
+          alert('Failed to import: ' + (error as Error).message);
+        }
+      };
+      input.click();
+    } catch (error) {
+      console.error('Failed to import single mini-game:', error);
+      alert('Failed to import: ' + (error as Error).message);
+    }
+  };
+
   const handleGenerateTrophies = async () => {
     try {
       const blob = await dataService.generateTrophyReport(getDebugLevel());
@@ -476,18 +535,10 @@ const [testMode, setTestMode] = useState(() => {
   const handleSaveSettingsForAction = (settings: { showRatings: boolean[]; debugLevel: number; kFactor: number }, userSettings: UserSettings) => {
     saveSettings(settings);
     saveUserSettings(userSettings);
-    console.log('[App] Settings saved silently for action.');
+    console.debug('[App] Settings saved silently for action.');
   };
 
   const handleTitleSwitch = async (newTitle: string) => {
-    const currentTitle = getProjectName();
-    const currentIsMiniGame = isMiniGameTitle(currentTitle);
-    const newIsMiniGame = isMiniGameTitle(newTitle);
-    
-    if (currentIsMiniGame && !newIsMiniGame) {
-      clearTournamentState();
-    }
-    
     return true;
   };
 
@@ -513,7 +564,7 @@ const [testMode, setTestMode] = useState(() => {
 
   // Handle pulling from server (merge with local changes)
   const handlePullFromServer = async () => {
-    console.log("[Reconnect] Pulling from server - merging with local changes");
+    console.debug("[Reconnect] Pulling from server - merging with local changes");
     try {
       // Replay pending deletes first
       await replayPendingDeletes();
@@ -555,7 +606,7 @@ const [testMode, setTestMode] = useState(() => {
           // Clear flags
           clearLocalChangesFlag();
           
-          console.log(`[Reconnect] Pulled and merged ${serverPlayers.length} players from server`);
+          console.debug(`[Reconnect] Pulled and merged ${serverPlayers.length} players from server`);
           setShowReconnectDialog(false);
           
           // Reload to apply changes
@@ -573,7 +624,7 @@ const [testMode, setTestMode] = useState(() => {
 
   // Handle pushing to server (merge local changes with server)
   const handlePushToServer = async () => {
-    console.log("[Reconnect] Pushing to server - merging local changes");
+    console.debug("[Reconnect] Pushing to server - merging local changes");
     try {
       // Replay pending deletes first
       await replayPendingDeletes();
@@ -609,7 +660,7 @@ const [testMode, setTestMode] = useState(() => {
       });
       
       if (response.ok) {
-        console.log(`[Reconnect] Pushed ${mergedPlayers.length} players to server`);
+        console.debug(`[Reconnect] Pushed ${mergedPlayers.length} players to server`);
         
         // Clear flags
         clearLocalChangesFlag();
@@ -711,6 +762,7 @@ const [testMode, setTestMode] = useState(() => {
 onTitleSwitch={handleTitleSwitch}
         testMode={testMode}
         setTestMode={setTestMode}
+        onTournamentActiveChange={setTournamentActive}
 
        />
       {showSettings && (
@@ -723,9 +775,10 @@ onTitleSwitch={handleTitleSwitch}
           onWalkThroughReports={handleWalkThroughReports}
           onClearMiniGames={isAdmin ? handleClearMiniGames : undefined}
           onExportTournamentFiles={isAdmin ? handleExportTournamentFiles : undefined}
-          onImportTournamentFiles={isAdmin ? handleImportTournamentFiles : undefined}
-          onGenerateTrophies={isAdmin ? handleGenerateTrophies : undefined}
-isTournamentActive={isMiniGameTitle(getProjectName())}
+           onImportTournamentFiles={isAdmin ? handleImportTournamentFiles : undefined}
+           onImportSingleMiniGame={isAdmin ? handleImportSingleMiniGame : undefined}
+           onGenerateTrophies={isAdmin ? handleGenerateTrophies : undefined}
+isTournamentActive={tournamentActive}
            isAdmin={isAdmin}
            onToggleAdmin={toggleAdminRef.current}
 onSaveBeforeAction={handleSaveSettingsForAction}
@@ -744,13 +797,13 @@ async function determineMode(): Promise<{ mode: DataServiceMode; serverUrl?: str
     
     // Validate stored server URL before using it
     if (!isValidServerUrl(serverUrl)) {
-      console.log('[App] Stored server URL invalid (missing subdomain prefix), clearing and re-running auto-detection');
+      console.debug('[App] Stored server URL invalid (missing subdomain prefix), clearing and re-running auto-detection');
       const settings = loadUserSettings();
       localStorage.setItem(getUserSettingsKey(), JSON.stringify({ server: '', apiKey: settings.apiKey }));
     } else {
       const isValid = await validateServerUrl(serverUrl);
       if (!isValid) {
-        console.log('[App] Stored server URL unreachable, clearing and re-running auto-detection');
+        console.debug('[App] Stored server URL unreachable, clearing and re-running auto-detection');
         const settings = loadUserSettings();
         localStorage.setItem(getUserSettingsKey(), JSON.stringify({ server: '', apiKey: settings.apiKey }));
       } else {
@@ -769,7 +822,7 @@ async function determineMode(): Promise<{ mode: DataServiceMode; serverUrl?: str
   const hostname = window.location.hostname;
   const subdomainMatch = pathname.match(/^\/([^/]+)\/dist(?:\/.*)?$/);
   
-  console.log('[App] Auto-detect: origin=', origin, 'subdomainPath=', !!subdomainMatch);
+  console.debug('[App] Auto-detect: origin=', origin, 'subdomainPath=', !!subdomainMatch);
   
   let autoDetectedUrl: string | null = null;
   
@@ -780,14 +833,14 @@ async function determineMode(): Promise<{ mode: DataServiceMode; serverUrl?: str
       const healthTimeoutId = setTimeout(() => healthController.abort(), 3000);
       const healthResponse = await gatedFetch(`${origin}/health`, { method: 'GET', signal: healthController.signal });
       clearTimeout(healthTimeoutId);
-      console.log('[App] Auto-detect: /health status=', healthResponse.status, 'ok=', healthResponse.ok);
+      console.debug('[App] Auto-detect: /health status=', healthResponse.status, 'ok=', healthResponse.ok);
       const healthOk = healthResponse.ok || healthResponse.status === 404;
       
       const apiController = new AbortController();
       const apiTimeoutId = setTimeout(() => apiController.abort(), 3000);
       const apiResponse = await gatedFetch(`${origin}/api/ladder`, { method: 'GET', signal: apiController.signal });
       clearTimeout(apiTimeoutId);
-      console.log('[App] Auto-detect: /api/ladder status=', apiResponse.status, 'ok=', apiResponse.ok);
+      console.debug('[App] Auto-detect: /api/ladder status=', apiResponse.status, 'ok=', apiResponse.ok);
       // 404 means Express routes aren't registered (invalid server)
       const apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403;
       if (apiResponse.status === 401 || apiResponse.status === 403) {
@@ -796,12 +849,12 @@ async function determineMode(): Promise<{ mode: DataServiceMode; serverUrl?: str
       
       if (healthOk && apiOk) {
         autoDetectedUrl = origin.replace(/\/$/, '');
-        console.log('[App] Same-origin auto-detected:', autoDetectedUrl);
+        console.debug('[App] Same-origin auto-detected:', autoDetectedUrl);
       } else {
-        console.log('[App] Same-origin detection FAILED: healthOk=', healthOk, 'apiOk=', apiOk);
+        console.debug('[App] Same-origin detection FAILED: healthOk=', healthOk, 'apiOk=', apiOk);
       }
     } catch (e) {
-      console.log('[App] Same-origin detection threw error:', (e as Error).message);
+      console.debug('[App] Same-origin detection threw error:', (e as Error).message);
     }
   }
   
@@ -810,7 +863,7 @@ async function determineMode(): Promise<{ mode: DataServiceMode; serverUrl?: str
       if (subdomainMatch) {
         const projectName = subdomainMatch[1];
         const candidateUrl = `https://${projectName}.${hostname}`;
-        console.log('[App] Subdomain candidate from path:', projectName, '→', candidateUrl);
+        console.debug('[App] Subdomain candidate from path:', projectName, '→', candidateUrl);
         
         const healthController = new AbortController();
         const healthTimeoutId = setTimeout(() => healthController.abort(), 3000);
@@ -832,7 +885,7 @@ async function determineMode(): Promise<{ mode: DataServiceMode; serverUrl?: str
             const apiResponse = await gatedFetch(`${candidateUrl}/api/ladder`, { method: 'GET', signal: apiController.signal });
             clearTimeout(apiTimeoutId);
             apiStatus = apiResponse.status;
-            console.log('[App] Subdomain check: /api/ladder status=', apiStatus);
+            console.debug('[App] Subdomain check: /api/ladder status=', apiStatus);
             // 404 means Express routes aren't registered (invalid server)
             apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403;
             if (apiResponse.status === 401 || apiResponse.status === 403) {
@@ -840,23 +893,23 @@ async function determineMode(): Promise<{ mode: DataServiceMode; serverUrl?: str
             }
           } catch (e) {
             clearTimeout(apiTimeoutId);
-            console.log('[App] Subdomain check: /api/ladder error:', (e as Error).message);
+            console.debug('[App] Subdomain check: /api/ladder error:', (e as Error).message);
           }
           
           if (apiOk) {
             autoDetectedUrl = candidateUrl;
-            console.log('[App] Subdomain auto-detected:', autoDetectedUrl);
+            console.debug('[App] Subdomain auto-detected:', autoDetectedUrl);
           } else {
-            console.log('[App] Subdomain detection FAILED: apiOk=', apiOk, 'apiStatus=', apiStatus);
+            console.debug('[App] Subdomain detection FAILED: apiOk=', apiOk, 'apiStatus=', apiStatus);
           }
         } else {
-          console.log('[App] Subdomain /health check failed');
+          console.debug('[App] Subdomain /health check failed');
         }
       } else {
-        console.log('[App] No project name found in path:', pathname, '(expected /{project-name}/dist/)');
+        console.debug('[App] No project name found in path:', pathname, '(expected /{project-name}/dist/)');
       }
     } catch (e) {
-      console.log('[App] Subdomain detection threw error:', (e as Error).message);
+      console.debug('[App] Subdomain detection threw error:', (e as Error).message);
     }
   }
   
@@ -866,7 +919,7 @@ async function determineMode(): Promise<{ mode: DataServiceMode; serverUrl?: str
     return { mode: DataServiceMode.SERVER, serverUrl: autoDetectedUrl };
   }
 
-  console.log('[App] Using LOCAL mode (no server configured)');
+  console.debug('[App] Using LOCAL mode (no server configured)');
   return { mode: DataServiceMode.LOCAL };
 }
 

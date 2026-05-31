@@ -317,28 +317,44 @@ export async function checkMiniGameFilesWith(): Promise<string[]> {
 }
 
 // Export all mini-game files as ZIP
-export async function exportTournamentFiles(): Promise<{ success: boolean; message: string; files?: string[] }> {
+export interface ZipEntry {
+  name: string;
+  filePath?: string;
+  content?: string;
+}
+
+export async function exportTournamentFiles(): Promise<{ success: boolean; message: string; files?: ZipEntry[] }> {
   try {
     const dataDir = path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data/ladder.tab'));
-    const files: string[] = [];
+    const files: ZipEntry[] = [];
 
+    // Add club ladder
+    const ladderPath = path.join(dataDir, 'ladder.tab');
+    try {
+      await fs.access(ladderPath);
+      files.push({ name: 'ladder.tab', filePath: ladderPath });
+    } catch {
+      // ladder.tab doesn't exist, skip
+    }
+
+    // Add mini-game files
     for (const fileName of MINI_GAME_FILES) {
       const filePath = path.join(dataDir, fileName);
       try {
         await fs.access(filePath);
-        files.push(fileName);
+        files.push({ name: fileName, filePath });
       } catch {
         // File doesn't exist, skip
       }
     }
 
     if (files.length === 0) {
-      return { success: false, message: 'No mini-game files found' };
+      return { success: false, message: 'No files found' };
     }
 
     return {
       success: true,
-      message: `Exported ${files.length} mini-game files`,
+      message: `Exported ${files.length} files`,
       files,
     };
   } catch (error) {
