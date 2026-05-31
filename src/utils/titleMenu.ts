@@ -12,26 +12,4 @@ export function getVisibleTitles(isAdmin: boolean, availableMiniGames: string[])
       });
 }
 
-export function createTitleMenuItem(
-  title: string,
-  isAdmin: boolean,
-  availableMiniGames: string[],
-  onClick: () => void
-): { label: string; onClick: () => void; disabled: boolean } {
-  const isMiniGame = title !== "Ladder";
-  const fileName = isMiniGame ? titleToFileName(title) : null;
-  const isAvailable = fileName ? availableMiniGames.includes(fileName) : true;
-  const isDisabled = !isAdmin && isMiniGame && !isAvailable;
-  
-  return {
-    label: title === "Ladder" ? "Ladder (Club)" : title,
-    onClick: () => {
-      if (isDisabled) {
-        alert(`"${title}" is not available yet. Only admin can create mini-games.`);
-        return;
-      }
-      onClick();
-    },
-    disabled: isDisabled,
-  };
-}
+

@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { getValidationErrorMessage } from '../../../src/utils/constants';
+import { getValidationErrorMessage } from '../../../shared/utils/constants';
 
 describe('Error Messages', () => {
   it('should return correct message for error code 1', () => {

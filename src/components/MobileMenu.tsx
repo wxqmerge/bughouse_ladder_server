@@ -8,7 +8,7 @@ import {
   Check,
 } from "lucide-react";
 import { getVisibleTitles } from "../utils/titleMenu";
-import { titleToFileName } from "../utils/constants";
+import { titleToFileName } from "../../shared/utils/constants";
 import { debugClick } from "../utils/debug";
 
 interface MobileMenuProps {

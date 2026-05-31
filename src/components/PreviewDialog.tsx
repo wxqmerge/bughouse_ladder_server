@@ -1,4 +1,4 @@
-import type { PlayerData } from "../utils/hashUtils";
+import type { PlayerData } from "../../shared/types";
 
 interface InfoItem {
   label: string;

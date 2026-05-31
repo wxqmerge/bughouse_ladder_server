@@ -3,7 +3,7 @@ import { getVersionString, getProgramMode } from "../utils/mode";
 import { getVisibleTitles } from "../utils/titleMenu";
 import { getFontSize, getScaledPadding, getScaledGap, getScaledLineHeight } from "../utils/getFontSize";
 import { useIntervalCheck } from "../utils/useIntervalCheck";
-import { titleToFileName, fileNameToTitle, LADDER_SHORTCUTS } from "../utils/constants";
+import { titleToFileName, fileNameToTitle, LADDER_SHORTCUTS } from "../../shared/utils/constants";
 import { debugClick } from "../utils/debug";
 import {
   Folder,

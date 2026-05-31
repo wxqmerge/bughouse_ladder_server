@@ -5,7 +5,7 @@ import { PlayerData } from '../types/index.js';
  * Verified cells (ending with "_") always win.
  * For unverified cells, prefer non-null values from either player.
  */
-export function mergeGameResultsDedup(
+function mergeGameResultsDedup(
   a: (string | null)[],
   b: (string | null)[]
 ): (string | null)[] {

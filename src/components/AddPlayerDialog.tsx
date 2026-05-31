@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { X, UserPlus } from "lucide-react";
-import type { PlayerData } from "../utils/hashUtils";
+import type { PlayerData } from "../../shared/types";
 import { debugInput } from "../utils/debug";
 
 interface AddPlayerDialogProps {

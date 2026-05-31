@@ -38,14 +38,6 @@ function logSlowOperation(label: string, duration: number, includeStack: boolean
   }
 }
 
-export function getSlowOperations(): SlowOperation[] {
-  return [...slowOperations];
-}
-
-export function clearSlowOperations(): void {
-  slowOperations.length = 0;
-}
-
 // Enhanced timing wrapper with context tracking
 export async function withTiming<T>(
   label: string, 
@@ -80,45 +72,4 @@ export async function withTiming<T>(
   }
 }
 
-// Performance report generator
-export function generatePerformanceReport(): string {
-  const operations = getSlowOperations();
-  
-  if (operations.length === 0) {
-    return 'No slow operations recorded.';
-  }
 
-  let report = '\n========================================\n';
-  report += '  PERFORMANCE REPORT\n';
-  report += '========================================\n\n';
-  report += `Total slow operations (>${SLOW_THRESHOLD_MS}ms): ${operations.length}\n\n`;
-
-  // Group by label
-  const grouped = new Map<string, { count: number; total: number; max: number }>();
-  for (const op of operations) {
-    if (!grouped.has(op.label)) {
-      grouped.set(op.label, { count: 0, total: 0, max: 0 });
-    }
-    const stats = grouped.get(op.label)!;
-    stats.count++;
-    stats.total += op.duration;
-    stats.max = Math.max(stats.max, op.duration);
-  }
-
-  // Sort by total time
-  const sorted = Array.from(grouped.entries())
-    .sort((a, b) => b[1].total - a[1].total);
-
-  report += 'By operation:\n';
-  report += '-'.repeat(60) + '\n';
-  report += `${'Label'.padEnd(40)} ${'Count'.padStart(6)} ${'Total (ms)'.padStart(12)} ${'Max (ms)'.padStart(10)}\n`;
-  report += '-'.repeat(60) + '\n';
-
-  for (const [label, stats] of sorted) {
-    const shortLabel = label.length > 38 ? label.substring(0, 35) + '...' : label;
-    report += `${shortLabel.padEnd(40)} ${stats.count.toString().padStart(6)} ${stats.total.toString().padStart(12)} ${stats.max.toString().padStart(10)}\n`;
-  }
-
-  report += '\n';
-  return report;
-}

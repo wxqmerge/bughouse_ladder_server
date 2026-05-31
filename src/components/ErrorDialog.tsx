@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { X, Plus } from "lucide-react";
-import type { ValidationResult, PlayerData } from "../utils/hashUtils";
-import { updatePlayerGameData, normalize4Player, normalize2Player } from "../utils/hashUtils";
-import { getValidationErrorMessage, fileNameToTitle } from "../utils/constants";
+import type { ValidationResult, PlayerData } from "../../shared/types";
+import { updatePlayerGameData, normalize4Player, normalize2Player } from "../../shared/utils/hashUtils";
+import { getValidationErrorMessage, fileNameToTitle } from "../../shared/utils/constants";
 import { debugInput, shouldLog } from "../utils/debug";
 
 interface ErrorDialogProps {

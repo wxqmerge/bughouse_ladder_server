@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { X, ClipboardPaste, CheckCircle, AlertTriangle, Table } from "lucide-react";
-import { updatePlayerGameData } from "../utils/hashUtils";
-import type { PlayerData } from "../utils/hashUtils";
+import { updatePlayerGameData } from "../../shared/utils/hashUtils";
+import type { PlayerData } from "../../shared/types";
 
 interface AssignmentPreview {
   cellOwnerRank: number;
