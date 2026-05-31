@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, ClipboardPaste, CheckCircle, AlertTriangle, Table } from "lucide-react";
+import { X, ClipboardPaste, CheckCircle, Table } from "lucide-react";
 import { updatePlayerGameData } from "../../shared/utils/hashUtils";
 import type { PlayerData } from "../../shared/types";
 

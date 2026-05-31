@@ -1,4 +1,4 @@
-import { MINI_GAMES_WITH_BUGHOUSE, titleToFileName } from "../../shared/utils/constants";
+import { titleToFileName } from "../../shared/utils/constants";
 
 export const ALL_TITLES = ["Ladder", "Bughouse", "BG_Game", "Bishop_Game", "Pillar_Game", "Kings_Cross", "Pawn_Game", "Queen_Game"];
 

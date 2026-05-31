@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { getVersionString, getProgramMode } from "../utils/mode";
 import { getVisibleTitles } from "../utils/titleMenu";
-import { getFontSize, getScaledPadding, getScaledGap, getScaledLineHeight } from "../utils/getFontSize";
+import { getFontSize, getScaledPadding, getScaledGap } from "../utils/getFontSize";
 import { useIntervalCheck } from "../utils/useIntervalCheck";
-import { titleToFileName, fileNameToTitle, LADDER_SHORTCUTS } from "../../shared/utils/constants";
+import { titleToFileName, LADDER_SHORTCUTS } from "../../shared/utils/constants";
 import { debugClick } from "../utils/debug";
 import {
   Folder,
@@ -13,7 +13,7 @@ import {
   Hash,
   Type,
   TrendingUp,
-  Archive,
+ 
   History,
   Settings as SettingsIcon,
   RefreshCw,
@@ -90,7 +90,6 @@ export default function MenuBar({
   availableMiniGames = [],
   writePermission = true,
 }: MenuBarProps) {
-  const serverConfigured = !!(serverUrl && serverUrl.trim());
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [isServerDown, setIsServerDown] = useState(false);
 

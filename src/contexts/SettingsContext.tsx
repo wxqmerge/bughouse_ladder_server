@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { dataService, DataServiceMode, DataServiceConfig } from '../services/dataService';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { dataService, DataServiceMode } from '../services/dataService';
 import { setJson, getJson, removeJson } from '../services/storageService';
 
 interface SettingsContextType {

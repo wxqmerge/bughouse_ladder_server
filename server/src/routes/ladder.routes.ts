@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { AuthRequest, requireUserKey } from '../middleware/auth.middleware.js';
+import { requireUserKey } from '../middleware/auth.middleware.js';
 import { writeLimiter } from '../middleware/rateLimit.middleware.js';
 import {
   readLadderFile,
@@ -16,7 +16,7 @@ import { deduplicatePlayers } from '../../../shared/utils/dedupUtils.js';
 const router = Router();
 
 // Get all ladder data (public read access)
-router.get('/', async (req: Request, res: Response): Promise<void> => {
+router.get('/', async (_req: Request, res: Response): Promise<void> => {
   try {
     const ladderData = await readLadderFile();
     res.json({
@@ -342,7 +342,7 @@ router.post('/batch', requireUserKey, writeLimiter, async (req: Request, res: Re
 });
 
 // Check which mini-game files have data (public read-only endpoint)
-router.get('/mini-games/check', async (req: Request, res: Response): Promise<void> => {
+router.get('/mini-games/check', async (_req: Request, res: Response): Promise<void> => {
   try {
     const filesWith = await checkMiniGameFilesWith();
     res.json({

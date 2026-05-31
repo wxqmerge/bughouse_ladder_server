@@ -240,9 +240,6 @@ export function generateMiniGameTrophies(
 ): any[] {
   const trophies: any[] = [];
   const seenPlayers = new Set<string>();
-  const existingFiles = miniGameFiles.map(f => f.fileName);
-  const m = existingFiles.length;
-  const t = minTrophies;
 
   function addTrophy(trophy: any) {
     const key = `${trophy.player}`;

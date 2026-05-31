@@ -9,7 +9,6 @@
 
 import { PlayerData, DeltaOperation, MiniGameStore } from '../../shared/types';
 import {
-  getKeyPrefix,
   getPlayers as storageGetPlayers,
   savePlayers as storageSavePlayers,
   getClientId,
@@ -253,7 +252,7 @@ class DataService {
       this.notifySubscribers();
     });
     
-    this.sseEventSource.onerror = (error) => {
+    this.sseEventSource.onerror = (_error) => {
       this.sseConnected = false;
       console.log('[DataService] SSE connection error - falling back to polling');
       // EventSource auto-reconnects, but log for visibility

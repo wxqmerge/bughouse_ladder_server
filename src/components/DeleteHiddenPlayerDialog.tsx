@@ -25,14 +25,14 @@ export default function DeleteHiddenPlayerDialog({
   player,
   remainingCount,
   processedCount,
-  currentIndex,
+  currentIndex: _currentIndex,
   deleteAllPlayers,
 }: DeleteHiddenPlayerDialogProps) {
   if (!isOpen) return null;
 
   const [jumpRank, setJumpRank] = useState("");
   const filledCount = (player.gameResults || []).filter((r) => r && r.trim() !== "").length;
-  const isHidden = player.group?.toLowerCase().endsWith('x');
+  
 
   const handleJump = () => {
     const rank = parseInt(jumpRank, 10);

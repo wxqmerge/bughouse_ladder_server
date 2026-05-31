@@ -19,7 +19,7 @@ interface ErrorDialogProps {
   entryCell?: { playerRank: number; round: number };
   existingValue?: string;
   onUpdatePlayerData?: (
-    playerRank: number,
+_playerRank: number,
     roundIndex: number,
     resultString: string,
   ) => void;
@@ -86,7 +86,7 @@ function formatResultText(results: string[]): string {
  * @returns conflicting result string (e.g., "5L6") or null if no conflict
  */
 export function findConflictForEntry(
-  playerRank: number,
+  _playerRank: number,
   opp1: number,
   opp2: number,
   opp3: number,
@@ -175,7 +175,7 @@ export default function ErrorDialog({
   const [displayPlayer4, setDisplayPlayer4] = useState<PlayerData | null>(null);
   const [extractedResults, setExtractedResults] = useState<string[]>([]);
   const [invalidPlayerRanks, setInvalidPlayerRanks] = useState<Map<number, number>>(new Map());
-  const [hasOtherResultInRound, setHasOtherResultInRound] = useState(false);
+  const [, setHasOtherResultInRound] = useState(false);
   const [teleportTargetLadder, setTeleportTargetLadder] = useState<string>("");
 
   const displayOriginalString = error

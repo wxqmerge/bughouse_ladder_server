@@ -4,7 +4,6 @@
 
 import { 
   PlayerData, 
-  ValidationResult, 
   MatchData, 
   PlayerMatchResult,
   ProcessResult,
@@ -144,8 +143,7 @@ function parseEntry(
   let resultIndex = 0; // Track which result slot (0 or 1)
   let hasColon = false; // Track if colon was used (indicates 4-player format)
   let colonCount = 0; // Track how many colons (should be 2 for valid 4-player)
-  let entryAtFirstResult = 0; // Track player count when first result was stored
-  let entryAtSecondResult = 0; // Track player count when second result was stored
+    let entryAtSecondResult = 0; // Track player count when second result was stored
 
   for (let i = 1; i <= strlen; i++) {
     const mychar = normalizedText.substring(i - 1, i);
@@ -202,7 +200,7 @@ function parseEntry(
           }
           // Track player count when result is stored (for format validation)
           if (resultIndex === 0) {
-            entryAtFirstResult = entry;
+            
           } else if (resultIndex === 1) {
             entryAtSecondResult = entry;
           }
@@ -439,8 +437,7 @@ export function processGameResults(
 
     let i = lKeyVal % 2048;
     let found = false;
-    let storedAtIdx = -1;
-
+    
     while (!found) {
       if (lKeyVal === localHashIndex[i]) {
         if (hashMethod === 2) {
@@ -452,7 +449,7 @@ export function processGameResults(
         if (hashMethod === 0) {
           localHashIndex[i] = lKeyVal;
           localHashArray[i] = sval;
-          storedAtIdx = i;
+          
         }
         found = true;
       } else {

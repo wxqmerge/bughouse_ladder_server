@@ -186,7 +186,7 @@ export function clearLocalChangesFlag(): void {
   log('[STORAGE]', 'Local changes synced to server');
 }
 
-function setServerDownMode(isDown: boolean): void {
+export function setServerDownMode(isDown: boolean): void {
   serverDownMode = isDown;
   log('[STORAGE]', 'Server down mode: ' + (isDown ? 'ON' : 'OFF'));
 }
@@ -447,7 +447,7 @@ export async function savePlayers(players: PlayerData[], waitForServer = false, 
       (async () => {
         const url = dataService.getConfigServerUrl();
         if (url) {
-          const res = await gatedFetch(`${url}/api/ladder/mini-games/write`, {
+await gatedFetch(`${url}/api/ladder/mini-games/write`, {
             method: 'POST',
             headers,
             body: JSON.stringify({ fileName: miniGameFile, players }),

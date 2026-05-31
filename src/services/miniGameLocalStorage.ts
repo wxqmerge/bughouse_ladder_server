@@ -3,14 +3,13 @@
  * Uses shared trophy logic from shared/utils/trophyGeneration.ts
  */
 
-import { PlayerData, LadderData, MiniGameStore, MiniGameData, MINI_GAME_FILES } from '../../shared/types';
+import { PlayerData, LadderData, MiniGameStore, MINI_GAME_FILES } from '../../shared/types';
 import { clearRankReferences } from '../../shared/utils/hashUtils';
 import { mergeIdentityFromClubLadder, splitIdentityChanges } from '../../shared/utils/identityMerge';
 import { getLocalPlayers, setJson } from './storageService';
 import {
   copyPlayersToTarget as sharedCopyPlayersToTarget,
   mergeGameResults as sharedMergeGameResults,
-  clubLadderGamesPlayed,
   generateTrophyReport as sharedGenerateTrophyReport,
   parseMiniGameImportContent,
 } from '../../shared/utils/trophyGeneration';
@@ -274,7 +273,7 @@ export const miniGameStore: MiniGameStore = {
   },
 
   async updatePlayerInAllMiniGames(
-    rank: number,
+    _rank: number,
     originalLastName: string,
     originalFirstName: string,
     updates: Partial<PlayerData>
