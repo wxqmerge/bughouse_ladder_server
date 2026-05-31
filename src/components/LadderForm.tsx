@@ -11,7 +11,7 @@ import {
   repopulateGameResults,
   updatePlayerGameData,
 } from "../utils/hashUtils";
-import { MINI_GAMES, MINI_GAMES_WITH_BUGHOUSE, processNewDayTransformations, isMiniGameTitle, titleToFileName, getNextTitle } from "../utils/constants";
+import { MINI_GAMES, MINI_GAMES_WITH_BUGHOUSE, processNewDayTransformations, isMiniGameTitle, titleToFileName, getNextTitle, fileNameToTitle, SHORTCUT_TO_TITLE } from "../utils/constants";
 import { dataService } from "../services/dataService";
 import ErrorDialog, { findConflictForEntry } from "./ErrorDialog";
 import AddPlayerDialog from "./AddPlayerDialog";
@@ -355,6 +355,7 @@ export default function LadderForm({
   const [enterGamesError, setEnterGamesError] = useState<ValidationResult | null>(null);
   const [isEnterGamesMode, setIsEnterGamesMode] = useState(false);
   const [isEnterGamesOverride, setIsEnterGamesOverride] = useState(false);
+  const [isTeleporting, setIsTeleporting] = useState(false);
   // Splash screen server configuration state
   const [splashServerUrl, setSplashServerUrl] = useState('');
   const [splashApiKey, setSplashApiKey] = useState('');
@@ -2796,6 +2797,154 @@ const handleWalkthroughNextForReview = () => {
     }
   };
 
+  const handleTeleport = async (targetLadder: string, resultString: string) => {
+    console.log(`>>> [TELEPORT] Starting teleport to ${targetLadder}`);
+    if (!entryCell || !resultString.trim()) {
+      console.log(`>>> [TELEPORT] No entry cell or empty input, aborting`);
+      return;
+    }
+
+    setIsTeleporting(true);
+
+    try {
+      // Parse the result string to get player ranks
+      const parsed = updatePlayerGameData(resultString.trim().replace(/_$/, ""), true);
+      if (!parsed.isValid) {
+        console.log(`>>> [TELEPORT] Invalid result string, aborting`);
+        setIsTeleporting(false);
+        return;
+      }
+
+      const playerRanks = [
+        parsed.parsedPlayer1Rank || 0,
+        parsed.parsedPlayer2Rank || 0,
+        parsed.parsedPlayer3Rank || 0,
+        parsed.parsedPlayer4Rank || 0,
+      ].filter((r): r is number => r > 0);
+
+      console.log(`>>> [TELEPORT] Player ranks in result: ${playerRanks.join(', ')}`);
+
+      // Step 1: Clear all matching cells in current ladder
+      const cellValue = resultString.trim().replace(/_+$/, "");
+      if (cellValue) {
+        const cellsToClear: { playerRank: number; round: number }[] = [];
+        for (const player of players) {
+          if (!player.gameResults) continue;
+          for (let r = 0; r < player.gameResults.length; r++) {
+            const normalized = player.gameResults[r]?.replace(/_+$/, "") || "";
+            if (normalized === cellValue) {
+              cellsToClear.push({ playerRank: player.rank, round: r });
+            }
+          }
+        }
+        if (cellsToClear.length > 0) {
+          const clearedPlayers = players.map((p) => {
+            const newResults = [...(p.gameResults || [])];
+            let modified = false;
+            for (const cell of cellsToClear) {
+              if (cell.playerRank === p.rank) {
+                const normalized = (newResults[cell.round] || "").replace(/_+$/, "");
+                if (normalized === cellValue) {
+                  newResults[cell.round] = "";
+                  modified = true;
+                }
+              }
+            }
+            return modified ? { ...p, gameResults: newResults } : p;
+          });
+          setPlayers(clearedPlayers);
+          await dataService.savePlayers(clearedPlayers);
+          console.log(`>>> [TELEPORT] Cleared ${cellsToClear.length} matching cells in source ladder`);
+        }
+      }
+
+      // Step 2: Switch to target ladder
+      const targetIsMiniGame = isMiniGameTitle(targetLadder);
+      if (targetIsMiniGame && onTitleSwitch) {
+        const fileName = titleToFileName(targetLadder);
+        const existingFiles = await dataService.checkMiniGameFiles();
+
+        if (!existingFiles.includes(fileName)) {
+          console.log(`>>> [TELEPORT] Target mini-game file ${fileName} doesn't exist, aborting`);
+          setIsTeleporting(false);
+          return;
+        }
+
+        const allowed = await onTitleSwitch(targetLadder);
+        if (!allowed) {
+          console.log(`>>> [TELEPORT] Title switch not allowed, aborting`);
+          setIsTeleporting(false);
+          return;
+        }
+
+        setProjectName(targetLadder);
+        setProjectNameStorage(targetLadder);
+
+        dataService.setMiniGameFile(fileName);
+        const targetPlayers = await dataService.fetchMiniGamePlayers();
+        const targetPlayersWithResults = targetPlayers.map((p: PlayerData) => ({
+          ...p,
+          gameResults: p.gameResults || new Array(31).fill(null),
+        }));
+        setPlayers(targetPlayersWithResults);
+        console.log(`>>> [TELEPORT] Switched to ${targetLadder} with ${targetPlayersWithResults.length} players`);
+
+        // Step 3: Find next empty round for each player and fill result
+        const updatedTargetPlayers = targetPlayersWithResults.map((player) => {
+          if (!playerRanks.includes(player.rank)) return player;
+
+          // Find next empty round for this player
+          let nextEmptyRound = -1;
+          const results = player.gameResults || [];
+          for (let r = 0; r < results.length; r++) {
+            const cellVal = results[r];
+            if (!cellVal || cellVal.trim() === "") {
+              nextEmptyRound = r;
+              break;
+            }
+          }
+
+          if (nextEmptyRound === -1) {
+            console.log(`>>> [TELEPORT] No empty round for player ${player.rank}, skipping`);
+            return player;
+          }
+
+          const newResults = [...(player.gameResults || [])];
+          newResults[nextEmptyRound] = cellValue;
+          console.log(`>>> [TELEPORT] Filled player ${player.rank} at round ${nextEmptyRound + 1} with "${cellValue}"`);
+          return { ...player, gameResults: newResults };
+        });
+
+        setPlayers(updatedTargetPlayers);
+        await dataService.savePlayers(updatedTargetPlayers);
+
+        // Step 4: Set entryCell to first filled player's round for review
+        const firstPlayerRank = playerRanks[0];
+        const firstTargetPlayer = updatedTargetPlayers.find((p) => p.rank === firstPlayerRank);
+        if (firstTargetPlayer) {
+          let filledRound = -1;
+          for (let r = 0; r < (firstTargetPlayer.gameResults?.length || 31); r++) {
+            if (firstTargetPlayer.gameResults?.[r] === cellValue) {
+              filledRound = r;
+              break;
+            }
+          }
+          if (filledRound >= 0) {
+            setEntryCell({ playerRank: firstPlayerRank, round: filledRound });
+          }
+        }
+
+        console.log(`>>> [TELEPORT] Complete! Result moved to ${targetLadder}`);
+      } else {
+        console.log(`>>> [TELEPORT] Target is not a mini-game, aborting`);
+      }
+    } catch (error) {
+      console.error(`>>> [TELEPORT] Error:`, error);
+    } finally {
+      setIsTeleporting(false);
+    }
+  };
+
   const handleGameEntrySubmit = (correctedString: string) => {
     if (shouldLog(3)) console.log('[3]DEBUG-TRACE] === handleGameEntrySubmit ENTRY === correctedString="' + correctedString + '" entryCell=' + JSON.stringify(entryCell));
     if (!entryCell) return;
@@ -3753,6 +3902,33 @@ const handleWalkthroughNextForReview = () => {
   useEffect(() => {
     onSetToggleAdmin?.(handleToggleAdmin);
   }, [onSetToggleAdmin, handleToggleAdmin]);
+
+  // Keyboard shortcuts: Ctrl+1 through Ctrl+9 to switch ladders (skips current)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if user is typing in an input
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+      if (!e.ctrlKey) return;
+
+      const num = parseInt(e.key);
+      if (isNaN(num) || num < 1 || num > 9) return;
+
+      e.preventDefault();
+      const targetTitle = SHORTCUT_TO_TITLE[num];
+      if (targetTitle) {
+        const targetFileName = titleToFileName(targetTitle);
+        if (availableMiniGames.includes(targetFileName)) {
+          console.log(`>>> [LADDER SWITCH] Ctrl+${num} -> ${targetTitle}`);
+          handleSetTitle(targetTitle);
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [availableMiniGames, handleSetTitle]);
 
   const handleSplashEnterAdminMode = async () => {
     const serverUrl = splashServerUrl.trim();
@@ -6209,8 +6385,11 @@ isAdmin={isAdmin}
            hasAdminKey={!!loadUserSettings().apiKey?.trim()}
 onAddPlayer={(rank) => { setAddPlayerSuggestedRank(rank); setIsAddPlayerDialogOpen(true); }}
            debugLevel={debugLevel}
-               ladderName={projectName}
-             />
+                ladderName={projectName}
+                onTeleport={handleTeleport}
+                availableMiniGames={availableMiniGames}
+                isTeleporting={isTeleporting}
+              />
          );
        })()}
  {entryCell &&
@@ -6246,10 +6425,13 @@ isAdmin={isAdmin}
 onAddPlayer={(rank) => { setAddPlayerSuggestedRank(rank); setIsAddPlayerDialogOpen(true); }}
                onRandomResult={handleRandomResult}
                debugLevel={debugLevel}
-               ladderName={projectName}
-             />
-          )}
-       {currentError && (
+                ladderName={projectName}
+                onTeleport={handleTeleport}
+                availableMiniGames={availableMiniGames}
+                isTeleporting={isTeleporting}
+              />
+           )}
+        {currentError && (
         <div
           style={{
             position: "fixed",
