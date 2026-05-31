@@ -4,14 +4,14 @@ import type {
   ValidationResult,
   MatchData,
   PlayerMatchResult,
-} from "../utils/hashUtils";
+} from "../../shared/types";
 import {
   processGameResults,
   calculateRatings,
   repopulateGameResults,
   updatePlayerGameData,
-} from "../utils/hashUtils";
-import { MINI_GAMES, MINI_GAMES_WITH_BUGHOUSE, processNewDayTransformations, isMiniGameTitle, titleToFileName, getNextTitle, fileNameToTitle, SHORTCUT_TO_TITLE } from "../utils/constants";
+} from "../../shared/utils/hashUtils";
+import { MINI_GAMES, MINI_GAMES_WITH_BUGHOUSE, processNewDayTransformations, isMiniGameTitle, titleToFileName, getNextTitle, fileNameToTitle, SHORTCUT_TO_TITLE } from "../../shared/utils/constants";
 import { dataService } from "../services/dataService";
 import ErrorDialog, { findConflictForEntry } from "./ErrorDialog";
 import AddPlayerDialog from "./AddPlayerDialog";

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { PlayerData } from "../utils/hashUtils";
+import type { PlayerData } from "../../shared/types";
 
 interface DeleteHiddenPlayerDialogProps {
   isOpen: boolean;

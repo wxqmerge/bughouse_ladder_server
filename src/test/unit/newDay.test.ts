@@ -8,7 +8,7 @@ import {
   getNextTitle,
   processNewDayTransformations,
   MINI_GAMES_WITH_BUGHOUSE,
-} from '../../../src/utils/constants';
+} from '../../../shared/utils/constants';
 import type { PlayerData } from '../../../shared/types';
 import { simplePlayers } from '../fixtures/players';
 
