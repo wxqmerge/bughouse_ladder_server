@@ -383,6 +383,20 @@ export default function LadderForm({
     playersRef.current = players;
   }, [players]);
 
+  // Performance: measure React render time after players state changes
+  useEffect(() => {
+    if (players.length === 0) return;
+    const renderStart = performance.now();
+    // Measure is approximate since we can't hook into the actual paint,
+    // but this gives us the time from state commit to next microtask
+    requestAnimationFrame(() => {
+      const renderMs = performance.now() - renderStart;
+      if (renderMs > 16) {
+        console.log(`[PERF RENDER] ${players.length} players × 31 rounds rendered in ${renderMs.toFixed(1)}ms`);
+      }
+    });
+  }, [players]);
+
   // Save pending data to localStorage before page unload to prevent data loss
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -2166,21 +2180,26 @@ const handleRandomResult = (setter: (value: string) => void) => {
       return;
     }
 
+    const refreshStart = performance.now();
     try {
       log('[DEBUG REFRESH]', `Starting refresh, current players.length=${players.length}`);
       const localRanks = players.map(p => p.rank).join(',');
       log('[DEBUG REFRESH]', `Local ranks: ${localRanks}`);
 
+      const fetchStart = performance.now();
       const freshPlayers = await dataService.getPlayers();
+      const fetchMs = performance.now() - fetchStart;
 
       if (freshPlayers && freshPlayers.length > 0) {
         const serverRanks = freshPlayers.map(p => p.rank).join(',');
-        log('[DEBUG REFRESH]', `Server returned ${freshPlayers.length} players, ranks: ${serverRanks}`);
+        log('[DEBUG REFRESH]', `Server returned ${freshPlayers.length} players, ranks: ${serverRanks} (fetch: ${fetchMs.toFixed(0)}ms)`);
 
         // Guard: skip if data hasn't actually changed (breaks SSE refresh loop)
+        const hashStart = performance.now();
         const newHash = computePlayersHash(freshPlayers);
+        const hashMs = performance.now() - hashStart;
         if (newHash === lastRefreshHash.current) {
-          log('[DEBUG REFRESH]', '⊘ Data unchanged — skipping setPlayers (breaks SSE loop)');
+          log('[DEBUG REFRESH]', `⊘ Data unchanged — skipping setPlayers (hash: ${hashMs.toFixed(1)}ms)`);
           return;
         }
         lastRefreshHash.current = newHash;
@@ -2191,14 +2210,18 @@ const handleRandomResult = (setter: (value: string) => void) => {
           console.error('[DEBUG REFRESH] !!! LOCAL PLAYERS WILL BE LOST:', localOnly.map(p => `${p.firstName} ${p.lastName} rank=${p.rank}`).join('; '));
         }
 
+        const mapStart = performance.now();
         const playersWithResults = freshPlayers.map((player: PlayerData) => ({
           ...player,
           gameResults: player.gameResults || new Array(31).fill(null),
         }));
+        const mapMs = performance.now() - mapStart;
 
+        const setStart = performance.now();
         setPlayers(playersWithResults);
+        const totalMs = performance.now() - refreshStart;
 
-        log('[DEBUG REFRESH]', `✓ Set ${playersWithResults.length} players from server`);
+        log('[PERF REFRESH]', `✓ Set ${playersWithResults.length} players | total: ${totalMs.toFixed(0)}ms | fetch: ${fetchMs.toFixed(0)}ms | hash: ${hashMs.toFixed(1)}ms | map: ${mapMs.toFixed(1)}ms`);
       } else {
         log('[REFRESH]', 'No players found');
       }
@@ -2860,7 +2883,10 @@ const handleWalkthroughNextForReview = () => {
 
       // Step 2: Switch to target ladder
       const targetIsMiniGame = isMiniGameTitle(targetLadder);
+      let targetPlayersWithResults: PlayerData[];
+
       if (targetIsMiniGame && onTitleSwitch) {
+        // Mini-game target
         const fileName = titleToFileName(targetLadder);
         const existingFiles = await dataService.checkMiniGameFiles();
 
@@ -2882,62 +2908,85 @@ const handleWalkthroughNextForReview = () => {
 
         dataService.setMiniGameFile(fileName);
         const targetPlayers = await dataService.fetchMiniGamePlayers();
-        const targetPlayersWithResults = targetPlayers.map((p: PlayerData) => ({
+        targetPlayersWithResults = targetPlayers.map((p: PlayerData) => ({
           ...p,
           gameResults: p.gameResults || new Array(31).fill(null),
         }));
         setPlayers(targetPlayersWithResults);
         console.log(`>>> [TELEPORT] Switched to ${targetLadder} with ${targetPlayersWithResults.length} players`);
+      } else if (!targetIsMiniGame && onTitleSwitch) {
+        // Club ladder target
+        const allowed = await onTitleSwitch(targetLadder);
+        if (!allowed) {
+          console.log(`>>> [TELEPORT] Title switch not allowed, aborting`);
+          setIsTeleporting(false);
+          return;
+        }
 
-        // Step 3: Find next empty round for each player and fill result
-        const updatedTargetPlayers = targetPlayersWithResults.map((player) => {
-          if (!playerRanks.includes(player.rank)) return player;
+        setProjectName(targetLadder);
+        setProjectNameStorage(targetLadder);
+        dataService.setMiniGameFile(null);
 
-          // Find next empty round for this player
-          let nextEmptyRound = -1;
-          const results = player.gameResults || [];
-          for (let r = 0; r < results.length; r++) {
-            const cellVal = results[r];
-            if (!cellVal || cellVal.trim() === "") {
-              nextEmptyRound = r;
-              break;
-            }
-          }
+        const targetPlayers = await dataService.getPlayers();
+        targetPlayersWithResults = targetPlayers.map((p: PlayerData) => ({
+          ...p,
+          gameResults: p.gameResults || new Array(31).fill(null),
+        }));
+        setPlayers(targetPlayersWithResults);
+        console.log(`>>> [TELEPORT] Switched to club ladder ${targetLadder} with ${targetPlayersWithResults.length} players`);
+      } else {
+        console.log(`>>> [TELEPORT] Invalid target or no switch handler, aborting`);
+        setIsTeleporting(false);
+        return;
+      }
 
-          if (nextEmptyRound === -1) {
-            console.log(`>>> [TELEPORT] No empty round for player ${player.rank}, skipping`);
-            return player;
-          }
+      // Step 3: Find next empty round for each player and fill result
+      const updatedTargetPlayers = targetPlayersWithResults.map((player) => {
+        if (!playerRanks.includes(player.rank)) return player;
 
-          const newResults = [...(player.gameResults || [])];
-          newResults[nextEmptyRound] = cellValue;
-          console.log(`>>> [TELEPORT] Filled player ${player.rank} at round ${nextEmptyRound + 1} with "${cellValue}"`);
-          return { ...player, gameResults: newResults };
-        });
-
-        setPlayers(updatedTargetPlayers);
-        await dataService.savePlayers(updatedTargetPlayers);
-
-        // Step 4: Set entryCell to first filled player's round for review
-        const firstPlayerRank = playerRanks[0];
-        const firstTargetPlayer = updatedTargetPlayers.find((p) => p.rank === firstPlayerRank);
-        if (firstTargetPlayer) {
-          let filledRound = -1;
-          for (let r = 0; r < (firstTargetPlayer.gameResults?.length || 31); r++) {
-            if (firstTargetPlayer.gameResults?.[r] === cellValue) {
-              filledRound = r;
-              break;
-            }
-          }
-          if (filledRound >= 0) {
-            setEntryCell({ playerRank: firstPlayerRank, round: filledRound });
+        // Find next empty round for this player
+        let nextEmptyRound = -1;
+        const results = player.gameResults || [];
+        for (let r = 0; r < results.length; r++) {
+          const cellVal = results[r];
+          if (!cellVal || cellVal.trim() === "") {
+            nextEmptyRound = r;
+            break;
           }
         }
 
-        console.log(`>>> [TELEPORT] Complete! Result moved to ${targetLadder}`);
-      } else {
-        console.log(`>>> [TELEPORT] Target is not a mini-game, aborting`);
+        if (nextEmptyRound === -1) {
+          console.log(`>>> [TELEPORT] No empty round for player ${player.rank}, skipping`);
+          return player;
+        }
+
+        const newResults = [...(player.gameResults || [])];
+        newResults[nextEmptyRound] = cellValue;
+        console.log(`>>> [TELEPORT] Filled player ${player.rank} at round ${nextEmptyRound + 1} with "${cellValue}"`);
+        return { ...player, gameResults: newResults };
+      });
+
+      setPlayers(updatedTargetPlayers);
+      await dataService.savePlayers(updatedTargetPlayers);
+      console.log(`>>> [TELEPORT] Saved ${updatedTargetPlayers.length} players to ${targetLadder}`);
+
+      // Step 4: Set entryCell to first filled player's round for review
+      const firstPlayerRank = playerRanks[0];
+      const firstTargetPlayer = updatedTargetPlayers.find((p) => p.rank === firstPlayerRank);
+      if (firstTargetPlayer) {
+        let filledRound = -1;
+        for (let r = 0; r < (firstTargetPlayer.gameResults?.length || 31); r++) {
+          if (firstTargetPlayer.gameResults?.[r] === cellValue) {
+            filledRound = r;
+            break;
+          }
+        }
+        if (filledRound >= 0) {
+          setEntryCell({ playerRank: firstPlayerRank, round: filledRound });
+        }
       }
+
+      console.log(`>>> [TELEPORT] Complete! Result moved to ${targetLadder}`);
     } catch (error) {
       console.error(`>>> [TELEPORT] Error:`, error);
     } finally {

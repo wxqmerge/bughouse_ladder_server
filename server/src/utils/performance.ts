@@ -3,7 +3,7 @@
 
 import { getTimestamp } from './timestamp.js';
 
-const SLOW_THRESHOLD_MS = 500;
+const SLOW_THRESHOLD_MS = 100;
 
 interface SlowOperation {
   label: string;

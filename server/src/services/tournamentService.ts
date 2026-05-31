@@ -48,6 +48,15 @@ export interface TournamentState {
   startedAt: string;
 }
 
+// In-memory cache for mini-game reads
+interface MiniGameCache {
+  data: LadderData | null;
+  mtimeMs: number;
+  timestamp: number;
+}
+const miniGameCache = new Map<string, MiniGameCache>();
+const MINI_GAME_CACHE_TTL_MS = 5000;
+
 // In-memory tournament state (persisted to file on changes)
 let tournamentState: TournamentState = {
   active: false,
@@ -130,7 +139,21 @@ export async function readMiniGameFile(fileName: string): Promise<LadderData | n
   const filePath = getMiniGameFilePath(fileName);
   try {
     await fs.access(filePath);
-    return await readLadderFile(filePath);
+
+    // Check cache
+    const cached = miniGameCache.get(fileName);
+    const stat = await fs.stat(filePath);
+    const now = Date.now();
+    if (cached && cached.data && stat.mtimeMs === cached.mtimeMs && (now - cached.timestamp) < MINI_GAME_CACHE_TTL_MS) {
+      return { ...cached.data, players: [...cached.data.players] };
+    }
+
+    const result = await readLadderFile(filePath);
+
+    // Update cache
+    miniGameCache.set(fileName, { data: result, mtimeMs: stat.mtimeMs, timestamp: now });
+
+    return result;
   } catch {
     return null;
   }
@@ -141,6 +164,8 @@ export async function writeMiniGameFile(fileName: string, ladderData: LadderData
   const filePath = getMiniGameFilePath(fileName);
   await ensureDataDirectory();
   await writeLadderFile(ladderData, filePath);
+  // Invalidate mini-game cache
+  miniGameCache.delete(fileName);
 }
 
 // Re-export shared functions for backward compatibility
