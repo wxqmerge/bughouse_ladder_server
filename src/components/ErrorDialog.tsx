@@ -1534,13 +1534,14 @@ export default function ErrorDialog({
                     backgroundColor: "white",
                   }}
                 >
-                  <option value="">-- Select ladder --</option>
-                  {availableMiniGames.map((game) => {
-                    const title = fileNameToTitle(game);
-                    return (
-                      <option key={game} value={title}>{title}</option>
-                    );
-                  })}
+                 <option value="">-- Select ladder --</option>
+                   <option value="Ladder">Ladder (Club)</option>
+                   {availableMiniGames.map((game) => {
+                     const title = fileNameToTitle(game);
+                     return (
+                       <option key={game} value={title}>{title}</option>
+                     );
+                   })}
                 </select>
                 <button
                   type="button"

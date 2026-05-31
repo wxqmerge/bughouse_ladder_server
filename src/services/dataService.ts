@@ -40,6 +40,8 @@ class DataService {
   private sseEventSource: EventSource | null = null;
   private sseConnected = false;
   private notifyTimer: ReturnType<typeof setTimeout> | null = null;
+  private sseEventCount = 0;
+  private lastSseEventTime = 0;
 
   constructor(config: DataServiceConfig) {
     this.config = config;
@@ -52,10 +54,13 @@ class DataService {
 
   private notifySubscribers(): void {
     if (this.notifyTimer) return; // Debounce: skip if notification already queued
+    const notifyStart = performance.now();
     this.notifyTimer = setTimeout(() => {
       this.notifyTimer = null;
+      const debounceMs = performance.now() - notifyStart;
+      console.log(`[PERF NOTIFY] Debounce elapsed: ${debounceMs.toFixed(0)}ms, subscribers: ${this.subscribers.size}`);
       this.subscribers.forEach(callback => callback());
-    }, 200);
+    }, 100);
   }
 
   updateConfig(newConfig: Partial<DataServiceConfig>): void {
@@ -117,72 +122,128 @@ class DataService {
     });
     
     this.sseEventSource.addEventListener('playerUpdated', () => {
-      console.log('[DataService] SSE: playerUpdated');
+      this.sseEventCount++;
+      const now = Date.now();
+      const sinceLast = now - this.lastSseEventTime;
+      this.lastSseEventTime = now;
+      console.log(`[PERF SSE] #${this.sseEventCount} playerUpdated (since last: ${sinceLast}ms)`);
       this.notifySubscribers();
     });
     
     this.sseEventSource.addEventListener('cellCleared', () => {
-      console.log('[DataService] SSE: cellCleared');
+      this.sseEventCount++;
+      const now = Date.now();
+      const sinceLast = now - this.lastSseEventTime;
+      this.lastSseEventTime = now;
+      console.log(`[PERF SSE] #${this.sseEventCount} cellCleared (since last: ${sinceLast}ms)`);
       this.notifySubscribers();
     });
     
     this.sseEventSource.addEventListener('ladderUpdated', () => {
-      console.log('[DEBUG SSE] ladderUpdated received — will trigger refresh');
+      this.sseEventCount++;
+      const now = Date.now();
+      const sinceLast = now - this.lastSseEventTime;
+      this.lastSseEventTime = now;
+      console.log(`[PERF SSE] #${this.sseEventCount} ladderUpdated (since last: ${sinceLast}ms)`);
       this.notifySubscribers();
     });
     
     this.sseEventSource.addEventListener('deltasSubmitted', () => {
-      console.log('[DataService] SSE: deltasSubmitted');
+      this.sseEventCount++;
+      const now = Date.now();
+      const sinceLast = now - this.lastSseEventTime;
+      this.lastSseEventTime = now;
+      console.log(`[PERF SSE] #${this.sseEventCount} deltasSubmitted (since last: ${sinceLast}ms)`);
       this.notifySubscribers();
     });
     
     this.sseEventSource.addEventListener('gameSubmitted', () => {
-      console.log('[DataService] SSE: gameSubmitted');
+      this.sseEventCount++;
+      const now = Date.now();
+      const sinceLast = now - this.lastSseEventTime;
+      this.lastSseEventTime = now;
+      console.log(`[PERF SSE] #${this.sseEventCount} gameSubmitted (since last: ${sinceLast}ms)`);
       this.notifySubscribers();
     });
     
     this.sseEventSource.addEventListener('gamesSubmitted', () => {
-      console.log('[DataService] SSE: gamesSubmitted');
+      this.sseEventCount++;
+      const now = Date.now();
+      const sinceLast = now - this.lastSseEventTime;
+      this.lastSseEventTime = now;
+      console.log(`[PERF SSE] #${this.sseEventCount} gamesSubmitted (since last: ${sinceLast}ms)`);
       this.notifySubscribers();
     });
     
     this.sseEventSource.addEventListener('miniGameSaved', () => {
-      console.log('[DataService] SSE: miniGameSaved');
+      this.sseEventCount++;
+      const now = Date.now();
+      const sinceLast = now - this.lastSseEventTime;
+      this.lastSseEventTime = now;
+      console.log(`[PERF SSE] #${this.sseEventCount} miniGameSaved (since last: ${sinceLast}ms)`);
       this.notifySubscribers();
     });
     
     this.sseEventSource.addEventListener('miniGameWritten', () => {
-      console.log('[DataService] SSE: miniGameWritten');
+      this.sseEventCount++;
+      const now = Date.now();
+      const sinceLast = now - this.lastSseEventTime;
+      this.lastSseEventTime = now;
+      console.log(`[PERF SSE] #${this.sseEventCount} miniGameWritten (since last: ${sinceLast}ms)`);
       this.notifySubscribers();
     });
     
     this.sseEventSource.addEventListener('playersCopied', () => {
-      console.log('[DataService] SSE: playersCopied');
+      this.sseEventCount++;
+      const now = Date.now();
+      const sinceLast = now - this.lastSseEventTime;
+      this.lastSseEventTime = now;
+      console.log(`[PERF SSE] #${this.sseEventCount} playersCopied (since last: ${sinceLast}ms)`);
       this.notifySubscribers();
     });
     
     this.sseEventSource.addEventListener('playerAdded', () => {
-      console.log('[DataService] SSE: playerAdded');
+      this.sseEventCount++;
+      const now = Date.now();
+      const sinceLast = now - this.lastSseEventTime;
+      this.lastSseEventTime = now;
+      console.log(`[PERF SSE] #${this.sseEventCount} playerAdded (since last: ${sinceLast}ms)`);
       this.notifySubscribers();
     });
     
     this.sseEventSource.addEventListener('miniGamesCleared', () => {
-      console.log('[DataService] SSE: miniGamesCleared');
+      this.sseEventCount++;
+      const now = Date.now();
+      const sinceLast = now - this.lastSseEventTime;
+      this.lastSseEventTime = now;
+      console.log(`[PERF SSE] #${this.sseEventCount} miniGamesCleared (since last: ${sinceLast}ms)`);
       this.notifySubscribers();
     });
     
     this.sseEventSource.addEventListener('miniGamesImported', () => {
-      console.log('[DataService] SSE: miniGamesImported');
+      this.sseEventCount++;
+      const now = Date.now();
+      const sinceLast = now - this.lastSseEventTime;
+      this.lastSseEventTime = now;
+      console.log(`[PERF SSE] #${this.sseEventCount} miniGamesImported (since last: ${sinceLast}ms)`);
       this.notifySubscribers();
     });
     
     this.sseEventSource.addEventListener('fileUploaded', () => {
-      console.log('[DataService] SSE: fileUploaded');
+      this.sseEventCount++;
+      const now = Date.now();
+      const sinceLast = now - this.lastSseEventTime;
+      this.lastSseEventTime = now;
+      console.log(`[PERF SSE] #${this.sseEventCount} fileUploaded (since last: ${sinceLast}ms)`);
       this.notifySubscribers();
     });
     
     this.sseEventSource.addEventListener('backupRestored', () => {
-      console.log('[DataService] SSE: backupRestored');
+      this.sseEventCount++;
+      const now = Date.now();
+      const sinceLast = now - this.lastSseEventTime;
+      this.lastSseEventTime = now;
+      console.log(`[PERF SSE] #${this.sseEventCount} backupRestored (since last: ${sinceLast}ms)`);
       this.notifySubscribers();
     });
     
