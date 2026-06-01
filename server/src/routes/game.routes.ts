@@ -13,15 +13,6 @@ interface GameResult {
 
 const router = Router();
 
-// All game processing logic will be imported from shared in a separate file
-// For now, we'll use basic validation
-
-interface GameResult {
-  playerRank: number;
-  round: number;
-  result: string;
-}
-
 function isValidGameResult(obj: unknown): obj is GameResult {
   if (!obj || typeof obj !== 'object') return false;
   const g = obj as Record<string, unknown>;
@@ -43,25 +34,17 @@ router.post('/', requireUserKey, writeLimiter, async (req: Request, res: Respons
       });
       return;
     }
-    const { playerRank, round, result } = body;
+   const { playerRank, round, result } = body;
 
-    if (!playerRank || !round || !result) {
+    if (playerRank <= 0 || round < 0) {
       res.status(400).json({
         success: false,
-        error: { message: 'Missing required fields' },
+        error: { message: 'Invalid playerRank or round' },
       });
       return;
     }
 
-    if (typeof playerRank !== 'number' || typeof round !== 'number') {
-      res.status(400).json({
-        success: false,
-        error: { message: 'Invalid data types' },
-      });
-      return;
-    }
-
-    // Basic validation for result format (will be enhanced with shared validation)
+    // Basic validation for result format
     if (!/^\d[LDW]\d(_)?$/.test(result) && !/^\d:\d[LDW][LDW]?\d:\d(_)?$/.test(result)) {
       res.status(400).json({
         success: false,
@@ -114,7 +97,8 @@ router.post('/', requireUserKey, writeLimiter, async (req: Request, res: Respons
 // Submit multiple game results (requires user or admin API key)
 router.post('/batch', requireUserKey, writeLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
-    const { games } = req.body as { games: GameResult[] };
+    const body = req.body as { games?: unknown };
+    const games = body.games;
 
     if (!games || !Array.isArray(games)) {
       res.status(400).json({
@@ -124,10 +108,19 @@ router.post('/batch', requireUserKey, writeLimiter, async (req: Request, res: Re
       return;
     }
 
-    const ladderData = await withTiming(`readLadderFile(batch)`, readLadderFile);
-    const results: any[] = [];
+    const invalidGames = games.map((g: unknown, i: number) => isValidGameResult(g) ? -1 : i).filter(i => i !== -1);
+    if (invalidGames.length > 0) {
+      res.status(400).json({
+        success: false,
+        error: { message: `Games at index(es) ${invalidGames.join(', ')} missing required fields` },
+      });
+      return;
+    }
 
-    for (const game of games) {
+    const ladderData = await withTiming(`readLadderFile(batch)`, readLadderFile);
+    const results: Array<{ playerRank: number; round: number; success: boolean } | { playerRank: number; error: string }> = [];
+
+    for (const game of games as GameResult[]) {
       const playerIndex = ladderData.players.findIndex((p: PlayerData) => p.rank === game.playerRank);
       
       if (playerIndex === -1) {

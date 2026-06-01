@@ -76,11 +76,11 @@ export function splitIdentityChanges(
 			}
 		}
 
-	if (identityChanged) {
+   if (identityChanged) {
 			// Only copy identity fields to avoid overwriting club nRating/gameResults
 			const identityOnly: PlayerData = { ...clubPlayer };
 			for (const field of IDENTITY_FIELDS) {
-				(identityOnly as any)[field] = (incoming as any)[field];
+				(identityOnly as Partial<Record<IdentityField, unknown>>)[field] = incoming[field];
 			}
 			identityUpdates.push(identityOnly);
 		}

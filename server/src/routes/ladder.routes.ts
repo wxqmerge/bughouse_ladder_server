@@ -96,13 +96,16 @@ router.put('/:rank', requireUserKey, writeLimiter, async (req: Request, res: Res
       return;
     }
 
-    // Update player fields (full access for local use)
+    // Update player fields (whitelist-safe)
     const updatedPlayer = { ...ladderData.players[playerIndex] };
-    Object.keys(req.body).forEach(key => {
-      if (key !== 'rank') {
-        (updatedPlayer as any)[key] = req.body[key];
+    const body = req.body as Record<string, unknown>;
+    for (const [key, value] of Object.entries(body)) {
+      if (key === 'rank') continue;
+      if (key === 'gameResults' && (!Array.isArray(value) || !value.every((v: unknown) => v === null || typeof v === 'string'))) {
+        continue;
       }
-    });
+      (updatedPlayer as Record<string, unknown>)[key] = value;
+    }
 
     ladderData.players[playerIndex] = updatedPlayer;
     await writeLadderFile(ladderData);
@@ -128,7 +131,7 @@ router.delete('/:rank/round/:roundIndex', requireUserKey, writeLimiter, async (r
     const rank = parseInt(req.params.rank);
     const roundIndex = parseInt(req.params.roundIndex);
 
-    if (isNaN(rank) || rank < 1 || isNaN(roundIndex) || roundIndex < 0 || roundIndex > 30) {
+    if (isNaN(rank) || rank < 1 || isNaN(roundIndex) || roundIndex < 0 || roundIndex >= NUM_ROUNDS) {
       res.status(400).json({
         success: false,
         error: { message: 'Invalid rank or round index' },
