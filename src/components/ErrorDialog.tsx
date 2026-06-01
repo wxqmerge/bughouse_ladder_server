@@ -548,14 +548,8 @@ export default function ErrorDialog({
     if (onClearCell) {
       console.debug(">>> [CLEAR CELL] Calling onClearCell callback");
       onClearCell();
-      
-      // In recalculate/walkthrough mode, don't close dialog - let user continue
-      if (mode === "recalculate" || mode === "walkthrough") {
-        return;
-      }
-      
-      // In other modes, close the dialog after clearing
-      onClose();
+
+      // Don't close dialog - let user continue clearing or editing
       return;
     }
 

@@ -3027,6 +3027,25 @@ const handleWalkthroughNextForReview = () => {
         setIsWalkthrough(false);
         console.debug(`[CLEAR CELL] No more non-blank cells — exiting walkthrough`);
       }
+    } else {
+      // Normal mode: move to next non-blank cell after clearing
+      const newCells: { playerRank: number; round: number }[] = [];
+      for (const player of updatedPlayers) {
+        const gameResults = player.gameResults ?? [];
+        for (let r = 0; r < gameResults.length; r++) {
+          const val = gameResults[r];
+          if (val && val.trim() !== "") {
+            newCells.push({ playerRank: player.rank, round: r });
+          }
+        }
+      }
+      if (newCells.length > 0) {
+        setEntryCell({ playerRank: newCells[0].playerRank, round: newCells[0].round });
+        console.debug(`[CLEAR CELL] Moved entryCell to first non-blank: rank=${newCells[0].playerRank}, round=${newCells[0].round}`);
+      } else {
+        setEntryCell(null);
+        console.debug(`[CLEAR CELL] No non-blank cells — cleared entryCell`);
+      }
     }
   };
 
