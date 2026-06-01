@@ -2965,9 +2965,7 @@ const handleWalkthroughNextForReview = () => {
     });
     
     setPlayers(updatedPlayers);
-    dataService.savePlayers(updatedPlayers).then(() => {
-      console.debug(`[CLEAR CELL] ✓ Cleared ${cellsToClear.length} matching cells with value "${cellValue}" — saved`);
-    }).catch((err: Error) => {
+    savePlayers(updatedPlayers).catch((err: Error) => {
       console.error("Failed to save cleared cell:", err);
     });
 
