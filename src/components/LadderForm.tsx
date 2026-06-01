@@ -4202,9 +4202,10 @@ const handleDeleteConfirm = () => {
       const tag = (e.target as HTMLElement).tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
-      // Ctrl+0: clear current cell (same as Clear Cell button)
-      if (e.ctrlKey && e.key === "0") {
+      // Ctrl+Shift+X: clear current cell (same as Clear Cell button)
+      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "x") {
         e.preventDefault();
+        console.debug(">>> [KEYBOARD SHORTCUT] Ctrl+Shift+X -> Clear Cell");
         clearCurrentCell();
         return;
       }
