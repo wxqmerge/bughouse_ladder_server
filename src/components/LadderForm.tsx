@@ -4202,8 +4202,8 @@ const handleDeleteConfirm = () => {
       const tag = (e.target as HTMLElement).tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
-      // Ctrl+I: clear current cell (same as Clear Cell button)
-      if (e.ctrlKey && e.key.toLowerCase() === "i") {
+      // Ctrl+0: clear current cell (same as Clear Cell button)
+      if (e.ctrlKey && e.key === "0") {
         e.preventDefault();
         clearCurrentCell();
         return;
