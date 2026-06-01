@@ -548,8 +548,7 @@ export default function ErrorDialog({
     if (onClearCell) {
       console.debug(">>> [CLEAR CELL] Calling onClearCell callback");
       onClearCell();
-
-      // Don't close dialog - let user continue clearing or editing
+      onClose();
       return;
     }
 
