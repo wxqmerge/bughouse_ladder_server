@@ -6,7 +6,7 @@ import { readLadderFile, writeLadderFile, PlayerData, LadderData, ensureDataDire
 import { MINI_GAME_FILES, MINI_GAME_DIFFICULTY_ORDER } from '../../../shared/types/index.js';
 import { clearRankReferences } from '../../../shared/utils/hashUtils.js';
 import { NUM_ROUNDS } from '../../../shared/utils/constants.js';
-import { IDENTITY_FIELDS, mergeIdentityFromClubLadder, splitIdentityChanges } from '../../../shared/utils/identityMerge.js';
+import { IDENTITY_FIELDS, IdentityField, mergeIdentityFromClubLadder, splitIdentityChanges } from '../../../shared/utils/identityMerge.js';
 import {
   copyPlayersToTarget as sharedCopyPlayersToTarget,
   mergeGameResults as sharedMergeGameResults,
@@ -216,7 +216,7 @@ export async function writeMiniGameFile(
 					// Only apply identity fields, preserve club player's nRating/gameResults
 					const clubPlayer = clubLadder.players[idx];
 					for (const field of IDENTITY_FIELDS) {
-						(clubPlayer as any)[field] = (update as any)[field];
+						(clubPlayer as Partial<Record<IdentityField, unknown>>)[field] = update[field];
 					}
 				} else {
 					clubLadder.players.push(update);
