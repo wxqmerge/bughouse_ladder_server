@@ -1725,7 +1725,7 @@ Enter_Recalculate_Save (Ctrl+E)
                       : "white",
                   }}
                 >
-                  Clear All Matching Cells (Ctrl+Backspace)
+                  Clear All Matching Cells (Ctrl+Q)
                 </button>
                 <button
                   type="button"
