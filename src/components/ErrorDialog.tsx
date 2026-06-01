@@ -548,7 +548,7 @@ export default function ErrorDialog({
     if (onClearCell) {
       console.debug(">>> [CLEAR CELL] Calling onClearCell callback");
       onClearCell();
-      onClose();
+      // Don't close dialog - entryCell will update to next cell, triggering re-render with new value
       return;
     }
 

@@ -381,7 +381,6 @@ export default function LadderForm({
   const prevLastFileRef = useRef<File | null>(null);
   const debouncedSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const debouncedClearTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingClearCell = useRef<{ playerRank: number; round: number } | null>(null);
   const pendingPlayerUpdate = useRef<{ rank: number; originalLastName: string; originalFirstName: string; updates: Record<string, unknown> } | null>(null);
   const lastRefreshHash = useRef<string | null>(null);
   const hiddenPlayersToDeleteRef = useRef<PlayerData[]>([]);
@@ -3029,7 +3028,7 @@ const handleWalkthroughNextForReview = () => {
         console.debug(`[CLEAR CELL] No more non-blank cells — exiting walkthrough`);
       }
     } else {
-      // Normal mode: store next non-blank cell for dialog reopen after close
+      // Normal mode: move to next non-blank cell after clearing
       const newCells: { playerRank: number; round: number }[] = [];
       for (const player of updatedPlayers) {
         const gameResults = player.gameResults ?? [];
@@ -3041,28 +3040,14 @@ const handleWalkthroughNextForReview = () => {
         }
       }
       if (newCells.length > 0) {
-        pendingClearCell.current = { playerRank: newCells[0].playerRank, round: newCells[0].round };
-        console.debug(`[CLEAR CELL] Stored next cell for reopen: rank=${newCells[0].playerRank}, round=${newCells[0].round}`);
+        setEntryCell({ playerRank: newCells[0].playerRank, round: newCells[0].round });
+        console.debug(`[CLEAR CELL] Moved entryCell to first non-blank: rank=${newCells[0].playerRank}, round=${newCells[0].round}`);
       } else {
-        pendingClearCell.current = null;
-        console.debug(`[CLEAR CELL] No non-blank cells — will not reopen`);
+        setEntryCell(null);
+        console.debug(`[CLEAR CELL] No non-blank cells — cleared entryCell`);
       }
     }
   };
-
-  // Reopen ErrorDialog after clear+close cycle completes
-  useEffect(() => {
-    if (pendingClearCell.current && !entryCell) {
-      const timer = setTimeout(() => {
-        const cell = pendingClearCell.current;
-        if (cell) {
-          setEntryCell({ playerRank: cell.playerRank, round: cell.round });
-          pendingClearCell.current = null;
-        }
-      }, 50);
-      return () => clearTimeout(timer);
-    }
-  }, [entryCell]);
 
   const handleTeleport = async (targetLadder: string, resultString: string) => {
     console.debug(`>>> [TELEPORT] Starting teleport to ${targetLadder}`);
