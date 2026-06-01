@@ -11,7 +11,7 @@ import {
   repopulateGameResults,
   updatePlayerGameData,
 } from "../../shared/utils/hashUtils";
-import { processNewDayTransformations, isMiniGameTitle, titleToFileName, getNextTitle, SHORTCUT_TO_TITLE, LADDER_COLORS, compareByPseudoRating, formatRatingForExport, NUM_ROUNDS } from "../../shared/utils/constants";
+import { processNewDayTransformations, isMiniGameTitle, titleToFileName, getNextTitle, SHORTCUT_TO_TITLE, LADDER_COLORS, compareByPseudoRating, formatRatingForExport, NUM_ROUNDS, getValidationErrorMessage } from "../../shared/utils/constants";
 import { MINI_GAME_FILES } from "../../shared/types";
 import { dataService } from "../services/dataService";
 import { miniGamesHaveResults } from "../services/miniGameLocalStorage";
@@ -2644,14 +2644,14 @@ const handleRandomResult = (setter: (value: string) => void) => {
     const validation = updatePlayerGameData(correctedString, true);
 
     if (!validation.isValid) {
-      const errorCode = Math.abs(validation.error || 10);
+      const errorCode = Math.abs(validation.error || 3);
       console.debug('[submitCorrection] Invalid format:', {
         input: correctedString,
         errorCode,
         parsedPlayers: validation.parsedPlayersList,
         parsedScores: validation.parsedScoreList,
       });
-      alert(`Invalid format. Error code: ${errorCode}`);
+      alert(`Invalid format: ${getValidationErrorMessage(errorCode)}`);
       return;
     }
 

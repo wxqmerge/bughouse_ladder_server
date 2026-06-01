@@ -68,12 +68,13 @@ export function titleToFileName(title: string): string {
 
 export const ERROR_MESSAGES: Record<number, string> = {
   1: "Invalid characters",
-  2: "Incomplete 2-player game",
-  3: "Incomplete 4-player game",
+  2: "Invalid 2-player format",
+  3: "Incomplete game entry",
   4: "Missing result code",
-  6: "Duplicate player in game",
   5: "Too many results",
+  6: "Duplicate player in game",
   7: "Missing player 4",
+  8: "Missing player in game",
   9: "Player rank exceeds 200",
   10: "Conflicting results - players disagree on outcome",
   11: "Player rank does not exist in ladder",
