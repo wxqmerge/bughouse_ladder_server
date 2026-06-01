@@ -4202,6 +4202,13 @@ const handleDeleteConfirm = () => {
       const tag = (e.target as HTMLElement).tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
+      // Ctrl+Delete: clear current cell (same as Clear Cell button)
+      if (e.ctrlKey && e.key === "Delete") {
+        e.preventDefault();
+        clearCurrentCell();
+        return;
+      }
+
       if (!e.ctrlKey) return;
 
       const num = parseInt(e.key);
@@ -4226,7 +4233,7 @@ const handleDeleteConfirm = () => {
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [availableMiniGames, handleSetTitle]);
+  }, [availableMiniGames, handleSetTitle, clearCurrentCell]);
 
   const handleSplashEnterAdminMode = async () => {
     const serverUrl = splashServerUrl.trim();
