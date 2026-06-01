@@ -4202,8 +4202,8 @@ const handleDeleteConfirm = () => {
       const tag = (e.target as HTMLElement).tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
-      // Ctrl+Delete: clear current cell (same as Clear Cell button)
-      if (e.ctrlKey && e.key === "Delete") {
+      // Ctrl+Backspace: clear current cell (same as Clear Cell button)
+      if (e.ctrlKey && e.key === "Backspace") {
         e.preventDefault();
         clearCurrentCell();
         return;
