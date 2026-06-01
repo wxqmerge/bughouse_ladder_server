@@ -380,6 +380,7 @@ export default function LadderForm({
   const prevSplashServerUrlRef = useRef('');
   const prevLastFileRef = useRef<File | null>(null);
   const debouncedSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debouncedClearTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingPlayerUpdate = useRef<{ rank: number; originalLastName: string; originalFirstName: string; updates: Record<string, unknown> } | null>(null);
   const lastRefreshHash = useRef<string | null>(null);
   const hiddenPlayersToDeleteRef = useRef<PlayerData[]>([]);
@@ -2965,9 +2966,14 @@ const handleWalkthroughNextForReview = () => {
     });
     
     setPlayers(updatedPlayers);
-    savePlayers(updatedPlayers).catch((err: Error) => {
-      console.error("Failed to save cleared cell:", err);
-    });
+    if (debouncedClearTimer.current) {
+      clearTimeout(debouncedClearTimer.current);
+    }
+    debouncedClearTimer.current = setTimeout(() => {
+      savePlayers(playersRef.current).catch((err: Error) => {
+        console.error("Failed to save cleared cell:", err);
+      });
+    }, 300);
 
     // Log how many cells were cleared
     if (cellsToClear.length > 1) {
