@@ -325,27 +325,27 @@ function parseEntry(
     }
 
     // VB6 Line: 318-334 - Return result
-    if (
-      errorNum !== 0 ||
-      playersList[0] === 0 ||
-      playersList[1] === 0 ||
-      playersList[2] === 0 ||
-      scoreList[0] < 0 ||
-      scoreList[1] < 0
-    ) {
-      return errorNum === 0 ? -3 : -errorNum;
+    if (errorNum !== 0) {
+      return -errorNum;
+    }
+    if (playersList[0] === 0 || playersList[1] === 0 || playersList[2] === 0) {
+      return -3; // Incomplete 4-player game
+    }
+    if (scoreList[0] < 0 || scoreList[1] < 0) {
+      return -4; // Missing result code
     }
 
     return computedRes;
   } else {
     // 2-player game
-    if (
-      errorNum !== 0 ||
-      playersList[0] === 0 ||
-      playersList[1] === 0 ||
-      scoreList[0] < 0
-    ) {
-      return errorNum === 0 ? -3 : -errorNum;
+    if (errorNum !== 0) {
+      return -errorNum;
+    }
+    if (playersList[0] === 0 || playersList[1] === 0) {
+      return -2; // Incomplete 2-player game
+    }
+    if (scoreList[0] < 0) {
+      return -4; // Missing result code
     }
 
     // Check for self-play in 2-player game
@@ -603,6 +603,20 @@ export function processGameResults(
 
       if (player1Rank <= 0 || player2Rank <= 0) {
         errorCount++;
+        errors.push({
+          hashValue: 0,
+          player1: player1Rank,
+          player2: player2Rank,
+          player3: player3Rank,
+          player4: player4Rank,
+          score1: player1Score,
+          score2: player2Score,
+          resultIndex: round,
+          isValid: false,
+          error: 8,
+          originalString: result,
+          playerRank: player.rank,
+        });
         continue;
       }
 
@@ -618,7 +632,7 @@ export function processGameResults(
           score2: parsedScoreList[1],
           resultIndex: round,
           isValid: false,
-          error: 3, // Incomplete entry
+          error: 6, // Duplicate player in game
           originalString: result,
           playerRank: player.rank,
         });
@@ -627,6 +641,20 @@ export function processGameResults(
 
       if (player1Rank > 200 || player2Rank > 200) {
         errorCount++;
+        errors.push({
+          hashValue: 0,
+          player1: player1Rank,
+          player2: player2Rank,
+          player3: player3Rank,
+          player4: player4Rank,
+          score1: player1Score,
+          score2: player2Score,
+          resultIndex: round,
+          isValid: false,
+          error: 9,
+          originalString: result,
+          playerRank: player.rank,
+        });
         continue;
       }
 
