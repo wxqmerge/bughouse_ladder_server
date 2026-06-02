@@ -12,7 +12,7 @@ import {
   CalendarDays,
   Eye,
   Server,
-
+  BarChart3,
   Shield,
 } from "lucide-react";
 import "../css/index.css";
@@ -38,6 +38,7 @@ interface SettingsProps {
   onImportTournamentFiles?: () => void;
   onImportSingleMiniGame?: () => void;
   onGenerateTrophies?: () => void;
+  onGenerateActivityReport?: () => void;
   isTournamentActive?: boolean;
   isAdmin: boolean;
   onToggleAdmin?: () => Promise<void>;
@@ -58,6 +59,7 @@ export default function Settings({
   onImportTournamentFiles,
   onImportSingleMiniGame,
   onGenerateTrophies,
+  onGenerateActivityReport,
   isTournamentActive,
   isAdmin,
   onToggleAdmin,
@@ -464,12 +466,42 @@ export default function Settings({
                         fontWeight: "500",
                       }}
                     >
-                      <CalendarDays size={16} />
-                      Generate Trophies
-                    </button>
-                  )}
+                    <BarChart3 size={16} />
+                       Generate Trophies
+                     </button>
+                   )}
 
-                  {!isTournamentActive && (
+                   {onGenerateActivityReport && (
+                     <button
+                       onClick={() => {
+                         console.debug(">>> [SETTINGS ACTION] Generate Activity Report");
+                         debugClick("Settings:Generate Activity Report");
+                         saveForAction();
+                         onClose();
+                         onGenerateActivityReport();
+                       }}
+                       style={{
+                         width: "100%",
+                         display: "flex",
+                         alignItems: "center",
+                         justifyContent: "center",
+                         gap: "0.5rem",
+                         padding: "0.75rem",
+                         backgroundColor: "#8b5cf6",
+                         color: "white",
+                         border: "none",
+                         borderRadius: "0.25rem",
+                         cursor: "pointer",
+                         fontSize: "0.875rem",
+                         fontWeight: "500",
+                       }}
+                     >
+                       <BarChart3 size={16} />
+                       Generate Activity Report
+                     </button>
+                   )}
+
+                   {!isTournamentActive && (
                     <>
                       <button
                         onClick={handleNewDay}

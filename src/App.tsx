@@ -532,6 +532,23 @@ const handleClearAll = async () => {
     }
   };
 
+  const handleGenerateActivityReport = async () => {
+    try {
+      const blob = await dataService.generateActivityReport();
+      const segments = window.location.pathname.split('/').filter(Boolean);
+      let prefix: string;
+      if (segments.length > 0 && segments[0] !== 'dist') {
+        prefix = segments[0];
+      } else {
+        prefix = window.location.hostname;
+      }
+      downloadBlob(blob, `${prefix}-activity_${new Date().toISOString().split('T')[0]}.tab`);
+    } catch (error) {
+      console.error('Failed to generate activity report:', error);
+      alert('Failed to generate activity report: ' + (error as Error).message);
+    }
+  };
+
   const handleSaveSettingsForAction = (settings: { showRatings: boolean[]; debugLevel: number; kFactor: number }, userSettings: UserSettings) => {
     saveSettings(settings);
     saveUserSettings(userSettings);
@@ -778,7 +795,8 @@ onTitleSwitch={handleTitleSwitch}
            onImportTournamentFiles={isAdmin ? handleImportTournamentFiles : undefined}
            onImportSingleMiniGame={isAdmin ? handleImportSingleMiniGame : undefined}
            onGenerateTrophies={isAdmin ? handleGenerateTrophies : undefined}
-isTournamentActive={tournamentActive}
+            onGenerateActivityReport={isAdmin ? handleGenerateActivityReport : undefined}
+ isTournamentActive={tournamentActive}
            isAdmin={isAdmin}
            onToggleAdmin={toggleAdminRef.current}
 onSaveBeforeAction={handleSaveSettingsForAction}

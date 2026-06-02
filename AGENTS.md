@@ -95,3 +95,6 @@ See [ADD_PLAYER_FLOW_TRACE.md](./ADD_PLAYER_FLOW_TRACE.md) for step-by-step cons
 ## Recent Changes Summary
 - `console.clear()` removed from `ErrorDialog.tsx` and `LadderForm.tsx` to preserve console traces during debugging.
 - `AddPlayerDialog.tsx` now includes a Trophy `+`/`-` toggle button. `trophyEligible` is no longer hardcoded to `true`; user selects before submitting.
+- Duplicate `Ctrl+C` handler removed from `LadderForm.tsx` — only `ErrorDialog.tsx` handles `Ctrl+C` (Clear All Matching Cells in correction mode, Cancel in Enter Games mode).
+- Clear Cell behavior: dialog stays open and advances to next error after clearing, enabling batch clearing of matching cells.
+- Keyboard shortcuts documented: `Ctrl+E` (Enter_Recalculate_Save), `Ctrl+O` (Override mode), `Ctrl+1`-`Ctrl+9` (ladder switching).

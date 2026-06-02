@@ -225,19 +225,34 @@ Access: Sort menu (Admin mode required)
 
 **Note:** Sorting is display-only — does not change actual rank assignments.
 
-### Sorting Players
+### Keyboard Shortcuts
 
-Access: Sort menu (Admin mode required)
+#### Enter Games Mode
 
-| Option | Description | Use Case |
-|--------|-------------|----------|
-| By Rank | Numerical order (1, 2, 3...) | Default view |
-| By Last Name | Alphabetical by surname | Finding specific players |
-| By First Name | Alphabetical by given name | Alternative lookup |
-| By New Rating | Highest to lowest | Current standings |
-| By Previous Rating | Highest to lowest old rating | Comparing changes |
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+E` | Enter_Recalculate_Save (save, recalculate, next cell) |
+| `Ctrl+S` | Save current entry |
+| `Ctrl+C` | Cancel and close dialog |
+| `Ctrl+O` | Toggle Override mode (skip format validation) |
+| `Escape` | Close dialog |
 
-**Note:** Sorting is display-only — does not change actual rank assignments.
+#### Error Correction Mode
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+S` | Submit Correction |
+| `Ctrl+C` | Clear All Matching Cells |
+| `Ctrl+X` | Cancel and close dialog |
+| `Ctrl+N` | Next error |
+| `Ctrl+P` | Previous error |
+
+#### Ladder Navigation
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+1` | Switch to Ladder (club ladder) |
+| `Ctrl+2`–`Ctrl+9` | Switch to mini-game ladder (if file exists on server) |
 
 ---
 

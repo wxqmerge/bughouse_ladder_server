@@ -104,8 +104,11 @@ Best for systematically entering all games round by round.
 5. Repeat until all games entered
 
 **Keyboard shortcuts:**
-- `Enter` or `Ctrl+S`: Save and move to next cell
-- `Escape` or `Ctrl+X`: Cancel and exit
+- `Ctrl+E`: Enter_Recalculate_Save — save, recalculate ratings, jump to next cell
+- `Ctrl+S`: Save current entry
+- `Ctrl+C`: Cancel and close dialog
+- `Ctrl+O`: Toggle Override mode (skip format validation)
+- `Escape`: Close dialog
 
 ### Method 3: Error Correction Entry
 
@@ -115,6 +118,8 @@ Best for fixing invalid or conflicting results detected by Check Errors.
 2. Dialog shows original string, error message, affected round/player
 3. Enter corrected result → click "Submit Correction"
 4. Automatically moves to next error (if any)
+
+**Clear Cell:** Click "Clear All Matching Cells" (or press `Ctrl+C`) to clear the current cell and all other cells with the same result string across all players. The dialog stays open and advances to the next error, allowing you to clear multiple matching cells in sequence without re-opening the dialog.
 
 ### Method 4: Bulk Paste
 
@@ -279,14 +284,32 @@ Click **Operations → Enter Games**, enter results, click "Enter_Recalculate_Sa
 
 ### Keyboard Shortcuts
 
+#### Enter Games Mode
+
 | Shortcut | Action |
 |----------|--------|
+| `Ctrl+E` | Enter_Recalculate_Save (save, recalculate, next cell) |
 | `Ctrl+S` | Save current entry |
-| `Ctrl+C` | Clear cell |
-| `Ctrl+X` | Close dialog |
-| `Ctrl+N` | Next error (correction mode) |
-| `Ctrl+P` | Previous error (correction mode) |
+| `Ctrl+C` | Cancel and close dialog |
+| `Ctrl+O` | Toggle Override mode (skip format validation) |
 | `Escape` | Close dialog |
+
+#### Error Correction Mode
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+S` | Submit Correction |
+| `Ctrl+C` | Clear All Matching Cells |
+| `Ctrl+X` | Cancel and close dialog |
+| `Ctrl+N` | Next error |
+| `Ctrl+P` | Previous error |
+
+#### Ladder Navigation
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+1` | Switch to Ladder (club ladder) |
+| `Ctrl+2`–`Ctrl+9` | Switch to mini-game ladder (if file exists on server) |
 
 ### Verification Checklist
 
