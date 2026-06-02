@@ -257,8 +257,8 @@ export default function RestoreBackupDialog({
               <thead>
                 <tr style={{ backgroundColor: "#f9fafb" }}>
                   <th style={{ padding: "0.5rem", textAlign: "center", borderBottom: "1px solid #e5e7eb", fontWeight: 600 }}>Actions</th>
-                  <th style={{ padding: "0.5rem", textAlign: "center", borderBottom: "1px solid #e5e7eb", fontWeight: 600, width: "60px" }}>Players</th>
-                  <th style={{ padding: "0.5rem", textAlign: "center", borderBottom: "1px solid #e5e7eb", fontWeight: 600, width: "200px" }}>Game Results</th>
+                 <th style={{ padding: "0.5rem", textAlign: "center", borderBottom: "1px solid #e5e7eb", fontWeight: 600, width: "80px" }}>Players/Reports</th>
+                      <th style={{ padding: "0.5rem", textAlign: "center", borderBottom: "1px solid #e5e7eb", fontWeight: 600, width: "200px" }}>Sample Results</th>
                   <th style={{ padding: "0.5rem", textAlign: "left", borderBottom: "1px solid #e5e7eb", fontWeight: 600 }}>Timestamp</th>
                   <th style={{ padding: "0.5rem", textAlign: "right", borderBottom: "1px solid #e5e7eb", fontWeight: 600 }}>Backup</th>
                 </tr>
@@ -329,8 +329,14 @@ export default function RestoreBackupDialog({
                        </div>
                      </td>
                      <td style={{ padding: "0.5rem", textAlign: "center", fontWeight: 600, color: "#374151" }}>
-                       {previewPlayers[backup.filename]?.length ?? (previewLoading[backup.filename] ? '-' : '-')}
-                     </td>
+                        {previewPlayers[backup.filename] ? (() => {
+                          const players = previewPlayers[backup.filename].length;
+                          const reports = previewPlayers[backup.filename].reduce((sum, p) => {
+                            return sum + (p.gameResults || []).filter((r) => r && r.trim() !== "").length;
+                          }, 0);
+                          return `${players}/${reports}`;
+                        })() : (previewLoading[backup.filename] ? '-' : '-')}
+                      </td>
                      <td style={{ padding: "0.5rem", textAlign: "center" }}>
                        {previewLoading[backup.filename] ? (
                          <Loader2 size={14} style={{ animation: "spin 1s linear infinite", display: "inline-block" }} />

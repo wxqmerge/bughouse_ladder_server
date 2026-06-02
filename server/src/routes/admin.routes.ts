@@ -813,6 +813,91 @@ async function createZipBuffer(files: ZipEntry[]): Promise<Buffer> {
   });
 }
 
+// Generate activity report: Rank, Last Name, First Name, Club Games, Mini Total
+router.get('/activity-report', async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const ladderData = await readLadderFile();
+    const clubPlayers = ladderData.players || [];
+
+    // Count club games per rank
+    const clubGames = new Map<number, number>();
+    for (const p of clubPlayers) {
+      const count = (p.gameResults || []).filter((r: string | null) => r && r.trim() !== '').length;
+      clubGames.set(p.rank, count);
+    }
+
+    // Count per-mini-game results per rank
+    const miniGameCounts = new Map<string, Map<number, number>>();
+    for (const miniFile of MINI_GAME_FILES) {
+      try {
+        const miniData = await readMiniGameFile(miniFile);
+        if (!miniData || !miniData.players) continue;
+        const counts = new Map<number, number>();
+        for (const p of miniData.players) {
+          const count = (p.gameResults || []).filter((r: string | null) => r && r.trim() !== '').length;
+          if (count > 0) counts.set(p.rank, count);
+        }
+        miniGameCounts.set(miniFile, counts);
+      } catch {
+        // File doesn't exist, skip
+      }
+    }
+
+    // Active mini-game files (those with at least one game)
+    const activeMiniGames = [...miniGameCounts.entries()].filter(([_, counts]) => counts.size > 0);
+
+    // Player map
+    const playerMap = new Map<number, typeof clubPlayers[0]>();
+    for (const p of clubPlayers) {
+      playerMap.set(p.rank, p);
+    }
+
+    // ── Section 1: Club Ladder ──
+    const clubHeader = 'Rank\tLast Name\tFirst Name\tClub Games';
+    const clubRows: string[] = [];
+    const clubRanks = [...clubGames.entries()].filter(([_, c]) => c > 0).map(([rank]) => rank).sort((a, b) => a - b);
+    for (const rank of clubRanks) {
+      const player = playerMap.get(rank);
+      if (!player) continue;
+      clubRows.push(`${rank}\t${player.lastName}\t${player.firstName}\t${clubGames.get(rank)}`);
+    }
+
+    // ── Section 2: Mini-Games ──
+    const miniLabels = activeMiniGames.map(([file]) => file.replace('.tab', ''));
+    const miniHeader = `Rank\tLast Name\tFirst Name\tMini Total\t${miniLabels.join('\t')}`;
+    const miniRows: string[] = [];
+    const allMiniRanks = new Set<number>();
+    for (const [, counts] of activeMiniGames) {
+      for (const rank of counts.keys()) allMiniRanks.add(rank);
+    }
+    const sortedMiniRanks = [...allMiniRanks].sort((a, b) => a - b);
+    for (const rank of sortedMiniRanks) {
+      const player = playerMap.get(rank);
+      if (!player) continue;
+      const cols = activeMiniGames.map(([file, counts]) => counts.get(rank) || 0);
+      const total = cols.reduce((s, v) => s + v, 0);
+      miniRows.push(`${rank}\t${player.lastName}\t${player.firstName}\t${total}\t${cols.join('\t')}`);
+    }
+
+    // Combine sections
+    const dateStr = new Date().toISOString().split('T')[0];
+    const section1 = [clubHeader, ...clubRows].join('\n');
+    const section2 = activeMiniGames.length > 0 ? [miniHeader, ...miniRows].join('\n') : '';
+    const content = [section1, section2].filter(Boolean).join('\n\n') + '\n';
+    const blob = Buffer.from(content, 'utf-8');
+
+    res.setHeader('Content-Type', 'text/tab-separated-values');
+    res.setHeader('Content-Disposition', `attachment; filename=activity_${dateStr}.tab`);
+    res.send(blob);
+  } catch (error) {
+    console.error('Activity report error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to generate activity report' },
+    });
+  }
+});
+
 // Export all data TAB files (ladder + mini-games) into a zip
 router.get('/export-mini-data', async (_req: Request, res: Response): Promise<void> => {
   try {
