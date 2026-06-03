@@ -1,7 +1,5 @@
 # Bughouse Chess Ladder - Architecture Documentation
 
-**Version: 1.3.6**
-
 Technical deep-dive for developers. For deployment see [README_INSTALL.md](./README_INSTALL.md), for security see [SECURITY.md](./SECURITY.md), for admin operations see [ADMIN_MANUAL.md](./ADMIN_MANUAL.md).
 
 ## System Overview
@@ -424,7 +422,7 @@ Browser B clicks "Push to Server":
 
 ## Configuration Reference
 
-### Server URL Resolution (v1.2.2+)
+### Server URL Resolution
 
 Priority order for determining the server URL:
 
@@ -472,7 +470,7 @@ Auto-detection works because frontend and backend share the same origin per subd
 
 **VB6 Ladder Format (Original):**
 ```
-Group	Last Name	First Name	Rating	Rnk	N Rate	Gr		X	Phone	Info	School	Room	1	2	...	31	Version 1.21
+Group	Last Name	First Name	Rating	Rnk	N Rate	Gr		X	Phone	Info	School	Room	1	2	...	31
 A1	Smith	John	1200	1	1250	1st		X	555-1234				4W5	6L7	...		
 ```
 
@@ -578,7 +576,7 @@ When loading a file in admin/server mode, a confirmation dialog appears before p
 **Tradeoff:** Complex change tracking on both sides
 
 ### 4. Server-Sent Events (SSE) — ✅ Implemented
-**Status:** Active since v1.2.2
+**Status:** Active
 **Implementation:** `EventSource` client + SSE broadcast service on server
 **Benefit:** Instant updates (< 100ms) with HTTP compatibility, auto-reconnect, nginx-friendly
 **Fallback:** Polling every 5.5s with overlap guard

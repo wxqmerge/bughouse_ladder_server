@@ -1,502 +1,138 @@
 # Bughouse Chess Ladder - Administrator Manual
- 
-**Version: 1.3.6**
- 
-## Table of Contents
 
-1. [Introduction](#introduction)
-2. [Admin Mode](#admin-mode)
-3. [Server Configuration](#server-configuration)
-4. [Data Management](#data-management)
-5. [Player Management](#player-management)
-6. [Rating Calculation](#rating-calculation)
-7. [New Day Processing](#new-day-processing)
-8. [Backup System](#backup-system)
-9. [Troubleshooting](#troubleshooting)
-10. [Appendix A: Rating Algorithm Details](#appendix-a-rating-algorithm-details)
-11. [Appendix B: Settings Dialog Reference](#appendix-b-settings-dialog-reference)
-12. [Admin API Reference](#admin-api-reference)
-
----
-
-## Introduction
-
-This manual covers administrative functions for managing the Bughouse Chess Ladder system. It assumes familiarity with the [User Manual](./USER_MANUAL.md)'s game entry and error correction procedures.
-
+For standard game entry, error correction, and result formats, see the [User Manual](./USER_MANUAL.md).
 **Access levels and API keys are documented in [SECURITY.md](./SECURITY.md).**
 
 ---
 
 ## Admin Mode
 
-### Enabling Admin Mode
-
-Admin mode is toggled via **Operations → Admin Mode** (or **Exit Admin Mode** when active).
-
-**Visual indicators of admin mode:**
-- File menu appears (Load, Export)
-- Sort menu appears (5 sorting options)
-- Add Player, Delete Hidden Players options visible in Operations menu
-- Project name becomes editable in header
-- Trophy column (T) appears between nRating and grade
-
-### When Admin Mode is Disabled
-
-Admin mode is automatically disabled when connected to a server without an admin API key. This prevents unauthorized administrative changes on shared servers. See [SECURITY.md](./SECURITY.md) for access levels.
+Admin mode is toggled via **Operations → Admin Mode**. Only one client per server can hold the lock; others will see an override dialog (30s countdown).
 
 ### Admin-Only Features
-
 | Feature | Location | Purpose |
-|---------|----------|--------|
-| Load Data | File → Load | Import .tab/.xls files |
-| Export Data | File → Export | Download current ladder |
-| Title Menu | File → (dropdown) | Switch title among 8 options |
-| Sort Options | Sort menu | Reorder player display |
-| Add Player | Operations → Add Player | Create new player entries |
-| Delete Hidden Players | Operations → Delete Hidden Players | Review and delete hidden (or all) players |
-| Restore Backup | Operations → Restore Backup | Browse/restore/delete server backups |
-| Edit Project Name | Header (click title) | Change ladder name |
+| :--- | :--- | :--- |
+| **Load Data** | File → Load | Import `.tab`/`.xls`/`.txt` |
+| **Export Data** | File → Export | Download current ladder |
+| **Title Menu** | File → (dropdown) | Switch project title |
+| **Sort Options** | Sort menu | Reorder player display |
+| **Add Player** | Operations → Add Player | Create new player entries |
+| **Delete Hidden** | Operations → Delete Hidden | Review/delete hidden players |
+| **Restore Backup**| Operations → Restore Backup| Manage server backups |
+| **Edit Title** | Header (click title) | Change ladder name |
 
-### Admin Lock
-
-When multiple clients connect to the same server, only one can hold admin mode at a time. If another client already has admin mode, you'll see an override dialog with a 30-second countdown timer. You can force-acquire the lock when the timer expires.
+**Visual Indicators:** File/Sort menus appear, Add Player/Delete Hidden options become visible, Trophy (T) column appears.
 
 ---
 
-## Server Configuration
+## Server & Settings
 
-### Auto-Detect (Default)
-
-When no manual config exists, the app auto-detects the server from `window.location.origin` via `GET /health` (3s timeout). Works because frontend and backend share the same origin per subdomain.
-
-### Settings Dialog
-
-Access: **Operations → Settings** (always available, even without admin mode).
-
-1. The server URL field is pre-filled with your current location
-2. Modify if needed, optionally enter API key
-3. Click **Save** — page reloads with new configuration
+Access settings via **Operations → Settings**.
 
 ### Connection Modes
+- **Local:** Uses browser `localStorage`.
+- **Server:** Connects to production server (auto-detected via `GET /health`). Requires an API key for Admin mode.
 
-| Mode | Description | Use Case |
-|------|-------------|----------|
-| **Local** | Browser localStorage only | Testing, offline use |
-| **Server** | Connects to production server (auto-detected) | Shared data access |
-
-**Production servers require an API key.** Without a valid key, the client runs in view-only mode (blue menu bar, all edit operations disabled). Admin mode is also disabled without an admin key.
-
-### Quick Setup via URL
-
-Share a single URL to auto-configure any client (overrides auto-detect):
-
-```
-http://your-domain.com/?config=1&server=http://your-server:port&key=your-api-key-here
-```
-
----
-
-## Data Management
-
-### Loading Data Files
-
-**Supported formats:** `.tab`, `.xls` (VB6 Excel files in .tab format), `.txt`
-
-#### Loading Procedure
-
-1. Ensure Admin Mode is enabled
-2. Go to **File → Load** (or drag & drop .tab/.xls/.txt file)
-3. Select file
-4. In server mode, a confirmation dialog shows:
-   - Filename, player count, rounds filled, estimated games played
-5. Click **Accept & Save to Server** to push data, or **Decline** to restore from server
-
-#### Post-Load Actions
-
-After loading, the system parses player data, validates result strings, calculates initial ratings if new ratings not provided, and displays any format errors.
-
-### Exporting Data
-
-1. Go to **File → Export**
-2. File downloaded with format: `{FirstWordOfProjectName}_timestamp.tab` (e.g., `BG_Game_2026-04-20T14-30-22-123Z.tab`)
-3. Contains all player data, game results, current ratings, version header
-
-### Multi-Client Synchronization
-
-In server mode, changes are synchronized automatically via 5-second polling with change detection. See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full sync algorithm and diagrams.
+### Settings Content (Admin Only)
+| Section | Item | Description |
+| :--- | :--- | :--- |
+| **Configuration** | Show Ratings | Toggle visibility of rating columns |
+| | Debug Level | 0 (all) to 10+ (critical) |
+| | K-Factor | Elo volatility (default 20, range 1–100) |
+| **Actions** | New Day | Finalize ratings, advance title, clear results |
+| | New Day + Re-rank | Same as above, plus re-sort by rating |
+| | Clear All | Wipe all player data from grid |
+| | Set Sample Data | Reset to sample dataset |
 
 ---
 
 ## Player Management
 
-### Adding Players (Dialog)
+### Adding & Editing
+| Method | How to Use |
+| :--- | :--- |
+| **Dialog** | **Operations → Add Player** |
+| **Inline Row** | Type in the empty row at bottom. **Ctrl+Enter** to create. |
+| **Bulk Paste** | Copy spreadsheet rows → Click inline row → **Ctrl+V**. |
+| **Main Table** | Click any cell in admin mode to edit. |
 
-1. Go to **Operations → Add Player** (Admin mode required)
-2. Fill in fields: Rank (auto-assigned), Group, Last Name, First Name, Rating, Grade, Phone, School, Room, Info
-3. Click "Add Player"
+**Bulk Paste Mapping:** The starting column determines mapping (e.g., paste into **Group** → `Group \| LastName \| FirstName \| ...`).
 
-### Adding Players (Inline Row)
-
-When admin mode is enabled, an editable empty row appears at the bottom of the player table. You can type player data directly into the cells:
-
-1. Click into any editable cell in the bottom row
-2. Fill in fields — **Enter** or **Tab** moves to the next column, **Shift+Tab** moves backward
-3. **Ctrl+Enter** creates the player immediately (requires First Name + Last Name filled)
-4. When both **First Name** and **Last Name** are filled, the player is automatically created and the row resets
-5. Press **Escape** to clear focus without creating
-
-**Keyboard navigation:**
-- **Enter** — move to next column
-- **Tab** — move to next column
-- **Shift+Tab** — move to previous column
-- **Ctrl+Enter** — create player from current row data
-- **Escape** — cancel focus
-
-**Auto-assignment (both methods):**
-- Rank: max existing rank + 1 (read-only in inline row)
-- Attendance: set to rank number
-- Game Results: 31 empty slots
-- New Rating: starts at 0 (calculated on first Recalculate_Save)
-
-### Bulk Pasting Players
-
-You can paste multiple players from a spreadsheet (Excel, Google Sheets) into the inline empty row:
-
-1. Copy player rows from your spreadsheet (tab-separated columns)
-2. Click into the starting column of the inline row that matches your data layout
-3. Press **Ctrl+V** to paste
-4. Each complete row (with both First Name and Last Name) is created as a player
-5. If the last row is incomplete, it stays in the inline row for continued typing
-6. A toast notification shows how many players were added
-
-**Dynamic field mapping:** The starting column determines what each pasted column represents:
-- Paste into **Group** column → maps: Group | LastName | FirstName | Rating | ...
-- Paste into **LastName** column → maps: LastName | FirstName | Rating | ...
-- Paste into **FirstName** column → maps: FirstName | Rating | nRating | ...
-
-**Auto-fill:** When pasting, empty values for Group, School, Room, and Grade are copied from the previous player in the list. This is useful when pasting a roster where most fields are identical.
-
-**Trophy column:** The Trophy cell (T) shows "+" or "−" and can be edited by typing directly. Use "−" to set `trophyEligible: false`, anything else for `true`.
-
-### Editing Existing Players (Main Table)
-
-In admin mode, all cells in the main player table are editable. Keyboard navigation works like a spreadsheet:
-
-- **Enter** — moves to the next cell down (same column, next player row). Special case: from FirstName, moves to LastName of the next player.
-- **Tab** — moves to the next cell right (same row, next column)
-- **Shift+Tab** — moves to the previous cell left (same row, previous column)
-- **Escape** — blurs the cell without saving
-
-**Multi-row paste:** You can paste multiple rows of data into any cell. Values fill cells sequentially, wrapping to the next player row when reaching the end of the current row.
-
-**Trophy column:** Click to focus the cell, then type "+" or "−". Enter/Tab saves the value. The value is normalized on save: any input containing "−" sets `trophyEligible: false`, otherwise `true`.
-
-### Hiding Players
-
-Players whose **Group** field ends with "x" (case-insensitive) are hidden in user/view modes but remain visible in admin mode. This allows administrators to mark players as inactive without deleting them.
-
-**Example:** A player with Group "A1x" is visible in admin mode but hidden when viewing the ladder as a non-admin user.
-
-### Deleting Players
-
-#### Hidden Players
-
-1. Go to **Operations → Delete Hidden Players** (Admin mode required)
-2. A dialog shows the first hidden player (group ends with "x") with their full details and game results
-3. Click **Delete** to remove the player, or **Skip** to keep them and review the next hidden player
-4. The dialog cycles through all hidden players one at a time
-5. When all hidden players have been reviewed, the remaining players are saved
-
-#### Any Player (when no hidden players exist)
-
-If there are no hidden players (no groups ending with "x"), the same menu opens the dialog with all players listed. You can review and delete any player using the same Delete/Skip workflow.
-
-### Sorting Players
-
-Access: Sort menu (Admin mode required)
-
-| Option | Description | Use Case |
-|--------|-------------|----------|
-| By Rank | Numerical order (1, 2, 3...) | Default view |
-| By Last Name | Alphabetical by surname | Finding specific players |
-| By First Name | Alphabetical by given name | Alternative lookup |
-| By New Rating | Highest to lowest | Current standings |
-| By Previous Rating | Highest to lowest old rating | Comparing changes |
-
-**Note:** Sorting is display-only — does not change actual rank assignments.
-
-### Keyboard Shortcuts
-
-#### Enter Games Mode
-
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl+E` | Enter_Recalculate_Save (save, recalculate, next cell) |
-| `Ctrl+S` | Save current entry |
-| `Ctrl+C` | Cancel and close dialog |
-| `Ctrl+O` | Toggle Override mode (skip format validation) |
-| `Escape` | Close dialog |
-
-#### Error Correction Mode
-
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl+S` | Submit Correction |
-| `Ctrl+C` | Clear All Matching Cells |
-| `Ctrl+X` | Cancel and close dialog |
-| `Ctrl+N` | Next error |
-| `Ctrl+P` | Previous error |
-
-#### Ladder Navigation
-
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl+1` | Switch to Ladder (club ladder) |
-| `Ctrl+2`–`Ctrl+9` | Switch to mini-game ladder (if file exists on server) |
+### Hiding & Deleting
+- **Hiding:** Add `x` to the end of a player's **Group** (e.g., `A1x`).
+- **Deleting:** **Operations → Delete Hidden Players** cycles through all players with `x` in Group. If no `x` exists, it cycles through all players.
 
 ---
 
-## Rating Calculation
+## Operations
 
 ### Recalculate_Save
+**Operations → Recalculate_Save** validates results, calculates new ratings (using hybrid Elo/blending), and saves. 
+- **K-Factor:** Configurable in Settings.
+- **Trophy:** Any value containing "−" sets `trophyEligible: false`; otherwise `true`.
 
-Access: **Operations → Recalculate_Save**
+### New Day Processing
+1. **Title Progression:** Cycles through tournament names.
+2. **Rating Finalization:** "New Rating" moves to "Previous Rating"; `nRating` resets.
+3. **Data Reset:** Game results cleared; attendance reset/incremented.
+4. **Re-ranking:** Optional re-sort by rating.
 
-#### What It Does
-
-1. **Validates all game results** — checks format, verifies player existence, detects conflicts
-2. **Processes game results** — parses strings, builds match database, identifies pairings
-3. **Calculates new ratings** — applies hybrid Elo/blending formula (see [Appendix A](#appendix-a-rating-algorithm-details))
-4. **Updates statistics** — recalculates game counts, win/loss/draw records
-5. **Saves to storage** — localStorage (local) or PUT request (server)
-
-#### Error Handling
-
-If errors are found:
-1. Recalculation pauses before applying rating changes
-2. Error dialog shows the first error with original string and message
-3. Options: Submit Correction, Clear Cell, Cancel
-
-#### K-Factor
-
-Configurable in **Operations → Settings**. Default: **20** (range 1–100). Higher K = more volatile ratings. Lower K = more stable.
-
-#### Trophy Normalization
-
-During Recalculate_Save, the Trophy field (trophyEligible) is normalized:
-- Any value containing "−" (dash) → `trophyEligible: false`
-- Any other value → `trophyEligible: true`
-
-This ensures consistency even if the field contains mixed or malformed entries like "+-" or "-+".
+### Backup System
+Server maintains 20 automatic backups (`ladder_backup_YYYYMMDD_HHMMSS.tab`).
+- **UI:** **Operations → Restore Backup** to browse, restore, or delete.
+- **API:** `GET /api/admin/backups`, `POST /api/admin/backups/restore/:filename`, `DELETE /api/admin/backups/:filename`.
 
 ---
 
-## New Day Processing
+## Keyboard Shortcuts (Unique)
 
-### What Changes
-
-1. **Title Progression** — BG_Game → Bishop_Game → Pillar_Game → Kings_Cross → Pawn_Game → Queen_Game → (cycles)
-2. **Rating Finalization** — "New Rating" moves to "Previous Rating", nRating resets to 0, calculations start fresh
-3. **Game Results Cleared** — all game result cells are cleared
-4. **Attendance Tracking** — reset to 0 if player had games; incremented by 1 if absent
-5. **Re-ranking Option** — players re-sorted by rating, ranks updated
-
-### Procedure
-
-1. Ensure all games entered and recalculated
-2. Review new ratings
-3. Process new day
-4. Confirm changes — data saved automatically
-
----
-
-## Backup System
-
-The server maintains up to 20 automatic backups of `ladder.tab`, each created before a write operation. Backups are named with timestamps: `ladder_backup_YYYYMMDD_HHMMSS.tab`.
-
-### Restoring from Backup (UI)
-
-1. Go to **Operations → Restore Backup** (admin mode required)
-2. A dialog shows all available backups with timestamps and game result previews
-3. Click **Restore** to apply, or **Delete** to remove a specific backup
-4. In admin mode, a confirmation preview appears before applying
-
-### Restoring from Backup (API)
-
-1. **List backups:** Send `GET /api/admin/backups` — returns all backups with version numbers and timestamps
-2. **Restore:** Send `POST /api/admin/backups/restore/ladder_backup_20250420_143022.tab`
-
-### Deleting a Backup
-
-Send `DELETE /api/admin/backups/ladder_backup_20250420_143022.tab`
-
-### Automatic Rotation
-
-When more than 20 backups exist, the oldest are automatically deleted.
-
-### Server Statistics
-
-Access: `GET /api/admin/stats` — returns total players, total games, last modified timestamp.
+| Shortcut | Action |
+| :--- | :--- |
+| `Ctrl+1` | Switch to Club Ladder |
+| `Ctrl+2`–`Ctrl+9` | Switch to Mini-game Ladders |
+| `Ctrl+N` | Next error (Error Correction mode) |
+| `Ctrl+P` | Previous error (Error Correction mode) |
+| `Ctrl+X` | Cancel/Close dialog (Error Correction mode) |
 
 ---
 
 ## Troubleshooting
 
-### Data Not Syncing to Server
-
-**Symptoms:** Changes visible locally but not on other clients
-
-1. Check browser console for errors
-2. Verify server URL is correct
-3. Check network tab for failed PUT requests
-4. Reload browser
-
-### Rating Calculation Seems Wrong
-
-1. Run Check Errors first
-2. Review recent game entries
-3. Verify opponent entries match
-
-### Players Missing After Load
-
-1. Check file format
-2. Look for parse errors in console
-3. Verify column alignment
-
-### Server Logs
-
-```bash
-# Application logs (systemd)
-sudo journalctl -u bughouse-ladder -f
-
-# Direct server output
-cd /var/www/bughouse-ladder/server && NODE_ENV=production node dist/index.js
-```
-
-### Server Down Mode
-
-When the configured server becomes unreachable, a ⚠️ SERVER DOWN badge appears in the header. Admin mode remains available in this mode, and local changes are tracked for later sync when the server returns.
+- **Sync Issues:** Check browser console; verify Server URL; check Network tab for failed `PUT` requests.
+- **Rating Anomalies:** Run **Operations → Check Errors**; verify opponent entries match.
+- **Server Down:** A ⚠️ **SERVER DOWN** badge appears. Admin mode still works locally; changes sync on reconnect.
+- **Logs:** Use `sudo journalctl -u bughouse-ladder -f` for application logs.
 
 ---
 
-## Appendix A: Rating Algorithm Details
+## Appendix A: Rating Algorithm
 
-The rating system uses a **two-phase hybrid algorithm** that blends performance-based and Elo-based calculations depending on player experience.
-
-### Phase 1: Expected Score
-
-For every match, the expected score for side 0 is computed using a logistic formula:
-
-```
-Expected = 1 / (1 + 10^((OpponentSideRating - YourSideRating) / 400))
-```
-
-For 2-player games, each player's side rating is their own rating. For 4-player games, each side's rating is the average of the two teammates' ratings.
-
-### Phase 2: Win/Loss/Draw Performance
-
-Each game result contributes ±0.5 to a performance accumulator:
-- Win (score=3): side 0 gets +0.5, side 1 gets -0.5
-- Loss (score=1): side 0 gets -0.5, side 1 gets +0.5
-- For 4-player games, both game results are accumulated
-
-### Phase 3: Rating Update (Two Formulas)
-
-**Players with ≤ 9 games — Blending Formula:**
-
-```
-PerfRating = max(0, PlayerRating × BlendingFactor + PerfMultiplier × WLD_Perfs)
-New nRating = abs((Old_nRating × Games_Played × BlendingFactor + PerfRating) / (Games_Played + 1))
-```
-
-- BlendingFactor: default **0.99** (configurable via settings)
-- PerfMultiplier: **400** for 2-player, **200** per result for 4-player
-
-**Players with ≥ 10 games — Elo Formula:**
-
-```
-Elo_Perf = WLD_Perfs + ExpectedMult × (0.5 - Expected)
-New nRating = abs(Old_nRating + Elo_Perf × K_Factor)
-```
-
-- ExpectedMult: **1** for 2-player, **2** for 4-player
-- K_Factor: default **20** (configurable in Settings, range 1–100)
-
-### Double-Pass Calculation
-
-Ratings are calculated in **two passes** over all matches. The first pass updates working ratings, and the second pass re-applies calculations using the intermediate results. This produces smoother convergence for players with multiple games on the same day.
-
-### 4-Player vs 2-Player Differences
-
-| Aspect | 2-Player | 4-Player |
-|--------|----------|----------|
-| Side rating | Individual | Average of 2 teammates |
-| PerfMultiplier | 400 | 200 per result |
-| ExpectedMult | 1 | 2 |
-| Results per match | 1 | 2 |
-
-### Key Parameters (Configurable in Settings)
-
-| Parameter | Default | Range | Effect |
-|-----------|---------|-------|--------|
-| K-Factor | 20 | 1–100 | Elo volatility (games ≥ 10) |
-| Blending Factor | 0.99 | — | Weight on previous rating (games ≤ 9) |
-| Perf Multiplier Scale | 1 | — | Scales 2-player perf multiplier (400 × scale) |
+Uses a **two-phase hybrid algorithm**:
+1. **Phase 1 (Expected Score):** Logistic formula based on side ratings (average of teammates for 4-player).
+2. **Phase 2 (Performance):** Accumulates $\pm 0.5$ per result.
+3. **Phase 3 (Update):**
+   - **$\le 9$ games (Blending):** $New\ nRating = \text{abs}(\frac{Old\_nRating \times Games \times BlendingFactor + PerfRating}{Games + 1})$
+   - **$\ge 10$ games (Elo):** $New\ nRating = \text{abs}(Old\_nRating + (WLD\_Perfs + ExpectedMult \times (0.5 - Expected)) \times K\_Factor)$
 
 ---
 
-## Appendix B: Settings Dialog Reference
-
-Access: **Operations → Settings**
-
-### Configuration Panel (Admin Mode Only)
-
-| Setting | Description |
-|---------|-------------|
-| Show Ratings | Toggle visibility of rating columns (A1-A8, I1-I8, Z1-Z8 groups) |
-| Debug Level | 0 = all logs, 5 = default, 10+ = critical |
-| K-Factor | Elo volatility: 1–100 (default 20) |
-
-### Actions Panel (Admin Mode Only)
-
-These buttons only appear when admin mode is enabled.
-
-| Button | Action |
-|--------|--------|
-| New Day | Finalize ratings, advance title, clear game results, reset attendance |
-| New Day + Re-rank | Same as New Day, plus re-sort players by rating and update ranks |
-| Walk Through Reports | Step through report dialog |
-| Clear All | Clear all player data from grid |
-| Set Sample Data | Reset to sample dataset (with confirmation) |
-
-### Server Connection Panel
-
-| Field | Description |
-|-------|-------------|
-| Server URL | API server address (leave empty for local mode) |
-| API Key | Required if server has admin protection enabled |
-| Debug Mode | Checkbox: show extra info in dialogs |
-| Restore Last Server Config | One-click restore of last working server + key |
-
-## Admin API Reference
-
-The following endpoints require an admin API key.
+## Appendix B: Admin API Reference
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/admin/upload` | Upload .tab/.xls file |
-| `GET` | `/api/admin/export` | Export as .tab file |
-| `GET` | `/api/admin/backups` | List available backups |
-| `POST` | `/api/admin/backups/restore/:filename` | Restore a specific backup |
-| `DELETE` | `/api/admin/backups/:filename` | Delete a specific backup |
-| `POST` | `/api/admin/tournament/save-mini-game` | Save mini-game file |
-| `GET` | `/api/admin/tournament/read-mini-game` | Read mini-game file |
-| `POST` | `/api/admin/tournament/write-mini-game` | Write mini-game file |
-| `POST` | `/api/admin/tournament/copy-players` | Copy players to new mini-game file |
-| `GET` | `/api/admin/tournament/export` | Export tournament files (ZIP) |
+| :--- | :--- | :--- |
+| `POST` | `/api/admin/upload` | Upload `.tab`/`.xls` |
+| `GET` | `/api/admin/export` | Export as `.tab` |
+| `GET` | `/api/admin/backups` | List backups |
+| `POST` | `/api/admin/backups/restore/:filename` | Restore backup |
+| `DELETE` | `/api/admin/backups/:filename` | Delete backup |
+| `POST` | `/api/admin/tournament/save-mini-game` | Save mini-game |
+| `GET` | `/api/admin/tournament/read-mini-game` | Read mini-game |
+| `POST` | `/api/admin/tournament/write-mini-game` | Write mini-game |
+| `POST` | `/api/admin/tournament/copy-players` | Copy players to mini-game |
+| `GET` | `/api/admin/tournament/export` | Export tournament (ZIP) |
 | `GET` | `/api/admin/tournament/trophies` | Generate trophy report |
 | `POST` | `/api/admin/tournament/import` | Import mini-game files |
-| `POST` | `/api/admin/tournament/clear-mini-games` | Clear all mini-game files |
-| `POST` | `/api/admin/tournament/add-player-to-mini-games` | Add player to all mini-game files |
-| `GET` | `/api/admin/tournament/check-mini-games` | Check which mini-game files have data |
-| `GET` | `/api/admin/export-mini-data` | Export all data TAB files (ZIP) |
+| `POST` | `/api/admin/tournament/clear-mini-games` | Clear all mini-games |
+| `POST` | `/api/admin/tournament/add-player-to-mini-games` | Add player to all mini-games |
+| `GET` | `/api/admin/tournament/check-mini-games` | Check for mini-game data |
+| `GET` | `/api/admin/export-mini-data` | Export all data (ZIP) |

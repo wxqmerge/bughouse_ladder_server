@@ -1,10 +1,7 @@
 # Bughouse Chess Ladder Server
 
-**Version: 1.3.6**
-
-A modern client-server implementation of the VB6 Bughouse Chess Ladder application.
-
 **Communication:** TCP/HTTP (NOT UDP). Default port is 3000.
+
 
 ## Quick Start
 

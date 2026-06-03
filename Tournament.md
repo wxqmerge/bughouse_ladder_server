@@ -201,7 +201,7 @@ data/ (server) or localStorage (local):
 ### What Each Saved Mini-Game File Contains
 
 - Player list (with ratings)
-- Ratings (from when file was created or last updated)
+- Ratings (from when file was created)
 - `num_games` = count of games in this file
 - `gameResults` = all accumulated results (if played multiple times)
 - Group assignments (auto-letter may have shifted players)

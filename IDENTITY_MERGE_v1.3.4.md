@@ -1,4 +1,4 @@
-# Club Ladder Source of Truth — Identity Merge (v1.3.4)
+# Club Ladder Source of Truth — Identity Merge
 
 ## Goal
 Guarantee player identity consistency across club ladder and all mini-games by making the club ladder the single source of truth.
