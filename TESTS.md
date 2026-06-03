@@ -1,7 +1,5 @@
 # Unit Test Suite
 
-**Version: 1.3.6**
-
 ## Overview
 
 This project uses **Vitest** for testing across client and server. The root vitest config discovers tests in both `src/` and `server/test/`.
@@ -124,7 +122,7 @@ server/
 
 **Total: 561 tests** across client and server. **All passed.**
 
-### Test Count Breakdown (v1.2.2)
+### Test Count Breakdown
 
 | Category | Tests | Notes |
 |----------|-------|-------|
@@ -306,11 +304,11 @@ describe('MyComponent', () => {
 
 ---
 
-## New Tests (v1.1)
+## New Tests
 
 ### What Changed
 
-The test suite expanded from **231 → 470 tests** (+239) across two waves:
+The test suite contains 470 tests, expanded across two waves:
 
 **Wave 1 (+88 tests):** Bug fix coverage for recent fixes
 | Area | Tests | What's Covered |
