@@ -1,7 +1,5 @@
 # Security Configuration
 
-**Version: 1.3.6**
-
 ## Environment Variables
 
 ### Required in Production

@@ -608,7 +608,7 @@ Expected: Build succeeds
 
 ```bash
 git add package.json server/package.json
-git commit -m "feat: club ladder as source of truth for player identity (v1.3.4)"
+git commit -m "feat: club ladder as source of truth for player identity"
 ```
 
 ---
