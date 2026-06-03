@@ -1,0 +1,12 @@
+{
+  "id": "task09",
+  "title": "Create debounce utility",
+  "weight": 2,
+  "difficulty": "medium",
+  "category": "utility",
+  "verification": "tsc+test",
+  "expected_exports": ["createDebounce"],
+  "test_code": "import { createDebounce } from './task09';\n\ndescribe('createDebounce', () => {\n  it('delays execution', (done) => {\n    let called = false;\n    const debounced = createDebounce(() => { called = true; }, 50);\n    debounced();\n    expect(called).toBe(false);\n    setTimeout(() => {\n      expect(called).toBe(true);\n      done();\n    }, 100);\n  });\n\n  it('calls only once for rapid calls', (done) => {\n    let count = 0;\n    const debounced = createDebounce(() => { count++; }, 50);\n    debounced();\n    debounced();\n    debounced();\n    setTimeout(() => {\n      expect(count).toBe(1);\n      done();\n    }, 100);\n  });\n});",
+  "system": "You are a senior TypeScript developer. Always export your functions. Never add comments to code.",
+  "user": "Create and export a function `createDebounce` that creates a debounced version of a function.\n\nRequirements:\n1. Function signature: `export function createDebounce<T extends (...args: any[]) => any>(fn: T, delay: number): (...args: Parameters<T>) => void`\n2. The returned function delays calling fn until delay ms have passed since the last call\n3. If called multiple times within the delay, only the last call executes\n4. Use setTimeout internally with cleanup\n\nOnly output the function code. Make sure to use `export` keyword."
+}

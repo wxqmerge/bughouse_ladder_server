@@ -1,0 +1,12 @@
+{
+  "id": "task05",
+  "title": "Parse ISO date string to timestamp",
+  "weight": 1,
+  "difficulty": "easy",
+  "category": "parsing",
+  "verification": "tsc+test",
+  "expected_exports": ["parseDateToTimestamp"],
+  "test_code": "import { parseDateToTimestamp } from './task05';\n\ndescribe('parseDateToTimestamp', () => {\n  it('parses ISO date to seconds', () => {\n    const ts = parseDateToTimestamp('2024-01-15T10:30:00Z');\n    expect(ts).toBeGreaterThan(0);\n    expect(ts).toBeLessThan(Date.now() / 1000);\n  });\n\n  it('returns 0 for invalid input', () => {\n    expect(parseDateToTimestamp('')).toBe(0);\n    expect(parseDateToTimestamp('not-a-date')).toBe(0);\n  });\n});",
+  "system": "You are a senior TypeScript developer. Always export your functions. Never add comments to code.",
+  "user": "Create and export a function `parseDateToTimestamp` that parses an ISO date string to a Unix timestamp.\n\nRequirements:\n1. Function signature: `export function parseDateToTimestamp(dateStr: string): number`\n2. Accept ISO 8601 format: '2024-01-15T10:30:00Z'\n3. Return Unix timestamp in seconds (not milliseconds)\n4. Return 0 for invalid input\n\nOnly output the function code. Make sure to use `export` keyword."
+}

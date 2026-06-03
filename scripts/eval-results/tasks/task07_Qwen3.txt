@@ -1,0 +1,7 @@
+export function formatGameResult(result: string | null): string {
+  if (!result) return '';
+  const [playersPart, scoresPart] = result.split('-');
+  const players = playersPart.split(':').map((_, i) => `P${i + 1}`);
+  const scores = scoresPart.split(':');
+  return `${players.join(' vs ')} (${scores.join('-')})`;
+}

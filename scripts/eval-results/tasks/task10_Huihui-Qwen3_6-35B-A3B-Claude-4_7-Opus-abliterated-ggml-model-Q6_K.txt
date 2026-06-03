@@ -1,0 +1,19 @@
+```typescript
+function detectDuplicatePlayers(players: { lastName: string; firstName: string }[]): { duplicates: string[]; unique: { lastName: string; firstName: string }[] } {
+  const seen = new Set<string>();
+  const duplicates: string[] = [];
+  const unique: { lastName: string; firstName: string }[] = [];
+
+  for (const player of players) {
+    const key = `${player.lastName.toLowerCase()},${player.firstName.toLowerCase()}`;
+    if (seen.has(key)) {
+      duplicates.push(`${player.lastName}, ${player.firstName}`);
+    } else {
+      seen.add(key);
+      unique.push(player);
+    }
+  }
+
+  return { duplicates, unique };
+}
+```

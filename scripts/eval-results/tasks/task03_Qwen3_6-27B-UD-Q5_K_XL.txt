@@ -1,0 +1,5 @@
+export function calculateWinRate(wins: number, totalGames: number): number {
+  if (totalGames === 0) return 0;
+  if (wins > totalGames) return 1;
+  return Number((wins / totalGames).toFixed(4));
+}

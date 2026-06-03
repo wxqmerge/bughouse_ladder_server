@@ -1,0 +1,39 @@
+```typescript
+function parseMiniGameTab(tabContent: string): Array<{ [key: string]: string | number }> {
+  if (!tabContent.trim()) {
+    return [];
+  }
+
+  const lines = tabContent.split('\n').filter(line => line.trim() !== '');
+  if (lines.length === 0) {
+    return [];
+  }
+
+  const headers = lines[0].split('\t');
+  const result: Array<{ [key: string]: string | number }> = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const values = lines[i].split('\t');
+    const row: { [key: string]: string | number } = {};
+
+    for (let j = 0; j < headers.length; j++) {
+      const key = headers[j];
+      const value = values[j];
+      if (value !== undefined) {
+        const trimmed = value.trim();
+        if (trimmed === '') {
+          row[key] = '';
+        } else if (!isNaN(Number(trimmed)) && trimmed !== '') {
+          row[key] = Number(trimmed);
+        } else {
+          row[key] = trimmed;
+        }
+      }
+    }
+
+    result.push(row);
+  }
+
+  return result;
+}
+```

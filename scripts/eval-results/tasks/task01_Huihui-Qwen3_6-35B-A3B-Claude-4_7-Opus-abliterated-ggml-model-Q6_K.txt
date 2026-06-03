@@ -1,0 +1,14 @@
+```typescript
+export function parseGameResult(input: string): { players: number[], scores: number[] } | null {
+  const parts = input.split('-');
+  if (parts.length !== 2) return null;
+
+  const players = parts[0].split(':').map(Number);
+  const scores = parts[1].split(':').map(Number);
+
+  if (players.some(isNaN) || scores.some(isNaN)) return null;
+  if (players.length === 0 || scores.length === 0) return null;
+
+  return { players, scores };
+}
+```

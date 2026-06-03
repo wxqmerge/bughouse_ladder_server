@@ -1,0 +1,3 @@
+export function resolveMergeConflict<T>(options: { localUnconfirmed: T | null; serverConfirmed: T | null; serverDefault: T | null }): T | null {
+  return options.localUnconfirmed ?? options.serverConfirmed ?? options.serverDefault;
+}

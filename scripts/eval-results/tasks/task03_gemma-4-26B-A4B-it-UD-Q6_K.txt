@@ -1,0 +1,14 @@
+```typescript
+export function calculateWinRate(wins: number, totalGames: number): number {
+  if (totalGames === 0) {
+    return 0;
+  }
+
+  if (wins > totalGames) {
+    return 1;
+  }
+
+  const rate = wins / totalGames;
+  return Math.round(rate * 10000) / 10000;
+}
+```

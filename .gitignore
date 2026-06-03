@@ -21,6 +21,7 @@ ralph-loop.local.md
 node_modules
 dist
 dist-ssr
+src/temp/
 *.local
 
 # Editor directories and files

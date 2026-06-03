@@ -1,0 +1,12 @@
+{
+  "id": "task07",
+  "title": "Format game result for display",
+  "weight": 2,
+  "difficulty": "medium",
+  "category": "parsing",
+  "verification": "tsc+test",
+  "expected_exports": ["formatGameResult"],
+  "test_code": "import { formatGameResult } from './task07';\n\ndescribe('formatGameResult', () => {\n  it('4-player format', () => {\n    expect(formatGameResult('1:2:3:4-12:8')).toBe('P1 vs P2 vs P3 vs P4 (12-8)');\n  });\n\n  it('2-player format', () => {\n    expect(formatGameResult('1:2-5:3')).toBe('P1 vs P2 (5-3)');\n  });\n\n  it('null input returns empty string', () => {\n    expect(formatGameResult(null as any)).toBe('');\n  });\n});",
+  "system": "You are a senior TypeScript developer. Always export your functions. Never add comments to code.",
+  "user": "Create and export a function `formatGameResult` that formats a game result string for display.\n\nInput format: '1:2:3:4-12:8' or '1:2-5:3' (2-player)\nOutput format: 'P1 vs P2 vs P3 vs P4 (12-8)' or 'P1 vs P2 (5-3)'\n\nRequirements:\n1. Function signature: `export function formatGameResult(result: string | null): string`\n2. Handle both 4-player and 2-player formats\n3. Handle null/empty input by returning empty string\n4. Player labels are P1, P2, P3, P4 based on position\n\nOnly output the function code. Make sure to use `export` keyword."
+}

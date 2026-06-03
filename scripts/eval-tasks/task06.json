@@ -1,0 +1,12 @@
+{
+  "id": "task06",
+  "title": "Calculate ELO rating delta",
+  "weight": 2,
+  "difficulty": "medium",
+  "category": "utility",
+  "verification": "tsc+test",
+  "expected_exports": ["calculateEloDelta"],
+  "test_code": "import { calculateEloDelta } from './task06';\n\ndescribe('calculateEloDelta', () => {\n  it('equal ratings, win with K=20 gives +10', () => {\n    expect(calculateEloDelta(1500, 1500, 'win', 20)).toBe(10);\n  });\n\n  it('equal ratings, draw gives 0', () => {\n    expect(calculateEloDelta(1500, 1500, 'draw', 20)).toBe(0);\n  });\n\n  it('higher rated player wins gives smaller delta', () => {\n    const delta = calculateEloDelta(1800, 1500, 'win', 20);\n    expect(delta).toBeLessThan(10);\n    expect(delta).toBeGreaterThan(0);\n  });\n\n  it('lower rated player wins gives larger delta', () => {\n    const delta = calculateEloDelta(1500, 1800, 'win', 20);\n    expect(delta).toBeGreaterThan(10);\n  });\n});",
+  "system": "You are a senior TypeScript developer. Always export your functions. Never add comments to code.",
+  "user": "Create and export a function `calculateEloDelta` that calculates ELO rating change.\n\nFormula: delta = K * (actualScore - expectedScore)\n- expectedScore = 1 / (1 + 10^((ratingOpponent - ratingPlayer) / 400))\n- actualScore: 1 for win, 0.5 for draw, 0 for loss\n- K factor defaults to 20\n\nRequirements:\n1. Function signature: `export function calculateEloDelta(ratingPlayer: number, ratingOpponent: number, result: 'win' | 'draw' | 'loss', kFactor?: number): number`\n2. Return delta rounded to nearest integer\n3. Handle equal ratings (expectedScore = 0.5)\n\nOnly output the function code. Make sure to use `export` keyword."
+}

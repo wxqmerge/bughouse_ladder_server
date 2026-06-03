@@ -1,0 +1,10 @@
+export function parseGameResult(input: string): { players: number[], scores: number[] } | null {
+  const parts = input.split('-');
+  if (parts.length !== 2) return null;
+  const playerStrs = parts[0].split(':');
+  const scoreStrs = parts[1].split(':');
+  const players = playerStrs.map(Number);
+  const scores = scoreStrs.map(Number);
+  if (players.some(isNaN) || scores.some(isNaN)) return null;
+  return { players, scores };
+}

@@ -1,0 +1,12 @@
+{
+  "id": "task11",
+  "title": "Resolve merge conflict with priority",
+  "weight": 3,
+  "difficulty": "hard",
+  "category": "parsing",
+  "verification": "tsc+test",
+  "expected_exports": ["resolveMergeConflict"],
+  "test_code": "import { resolveMergeConflict } from './task11';\n\ndescribe('resolveMergeConflict', () => {\n  it('prioritizes local unconfirmed', () => {\n    const result = resolveMergeConflict({\n      localUnconfirmed: 'local',\n      serverConfirmed: 'server',\n      serverDefault: 'default',\n    });\n    expect(result).toBe('local');\n  });\n\n  it('falls back to server confirmed', () => {\n    const result = resolveMergeConflict({\n      localUnconfirmed: null,\n      serverConfirmed: 'server',\n      serverDefault: 'default',\n    });\n    expect(result).toBe('server');\n  });\n\n  it('falls back to server default', () => {\n    const result = resolveMergeConflict({\n      localUnconfirmed: null,\n      serverConfirmed: null,\n      serverDefault: 'default',\n    });\n    expect(result).toBe('default');\n  });\n\n  it('returns null when all are null', () => {\n    const result = resolveMergeConflict({\n      localUnconfirmed: null,\n      serverConfirmed: null,\n      serverDefault: null,\n    });\n    expect(result).toBeNull();\n  });\n});",
+  "system": "You are a senior TypeScript developer. Always export your functions. Never add comments to code.",
+  "user": "Create and export a function `resolveMergeConflict` that resolves a merge conflict using priority.\n\nPriority (highest to lowest):\n1. localUnconfirmed\n2. serverConfirmed\n3. serverDefault\n\nRequirements:\n1. Function signature: `export function resolveMergeConflict<T>(options: { localUnconfirmed: T | null; serverConfirmed: T | null; serverDefault: T | null }): T | null`\n2. Return the first non-null value in priority order\n3. Return null if all are null\n\nOnly output the function code. Make sure to use `export` keyword."
+}

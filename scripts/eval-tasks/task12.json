@@ -1,0 +1,12 @@
+{
+  "id": "task12",
+  "title": "Parse ELO rating changes from game results",
+  "weight": 3,
+  "difficulty": "hard",
+  "category": "parsing",
+  "verification": "tsc+test",
+  "expected_exports": ["parseRatingChanges"],
+  "test_code": "import { parseRatingChanges } from './task12';\n\ndescribe('parseRatingChanges', () => {\n  it('parses rating changes', () => {\n    const changes = parseRatingChanges('1:2:3:4-12:8', [1500, 1400, 1300, 1200], 20);\n    expect(changes.length).toBe(4);\n    expect(changes[0]).toBeGreaterThan(0);\n    expect(changes[1]).toBeLessThan(0);\n  });\n\n  it('handles 2-player format', () => {\n    const changes = parseRatingChanges('1:2-5:3', [1500, 1400], 20);\n    expect(changes.length).toBe(2);\n  });\n});",
+  "system": "You are a senior TypeScript developer. Always export your functions. Never add comments to code.",
+  "user": "Create and export a function `parseRatingChanges` that calculates ELO changes for all players in a game.\n\nRequirements:\n1. Function signature: `export function parseRatingChanges(result: string, ratings: number[], kFactor: number): number[]`\n2. Parse the game result (format: '1:2:3:4-12:8')\n3. For each player pair, calculate ELO delta using standard formula\n4. Expected score = 1 / (1 + 10^((oppRating - playerRating) / 400))\n5. Delta = K * (actual - expected), rounded to integer\n6. Return array of deltas for all players\n\nOnly output the function code. Make sure to use `export` keyword."
+}

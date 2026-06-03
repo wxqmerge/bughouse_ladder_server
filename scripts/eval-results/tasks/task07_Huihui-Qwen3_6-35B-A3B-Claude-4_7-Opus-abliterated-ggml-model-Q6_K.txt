@@ -1,0 +1,14 @@
+```typescript
+function formatGameResult(result: string | null): string {
+  if (!result) return '';
+
+  const [playersPart, scorePart] = result.split('-');
+  const scores = playersPart.split(':');
+  const playerCount = scores.length;
+  const [finalScore1, finalScore2] = scorePart.split(':');
+
+  const players = scores.map((_, i) => `P${i + 1}`).join(' vs ');
+
+  return `${players} (${finalScore1}-${finalScore2})`;
+}
+```

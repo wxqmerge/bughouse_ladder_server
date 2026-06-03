@@ -1,0 +1,13 @@
+```typescript
+export function calculateEloDelta(
+  ratingPlayer: number,
+  ratingOpponent: number,
+  result: 'win' | 'draw' | 'loss',
+  kFactor: number = 20
+): number {
+  const actualScore = result === 'win' ? 1 : result === 'draw' ? 0.5 : 0;
+  const expectedScore = 1 / (1 + Math.pow(10, (ratingOpponent - ratingPlayer) / 400));
+  const delta = kFactor * (actualScore - expectedScore);
+  return Math.round(delta);
+}
+```

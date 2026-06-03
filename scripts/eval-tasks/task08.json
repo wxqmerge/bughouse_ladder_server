@@ -1,0 +1,12 @@
+{
+  "id": "task08",
+  "title": "Calculate player stats from game results",
+  "weight": 2,
+  "difficulty": "medium",
+  "category": "utility",
+  "verification": "tsc+test",
+  "expected_exports": ["calculatePlayerStats"],
+  "test_code": "import { calculatePlayerStats } from './task08';\n\ndescribe('calculatePlayerStats', () => {\n  it('counts wins, losses, draws correctly', () => {\n    const result = calculatePlayerStats({\n      gameResults: ['1:2:3:4-12:8', '1:2:3:4-8:12', '1:2:3:4-10:10'],\n    } as any);\n    expect(result.wins).toBe(1);\n    expect(result.losses).toBe(1);\n    expect(result.draws).toBe(1);\n    expect(result.totalGames).toBe(3);\n  });\n\n  it('handles empty results', () => {\n    const result = calculatePlayerStats({ gameResults: [] } as any);\n    expect(result.totalGames).toBe(0);\n    expect(result.winRate).toBe(0);\n  });\n});",
+  "system": "You are a senior TypeScript developer. Always export your functions. Never add comments to code.",
+  "user": "Create and export a function `calculatePlayerStats` that calculates win/loss/draw stats from game results.\n\nRequirements:\n1. Function signature: `export function calculatePlayerStats(player: { gameResults: string[] | null }): { wins: number; losses: number; draws: number; winRate: number; totalGames: number }`\n2. Parse each game result (format: '1:2:3:4-12:8')\n3. Player 1's score is the first number after '-', player 2's score is the second\n4. Compare: if p1 > p2 then win, if p1 < p2 then loss, else draw\n5. Handle null/missing results gracefully (skip them)\n6. winRate should be wins / totalGames, rounded to 4 decimals\n\nOnly output the function code. Make sure to use `export` keyword."
+}

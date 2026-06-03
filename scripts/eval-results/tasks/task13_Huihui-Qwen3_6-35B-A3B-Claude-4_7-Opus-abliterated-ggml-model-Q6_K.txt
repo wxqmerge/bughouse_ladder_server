@@ -1,0 +1,25 @@
+```typescript
+import { useState, useCallback } from 'react';
+
+export function useBatchCellCorrection() {
+  const [selectedCells, setSelectedCells] = useState<Array<{ rank: number; round: number }>>([]);
+
+  const toggleCellSelection = useCallback((rank: number, round: number) => {
+    setSelectedCells((prev) => {
+      const exists = prev.some((cell) => cell.rank === rank && cell.round === round);
+      if (exists) {
+        return prev.filter((cell) => !(cell.rank === rank && cell.round === round));
+      }
+      return [...prev, { rank, round }];
+    });
+  }, []);
+
+  const applyBatchCorrection = useCallback((result: string) => {
+    const count = selectedCells.length;
+    setSelectedCells([]);
+    return count;
+  }, [selectedCells]);
+
+  return { selectedCells, toggleCellSelection, applyBatchCorrection };
+}
+```

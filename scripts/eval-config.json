@@ -1,0 +1,20 @@
+{
+  "llama_dir": "D:\\llama.cpp.b9464",
+  "models": [
+    { "port": 8080, "batch": "runq36MTP.bat" },
+    { "port": 8080, "batch": "runq36MTP_n2.bat" },
+    { "port": 8080, "batch": "runq36MTP_n4.bat" },
+    { "port": 8080, "batch": "runq36MTP27B.bat" },
+    { "port": 8080, "batch": "runq36MTP27B_n2.bat" },
+    { "port": 8080, "batch": "runq36MTP27B_n4.bat" },
+    { "port": 8080, "batch": "runq36.bat" },
+    { "port": 8080, "batch": "runq36_27B.bat" },
+    { "port": 8080, "batch": "runGMoE.bat" }
+  ],
+  "task_dir": "eval-tasks",
+  "output_dir": "eval-results",
+  "project_root": "D:\\xampp\\htdocs\\bughouse_ladder_server",
+  "max_tokens": 4096,
+  "temperature": 0,
+  "timeout_ms": 120000
+}

@@ -1,0 +1,12 @@
+{
+  "id": "task10",
+  "title": "Deep clone with circular reference handling",
+  "weight": 2,
+  "difficulty": "medium",
+  "category": "utility",
+  "verification": "tsc+test",
+  "expected_exports": ["deepClone"],
+  "test_code": "import { deepClone } from './task10';\n\ndescribe('deepClone', () => {\n  it('clones nested object', () => {\n    const original = { a: 1, b: { c: 2, d: [3, 4] } };\n    const cloned = deepClone(original);\n    expect(cloned).toEqual(original);\n    expect(cloned).not.toBe(original);\n    expect(cloned.b).not.toBe(original.b);\n  });\n\n  it('handles circular references', () => {\n    const original: any = { a: 1 };\n    original.self = original;\n    const cloned = deepClone(original);\n    expect(cloned.a).toBe(1);\n    expect(cloned.self).toEqual({ a: 1 });\n  });\n\n  it('handles null', () => {\n    expect(deepClone(null)).toBeNull();\n  });\n});",
+  "system": "You are a senior TypeScript developer. Always export your functions. Never add comments to code.",
+  "user": "Create and export a function `deepClone` that deep-clones an object, handling circular references.\n\nRequirements:\n1. Function signature: `export function deepClone<T>(obj: T): T`\n2. Create a deep copy of the object\n3. Handle circular references by replacing them with empty objects\n4. Handle null/undefined input\n5. Use a WeakMap to track already-cloned objects\n\nOnly output the function code. Make sure to use `export` keyword."
+}

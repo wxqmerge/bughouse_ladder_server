@@ -1,0 +1,8 @@
+export function isValidLadderName(name: string): boolean {
+  return name.length >= 1 &&
+         name.length <= 20 &&
+         /^[a-zA-Z0-9 _\-]+$/.test(name) &&
+         name.trim().length > 0 &&
+         !name.startsWith(' ') &&
+         !name.endsWith(' ');
+}

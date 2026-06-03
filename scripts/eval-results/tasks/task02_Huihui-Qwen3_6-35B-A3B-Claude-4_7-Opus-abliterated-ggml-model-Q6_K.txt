@@ -1,0 +1,11 @@
+```typescript
+export function formatPlayerName(name: string): string {
+  if (!name) return '';
+  const trimmed = name.trim();
+  if (trimmed.includes(',')) {
+    const parts = trimmed.split(',');
+    return `${parts[1].trim()} ${parts[0].trim()}`;
+  }
+  return trimmed;
+}
+```
