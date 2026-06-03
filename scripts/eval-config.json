@@ -9,7 +9,8 @@
     { "port": 8080, "batch": "runq36MTP27B_n4.bat" },
     { "port": 8080, "batch": "runq36.bat" },
     { "port": 8080, "batch": "runq36_27B.bat" },
-    { "port": 8080, "batch": "runGMoE.bat" }
+    { "port": 8080, "batch": "runGMoE.bat" },
+    { "port": 8080, "batch": "runGMoEq8.bat" }
   ],
   "task_dir": "eval-tasks",
   "output_dir": "eval-results",
