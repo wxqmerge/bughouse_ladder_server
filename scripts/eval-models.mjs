@@ -506,14 +506,26 @@ async function runModel(model) {
 
 async function main() {
   console.log('LLM Model Evaluation - Bughouse Chess Ladder');
-  console.log(`Tasks: ${loadTasks().length} | Models: ${config.models.length}`);
+  
+  const targetBatch = process.argv[2];
+  const modelsToRun = targetBatch 
+    ? config.models.filter(m => m.batch === targetBatch)
+    : config.models;
+
+  if (modelsToRun.length === 0) {
+    console.error(`Error: No model found matching batch "${targetBatch}"`);
+    process.exit(1);
+  }
+
+  console.log(`Tasks: ${loadTasks().length} | Models: ${modelsToRun.length} (total in config: ${config.models.length})`);
   console.log(`Max score: ${loadTasks().reduce((s, t) => s + t.weight, 0)}`);
   console.log(`Llama dir: ${llamaDir}`);
+  console.log(`\n${targetBatch ? `Running only: ${targetBatch}` : 'Running all models'}`);
 
   const allResults = [];
 
-  for (const model of config.models) {
-    console.log(`\n[${allResults.length + 1}/${config.models.length}] Running model...`);
+  for (const model of modelsToRun) {
+    console.log(`\n[${allResults.length + 1}/${modelsToRun.length}] Running model...`);
     const result = await runModel(model);
     if (result) {
       allResults.push(result);
@@ -527,14 +539,28 @@ async function main() {
     await new Promise(r => setTimeout(r, 8000));
   }
 
-  writeFileSync(join(outputDir, 'results.json'), JSON.stringify(allResults, null, 2));
+  // Load existing results to prevent overwriting history
+  let combinedResults = [...allResults];
+  const jsonPath = join(outputDir, 'results.json');
+  if (existsSync(jsonPath)) {
+    try {
+      const existing = JSON.parse(readFileSync(jsonPath, 'utf8'));
+      if (Array.isArray(existing)) {
+        combinedResults = [...existing, ...allResults];
+      }
+    } catch (err) {
+      console.warn('  Warning: Could not parse existing results.json, starting fresh.');
+    }
+  }
 
-  const md = generateMarkdown(allResults);
+  writeFileSync(jsonPath, JSON.stringify(combinedResults, null, 2));
+
+  const md = generateMarkdown(combinedResults);
   writeFileSync(join(outputDir, 'results.md'), md);
 
   console.log(`\n${'='.repeat(60)}`);
   console.log('Results saved to:');
-  console.log(`  ${join(outputDir, 'results.json')}`);
+  console.log(`  ${jsonPath}`);
   console.log(`  ${join(outputDir, 'results.md')}`);
   console.log(`${'='.repeat(60)}`);
 }
