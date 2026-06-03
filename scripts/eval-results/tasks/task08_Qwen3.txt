@@ -1,0 +1,30 @@
+export function calculatePlayerStats(player: { gameResults: string[] | null }): { wins: number; losses: number; draws: number; winRate: number; totalGames: number } {
+    let wins = 0;
+    let losses = 0;
+    let draws = 0;
+    let totalGames = 0;
+
+    if (player.gameResults) {
+        for (const result of player.gameResults) {
+            if (!result) continue;
+            const afterDash = result.split('-')[1];
+            if (!afterDash) continue;
+            const scores = afterDash.split(':');
+            const p1 = Number(scores[0]);
+            const p2 = Number(scores[1]);
+            if (isNaN(p1) || isNaN(p2)) continue;
+
+            totalGames++;
+            if (p1 > p2) {
+                wins++;
+            } else if (p1 < p2) {
+                losses++;
+            } else {
+                draws++;
+            }
+        }
+    }
+
+    const winRate = totalGames > 0 ? Number((wins / totalGames).toFixed(4)) : 0;
+    return { wins, losses, draws, winRate, totalGames };
+}

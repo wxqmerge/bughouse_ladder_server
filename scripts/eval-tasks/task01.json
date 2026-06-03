@@ -1,0 +1,12 @@
+{
+  "id": "task01",
+  "title": "Parse game result string",
+  "weight": 1,
+  "difficulty": "easy",
+  "category": "parsing",
+  "verification": "tsc+test",
+  "expected_exports": ["parseGameResult"],
+  "test_code": "import { parseGameResult } from './task01';\n\ndescribe('parseGameResult', () => {\n  it('parses 4-player result', () => {\n    const result = parseGameResult('1:2:3:4-12:8');\n    expect(result).not.toBeNull();\n    expect(result!.players).toEqual([1, 2, 3, 4]);\n    expect(result!.scores).toEqual([12, 8]);\n  });\n\n  it('parses 2-player result', () => {\n    const result = parseGameResult('1:2-5:3');\n    expect(result).not.toBeNull();\n    expect(result!.players).toEqual([1, 2]);\n    expect(result!.scores).toEqual([5, 3]);\n  });\n\n  it('returns null for invalid input', () => {\n    expect(parseGameResult('abc')).toBeNull();\n    expect(parseGameResult('1:2')).toBeNull();\n    expect(parseGameResult('')).toBeNull();\n  });\n});",
+  "system": "You are a senior TypeScript developer. Always export your functions. Never add comments to code.",
+  "user": "Create and export a function `parseGameResult` that parses a game result string.\n\nInput format: '1:2:3:4-12:8' (4-player) or '1:2-5:3' (2-player)\nOutput: { players: number[], scores: number[] } | null\n\nRequirements:\n1. Function signature: `export function parseGameResult(input: string): { players: number[], scores: number[] } | null`\n2. Split on '-' to separate players from scores\n3. Split players and scores on ':'\n4. Convert all values to numbers\n5. Return null for invalid input (missing '-', wrong format, non-numeric)\n\nOnly output the function code. Make sure to use `export` keyword."
+}

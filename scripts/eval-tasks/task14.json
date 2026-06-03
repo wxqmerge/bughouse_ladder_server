@@ -1,0 +1,12 @@
+{
+  "id": "task14",
+  "title": "Rate-limited API request queue",
+  "weight": 3,
+  "difficulty": "hard",
+  "category": "backend",
+  "verification": "tsc+test",
+  "expected_exports": ["createRequestQueue"],
+  "test_code": "import { createRequestQueue } from './task14';\n\ndescribe('createRequestQueue', () => {\n  it('executes requests in order', () => {\n    const results: number[] = [];\n    const queue = createRequestQueue(100);\n    queue.add(() => { results.push(1); });\n    queue.add(() => { results.push(2); });\n    queue.add(() => { results.push(3); });\n    expect(results).toEqual([1, 2, 3]);\n  });\n\n  it('tracks total executed', () => {\n    const queue = createRequestQueue(100);\n    queue.add(() => {});\n    queue.add(() => {});\n    expect(queue.totalExecuted).toBe(2);\n  });\n});",
+  "system": "You are a senior TypeScript developer. Always export your functions. Never add comments to code.",
+  "user": "Create and export a function `createRequestQueue` that creates a simple synchronous request queue.\n\nRequirements:\n1. Function signature: `export function createRequestQueue(maxConcurrent: number): { add: (fn: () => void) => void; totalExecuted: number }`\n2. Execute functions immediately up to maxConcurrent limit\n3. Track totalExecuted count\n4. Simple synchronous execution (no async needed for this test)\n\nOnly output the function code. Make sure to use `export` keyword."
+}

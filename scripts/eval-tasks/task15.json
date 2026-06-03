@@ -1,0 +1,12 @@
+{
+  "id": "task15",
+  "title": "Express middleware for API key auth",
+  "weight": 3,
+  "difficulty": "hard",
+  "category": "backend",
+  "verification": "tsc+test",
+  "expected_exports": ["createApiKeyAuth"],
+  "test_code": "import { createApiKeyAuth } from './task15';\n\ndescribe('createApiKeyAuth', () => {\n  it('allows valid key', () => {\n    const auth = createApiKeyAuth('secret123');\n    let called = false;\n    const req = { headers: { 'x-api-key': 'secret123' } } as any;\n    const res = {} as any;\n    auth(req, res, () => { called = true; });\n    expect(called).toBe(true);\n  });\n\n  it('rejects invalid key', () => {\n    const auth = createApiKeyAuth('secret123');\n    let called = false;\n    const req = { headers: { 'x-api-key': 'wrong' } } as any;\n    const res = { status: () => ({ json: () => {} }) } as any;\n    auth(req, res, () => { called = true; });\n    expect(called).toBe(false);\n  });\n\n  it('rejects missing key', () => {\n    const auth = createApiKeyAuth('secret123');\n    let called = false;\n    const req = { headers: {} } as any;\n    const res = { status: () => ({ json: () => {} }) } as any;\n    auth(req, res, () => { called = true; });\n    expect(called).toBe(false);\n  });\n});",
+  "system": "You are a senior TypeScript developer. Always export your functions. Never add comments to code.",
+  "user": "Create and export a function `createApiKeyAuth` that creates Express middleware for API key authentication.\n\nRequirements:\n1. Function signature: `export function createApiKeyAuth(validKey: string): (req: any, res: any, next: () => void) => void`\n2. Check req.headers['x-api-key'] against the valid key\n3. If valid, call next()\n4. If invalid or missing, call res.status(401).json({ error: 'Unauthorized' })\n5. Return the middleware function\n\nOnly output the function code. Make sure to use `export` keyword."
+}

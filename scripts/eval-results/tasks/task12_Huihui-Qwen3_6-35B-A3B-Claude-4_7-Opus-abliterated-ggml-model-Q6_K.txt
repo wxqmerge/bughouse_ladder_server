@@ -1,0 +1,18 @@
+```typescript
+function createBackoffController(options?: { baseDelay?: number; maxDelay?: number }) {
+  const baseDelay = options?.baseDelay ?? 1000;
+  const maxDelay = options?.maxDelay ?? 30000;
+  let attempt = 0;
+
+  return {
+    nextDelay() {
+      const delay = Math.min(baseDelay * Math.pow(2, attempt), maxDelay) + Math.random() * 100;
+      attempt++;
+      return delay;
+    },
+    reset() {
+      attempt = 0;
+    },
+  };
+}
+```

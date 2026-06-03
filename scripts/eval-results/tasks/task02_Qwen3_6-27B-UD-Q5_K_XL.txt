@@ -1,0 +1,8 @@
+export function formatPlayerName(name: string): string {
+  if (!name.trim()) return '';
+  if (name.includes(',')) {
+    const [lastName, firstName] = name.split(',').map(part => part.trim());
+    return `${firstName} ${lastName}`;
+  }
+  return name.trim();
+}

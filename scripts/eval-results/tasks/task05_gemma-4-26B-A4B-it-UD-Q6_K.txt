@@ -1,0 +1,9 @@
+```typescript
+export function parseDateToTimestamp(dateStr: string): number {
+  const timestamp = Date.parse(dateStr);
+  if (isNaN(timestamp)) {
+    return 0;
+  }
+  return Math.floor(timestamp / 1000);
+}
+```

@@ -1,0 +1,20 @@
+export function createBatchCorrection(): { selectedCells: Array<{rank: number; round: number}>; toggleCell: (rank: number, round: number) => void; clearSelection: () => number } {
+  let selectedCells: Array<{rank: number; round: number}> = [];
+
+  const toggleCell = (rank: number, round: number) => {
+    const index = selectedCells.findIndex(cell => cell.rank === rank && cell.round === round);
+    if (index !== -1) {
+      selectedCells.splice(index, 1);
+    } else {
+      selectedCells.push({ rank, round });
+    }
+  };
+
+  const clearSelection = (): number => {
+    const count = selectedCells.length;
+    selectedCells = [];
+    return count;
+  };
+
+  return { selectedCells, toggleCell, clearSelection };
+}
