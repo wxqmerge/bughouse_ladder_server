@@ -1,0 +1,12 @@
+{
+  "id": "task04",
+  "title": "Validate ladder name",
+  "weight": 1,
+  "difficulty": "easy",
+  "category": "utility",
+  "verification": "tsc+test",
+  "expected_exports": ["isValidLadderName"],
+  "test_code": "import { isValidLadderName } from './task04';\n\ndescribe('isValidLadderName', () => {\n  it('accepts valid names', () => {\n    expect(isValidLadderName('Main Ladder')).toBe(true);\n    expect(isValidLadderName('test_name')).toBe(true);\n    expect(isValidLadderName('a')).toBe(true);\n  });\n\n  it('rejects invalid names', () => {\n    expect(isValidLadderName('')).toBe(false);\n    expect(isValidLadderName('   ')).toBe(false);\n    expect(isValidLadderName('a'.repeat(21))).toBe(false);\n    expect(isValidLadderName('name!')).toBe(false);\n  });\n});",
+  "system": "You are a senior TypeScript developer. Always export your functions. Never add comments to code.",
+  "user": "Create and export a function `isValidLadderName` that validates a ladder name.\n\nRequirements:\n1. Function signature: `export function isValidLadderName(name: string): boolean`\n2. Must be 1-20 characters\n3. Must contain only alphanumeric characters, spaces, hyphens, and underscores\n4. Must not be empty or only whitespace\n5. Must not start or end with a space\n\nOnly output the function code. Make sure to use `export` keyword."
+}

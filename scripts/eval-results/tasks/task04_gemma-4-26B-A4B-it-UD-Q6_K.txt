@@ -1,0 +1,14 @@
+```typescript
+export function isValidLadderName(name: string): boolean {
+  if (name.length < 1 || name.length > 20) {
+    return false;
+  }
+
+  if (name.trim() !== name) {
+    return false;
+  }
+
+  const validChars = /^[a-zA-Z0-9 \-_]+$/;
+  return validChars.test(name);
+}
+```

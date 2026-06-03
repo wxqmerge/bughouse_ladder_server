@@ -1,0 +1,22 @@
+export function deepClone<T>(obj: T): T {
+  const seen = new WeakMap<object, any>();
+
+  function clone(val: any): any {
+    if (val === null || typeof val !== 'object') {
+      return val;
+    }
+    if (seen.has(val)) {
+      return {};
+    }
+    const cloned = Array.isArray(val) ? [] : {};
+    seen.set(val, cloned);
+    for (const key in val) {
+      if (Object.prototype.hasOwnProperty.call(val, key)) {
+        cloned[key] = clone(val[key]);
+      }
+    }
+    return cloned;
+  }
+
+  return clone(obj);
+}

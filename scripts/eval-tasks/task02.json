@@ -1,0 +1,12 @@
+{
+  "id": "task02",
+  "title": "Format player name for display",
+  "weight": 1,
+  "difficulty": "easy",
+  "category": "utility",
+  "verification": "tsc+test",
+  "expected_exports": ["formatPlayerName"],
+  "test_code": "import { formatPlayerName } from './task02';\n\ndescribe('formatPlayerName', () => {\n  it('reformats LastName, FirstName', () => {\n    expect(formatPlayerName('Smith, John')).toBe('John Smith');\n  });\n\n  it('returns as-is when no comma', () => {\n    expect(formatPlayerName('John Smith')).toBe('John Smith');\n  });\n\n  it('handles empty input', () => {\n    expect(formatPlayerName('')).toBe('');\n  });\n});",
+  "system": "You are a senior TypeScript developer. Always export your functions. Never add comments to code.",
+  "user": "Create and export a function `formatPlayerName` that formats a player name for display.\n\nInput: 'Smith, John' (LastName, FirstName) or 'John Smith' (FirstName LastName)\nOutput: 'John Smith' (FirstName LastName)\n\nRequirements:\n1. Function signature: `export function formatPlayerName(name: string): string`\n2. If name contains ',', split on ',' and reorder to 'FirstName LastName'\n3. If no ',', return as-is\n4. Trim all whitespace\n5. Handle empty input by returning empty string\n\nOnly output the function code. Make sure to use `export` keyword."
+}

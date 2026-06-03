@@ -1,0 +1,11 @@
+```typescript
+function resolveMergeConflict(options: { localUnconfirmed: any | null; serverConfirmed: any | null; serverDefault: any | null }): any {
+  if (options.localUnconfirmed !== null) {
+    return options.localUnconfirmed;
+  }
+  if (options.serverConfirmed !== null) {
+    return options.serverConfirmed;
+  }
+  return options.serverDefault;
+}
+```

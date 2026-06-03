@@ -1,0 +1,12 @@
+{
+  "id": "task13",
+  "title": "Batch cell correction state management",
+  "weight": 3,
+  "difficulty": "hard",
+  "category": "utility",
+  "verification": "tsc+test",
+  "expected_exports": ["createBatchCorrection"],
+  "test_code": "import { createBatchCorrection } from './task13';\n\ndescribe('createBatchCorrection', () => {\n  it('selects and deselects cells', () => {\n    const batch = createBatchCorrection();\n    batch.toggleCell(1, 2);\n    expect(batch.selectedCells.length).toBe(1);\n    batch.toggleCell(1, 2);\n    expect(batch.selectedCells.length).toBe(0);\n  });\n\n  it('tracks multiple cells', () => {\n    const batch = createBatchCorrection();\n    batch.toggleCell(1, 2);\n    batch.toggleCell(3, 4);\n    expect(batch.selectedCells.length).toBe(2);\n  });\n\n  it('clears selection and returns count', () => {\n    const batch = createBatchCorrection();\n    batch.toggleCell(1, 2);\n    batch.toggleCell(3, 4);\n    const count = batch.clearSelection();\n    expect(count).toBe(2);\n    expect(batch.selectedCells.length).toBe(0);\n  });\n});",
+  "system": "You are a senior TypeScript developer. Always export your functions. Never add comments to code.",
+  "user": "Create and export a function `createBatchCorrection` that manages batch cell selection state.\n\nRequirements:\n1. Function signature: `export function createBatchCorrection(): { selectedCells: Array<{rank: number; round: number}>; toggleCell: (rank: number, round: number) => void; clearSelection: () => number }`\n2. Returns an object with selectedCells array, toggleCell method, and clearSelection method\n3. toggleCell adds/removes a cell based on whether it's already selected\n4. clearSelection returns the count of cleared cells and empties the array\n5. Use a factory pattern (no React hooks needed)\n\nOnly output the function code. Make sure to use `export` keyword."
+}

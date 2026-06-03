@@ -1,0 +1,12 @@
+{
+  "id": "task03",
+  "title": "Calculate win rate from wins and total games",
+  "weight": 1,
+  "difficulty": "easy",
+  "category": "utility",
+  "verification": "tsc+test",
+  "expected_exports": ["calculateWinRate"],
+  "test_code": "import { calculateWinRate } from './task03';\n\ndescribe('calculateWinRate', () => {\n  it('calculates win rate correctly', () => {\n    expect(calculateWinRate(3, 4)).toBe(0.75);\n  });\n\n  it('returns 0 when no games', () => {\n    expect(calculateWinRate(0, 0)).toBe(0);\n  });\n\n  it('returns 1 when wins exceed total', () => {\n    expect(calculateWinRate(5, 3)).toBe(1);\n  });\n});",
+  "system": "You are a senior TypeScript developer. Always export your functions. Never add comments to code.",
+  "user": "Create and export a function `calculateWinRate` that calculates a player's win rate.\n\nRequirements:\n1. Function signature: `export function calculateWinRate(wins: number, totalGames: number): number`\n2. Return a value between 0 and 1 (e.g., 0.75 for 75%)\n3. Handle edge cases: totalGames of 0 returns 0, wins > totalGames returns 1\n4. Round to 4 decimal places\n\nOnly output the function code. Make sure to use `export` keyword."
+}

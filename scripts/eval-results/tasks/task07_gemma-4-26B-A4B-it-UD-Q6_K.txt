@@ -1,0 +1,20 @@
+```typescript
+export function formatGameResult(result: string | null): string {
+  if (!result) {
+    return '';
+  }
+
+  const [playersPart, scorePart] = result.split('-');
+  if (!playersPart || !scorePart) {
+    return '';
+  }
+
+  const players = playersPart.split(':');
+  const scores = scorePart.split(':');
+
+  const playerLabels = players.map((_, index) => `P${index + 1}`);
+  const scoreString = `(${scores.join('-')})`;
+
+  return `${playerLabels.join(' vs ')} ${scoreString}`;
+}
+```

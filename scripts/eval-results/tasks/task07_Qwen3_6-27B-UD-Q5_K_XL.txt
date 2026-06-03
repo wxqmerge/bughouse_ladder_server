@@ -1,0 +1,8 @@
+export function formatGameResult(result: string | null): string {
+  if (!result || !result.trim()) return '';
+  const [playersPart, scoresPart] = result.trim().split('-');
+  const playerCount = playersPart.split(':').length;
+  const formattedScores = scoresPart.split(':').join('-');
+  const playerLabels = Array.from({ length: playerCount }, (_, i) => `P${i + 1}`).join(' vs ');
+  return `${playerLabels} (${formattedScores})`;
+}

@@ -1,0 +1,27 @@
+```typescript
+function exportToCSV(players: Array<{ rank: number; lastName: string; firstName: string; rating: number; nRating: number; group: string; grade: string; num_games: number; attendance: number }>): string {
+  const headers = 'rank,lastName,firstName,rating,nRating,group,grade,num_games,attendance';
+  
+  const escapeField = (field: string | number): string => {
+    const str = String(field);
+    if (str.includes(',') || str.includes('"')) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  };
+  
+  const rows = players.map(player => [
+    escapeField(player.rank),
+    escapeField(player.lastName),
+    escapeField(player.firstName),
+    escapeField(player.rating),
+    escapeField(player.nRating),
+    escapeField(player.group),
+    escapeField(player.grade),
+    escapeField(player.num_games),
+    escapeField(player.attendance)
+  ].join(','));
+  
+  return [headers, ...rows].join('\n');
+}
+```
