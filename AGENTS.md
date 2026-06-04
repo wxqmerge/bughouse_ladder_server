@@ -67,6 +67,7 @@ When no manual server config exists, the app auto-detects from `window.location.
 - `?config=1&server=URL&key=KEY`: Connect to server with API key.
 - `?config=2`: Reset to LOCAL mode.
 - `?config=3&file=URL`: Load remote `.tab`/`.xls` file.
+- `?config=4`: Clear all game results, keep player data intact (confirm dialog, works in both LOCAL and SERVER mode).
 - URL params are cleared via `history.replaceState` after applying.
 - `.tab`, `.xls`, or `.txt` files can be dropped on the splash screen to load locally.
 
