@@ -171,7 +171,9 @@ export async function loadRemoteFile(fileUrl: string): Promise<{ success: boolea
 /**
  * Load config from URL query params:
  *   ?config=1&server=http://host:port&key=abc123  → server connection
+ *   ?config=2                                     → reset to local mode
  *   ?config=3&file=http://host/file.tab            → remote file load (.tab or .xls)
+ *   ?config=4                                     → clear all game results, keep players
  */
 export async function loadConfigFromUrl(): Promise<boolean> {
   const url = new URL(window.location.href);
@@ -228,9 +230,72 @@ export async function loadConfigFromUrl(): Promise<boolean> {
     alert('Reset to local mode.\n\nThe app will reload to apply.');
     setTimeout(() => window.location.reload(), 500);
   }
+
+  // Clear all game results, keep players: ?config=4
+  else if (configType === '4') {
+    if (!window.confirm('This will clear ALL game results for every player.\nPlayer names and ratings will be kept.\n\nContinue?')) {
+      return false;
+    }
+
+    const settings = loadUserSettings();
+    const prefix = getLadderPrefix();
+
+    if (settings.server) {
+      // SERVER mode: call admin API
+      const serverUrl = normalizeServerUrl(settings.server);
+      gatedFetch(`${serverUrl}/api/admin/clear-results`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(settings.apiKey ? { 'x-api-key': settings.apiKey } : {}),
+        },
+      })
+        .then(async (res) => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          if (data.success) {
+            alert(`Cleared results for ${data.data.cleared} players.\n\nThe app will reload to apply.`);
+            setTimeout(() => window.location.reload(), 500);
+          } else {
+            alert('Failed to clear results: ' + (data.error?.message || 'Unknown error'));
+          }
+        })
+        .catch((err) => {
+          console.error('[Config] Failed to clear results:', err);
+          alert('Failed to clear results. Check your connection and try again.');
+        });
+    } else {
+      // LOCAL mode: clear gameResults from localStorage
+      const playersKey = prefix + 'ladder_players';
+      const stored = localStorage.getItem(playersKey);
+      if (stored) {
+        try {
+          const players = JSON.parse(stored);
+          let cleared = 0;
+          if (Array.isArray(players)) {
+            for (const player of players) {
+              if (player && Array.isArray(player.gameResults)) {
+                player.gameResults = new Array(31).fill(null);
+                cleared++;
+              }
+            }
+            localStorage.setItem(playersKey, JSON.stringify(players));
+          }
+          alert(`Cleared results for ${cleared} players.\n\nThe app will reload to apply.`);
+          setTimeout(() => window.location.reload(), 500);
+        } catch (err) {
+          console.error('[Config] Failed to parse players:', err);
+          alert('Failed to clear results. Corrupted player data.');
+        }
+      } else {
+        alert('No player data found in localStorage.');
+        return false;
+      }
+    }
+  }
   
   else {
-    console.warn(`[USER_SETTINGS] Unknown config type: ${configType}. Use ?config=1 (server), ?config=3 (file), or ?config=2 (local).`);
+    console.warn(`[USER_SETTINGS] Unknown config type: ${configType}. Use ?config=1 (server), ?config=2 (local), ?config=3 (file), or ?config=4 (clear results).`);
     return false;
   }
 

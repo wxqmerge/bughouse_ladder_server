@@ -4,8 +4,8 @@ import path from 'path';
 import fs from 'fs/promises';
 import archiver from 'archiver';
 import { requireAdminKey } from '../middleware/auth.middleware.js';
-import { readLadderFile, ensureDataDirectory, generateTabContent, createBackup, rotateBackups, withTiming, getBackupList, restoreBackup, previewBackup, deleteBackup } from '../services/dataService.js';
-import { log } from '../utils/logger.js';
+import { readLadderFile, writeLadderFile, ensureDataDirectory, generateTabContent, createBackup, rotateBackups, withTiming, getBackupList, restoreBackup, previewBackup, deleteBackup } from '../services/dataService.js';
+import { log, logError } from '../utils/logger.js';
 import { broadcastSSEEvent } from '../services/sseService.js';
 import { isTrophyReport, isValidLadderHeader } from '../../../shared/utils/trophyFileGuard.js';
 
@@ -894,6 +894,29 @@ router.get('/activity-report', async (_req: Request, res: Response): Promise<voi
     res.status(500).json({
       success: false,
       error: { message: 'Failed to generate activity report' },
+    });
+  }
+});
+
+// Clear all game results, keep player data intact
+router.post('/clear-results', async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const ladderData = await readLadderFile();
+    const cleared = ladderData.players.length;
+    for (const player of ladderData.players) {
+      player.gameResults = new Array(31).fill(null);
+    }
+    await writeLadderFile(ladderData);
+    broadcastSSEEvent('resultsCleared', { type: 'clearResults', count: cleared });
+    res.json({
+      success: true,
+      data: { message: `Cleared results for ${cleared} players`, cleared },
+    });
+  } catch (error) {
+    logError('[SERVER]', 'Error clearing results:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to clear results' },
     });
   }
 });
