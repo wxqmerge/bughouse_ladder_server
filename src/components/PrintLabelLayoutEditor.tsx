@@ -235,13 +235,13 @@ export default function PrintLabelLayoutEditor({ onClose, onSave, currentLayout,
                 <Plus size={12} /> New
               </button>
             </div>
-            <div style={{ flex: 1, overflow: 'auto', padding: '8px' }}>
+            <div style={{ flex: 1, overflow: 'auto', padding: '4px' }}>
               {layouts.map((l, i) => (
                 <div
                   key={i}
                   onClick={() => handleSelect(i)}
                   style={{
-                    padding: '8px', marginBottom: '4px', borderRadius: '6px',
+                    padding: '12px 10px', marginBottom: '2px', borderRadius: '6px',
                     backgroundColor: i === selectedIdx ? '#eff6ff' : 'transparent',
                     border: i === selectedIdx ? '1.5px solid #2563eb' : '1px solid transparent',
                     cursor: 'pointer', fontSize: '13px',
@@ -251,15 +251,14 @@ export default function PrintLabelLayoutEditor({ onClose, onSave, currentLayout,
                   <input
                     value={l.name}
                     onChange={e => renameLayout(i, e.target.value)}
-                    onClick={e => e.stopPropagation()}
-                    style={{ flex: 1, border: 'none', background: 'transparent', fontSize: '13px', outline: 'none', color: '#1e293b' }}
+                    style={{ flex: 1, border: 'none', background: 'transparent', fontSize: '13px', outline: 'none', color: '#1e293b', cursor: 'pointer' }}
                   />
-                  <div style={{ display: 'flex', gap: '2px', marginLeft: '4px' }}>
-                    <button onClick={e => { e.stopPropagation(); duplicateLayout(i); }} title="Duplicate" style={{ padding: '2px 4px', border: 'none', background: 'none', cursor: 'pointer', color: '#64748b' }}>
-                      <Copy size={12} />
+                  <div style={{ display: 'flex', gap: '4px', marginLeft: '6px' }}>
+                    <button onClick={e => { e.stopPropagation(); duplicateLayout(i); }} title="Duplicate" style={{ padding: '4px 6px', border: 'none', background: 'none', cursor: 'pointer', color: '#64748b' }}>
+                      <Copy size={14} />
                     </button>
-                    <button onClick={e => { e.stopPropagation(); deleteLayout(i); }} title="Delete" style={{ padding: '2px 4px', border: 'none', background: 'none', cursor: 'pointer', color: '#ef4444' }}>
-                      <Trash2 size={12} />
+                    <button onClick={e => { e.stopPropagation(); deleteLayout(i); }} title="Delete" style={{ padding: '4px 6px', border: 'none', background: 'none', cursor: 'pointer', color: '#ef4444' }}>
+                      <Trash2 size={14} />
                     </button>
                   </div>
                 </div>
