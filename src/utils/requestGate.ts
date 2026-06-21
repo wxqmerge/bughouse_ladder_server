@@ -43,7 +43,10 @@ export async function gatedFetch(
     }
     return response;
   } catch (err) {
-    console.warn(`[REQ-GATE] ${method} ${urlStr} — ERROR: ${(err as Error).message}`);
+    // Suppress AbortError logging — expected from timed-out health checks
+    if ((err as Error).name !== 'AbortError') {
+      console.warn(`[REQ-GATE] ${method} ${urlStr} — ERROR: ${(err as Error).message}`);
+    }
     throw err;
   }
 }

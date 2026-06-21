@@ -18,6 +18,8 @@ import { miniGamesHaveResults } from "../services/miniGameLocalStorage";
 import ErrorDialog from "./ErrorDialog";
 import AddPlayerDialog from "./AddPlayerDialog";
 import { BulkPasteDialog } from "./BulkPasteDialog";
+import PrintLabelsDialog, { type PrintLabelsConfig } from "./PrintLabelsDialog";
+import LabelsPrintView from "./LabelsPrintView";
 import MenuBar from "./MenuBar";
 import MobileMenu from "./MobileMenu";
 import { Menu as MenuIcon, Server } from "lucide-react";
@@ -341,6 +343,9 @@ export default function LadderForm({
   const [addPlayerSuggestedRank, setAddPlayerSuggestedRank] = useState<number | undefined>(undefined);
   const [showBulkPasteDialog, setShowBulkPasteDialog] = useState(false);
   const [showRestoreBackupDialog, setShowRestoreBackupDialog] = useState(false);
+  const [showPrintLabelsDialog, setShowPrintLabelsDialog] = useState(false);
+  const [printLabelsConfig, setPrintLabelsConfig] = useState<PrintLabelsConfig | null>(null);
+  const [printLabelsDefault, setPrintLabelsDefault] = useState<{ labelsPerPage: 20 | 30 }>({ labelsPerPage: 20 });
   const [pendingImport, setPendingImport] = useState<{
     players: PlayerData[];
     filename: string;
@@ -3946,6 +3951,21 @@ const handleDeleteConfirm = () => {
     showToast(`Auto-lettered ${players.length} players`);
   };
 
+  const handleOpenPrintLabels = () => {
+    setPrintLabelsDefault({ labelsPerPage: 20 });
+    setPrintLabelsConfig(null);
+    setShowPrintLabelsDialog(true);
+  };
+
+  const handlePrintLabels = (config: PrintLabelsConfig) => {
+    setPrintLabelsConfig(config);
+    setTimeout(() => window.print(), 100);
+  };
+
+  const handleClearPrintLabels = () => {
+    setPrintLabelsConfig(null);
+  };
+
   const scheduleDebouncedSaveAndPropagate = (rank: number, originalLastName: string, originalFirstName: string, updates: Record<string, unknown>) => {
     if (debouncedSaveTimer.current) {
       clearTimeout(debouncedSaveTimer.current);
@@ -5223,16 +5243,17 @@ const handleDeleteConfirm = () => {
          onEnterGames={handleEnterGamesMenu}
          onRestoreBackup={isAdmin ? () => setShowRestoreBackupDialog(true) : undefined}
          onDeleteHiddenPlayers={isAdmin ? handleDeleteHiddenPlayers : undefined}
-         onAutoLetter={isAdmin ? handleAutoLetter : undefined}
-         isAdmin={isAdmin}
-         isTournamentActive={players.some(p => (p.gameResults || []).some(r => r && r.trim() !== ''))}
-         projectName={projectName}
-         onSetTitle={handleSetTitle}
-         availableMiniGames={availableMiniGames}
-         serverUrl={splashServerUrl}
-         hasAdminApiKey={!!splashApiKey}
-         writePermission={writePermission}
-       />
+onAutoLetter={isAdmin ? handleAutoLetter : undefined}
+           onPrintLabels={isAdmin ? handleOpenPrintLabels : undefined}
+           isAdmin={isAdmin}
+           isTournamentActive={players.some(p => (p.gameResults || []).some(r => r && r.trim() !== ''))}
+          projectName={projectName}
+          onSetTitle={handleSetTitle}
+          availableMiniGames={availableMiniGames}
+          serverUrl={splashServerUrl}
+          hasAdminApiKey={!!splashApiKey}
+          writePermission={writePermission}
+        />
 
       {/* Version mismatch warning banner */}
       {versionMismatch && (
@@ -5324,8 +5345,9 @@ const handleDeleteConfirm = () => {
           onEnterGames={handleEnterGamesMenu}
           onRestoreBackup={isAdmin ? () => setShowRestoreBackupDialog(true) : undefined}
           onDeleteHiddenPlayers={isAdmin ? handleDeleteHiddenPlayers : undefined}
-          onAutoLetter={isAdmin ? handleAutoLetter : undefined}
-          showRoundRobin={showRoundRobin}
+onAutoLetter={isAdmin ? handleAutoLetter : undefined}
+            onPrintLabels={isAdmin ? handleOpenPrintLabels : undefined}
+            showRoundRobin={showRoundRobin}
           onToggleRoundRobin={() => setShowRoundRobin(prev => !prev)}
           isAdmin={isAdmin}
           zoomLevel={zoomLevel}
@@ -6806,13 +6828,68 @@ debugLevel={debugLevel}
         />
       )}
 
-      {/* Restore Backup Dialog */}
+{/* Restore Backup Dialog */}
       {showRestoreBackupDialog && (
      <RestoreBackupDialog
           onClose={() => setShowRestoreBackupDialog(false)}
           onRestore={handleRestoreBackup}
           ladderFile={dataService.getMiniGameFile() || 'ladder.tab'}
         />
+      )}
+
+      {/* Print Labels Dialog */}
+      {showPrintLabelsDialog && (
+        <PrintLabelsDialog
+          onClose={() => setShowPrintLabelsDialog(false)}
+          onPrint={handlePrintLabels}
+          playerCount={players.filter(p => p.lastName && !p.group?.endsWith("x")).length}
+          defaultLabelsPerPage={printLabelsDefault.labelsPerPage}
+          isMiniGame={isMiniGameTitle(projectName)}
+        />
+      )}
+
+      {/* Print Labels View (print-only) */}
+      {printLabelsConfig && (
+        <>
+          <LabelsPrintView
+            players={players}
+            config={printLabelsConfig}
+            ladderName={projectName || "Bughouse"}
+            showRatings={true}
+            showSchool={false}
+          />
+          <div
+            style={{
+              position: "fixed",
+              top: "20px",
+              right: "20px",
+              zIndex: 10002,
+              backgroundColor: "white",
+              padding: "12px 16px",
+              borderRadius: "8px",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+              fontSize: "14px",
+            }}
+          >
+            <span>Print preview — use browser print dialog (Ctrl+P)</span>
+            <button
+              onClick={handleClearPrintLabels}
+              style={{
+                padding: "6px 12px",
+                borderRadius: "4px",
+                border: "1px solid #d1d5db",
+                backgroundColor: "#f3f4f6",
+                cursor: "pointer",
+                fontSize: "13px",
+              }}
+            >
+              Done
+            </button>
+          </div>
+        </>
       )}
 
       {/* Import Confirmation Dialog (Admin mode) */}

@@ -240,3 +240,221 @@ body {
   to { transform: rotate(360deg); }
 }
 
+/* Print Labels Styles */
+.print-labels-wrapper {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: letter portrait;
+    margin: 0.3in 0.2in;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .print-labels-wrapper,
+  .print-labels-wrapper * {
+    visibility: visible;
+  }
+
+  .print-labels-wrapper {
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+  }
+
+  .print-labels-page {
+    page-break-after: always;
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .print-labels-page:last-child {
+    page-break-after: auto;
+  }
+
+  .print-labels-grid {
+    display: grid;
+    width: 100%;
+    height: 100%;
+  }
+
+  .print-label-cell {
+    position: relative;
+    overflow: hidden;
+    border: none;
+  }
+
+  /*
+   * VB6 twip → percentage mapping
+   * 20/page: label = 6057w × 1446h twips (4.2" × 1.0")
+   * 30/page: label = 4038w × 1446h twips (2.8" × 1.0"), xscale = 2/3
+   *
+   * Font scaling for 30/page: font_scale = sqrt(2/3) ≈ 0.816
+   */
+
+  /* ====== STANDARD LABEL ====== */
+
+  /* ladder_name: (150, 200) twips → 2.5%, 13.8% */
+  .pl-ladder {
+    position: absolute;
+    left: 2.5%;
+    top: 13.8%;
+    font-size: 6pt;
+    font-family: Arial, sans-serif;
+  }
+
+  /* group: (4500, 500) twips → 74.3%, 34.6% */
+  .pl-group {
+    position: absolute;
+    left: 74.3%;
+    top: 34.6%;
+    font-size: 24pt;
+    font-family: Arial, sans-serif;
+  }
+
+  /* first_name: (50, 400) twips → 0.8%, 27.7% */
+  .pl-firstname {
+    position: absolute;
+    left: 0.8%;
+    top: 27.7%;
+    font-size: 30pt;
+    font-family: Arial, sans-serif;
+  }
+
+  /* rank: (4500, 50) twips → 74.3%, 3.5% */
+  .pl-rank {
+    position: absolute;
+    left: 74.3%;
+    top: 3.5%;
+    font-size: 17pt;
+    font-weight: bold;
+    font-family: Arial, sans-serif;
+  }
+
+  /* rating: (2500, 200) twips → 41.3%, 13.8% */
+  .pl-rating {
+    position: absolute;
+    left: 41.3%;
+    top: 13.8%;
+    font-size: 12pt;
+    font-family: Arial, sans-serif;
+  }
+
+  /* last_name: (1500, 1000) twips → 24.8%, 69.2% */
+  .pl-lastname {
+    position: absolute;
+    left: 24.8%;
+    top: 69.2%;
+    font-size: 12pt;
+    font-family: Arial, sans-serif;
+  }
+
+  /* grade: (150, 1000) twips → 2.5%, 69.2% */
+  .pl-grade {
+    position: absolute;
+    left: 2.5%;
+    top: 69.2%;
+    font-size: 13pt;
+    font-family: Arial, sans-serif;
+  }
+
+  /* school/room: (3500, 1000) twips → 57.8%, 69.2% */
+  .pl-school {
+    position: absolute;
+    left: 57.8%;
+    top: 69.2%;
+    font-size: 10pt;
+    font-family: Arial, sans-serif;
+  }
+
+  /* ====== MINIGAME LABEL ====== */
+
+  /* ladder_name: (150, 200) twips */
+  .pl-ladder-mg {
+    position: absolute;
+    left: 2.5%;
+    top: 13.8%;
+    font-size: 6pt;
+    font-family: Arial, sans-serif;
+  }
+
+  /* last_name: (1500, 1000) twips */
+  .pl-lastname-mg {
+    position: absolute;
+    left: 24.8%;
+    top: 69.2%;
+    font-size: 12pt;
+    font-family: Arial, sans-serif;
+  }
+
+  /* first_name: (1000, 400) twips → 16.5%, 27.7% */
+  .pl-firstname-mg {
+    position: absolute;
+    left: 16.5%;
+    top: 27.7%;
+    font-size: 30pt;
+    font-family: Arial, sans-serif;
+  }
+
+  /* rank-left: (50, 400) twips */
+  .pl-rank-mg-left {
+    position: absolute;
+    left: 0.8%;
+    top: 27.7%;
+    font-size: 30pt;
+    font-family: Arial, sans-serif;
+  }
+
+  /* rank-right: (4300, 400) twips → 71%, 27.7% */
+  .pl-rank-mg-right {
+    position: absolute;
+    left: 71%;
+    top: 27.7%;
+    font-size: 30pt;
+    font-family: Arial, sans-serif;
+  }
+
+  /* grade: (1300, 1000) twips → 21.5%, 69.2% */
+  .pl-grade-mg {
+    position: absolute;
+    left: 21.5%;
+    top: 69.2%;
+    font-size: 14pt;
+    font-weight: bold;
+    font-family: Arial, sans-serif;
+  }
+
+  /* ====== 30/page scaling (xscale=2/3, font_scale=sqrt(2/3)≈0.816) ====== */
+  .print-labels-grid.labels-30 .pl-ladder,
+  .print-labels-grid.labels-30 .pl-ladder-mg { font-size: 4.9pt; }
+
+  .print-labels-grid.labels-30 .pl-group { font-size: 19.6pt; }
+
+  .print-labels-grid.labels-30 .pl-firstname { font-size: 24.5pt; }
+
+  .print-labels-grid.labels-30 .pl-rank { font-size: 13.9pt; }
+
+  .print-labels-grid.labels-30 .pl-rating { font-size: 9.8pt; }
+
+  .print-labels-grid.labels-30 .pl-lastname { font-size: 9.8pt; }
+
+  .print-labels-grid.labels-30 .pl-grade { font-size: 10.6pt; }
+
+  .print-labels-grid.labels-30 .pl-school { font-size: 8.2pt; }
+
+  .print-labels-grid.labels-30 .pl-firstname-mg { font-size: 24.5pt; }
+
+  .print-labels-grid.labels-30 .pl-rank-mg-left,
+  .print-labels-grid.labels-30 .pl-rank-mg-right { font-size: 24.5pt; }
+
+  .print-labels-grid.labels-30 .pl-lastname-mg { font-size: 9.8pt; }
+
+  .print-labels-grid.labels-30 .pl-grade-mg { font-size: 11.4pt; }
+}

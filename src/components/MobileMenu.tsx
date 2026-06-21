@@ -6,6 +6,7 @@ import {
   Eye,
   Type,
   Check,
+  Printer,
 } from "lucide-react";
 import { getVisibleTitles } from "../utils/titleMenu";
 import { titleToFileName, LADDER_COLORS } from "../../shared/utils/constants";
@@ -29,6 +30,7 @@ interface MobileMenuProps {
   onRestoreBackup?: () => void;
   onDeleteHiddenPlayers?: () => void;
   onAutoLetter?: () => void;
+  onPrintLabels?: () => void;
   isAdmin: boolean;
   isTournamentActive?: boolean;
   projectName?: string;
@@ -64,6 +66,7 @@ export default function MobileMenu({
   onRestoreBackup,
   onDeleteHiddenPlayers,
   onAutoLetter,
+  onPrintLabels,
   isAdmin,
   isTournamentActive = false,
   projectName,
@@ -209,16 +212,25 @@ label: "Auto-Letter",
            },
          ]
        : []),
-      ...(isAdmin && onRestoreBackup
-       ? [
-           {
-label: "Restore Backup",
+...(isAdmin && onRestoreBackup
+        ? [
+            {
+ label: "Restore Backup",
               onClick: () => handleItemClick("Restore Backup", onRestoreBackup),
               dataMenuItem: "Restore Backup",
-             disabled: !writePermission,
-           },
-         ]
-       : []),
+              disabled: !writePermission,
+            },
+          ]
+        : []),
+      ...(isAdmin && onPrintLabels
+        ? [
+            {
+              label: "Print Labels",
+              onClick: () => handleItemClick("Print Labels", onPrintLabels),
+              dataMenuItem: "Print Labels",
+            },
+          ]
+        : []),
   ];
 
   const viewItems: MenuItem[] = [

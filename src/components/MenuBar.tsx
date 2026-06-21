@@ -12,6 +12,7 @@ import {
   ListFilter,
   Hash,
   Type,
+  Printer,
   TrendingUp,
  
   History,
@@ -43,6 +44,7 @@ interface MenuBarProps {
   onRestoreBackup?: () => void;
   onDeleteHiddenPlayers?: () => void;
   onAutoLetter?: () => void;
+  onPrintLabels?: () => void;
   showRoundRobin?: boolean;
   onToggleRoundRobin?: () => void;
   isAdmin: boolean;
@@ -82,6 +84,7 @@ export default function MenuBar({
   onRestoreBackup,
   onDeleteHiddenPlayers,
   onAutoLetter,
+  onPrintLabels,
   showRoundRobin = false,
   onToggleRoundRobin,
   isAdmin,
@@ -325,11 +328,11 @@ label: isAdmin ? "Exit Admin Mode" : "Admin Mode",
           disabled: !writePermission && !isAdmin,
         }]),
     // Restore Backup - admin only, before Settings
-    ...(isAdmin && onRestoreBackup
+...(isAdmin && onRestoreBackup
       ? [
           {
             icon: <History size={16} />,
-label: "Restore Backup",
+ label: "Restore Backup",
               onClick: () => {
                 debugClick("Restore Backup");
                 onRestoreBackup?.();
@@ -337,6 +340,20 @@ label: "Restore Backup",
               },
               dataMenuItem: "Restore Backup",
             disabled: !writePermission,
+          },
+        ]
+      : []),
+    ...(isAdmin && onPrintLabels
+      ? [
+          {
+            icon: <Printer size={16} />,
+            label: "Print Labels",
+            onClick: () => {
+              debugClick("Print Labels");
+              onPrintLabels();
+              closeAllMenus();
+            },
+            dataMenuItem: "Print Labels",
           },
         ]
       : []),
