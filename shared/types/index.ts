@@ -143,3 +143,15 @@ export interface MiniGameStore {
   }>;
   importMiniGameFiles(content: string): Promise<{ imported: string[]; errors: string[] }>;
 }
+
+export interface PrintLabelFieldLayout {
+  x: number;    // left % (0-100)
+  y: number;    // top % (0-100)
+  fontSize: number; // pt size (0 = use CSS default)
+}
+
+export interface PrintLabelLayout {
+  name: string;
+  labelsPerPage: 20 | 30;
+  fields: Record<string, PrintLabelFieldLayout>;
+}

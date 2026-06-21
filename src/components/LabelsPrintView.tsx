@@ -1,4 +1,4 @@
-import type { PlayerData } from "../../shared/types";
+import type { PlayerData, PrintLabelLayout } from "../../shared/types";
 import type { PrintLabelsConfig } from "./PrintLabelsDialog";
 
 interface LabelsPrintViewProps {
@@ -9,6 +9,17 @@ interface LabelsPrintViewProps {
   showSchool: boolean;
 }
 
+const FIELD_CLASS_MAP: Record<string, string> = {
+  ladderName: 'pl-ladder',
+  group: 'pl-group',
+  rating: 'pl-rating',
+  rank: 'pl-rank',
+  grade: 'pl-grade',
+  firstName: 'pl-firstname',
+  lastName: 'pl-lastname',
+  schoolRoom: 'pl-school',
+};
+
 export default function LabelsPrintView({
   players,
   config,
@@ -16,7 +27,7 @@ export default function LabelsPrintView({
   showRatings,
   showSchool,
 }: LabelsPrintViewProps) {
-  const { labelsPerPage, fields, copies } = config;
+  const { labelsPerPage, fields, copies, layout } = config;
   const columns = labelsPerPage === 20 ? 2 : 3;
   const is30 = labelsPerPage === 30;
 
@@ -58,6 +69,7 @@ export default function LabelsPrintView({
                     fields={fields}
                     showRatings={showRatings}
                     showSchool={showSchool}
+                    layout={layout}
                   />
                 </div>
               );
@@ -75,23 +87,33 @@ function FieldLabel({
   fields,
   showRatings,
   showSchool,
+  layout,
 }: {
   player: PlayerData;
   ladderName: string;
   fields: PrintLabelsConfig["fields"];
   showRatings: boolean;
   showSchool: boolean;
+  layout: PrintLabelLayout | null;
 }) {
+  const getLayoutStyle = (key: string): React.CSSProperties => {
+    if (!layout?.fields?.[key]) return {};
+    const f = layout.fields[key];
+    const style: React.CSSProperties = { left: `${f.x}%`, top: `${f.y}%` };
+    if (f.fontSize > 0) style.fontSize = `${f.fontSize}pt`;
+    return style;
+  };
+
   return (
     <>
-      {fields.ladderName && <span className="pl-ladder">{ladderName}</span>}
-      {fields.group && <span className="pl-group">{player.group}</span>}
-      {fields.rating && showRatings && <span className="pl-rating">{player.rating ?? ""}</span>}
-      {fields.rank && <span className="pl-rank">{player.rank}</span>}
-      {fields.grade && <span className="pl-grade">{player.grade}</span>}
-      {fields.firstName && <span className="pl-firstname">{player.firstName}</span>}
-      {fields.lastName && <span className="pl-lastname">{player.lastName}</span>}
-      {fields.schoolRoom && <span className="pl-school">{showSchool ? player.school : player.room}</span>}
+      {fields.ladderName && <span className={FIELD_CLASS_MAP.ladderName} style={getLayoutStyle('ladderName')}>{ladderName}</span>}
+      {fields.group && <span className={FIELD_CLASS_MAP.group} style={getLayoutStyle('group')}>{player.group}</span>}
+      {fields.rating && showRatings && <span className={FIELD_CLASS_MAP.rating} style={getLayoutStyle('rating')}>{player.rating ?? ""}</span>}
+      {fields.rank && <span className={FIELD_CLASS_MAP.rank} style={getLayoutStyle('rank')}>{player.rank}</span>}
+      {fields.grade && <span className={FIELD_CLASS_MAP.grade} style={getLayoutStyle('grade')}>{player.grade}</span>}
+      {fields.firstName && <span className={FIELD_CLASS_MAP.firstName} style={getLayoutStyle('firstName')}>{player.firstName}</span>}
+      {fields.lastName && <span className={FIELD_CLASS_MAP.lastName} style={getLayoutStyle('lastName')}>{player.lastName}</span>}
+      {fields.schoolRoom && <span className={FIELD_CLASS_MAP.schoolRoom} style={getLayoutStyle('schoolRoom')}>{showSchool ? player.school : player.room}</span>}
     </>
   );
 }

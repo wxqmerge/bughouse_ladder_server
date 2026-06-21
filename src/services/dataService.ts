@@ -1330,6 +1330,50 @@ await throwIfNotOk(response, 'Failed to submit delta batch');
     }
   }
 
+  async fetchPrintLayoutsFromServer(): Promise<any[] | null> {
+    if (this.config.mode === DataServiceMode.LOCAL) return null;
+    try {
+      const response = await gatedFetch(`${this.getApiUrl()}/api/print-layouts`, {
+        headers: this.getAuthHeaders(),
+      });
+      if (!response.ok) return null;
+      const data = await response.json();
+      return data.layouts || null;
+    } catch {
+      return null;
+    }
+  }
+
+  async savePrintLayoutToServer(layout: any): Promise<boolean> {
+    if (this.config.mode === DataServiceMode.LOCAL) return false;
+    try {
+      const response = await gatedFetch(`${this.getApiUrl()}/api/print-layouts`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...this.getAuthHeaders(),
+        },
+        body: JSON.stringify(layout),
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  async deletePrintLayoutFromServer(name: string): Promise<boolean> {
+    if (this.config.mode === DataServiceMode.LOCAL) return false;
+    try {
+      const response = await gatedFetch(`${this.getApiUrl()}/api/print-layouts/${encodeURIComponent(name)}`, {
+        method: 'DELETE',
+        headers: this.getAuthHeaders(),
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+
   async generateActivityReport(): Promise<Blob> {
     if (this.config.mode === DataServiceMode.LOCAL) {
       const store = this.getStore();
