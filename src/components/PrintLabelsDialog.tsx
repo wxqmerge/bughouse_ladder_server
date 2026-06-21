@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { Printer, X, Check } from "lucide-react";
+import { Printer, X, Check, LayoutTemplate } from "lucide-react";
+import type { PrintLabelLayout } from "../../shared/types";
+import PrintLabelLayoutEditor from "./PrintLabelLayoutEditor";
 
 interface PrintLabelsDialogProps {
   onClose: () => void;
@@ -22,6 +24,7 @@ export interface PrintLabelsConfig {
     lastName: boolean;
     schoolRoom: boolean;
   };
+  layout: PrintLabelLayout | null;
 }
 
 const ALL_FIELDS = [
@@ -51,6 +54,8 @@ export default function PrintLabelsDialog({
   const [labelsPerPage, setLabelsPerPage] = useState<20 | 30>(defaultLabelsPerPage);
   const [fields, setFields] = useState(() => defaultFields(isMiniGame));
   const [copies, setCopies] = useState(1);
+  const [showLayoutEditor, setShowLayoutEditor] = useState(false);
+  const [selectedLayout, setSelectedLayout] = useState<PrintLabelLayout | null>(null);
 
   const pagesNeeded = Math.ceil(playerCount / labelsPerPage);
 
@@ -59,7 +64,7 @@ export default function PrintLabelsDialog({
   };
 
   const handlePrint = () => {
-    onPrint({ labelsPerPage, fields, copies });
+    onPrint({ labelsPerPage, fields, copies, layout: selectedLayout });
     onClose();
   };
 
@@ -328,6 +333,25 @@ export default function PrintLabelsDialog({
             Cancel
           </button>
           <button
+            onClick={() => setShowLayoutEditor(true)}
+            style={{
+              padding: "10px 20px",
+              borderRadius: "6px",
+              border: "1px solid #d1d5db",
+              backgroundColor: "white",
+              cursor: "pointer",
+              fontSize: "14px",
+              fontWeight: 500,
+              color: "#374151",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+            }}
+          >
+            <LayoutTemplate size={16} />
+            Layout Editor
+          </button>
+          <button
             onClick={handlePrint}
             style={{
               padding: "10px 20px",
@@ -348,6 +372,14 @@ export default function PrintLabelsDialog({
           </button>
         </div>
       </div>
+      {showLayoutEditor && (
+        <PrintLabelLayoutEditor
+          onClose={() => setShowLayoutEditor(false)}
+          onSave={setSelectedLayout}
+          currentLayout={selectedLayout}
+          labelsPerPage={labelsPerPage}
+        />
+      )}
     </div>
   );
 }

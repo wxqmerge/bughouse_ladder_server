@@ -34,6 +34,7 @@ import { router as ladderRouter } from './routes/ladder.routes.js';
 import { router as gameRouter } from './routes/game.routes.js';
 import { router as adminRouter } from './routes/admin.routes.js';
 import { router as adminLockRouter } from './routes/adminLock.routes.js';
+import { router as printLayoutsRouter } from './routes/printLayouts.routes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { initializeDefaultLadder } from './services/dataService.js';
 
@@ -206,6 +207,7 @@ app.use('/api/ladder', ladderRouter);
 app.use('/api/games', gameRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/admin-lock', adminLockRouter);
+app.use('/api/print-layouts', printLayoutsRouter);
 
 // Serve static files from React app in production
 if (process.env.NODE_ENV === 'production') {
