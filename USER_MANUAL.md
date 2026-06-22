@@ -84,6 +84,37 @@
 
 ---
 
+## Print Labels
+
+Access via **Operations → Print Labels**. Opens a configuration dialog for printing name labels.
+
+### Print Labels Dialog
+
+| Setting | Description |
+| :--- | :--- |
+| **Labels Per Page** | 20/page (2×10) or 30/page (3×10) |
+| **Fields** | Toggle which data fields appear on each label (Ladder Name, Group, Rating, Rank, Grade, First Name, Last Name, School/Room) |
+| **Copies** | Number of full sets to print (1–20) |
+| **Fill with Blanks** | Check to add blank numbered labels up to a max count (fills last page) |
+| **Layout Editor** | Opens the label layout editor for field positioning |
+
+### Layout Editor
+
+Opens from the **Layout Editor** button in the Print Labels dialog.
+
+| Section | Controls |
+| :--- | :--- |
+| **Presets** | Left panel — create, rename, duplicate, delete saved layouts. Export/Import JSON for sharing. |
+| **Margins** | Top/Bottom margin (% of cell height), Column Offset per column (-5% to +5%). Column offset shifts all fields in that column left/right. |
+| **Fields** | X% (horizontal), Y% (vertical), Size (pt) for each field. Per-field reset button restores CSS default. |
+| **Preview** | Live preview showing a single label cell with correct aspect ratio (240px for 20/page, 160px for 30/page). |
+
+**Saving:** Click **Save Layout** to store the layout. It becomes available as a preset for future use. Saved layouts sync to the server (SERVER mode) and persist in localStorage (LOCAL mode).
+
+**Defaults:** All margins and offsets default to 0 — no position change from standard CSS layout.
+
+---
+
 ## Tips & Troubleshooting
 
 - **Header Colors:**
