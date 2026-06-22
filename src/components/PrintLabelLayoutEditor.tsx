@@ -447,7 +447,7 @@ export default function PrintLabelLayoutEditor({ onClose, onSave, currentLayout,
                               key={f.key}
                               style={{
                                 position: 'absolute',
-                                left: `${val.x}%`,
+                                left: `${val.x + colOffset}%`,
                                 top: `${val.y}%`,
                                 fontSize: `${val.fontSize || 10}pt`,
                                 fontFamily: 'Arial, sans-serif',
@@ -455,7 +455,6 @@ export default function PrintLabelLayoutEditor({ onClose, onSave, currentLayout,
                                 whiteSpace: 'nowrap',
                                 fontWeight: f.key === 'rank' ? 'bold' : 'normal',
                                 pointerEvents: 'none',
-                                transform: `translateX(${colOffset}%)`,
                               }}
                             >
                               {sampleText}
