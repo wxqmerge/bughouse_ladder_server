@@ -59,7 +59,7 @@ export default function PrintLabelsDialog({
   const [showLayoutEditor, setShowLayoutEditor] = useState(false);
   const [selectedLayout, setSelectedLayout] = useState<PrintLabelLayout | null>(null);
   const [fillBlanks, setFillBlanks] = useState(false);
-  const [fillBlanksMax, setFillBlanksMax] = useState(Math.max(playerCount, 30));
+  const [fillBlanksMax, setFillBlanksMax] = useState(Math.min(Math.max(playerCount, 30), 200));
 
   const pagesNeeded = Math.ceil(playerCount / labelsPerPage);
 
@@ -326,7 +326,7 @@ export default function PrintLabelsDialog({
             {fillBlanks && (
               <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "10px", marginLeft: "24px" }}>
                 <button
-                  onClick={() => setFillBlanksMax(Math.max(playerCount, fillBlanksMax - 10))}
+                  onClick={() => setFillBlanksMax(Math.max(playerCount, Math.min(200, fillBlanksMax - 10)))}
                   style={{
                     width: "36px",
                     height: "36px",
@@ -345,12 +345,12 @@ export default function PrintLabelsDialog({
                 <input
                   type="number"
                   min={playerCount}
-                  max={500}
+                  max={200}
                   step={10}
                   value={fillBlanksMax}
                   onChange={(e) =>
                     setFillBlanksMax(
-                      Math.max(playerCount, Math.min(500, parseInt(e.target.value) || playerCount))
+                      Math.max(playerCount, Math.min(200, parseInt(e.target.value) || playerCount))
                     )
                   }
                   style={{
@@ -363,7 +363,7 @@ export default function PrintLabelsDialog({
                   }}
                 />
                 <button
-                  onClick={() => setFillBlanksMax(Math.min(500, fillBlanksMax + 10))}
+                  onClick={() => setFillBlanksMax(Math.min(200, fillBlanksMax + 10))}
                   style={{
                     width: "36px",
                     height: "36px",
