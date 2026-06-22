@@ -41,9 +41,10 @@ export default function LabelsPrintView({
 
   const totalLabels = config.fillBlanks ? config.fillBlanksMax : sortedPlayers.length;
   const blankCount = Math.max(0, totalLabels - sortedPlayers.length);
-  const allItems = [...sortedPlayers, ...Array.from({ length: blankCount }, (_, i) => null)];
+  const maxRank = sortedPlayers.reduce((m, p) => Math.max(m, p.rank ?? 0), 0);
+  const allItems = [...sortedPlayers, ...Array.from({ length: blankCount }, (_, i) => ({ rank: maxRank + i + 1 }))];
 
-  const pages: (PlayerData | null)[][] = [];
+  const pages: (PlayerData | { rank: number })[][] = [];
   for (let c = 0; c < copies; c++) {
     for (let i = 0; i < allItems.length; i += labelsPerPage) {
       pages.push(allItems.slice(i, i + labelsPerPage));
@@ -61,8 +62,7 @@ export default function LabelsPrintView({
             style={{ gridTemplateColumns: `repeat(${columns}, 1fr)` }}
           >
             {Array.from({ length: labelsPerPage }).map((_, idx) => {
-              const raw = pagePlayers[idx];
-              const player = raw ?? null;
+              const item = pagePlayers[idx];
               const colIdx = idx % columns;
               const marginTop = layout?.marginTop ?? 0;
               const marginBottom = layout?.marginBottom ?? 0;
@@ -70,21 +70,34 @@ export default function LabelsPrintView({
               const cellStyle: React.CSSProperties = {};
               if (marginTop > 0) cellStyle.paddingTop = `${marginTop}%`;
               if (marginBottom > 0) cellStyle.paddingBottom = `${marginBottom}%`;
-              if (!player) {
-                const globalIdx = pages.indexOf(pagePlayers) * labelsPerPage + idx;
-                const isBlank = raw === null;
+              if (!item) {
+                return (
+                  <div key={idx} className="print-label-cell" style={cellStyle} />
+                );
+              }
+              const isPlayer = 'lastName' in item;
+              if (!isPlayer) {
+                const rankLayout = layout?.fields?.rank;
+                const rankStyle: React.CSSProperties = {};
+                if (rankLayout) {
+                  rankStyle.left = `${rankLayout.x + colOffset}%`;
+                  rankStyle.top = `${rankLayout.y}%`;
+                  if (rankLayout.fontSize > 0) rankStyle.fontSize = `${rankLayout.fontSize}pt`;
+                } else {
+                  rankStyle.fontSize = "17pt";
+                }
+                rankStyle.fontFamily = "Arial, sans-serif";
+                rankStyle.position = "absolute";
                 return (
                   <div key={idx} className="print-label-cell" style={cellStyle}>
-                    {isBlank && (
-                      <span className="pl-blank" style={{ fontSize: "14pt", color: "#94a3b8", textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>{globalIdx + 1}</span>
-                    )}
+                    <span style={rankStyle}>{item.rank}</span>
                   </div>
                 );
               }
               return (
                 <div key={idx} className="print-label-cell" style={cellStyle}>
                   <FieldLabel
-                    player={player}
+                    player={item}
                     ladderName={ladderName}
                     fields={fields}
                     showRatings={showRatings}
