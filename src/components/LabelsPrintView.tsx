@@ -39,10 +39,14 @@ export default function LabelsPrintView({
     a.firstName.localeCompare(b.firstName)
   );
 
-  const pages: PlayerData[][] = [];
+  const totalLabels = config.fillBlanks ? config.fillBlanksMax : sortedPlayers.length;
+  const blankCount = Math.max(0, totalLabels - sortedPlayers.length);
+  const allItems = [...sortedPlayers, ...Array.from({ length: blankCount }, (_, i) => null)];
+
+  const pages: (PlayerData | null)[][] = [];
   for (let c = 0; c < copies; c++) {
-    for (let i = 0; i < sortedPlayers.length; i += labelsPerPage) {
-      pages.push(sortedPlayers.slice(i, i + labelsPerPage));
+    for (let i = 0; i < allItems.length; i += labelsPerPage) {
+      pages.push(allItems.slice(i, i + labelsPerPage));
     }
   }
 
@@ -56,10 +60,15 @@ export default function LabelsPrintView({
             className={gridClass}
             style={{ gridTemplateColumns: `repeat(${columns}, 1fr)` }}
           >
-            {Array.from({ length: labelsPerPage }).map((_, idx) => {
-              const player = pagePlayers[idx];
+            {pagePlayers.map((player, idx) => {
               if (!player) {
-                return <div key={idx} className="print-label-cell" />;
+                const blankNum = sortedPlayers.length + pagePlayers.slice(0, idx).filter((p) => p === null).length + 1;
+                const globalIdx = pages.indexOf(pagePlayers) * labelsPerPage + idx;
+                return (
+                  <div key={idx} className="print-label-cell">
+                    <span className="pl-blank" style={{ fontSize: "14pt", color: "#94a3b8", textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>{globalIdx + 1}</span>
+                  </div>
+                );
               }
               return (
                 <div key={idx} className="print-label-cell">

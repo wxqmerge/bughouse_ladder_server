@@ -25,6 +25,8 @@ export interface PrintLabelsConfig {
     schoolRoom: boolean;
   };
   layout: PrintLabelLayout | null;
+  fillBlanks: boolean;
+  fillBlanksMax: number;
 }
 
 const ALL_FIELDS = [
@@ -56,6 +58,8 @@ export default function PrintLabelsDialog({
   const [copies, setCopies] = useState(1);
   const [showLayoutEditor, setShowLayoutEditor] = useState(false);
   const [selectedLayout, setSelectedLayout] = useState<PrintLabelLayout | null>(null);
+  const [fillBlanks, setFillBlanks] = useState(false);
+  const [fillBlanksMax, setFillBlanksMax] = useState(Math.max(playerCount, 30));
 
   const pagesNeeded = Math.ceil(playerCount / labelsPerPage);
 
@@ -64,7 +68,7 @@ export default function PrintLabelsDialog({
   };
 
   const handlePrint = () => {
-    onPrint({ labelsPerPage, fields, copies, layout: selectedLayout });
+    onPrint({ labelsPerPage, fields, copies, layout: selectedLayout, fillBlanks, fillBlanksMax });
     onClose();
   };
 
@@ -291,6 +295,97 @@ export default function PrintLabelsDialog({
             </div>
           </div>
 
+          <div style={{ marginBottom: "20px" }}>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                cursor: "pointer",
+                fontSize: "14px",
+                color: fillBlanks ? "#2563eb" : "#374151",
+                userSelect: "none" as const,
+              }}
+              onClick={() => setFillBlanks(!fillBlanks)}
+            >
+              {fillBlanks ? (
+                <Check size={16} strokeWidth={3} />
+              ) : (
+                <div
+                  style={{
+                    width: "16px",
+                    height: "16px",
+                    borderRadius: "4px",
+                    border: "1.5px solid #cbd5e1",
+                    flexShrink: 0,
+                  }}
+                />
+              )}
+              Fill with blanks up to
+            </label>
+            {fillBlanks && (
+              <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "10px", marginLeft: "24px" }}>
+                <button
+                  onClick={() => setFillBlanksMax(Math.max(playerCount, fillBlanksMax - 10))}
+                  style={{
+                    width: "36px",
+                    height: "36px",
+                    borderRadius: "6px",
+                    border: "1px solid #d1d5db",
+                    backgroundColor: "white",
+                    cursor: "pointer",
+                    fontSize: "18px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  -
+                </button>
+                <input
+                  type="number"
+                  min={playerCount}
+                  max={500}
+                  step={10}
+                  value={fillBlanksMax}
+                  onChange={(e) =>
+                    setFillBlanksMax(
+                      Math.max(playerCount, Math.min(500, parseInt(e.target.value) || playerCount))
+                    )
+                  }
+                  style={{
+                    width: "80px",
+                    textAlign: "center",
+                    padding: "8px",
+                    borderRadius: "6px",
+                    border: "1px solid #d1d5db",
+                    fontSize: "16px",
+                  }}
+                />
+                <button
+                  onClick={() => setFillBlanksMax(Math.min(500, fillBlanksMax + 10))}
+                  style={{
+                    width: "36px",
+                    height: "36px",
+                    borderRadius: "6px",
+                    border: "1px solid #d1d5db",
+                    backgroundColor: "white",
+                    cursor: "pointer",
+                    fontSize: "18px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  +
+                </button>
+                <span style={{ fontSize: "13px", color: "#64748b" }}>
+                  ({fillBlanksMax - playerCount} blanks)
+                </span>
+              </div>
+            )}
+          </div>
+
           <div
             style={{
               padding: "12px",
@@ -300,10 +395,10 @@ export default function PrintLabelsDialog({
               color: "#64748b",
             }}
           >
-            {playerCount} player{playerCount !== 1 ? "s" : ""} \u2192{" "}
-            {pagesNeeded} page{pagesNeeded !== 1 ? "s" : ""}
+            {playerCount} player{playerCount !== 1 ? "s" : ""}{fillBlanks ? ` + ${fillBlanksMax - playerCount} blanks` : ""} \u2192{" "}
+            {Math.ceil((fillBlanks ? fillBlanksMax : playerCount) / labelsPerPage)} page{Math.ceil((fillBlanks ? fillBlanksMax : playerCount) / labelsPerPage) !== 1 ? "s" : ""}
             {copies > 1
-              ? ` \u00D7 ${copies} copies = ${(pagesNeeded * copies).toLocaleString()} pages`
+              ? ` \u00D7 ${copies} copies = ${(Math.ceil((fillBlanks ? fillBlanksMax : playerCount) / labelsPerPage) * copies).toLocaleString()} pages`
               : ""}
           </div>
         </div>
