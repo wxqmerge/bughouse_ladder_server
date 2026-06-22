@@ -61,7 +61,8 @@ export default function LabelsPrintView({
             style={{ gridTemplateColumns: `repeat(${columns}, 1fr)` }}
           >
             {Array.from({ length: labelsPerPage }).map((_, idx) => {
-              const player = pagePlayers[idx] ?? null;
+              const raw = pagePlayers[idx];
+              const player = raw ?? null;
               const colIdx = idx % columns;
               const marginTop = layout?.marginTop ?? 0;
               const marginBottom = layout?.marginBottom ?? 0;
@@ -71,9 +72,12 @@ export default function LabelsPrintView({
               if (marginBottom > 0) cellStyle.paddingBottom = `${marginBottom}%`;
               if (!player) {
                 const globalIdx = pages.indexOf(pagePlayers) * labelsPerPage + idx;
+                const isBlank = raw === null;
                 return (
                   <div key={idx} className="print-label-cell" style={cellStyle}>
-                    <span className="pl-blank" style={{ fontSize: "14pt", color: "#94a3b8", textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>{globalIdx + 1}</span>
+                    {isBlank && (
+                      <span className="pl-blank" style={{ fontSize: "14pt", color: "#94a3b8", textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>{globalIdx + 1}</span>
+                    )}
                   </div>
                 );
               }
