@@ -413,7 +413,6 @@ export default function PrintLabelLayoutEditor({ onClose, onSave, currentLayout,
                   {(() => {
                     const cellW = labelsPerPage === 20 ? 240 : 160;
                     const cellH = 100;
-                    const fontScale = labelsPerPage === 20 ? 0.35 : 0.23;
                     const marginTop = editing.marginTop;
                     const marginBottom = editing.marginBottom;
                     const colOffset = editing.columnOffsets[0] ?? 0;
@@ -424,7 +423,7 @@ export default function PrintLabelLayoutEditor({ onClose, onSave, currentLayout,
                           backgroundColor: 'white', border: '2px solid #333',
                           borderRadius: '4px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
                           paddingTop: `${marginTop}%`, paddingBottom: `${marginBottom}%`,
-                          boxSizing: 'border-box',
+                          boxSizing: 'border-box', overflow: 'hidden',
                         }}
                       >
                         {colOffset !== 0 && (
@@ -450,7 +449,7 @@ export default function PrintLabelLayoutEditor({ onClose, onSave, currentLayout,
                                 position: 'absolute',
                                 left: `${val.x + colOffset}%`,
                                 top: `${val.y}%`,
-                                fontSize: `${(val.fontSize || 10) * fontScale}pt`,
+                                fontSize: `${val.fontSize || 10}pt`,
                                 fontFamily: 'Arial, sans-serif',
                                 color: '#1e293b',
                                 whiteSpace: 'nowrap',
