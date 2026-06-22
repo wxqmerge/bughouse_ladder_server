@@ -67,6 +67,9 @@ export default function PrintLabelLayoutEditor({ onClose, onSave, currentLayout,
       fields: Object.fromEntries(
         Object.entries(defaults).map(([k, v]) => [k, { ...v }])
       ),
+      marginTop: 0,
+      marginBottom: 0,
+      columnOffsets: labelsPerPage === 20 ? [0, 0] : [0, 0, 0],
     };
     const updated = [...layouts, newL];
     setLayouts(updated);
@@ -150,6 +153,29 @@ export default function PrintLabelLayoutEditor({ onClose, onSave, currentLayout,
     if (!editing || !defaults[key]) return;
     editing.fields[key] = { ...defaults[key] };
     setEditing({ ...editing, fields: { ...editing.fields } });
+  };
+
+  const handleMarginChange = (field: 'marginTop' | 'marginBottom', value: number) => {
+    if (!editing) return;
+    const clamped = Math.max(0, Math.min(100, value));
+    editing[field] = clamped;
+    setEditing({ ...editing });
+  };
+
+  const handleColumnOffsetChange = (idx: number, value: number) => {
+    if (!editing) return;
+    const clamped = Math.max(-5, Math.min(5, value));
+    editing.columnOffsets = [...editing.columnOffsets];
+    editing.columnOffsets[idx] = clamped;
+    setEditing({ ...editing });
+  };
+
+  const resetMargins = () => {
+    if (!editing) return;
+    editing.marginTop = 0;
+    editing.marginBottom = 0;
+    editing.columnOffsets = editing.labelsPerPage === 20 ? [0, 0] : [0, 0, 0];
+    setEditing({ ...editing });
   };
 
   const handleSave = async () => {
@@ -277,6 +303,47 @@ export default function PrintLabelLayoutEditor({ onClose, onSave, currentLayout,
 
           {/* Center: Field controls */}
           <div style={{ width: '340px', minWidth: '340px', borderRight: '1px solid #e2e8f0', overflow: 'auto', padding: '12px' }}>
+            {/* Margins section */}
+            <div style={{ marginBottom: '16px', padding: '10px', borderRadius: '6px', border: '1px solid #e2e8f0', backgroundColor: '#f8fafc' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: '#374151' }}>Margins</span>
+                <button onClick={resetMargins} title="Reset margins" style={{ padding: '2px 6px', borderRadius: '3px', border: '1px solid #d1d5db', background: 'white', cursor: 'pointer', fontSize: '11px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '2px' }}>
+                  <RotateCcw size={10} /> Reset
+                </button>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginBottom: '8px' }}>
+                <div>
+                  <label style={{ fontSize: '10px', color: '#94a3b8', display: 'block', marginBottom: '2px' }}>Top %</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                    <button onClick={() => handleMarginChange('marginTop', (editing?.marginTop ?? 0) - 0.5)} style={{ width: '22px', height: '24px', border: '1px solid #d1d5db', borderRadius: '3px', background: 'white', cursor: 'pointer', fontSize: '12px' }}>-</button>
+                    <input type="number" min={0} max={100} step={0.5} value={editing?.marginTop ?? 0} onChange={e => handleMarginChange('marginTop', parseFloat(e.target.value) || 0)} style={{ width: '50px', textAlign: 'center', padding: '3px', borderRadius: '3px', border: '1px solid #d1d5db', fontSize: '12px' }} />
+                    <button onClick={() => handleMarginChange('marginTop', (editing?.marginTop ?? 0) + 0.5)} style={{ width: '22px', height: '24px', border: '1px solid #d1d5db', borderRadius: '3px', background: 'white', cursor: 'pointer', fontSize: '12px' }}>+</button>
+                  </div>
+                </div>
+                <div>
+                  <label style={{ fontSize: '10px', color: '#94a3b8', display: 'block', marginBottom: '2px' }}>Bottom %</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                    <button onClick={() => handleMarginChange('marginBottom', (editing?.marginBottom ?? 0) - 0.5)} style={{ width: '22px', height: '24px', border: '1px solid #d1d5db', borderRadius: '3px', background: 'white', cursor: 'pointer', fontSize: '12px' }}>-</button>
+                    <input type="number" min={0} max={100} step={0.5} value={editing?.marginBottom ?? 0} onChange={e => handleMarginChange('marginBottom', parseFloat(e.target.value) || 0)} style={{ width: '50px', textAlign: 'center', padding: '3px', borderRadius: '3px', border: '1px solid #d1d5db', fontSize: '12px' }} />
+                    <button onClick={() => handleMarginChange('marginBottom', (editing?.marginBottom ?? 0) + 0.5)} style={{ width: '22px', height: '24px', border: '1px solid #d1d5db', borderRadius: '3px', background: 'white', cursor: 'pointer', fontSize: '12px' }}>+</button>
+                  </div>
+                </div>
+              </div>
+              <div style={{ fontSize: '10px', color: '#94a3b8', marginBottom: '4px', fontWeight: 500 }}>Column Offset</div>
+              <div style={{ display: 'grid', gridTemplateColumns: labelsPerPage === 20 ? '1fr 1fr' : '1fr 1fr 1fr', gap: '6px' }}>
+                {editing && editing.columnOffsets.length > 0 && editing.columnOffsets.map((off, ci) => (
+                  <div key={ci}>
+                    <label style={{ fontSize: '10px', color: '#94a3b8', display: 'block', marginBottom: '2px' }}>Col {ci + 1} %</label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                      <button onClick={() => handleColumnOffsetChange(ci, off - 0.5)} style={{ width: '22px', height: '24px', border: '1px solid #d1d5db', borderRadius: '3px', background: 'white', cursor: 'pointer', fontSize: '12px' }}>-</button>
+                      <input type="number" min={-5} max={5} step={0.5} value={off} onChange={e => handleColumnOffsetChange(ci, parseFloat(e.target.value) || 0)} style={{ width: '50px', textAlign: 'center', padding: '3px', borderRadius: '3px', border: '1px solid #d1d5db', fontSize: '12px' }} />
+                      <button onClick={() => handleColumnOffsetChange(ci, off + 0.5)} style={{ width: '22px', height: '24px', border: '1px solid #d1d5db', borderRadius: '3px', background: 'white', cursor: 'pointer', fontSize: '12px' }}>+</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
               <span style={{ fontSize: '14px', fontWeight: 600, color: '#374151' }}>
                 Fields ({labelsPerPage}/page)
@@ -340,45 +407,67 @@ export default function PrintLabelLayoutEditor({ onClose, onSave, currentLayout,
                 <Eye size={12} /> {preview ? 'Hide' : 'Show'}
               </button>
             </div>
-            {preview && (
+            {preview && editing && (
               <div style={{ display: 'flex', justifyContent: 'center' }}>
-                <div
-                  style={{
-                    width: '260px', height: '110px', position: 'relative',
-                    backgroundColor: 'white', border: '2px solid #333',
-                    borderRadius: '4px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                  }}
-                >
-                  {ALL_FIELDS.map(f => {
-                    const val = previewFields[f.key];
-                    if (!val) return null;
-                    const sampleText = f.label === 'Ladder Name' ? 'Bughouse' :
-                      f.key === 'group' ? 'A' :
-                      f.key === 'rating' ? '1050' :
-                      f.key === 'rank' ? '5' :
-                      f.key === 'grade' ? '5th' :
-                      f.key === 'firstName' ? 'Alice' :
-                      f.key === 'lastName' ? 'Smith' :
-                      'Room 12';
+                <div>
+                  {(() => {
+                    const cellW = labelsPerPage === 20 ? 180 : 120;
+                    const cellH = 110;
+                    const marginTop = editing.marginTop;
+                    const marginBottom = editing.marginBottom;
+                    const colOffset = editing.columnOffsets[0] ?? 0;
                     return (
-                      <span
-                        key={f.key}
+                      <div
                         style={{
-                          position: 'absolute',
-                          left: `${val.x}%`,
-                          top: `${val.y}%`,
-                          fontSize: `${val.fontSize || 10}pt`,
-                          fontFamily: 'Arial, sans-serif',
-                          color: '#1e293b',
-                          whiteSpace: 'nowrap',
-                          fontWeight: f.key === 'rank' ? 'bold' : 'normal',
-                          pointerEvents: 'none',
+                          width: `${cellW}px`, height: `${cellH}px`, position: 'relative',
+                          backgroundColor: 'white', border: '2px solid #333',
+                          borderRadius: '4px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                          paddingTop: `${marginTop}%`, paddingBottom: `${marginBottom}%`,
+                          boxSizing: 'border-box',
                         }}
                       >
-                        {sampleText}
-                      </span>
+                        {colOffset !== 0 && (
+                          <div style={{ position: 'absolute', top: '2px', right: '4px', fontSize: '9px', color: '#94a3b8', pointerEvents: 'none' }}>
+                            {colOffset > 0 ? `+${colOffset}` : colOffset}
+                          </div>
+                        )}
+                        {ALL_FIELDS.map(f => {
+                          const val = previewFields[f.key];
+                          if (!val) return null;
+                          const sampleText = f.label === 'Ladder Name' ? 'BG' :
+                            f.key === 'group' ? 'A' :
+                            f.key === 'rating' ? '1050' :
+                            f.key === 'rank' ? '5' :
+                            f.key === 'grade' ? '5th' :
+                            f.key === 'firstName' ? 'Alice' :
+                            f.key === 'lastName' ? 'Smith' :
+                            'Rm12';
+                          return (
+                            <span
+                              key={f.key}
+                              style={{
+                                position: 'absolute',
+                                left: `${val.x}%`,
+                                top: `${val.y}%`,
+                                fontSize: `${val.fontSize || 10}pt`,
+                                fontFamily: 'Arial, sans-serif',
+                                color: '#1e293b',
+                                whiteSpace: 'nowrap',
+                                fontWeight: f.key === 'rank' ? 'bold' : 'normal',
+                                pointerEvents: 'none',
+                                transform: `translateX(${colOffset}%)`,
+                              }}
+                            >
+                              {sampleText}
+                            </span>
+                          );
+                        })}
+                        {(marginTop > 0 || marginBottom > 0) && (
+                          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, border: `${marginTop}% solid transparent`, borderBottomWidth: `${marginBottom}%`, borderImage: 'repeating-linear-gradient(45deg, #2563eb 0, #2563eb 2px, transparent 2px, transparent 5px) 1', pointerEvents: 'none' }} />
+                        )}
+                      </div>
                     );
-                  })}
+                  })()}
                 </div>
               </div>
             )}

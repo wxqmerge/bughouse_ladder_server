@@ -29,6 +29,9 @@ function buildDefaultLayout(name: string, labelsPerPage: 20 | 30): PrintLabelLay
     fields: Object.fromEntries(
       Object.entries(src).map(([k, v]) => [k, { x: v.x, y: v.y, fontSize: v.fontSize }])
     ),
+    marginTop: 0,
+    marginBottom: 0,
+    columnOffsets: labelsPerPage === 20 ? [0, 0] : [0, 0, 0],
   };
 }
 
@@ -39,12 +42,21 @@ function getDefaultLayouts(): PrintLabelLayout[] {
   ];
 }
 
+function migrateLayout(l: any): PrintLabelLayout {
+  if (l.marginTop === undefined) l.marginTop = 0;
+  if (l.marginBottom === undefined) l.marginBottom = 0;
+  if (!Array.isArray(l.columnOffsets)) {
+    l.columnOffsets = l.labelsPerPage === 20 ? [0, 0] : [0, 0, 0];
+  }
+  return l as PrintLabelLayout;
+}
+
 export function loadLayouts(): PrintLabelLayout[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed.map(migrateLayout);
     }
   } catch { /* ignore */ }
   return getDefaultLayouts();
@@ -71,7 +83,7 @@ export function importLayouts(json: string): PrintLabelLayout[] | null {
       l && typeof l.name === 'string' &&
       (l.labelsPerPage === 20 || l.labelsPerPage === 30) &&
       typeof l.fields === 'object'
-    );
+    ).map(migrateLayout);
     return valid.length > 0 ? valid : null;
   } catch {
     return null;
