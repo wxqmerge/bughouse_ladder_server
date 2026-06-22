@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Printer, X, Check, LayoutTemplate } from "lucide-react";
 import type { PrintLabelLayout } from "../../shared/types";
 import PrintLabelLayoutEditor from "./PrintLabelLayoutEditor";
@@ -59,7 +59,11 @@ export default function PrintLabelsDialog({
   const [showLayoutEditor, setShowLayoutEditor] = useState(false);
   const [selectedLayout, setSelectedLayout] = useState<PrintLabelLayout | null>(null);
   const [fillBlanks, setFillBlanks] = useState(false);
-  const [fillBlanksMax, setFillBlanksMax] = useState(Math.min(Math.max(playerCount, 30), 200));
+  const [fillBlanksMax, setFillBlanksMax] = useState(Math.min(Math.ceil(playerCount / defaultLabelsPerPage) * defaultLabelsPerPage, 200));
+
+  useEffect(() => {
+    setFillBlanksMax((prev) => Math.max(prev, Math.min(Math.ceil(playerCount / labelsPerPage) * labelsPerPage, 200)));
+  }, [labelsPerPage, playerCount]);
 
   const pagesNeeded = Math.ceil(playerCount / labelsPerPage);
 
