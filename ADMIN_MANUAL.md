@@ -136,3 +136,35 @@ Uses a **two-phase hybrid algorithm**:
 | `POST` | `/api/admin/tournament/add-player-to-mini-games` | Add player to all mini-games |
 | `GET` | `/api/admin/tournament/check-mini-games` | Check for mini-game data |
 | `GET` | `/api/admin/export-mini-data` | Export all data (ZIP) |
+
+---
+
+## Appendix C: Print Label Layout API
+
+| Method | Endpoint | Auth | Description |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/print-layouts` | None | List all saved layouts |
+| `POST` | `/api/print-layouts` | User Key | Create or update a layout |
+| `DELETE` | `/api/print-layouts/:name` | User Key | Delete a layout by name |
+
+**Data File:** `server/data/print_layouts.json`
+
+**Layout Object:**
+```json
+{
+  "name": "My Layout",
+  "labelsPerPage": 20,
+  "marginTop": 0,
+  "marginBottom": 0,
+  "columnOffsets": [0, 0],
+  "fields": {
+    "firstName": { "x": 0.8, "y": 27.7, "fontSize": 30 },
+    "lastName": { "x": 24.8, "y": 69.2, "fontSize": 12 }
+  }
+}
+```
+
+- **`labelsPerPage`:** 20 or 30
+- **`marginTop` / `marginBottom`:** % of cell height (0–100)
+- **`columnOffsets`:** array of % per column (-5 to +5), shifts all fields in that column
+- **`fields`:** per-field positioning — `x` (left %), `y` (top %), `fontSize` (pt, 0 = CSS default)
