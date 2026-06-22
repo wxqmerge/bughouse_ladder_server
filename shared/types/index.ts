@@ -154,4 +154,7 @@ export interface PrintLabelLayout {
   name: string;
   labelsPerPage: 20 | 30;
   fields: Record<string, PrintLabelFieldLayout>;
+  marginTop: number;
+  marginBottom: number;
+  columnOffsets: number[];
 }

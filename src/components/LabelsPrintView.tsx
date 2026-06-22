@@ -61,25 +61,33 @@ export default function LabelsPrintView({
             style={{ gridTemplateColumns: `repeat(${columns}, 1fr)` }}
           >
             {pagePlayers.map((player, idx) => {
+              const colIdx = idx % columns;
+              const marginTop = layout?.marginTop ?? 0;
+              const marginBottom = layout?.marginBottom ?? 0;
+              const colOffset = layout?.columnOffsets?.[colIdx] ?? 0;
+              const cellStyle: React.CSSProperties = {};
+              if (marginTop > 0) cellStyle.paddingTop = `${marginTop}%`;
+              if (marginBottom > 0) cellStyle.paddingBottom = `${marginBottom}%`;
               if (!player) {
-                const blankNum = sortedPlayers.length + pagePlayers.slice(0, idx).filter((p) => p === null).length + 1;
                 const globalIdx = pages.indexOf(pagePlayers) * labelsPerPage + idx;
                 return (
-                  <div key={idx} className="print-label-cell">
+                  <div key={idx} className="print-label-cell" style={cellStyle}>
                     <span className="pl-blank" style={{ fontSize: "14pt", color: "#94a3b8", textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>{globalIdx + 1}</span>
                   </div>
                 );
               }
               return (
-                <div key={idx} className="print-label-cell">
-                  <FieldLabel
-                    player={player}
-                    ladderName={ladderName}
-                    fields={fields}
-                    showRatings={showRatings}
-                    showSchool={showSchool}
-                    layout={layout}
-                  />
+                <div key={idx} className="print-label-cell" style={cellStyle}>
+                  <div style={colOffset !== 0 ? { transform: `translateX(${colOffset}%)` } : undefined}>
+                    <FieldLabel
+                      player={player}
+                      ladderName={ladderName}
+                      fields={fields}
+                      showRatings={showRatings}
+                      showSchool={showSchool}
+                      layout={layout}
+                    />
+                  </div>
                 </div>
               );
             })}
