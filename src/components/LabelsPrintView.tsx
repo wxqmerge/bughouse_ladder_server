@@ -78,16 +78,15 @@ export default function LabelsPrintView({
               }
               return (
                 <div key={idx} className="print-label-cell" style={cellStyle}>
-                  <div style={colOffset !== 0 ? { transform: `translateX(${colOffset}%)` } : undefined}>
-                    <FieldLabel
-                      player={player}
-                      ladderName={ladderName}
-                      fields={fields}
-                      showRatings={showRatings}
-                      showSchool={showSchool}
-                      layout={layout}
-                    />
-                  </div>
+                  <FieldLabel
+                    player={player}
+                    ladderName={ladderName}
+                    fields={fields}
+                    showRatings={showRatings}
+                    showSchool={showSchool}
+                    layout={layout}
+                    colOffset={colOffset}
+                  />
                 </div>
               );
             })}
@@ -105,6 +104,7 @@ function FieldLabel({
   showRatings,
   showSchool,
   layout,
+  colOffset,
 }: {
   player: PlayerData;
   ladderName: string;
@@ -112,11 +112,12 @@ function FieldLabel({
   showRatings: boolean;
   showSchool: boolean;
   layout: PrintLabelLayout | null;
+  colOffset: number;
 }) {
   const getLayoutStyle = (key: string): React.CSSProperties => {
     if (!layout?.fields?.[key]) return {};
     const f = layout.fields[key];
-    const style: React.CSSProperties = { left: `${f.x}%`, top: `${f.y}%` };
+    const style: React.CSSProperties = { left: `${f.x + colOffset}%`, top: `${f.y}%` };
     if (f.fontSize > 0) style.fontSize = `${f.fontSize}pt`;
     return style;
   };
