@@ -60,7 +60,8 @@ export default function LabelsPrintView({
             className={gridClass}
             style={{ gridTemplateColumns: `repeat(${columns}, 1fr)` }}
           >
-            {pagePlayers.map((player, idx) => {
+            {Array.from({ length: labelsPerPage }).map((_, idx) => {
+              const player = pagePlayers[idx] ?? null;
               const colIdx = idx % columns;
               const marginTop = layout?.marginTop ?? 0;
               const marginBottom = layout?.marginBottom ?? 0;
