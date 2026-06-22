@@ -411,8 +411,8 @@ export default function PrintLabelLayoutEditor({ onClose, onSave, currentLayout,
               <div style={{ display: 'flex', justifyContent: 'center' }}>
                 <div>
                   {(() => {
-                    const cellW = labelsPerPage === 20 ? 180 : 120;
-                    const cellH = 110;
+                    const cellW = labelsPerPage === 20 ? 240 : 160;
+                    const cellH = 100;
                     const marginTop = editing.marginTop;
                     const marginBottom = editing.marginBottom;
                     const colOffset = editing.columnOffsets[0] ?? 0;
