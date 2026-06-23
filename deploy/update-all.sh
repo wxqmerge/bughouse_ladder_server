@@ -21,9 +21,8 @@ for dir in "$BASE"/*/; do
     [ -d "$dir" ] || continue
     name=$(basename "$dir")
 
-    # Skip non-ladder directories
-    [ -f "$dir/package.json" ] || continue
-    [ -f "$dir/deploy/update.sh" ] || { echo "  SKIP $name — no deploy/update.sh"; continue; }
+    # Skip non-ladder directories (ladders always have "ladder" in name)
+    echo "$name" | grep -qi "ladder" || continue
 
     echo "========================================"
     echo "  Updating: $name"
