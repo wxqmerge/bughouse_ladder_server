@@ -47,8 +47,17 @@ interface Props {
 
 export default function PrintLabelLayoutEditor({ onClose, onSave, currentLayout, labelsPerPage }: Props) {
   const [layouts, setLayouts] = useState<PrintLabelLayout[]>(loadLayouts);
-  const [selectedIdx, setSelectedIdx] = useState(0);
-  const [editing, setEditing] = useState<PrintLabelLayout | null>(null);
+  const [selectedIdx, setSelectedIdx] = useState(() => {
+    const loaded = loadLayouts();
+    const match = loaded.findIndex(l => l.labelsPerPage === labelsPerPage);
+    return match >= 0 ? match : (loaded.length > 0 ? 0 : 0);
+  });
+  const [editing, setEditing] = useState<PrintLabelLayout | null>(() => {
+    const loaded = loadLayouts();
+    const match = loaded.findIndex(l => l.labelsPerPage === labelsPerPage);
+    const idx = match >= 0 ? match : (loaded.length > 0 ? 0 : -1);
+    return idx >= 0 ? JSON.parse(JSON.stringify(loaded[idx])) : null;
+  });
   const [preview, setPreview] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -92,6 +101,7 @@ export default function PrintLabelLayoutEditor({ onClose, onSave, currentLayout,
     saveLayouts(updated);
     dataService.savePrintLayoutToServer(dup).catch(() => {/* silent */});
     setSelectedIdx(idx + 1);
+    startEdit(dup);
   };
 
   const deleteLayout = (idx: number) => {
@@ -213,15 +223,29 @@ export default function PrintLabelLayoutEditor({ onClose, onSave, currentLayout,
       const merged = [...serverLayouts, ...localOnly];
       setLayouts(merged);
       saveLayouts(merged);
-      setSelectedIdx(0);
+      const matchIdx = merged.findIndex(l => l.labelsPerPage === labelsPerPage);
+      setSelectedIdx(matchIdx >= 0 ? matchIdx : 0);
     });
     return () => { cancelled = true; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-open edit for current layout on mount
-  if (!editing && selectedLayout) {
-    startEdit(selectedLayout);
-  }
+  useEffect(() => {
+    if (!editing && selectedLayout) {
+      startEdit(selectedLayout);
+    }
+  }, [selectedLayout, editing, startEdit]);
+
+  // Use currentLayout prop if provided and found in layouts
+  useEffect(() => {
+    if (currentLayout) {
+      const idx = layouts.findIndex(l => l.name === currentLayout.name && l.labelsPerPage === currentLayout.labelsPerPage);
+      if (idx >= 0) {
+        setSelectedIdx(idx);
+        startEdit(layouts[idx]);
+      }
+    }
+  }, [currentLayout, layouts, startEdit]);
 
   const previewFields = editing?.fields || {};
 

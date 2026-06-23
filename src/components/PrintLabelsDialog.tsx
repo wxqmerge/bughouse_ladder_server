@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Printer, X, Check, LayoutTemplate } from "lucide-react";
 import type { PrintLabelLayout } from "../../shared/types";
 import PrintLabelLayoutEditor from "./PrintLabelLayoutEditor";
+import { loadLayouts } from "../utils/printLabelLayouts";
 
 interface PrintLabelsDialogProps {
   onClose: () => void;
@@ -57,13 +58,26 @@ export default function PrintLabelsDialog({
   const [fields, setFields] = useState(() => defaultFields(isMiniGame));
   const [copies, setCopies] = useState(1);
   const [showLayoutEditor, setShowLayoutEditor] = useState(false);
-  const [selectedLayout, setSelectedLayout] = useState<PrintLabelLayout | null>(null);
+  const [selectedLayout, setSelectedLayout] = useState<PrintLabelLayout | null>(() => {
+    const saved = loadLayouts();
+    const match = saved.find(l => l.labelsPerPage === defaultLabelsPerPage);
+    return match || null;
+  });
   const [fillBlanks, setFillBlanks] = useState(false);
   const [fillBlanksMax, setFillBlanksMax] = useState(Math.min(Math.ceil(playerCount / defaultLabelsPerPage) * defaultLabelsPerPage, 200));
 
   useEffect(() => {
     setFillBlanksMax((prev) => Math.max(prev, Math.min(Math.ceil(playerCount / labelsPerPage) * labelsPerPage, 200)));
   }, [labelsPerPage, playerCount]);
+
+  // Update selectedLayout when labelsPerPage changes
+  useEffect(() => {
+    const saved = loadLayouts();
+    const match = saved.find(l => l.labelsPerPage === labelsPerPage);
+    if (match && (!selectedLayout || selectedLayout.labelsPerPage !== labelsPerPage)) {
+      setSelectedLayout(match);
+    }
+  }, [labelsPerPage]);
 
   const pagesNeeded = Math.ceil(playerCount / labelsPerPage);
 
