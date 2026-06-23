@@ -32,7 +32,7 @@ interface MobileMenuProps {
   onAutoLetter?: () => void;
   onPrintLabels?: () => void;
   isAdmin: boolean;
-  isTournamentActive?: boolean;
+  miniGamesHaveResults?: boolean;
   projectName?: string;
   onSetTitle?: (title: string) => void;
   availableMiniGames?: string[];
@@ -68,7 +68,7 @@ export default function MobileMenu({
   onAutoLetter,
   onPrintLabels,
   isAdmin,
-  isTournamentActive = false,
+  miniGamesHaveResults = false,
   projectName,
   onSetTitle,
   availableMiniGames = [],
@@ -89,7 +89,7 @@ export default function MobileMenu({
       label: "Load",
       onClick: () => handleItemClick("Load", () => onFileAction("load")),
       dataMenuItem: "Load",
-      disabled: !isAdmin || isTournamentActive,
+      disabled: !isAdmin || miniGamesHaveResults,
     },
     {
       label: "Export",
@@ -368,7 +368,7 @@ label: "Auto-Letter",
             justifyContent: "space-between",
             alignItems: "center",
             padding: "1rem",
-            background: isTournamentActive ? "linear-gradient(135deg, #166534 0%, #22c55e 100%)" : !writePermission ? "linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)" : "linear-gradient(135deg, #0f172a 0%, #334155 100%)",
+            background: miniGamesHaveResults ? "linear-gradient(135deg, #166534 0%, #22c55e 100%)" : !writePermission ? "linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)" : "linear-gradient(135deg, #0f172a 0%, #334155 100%)",
             color: "white",
           }}
         >

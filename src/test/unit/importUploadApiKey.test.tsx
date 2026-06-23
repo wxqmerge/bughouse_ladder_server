@@ -72,8 +72,6 @@ vi.mock('../../services/storageService', () => {
     getAdminLockInfo: m().mockResolvedValue({ locked: false }),
     isAdminLocked: m().mockResolvedValue(false),
     checkWritePermission: m().mockResolvedValue(true),
-    isTournamentActive: m().mockReturnValue(false),
-    getTournamentState: m().mockReturnValue(null),
   };
 });
 
@@ -180,8 +178,6 @@ describe('Import Upload API Key', () => {
     (storageService.getAdminLockInfo as any).mockResolvedValue({ locked: false });
     (storageService.isAdminLocked as any).mockResolvedValue(false);
     (storageService.checkWritePermission as any).mockResolvedValue(true);
-    (storageService.isTournamentActive as any).mockReturnValue(false);
-    (storageService.getTournamentState as any).mockReturnValue(null);
     (storageService.getClientId as any).mockReturnValue('test-client');
     (storageService.getClientName as any).mockReturnValue('Client test');
     (storageService.endBatch as any).mockResolvedValue(undefined);
