@@ -120,11 +120,40 @@ if command -v nginx > /dev/null 2>&1; then
     echo "  [INFO] nginx version: $(nginx -v 2>&1)"
     check "nginx config test" "sudo nginx -t"
     echo "  [INFO] Project nginx config:"
-    if [ -f "/etc/nginx/sites-available/${PROJECT_NAME}.${DOMAIN}.conf" ]; then
+    SERVER_CONF="/etc/nginx/sites-available/${PROJECT_NAME}.${DOMAIN}.conf"
+    if [ -f "$SERVER_CONF" ]; then
         echo "    /etc/nginx/sites-available/${PROJECT_NAME}.${DOMAIN}.conf [OK]"
     else
         echo "    /etc/nginx/sites-available/${PROJECT_NAME}.${DOMAIN}.conf [MISSING]"
+        FAIL=$((FAIL + 1))
     fi
+    # Check if config is actually ENABLED (symlinked to sites-enabled)
+    ENABLED_LINK="/etc/nginx/sites-enabled/${PROJECT_NAME}.${DOMAIN}.conf"
+    if [ -L "$ENABLED_LINK" ]; then
+        # Verify the symlink target is valid
+        if [ -e "$ENABLED_LINK" ]; then
+            echo "    /etc/nginx/sites-enabled/${PROJECT_NAME}.${DOMAIN}.conf [ENABLED]"
+            PASS=$((PASS + 1))
+        else
+            echo "    /etc/nginx/sites-enabled/${PROJECT_NAME}.${DOMAIN}.conf [BROKEN SYMLINK]"
+            FAIL=$((FAIL + 1))
+            echo "  [FIX] Remove broken link: sudo rm $ENABLED_LINK"
+            echo "  [FIX] Re-create: sudo ln -s $SERVER_CONF $ENABLED_LINK"
+        fi
+    else
+        echo "    /etc/nginx/sites-enabled/${PROJECT_NAME}.${DOMAIN}.conf [NOT ENABLED]"
+        FAIL=$((FAIL + 1))
+        echo "  [FIX] Enable config: sudo ln -s $SERVER_CONF /etc/nginx/sites-enabled/"
+        echo "  [FIX] Then reload: sudo systemctl reload nginx"
+    fi
+    # Also check for other enabled configs that might conflict
+    echo "  [INFO] All enabled configs:"
+    for link in /etc/nginx/sites-enabled/*; do
+        if [ -L "$link" ]; then
+            target=$(readlink -f "$link" 2>/dev/null)
+            echo "    $(basename "$link") -> $target"
+        fi
+    done
 else
     warn "nginx not installed"
 fi
@@ -254,13 +283,84 @@ else
 fi
 if [ -n "$listener" ]; then
     echo "  [INFO] Port $PORT: IN USE ($listener)"
+    PASS=$((PASS + 1))
 else
-    echo "  [INFO] Port $PORT: free"
+    echo "  [FAIL] Port $PORT: not listening — backend is not running!"
+    FAIL=$((FAIL + 1))
+    echo "  [FIX] Start the service: sudo systemctl start $PROJECT_NAME"
+fi
+echo ""
+
+# --- Health endpoint (via nginx) ---
+echo "13. Health endpoint (nginx proxy)"
+SERVER_CONF="/etc/nginx/sites-available/${PROJECT_NAME}.${DOMAIN}.conf"
+if [ -f "$SERVER_CONF" ]; then
+    proj_domain=$(grep 'server_name' "$SERVER_CONF" 2>/dev/null | sed 's/server_name//;s/;//' | tr -s ' ' | awk '{print $1}')
+    if [ -n "$proj_domain" ]; then
+        HEALTH_URL="https://${proj_domain}/health"
+        http_code=$(curl -sk -o /dev/null -w "%{http_code}" --max-time 5 "$HEALTH_URL" 2>/dev/null)
+        if [ "$http_code" = "200" ]; then
+            body=$(curl -sk --max-time 5 "$HEALTH_URL" 2>/dev/null)
+            echo "  [PASS] $HEALTH_URL (HTTP $http_code)"
+            echo "  [INFO] Response: $(echo "$body" | head -c 120)..."
+            PASS=$((PASS + 1))
+        elif [ "$http_code" = "000" ]; then
+            echo "  [FAIL] $HEALTH_URL — connection refused (nginx not proxying)"
+            FAIL=$((FAIL + 1))
+            echo "  [FIX] Check nginx is enabled: ls -la /etc/nginx/sites-enabled/"
+            echo "  [FIX] Check backend is running: ss -tlnp | grep $PORT"
+        else
+            echo "  [FAIL] $HEALTH_URL — HTTP $http_code"
+            FAIL=$((FAIL + 1))
+            if [ "$http_code" = "404" ]; then
+                echo "  [FIX] nginx is running but proxy_pass is not configured correctly"
+                echo "  [FIX] Check config: cat $SERVER_CONF"
+            fi
+        fi
+    else
+        warn "Could not determine server_name from $SERVER_CONF"
+    fi
+else
+    warn "No nginx config found — skipping health check"
+fi
+echo ""
+
+# --- Nginx proxy_pass config ---
+echo "14. Nginx proxy_pass"
+if [ -f "$SERVER_CONF" ]; then
+    proxy_target=$(grep 'proxy_pass' "$SERVER_CONF" 2>/dev/null | head -1 | sed 's/.*proxy_pass//;s/;//' | tr -d '[:space:]')
+    if [ -n "$proxy_target" ]; then
+        echo "  [INFO] proxy_pass: $proxy_target"
+        # Extract port from proxy target
+        proxy_port=$(echo "$proxy_target" | grep -oP ':\K[0-9]+')
+        if [ -n "$proxy_port" ]; then
+            if command -v ss > /dev/null 2>&1; then
+                proxy_listener=$(ss -tlnp 2>/dev/null | grep ":$proxy_port " | head -1)
+            elif command -v netstat > /dev/null 2>&1; then
+                proxy_listener=$(netstat -tlnp 2>/dev/null | grep ":$proxy_port " | head -1)
+            fi
+            if [ -n "$proxy_listener" ]; then
+                echo "  [PASS] Port $proxy_port is listening ($proxy_listener)"
+                PASS=$((PASS + 1))
+            else
+                echo "  [FAIL] Port $proxy_port is NOT listening — backend not running!"
+                FAIL=$((FAIL + 1))
+                echo "  [FIX] The proxy target ($proxy_target) has nothing listening"
+                echo "  [FIX] Start the backend service"
+            fi
+        fi
+    else
+        echo "  [FAIL] No proxy_pass directive in nginx config"
+        FAIL=$((FAIL + 1))
+        echo "  [FIX] Add proxy_pass to $SERVER_CONF"
+    fi
+else
+    warn "No nginx config found — skipping proxy_pass check"
 fi
 echo ""
 
 # --- CORS Configuration ---
-echo "13. CORS Configuration"
+echo "15. CORS Configuration"
 
 CORS_ORIGINS=""
 if [ -f "server/.env" ]; then
@@ -307,7 +407,7 @@ fi
 echo ""
 
 # --- Nginx SSE Configuration ---
-echo "14. Nginx SSE Configuration"
+echo "16. Nginx SSE Configuration"
 
 SERVER_CONF="/etc/nginx/sites-available/${PROJECT_NAME}.${DOMAIN}.conf"
 if [ -f "$SERVER_CONF" ]; then
@@ -334,7 +434,7 @@ fi
 echo ""
 
 # --- Client Config Strings ---
-echo "15. Client Config Strings"
+echo "17. Client Config Strings"
 
 # Read API keys from server/.env
 ADMIN_KEY=""
@@ -369,6 +469,12 @@ if [ $FAIL -gt 0 ]; then
     if [ -f "$SERVER_CONF" ]; then
         proj_domain=$(grep 'server_name' "$SERVER_CONF" 2>/dev/null | sed 's/server_name//;s/;//' | tr -s ' ' | awk '{print $1}')
         if [ -n "$proj_domain" ]; then
+            # Check if config is enabled
+            ENABLED_LINK="/etc/nginx/sites-enabled/${PROJECT_NAME}.${DOMAIN}.conf"
+            if [ ! -L "$ENABLED_LINK" ]; then
+                echo "  - Nginx config not enabled: sudo ln -s $SERVER_CONF /etc/nginx/sites-enabled/"
+                echo "  - Then reload nginx: sudo systemctl reload nginx"
+            fi
             if ! certbot certificates 2>/dev/null | grep -q "$proj_domain"; then
                 echo "  - No SSL cert: sudo certbot --nginx -d $proj_domain"
             fi
@@ -394,6 +500,9 @@ if [ $FAIL -gt 0 ]; then
             fi
         fi
     fi
+    # Backend not running
+    echo "  - Start backend: sudo systemctl start $PROJECT_NAME"
+    echo "  - Check status: sudo systemctl status $PROJECT_NAME"
     echo ""
 fi
 
