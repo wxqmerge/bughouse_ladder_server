@@ -1,0 +1,8 @@
+# PS1 scripts must be CRLF on Windows
+*.ps1 text eol=crlf
+# Shell scripts stay LF
+*.sh text eol=lf
+# TypeScript/JavaScript/JSON
+*.ts text eol=lf
+*.js text eol=lf
+*.json text eol=lf
