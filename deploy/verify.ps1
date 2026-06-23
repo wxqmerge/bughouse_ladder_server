@@ -55,6 +55,7 @@ function Invoke-Api {
         [string]$Path,
         [string]$Method = 'GET',
         [string]$ApiKey,
+        [string]$Body,
         [int]$TimeoutSec = 10
     )
     $uri = "$BaseUrl$Path"
@@ -69,6 +70,10 @@ function Invoke-Api {
         TimeoutSec = $TimeoutSec
         UseBasicParsing = $true
         ErrorAction = 'Stop'
+    }
+    if ($Body) {
+        $params['Body'] = $Body
+        $headers['Content-Type'] = 'application/json'
     }
     if ($Script:SkipSsl) { $params['SkipCertificateCheck'] = $true }
 
@@ -102,10 +107,11 @@ function Invoke-TimedApi {
         [string]$Path,
         [string]$Method = 'GET',
         [string]$ApiKey,
+        [string]$Body,
         [int]$TimeoutSec = 10
     )
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
-    $result = Invoke-Api -BaseUrl $BaseUrl -Path $Path -Method $Method -ApiKey $ApiKey -TimeoutSec $TimeoutSec
+    $result = Invoke-Api -BaseUrl $BaseUrl -Path $Path -Method $Method -ApiKey $ApiKey -Body $Body -TimeoutSec $TimeoutSec
     $sw.Stop()
     if ($result) {
         $result['DurationMs'] = $sw.ElapsedMilliseconds
@@ -352,27 +358,26 @@ if ($IsRemote) {
     }
     Write-Host ''
 
-    # ---- 6. Games endpoint ----
+    # ---- 6. Games endpoint (POST-only, submit game results) ----
     Write-Host '7. Games endpoint'
-    $games = Invoke-TimedApi -BaseUrl $ServerUrl -Path '/api/games' -ApiKey $ApiKey
-    if ($games.Success -and $games.StatusCode -eq 200) {
+    $games = Invoke-TimedApi -BaseUrl $ServerUrl -Path '/api/games' -Method 'POST' -ApiKey $ApiKey -Body '{}'
+    if ($games.Success -and ($games.StatusCode -eq 200 -or $games.StatusCode -eq 400)) {
         try {
             $data = $games.Content | ConvertFrom-Json
-            $count = if ($data -is [System.Array]) { $data.Count } elseif ($data.success -and $data.data) { $data.data.Count } else { 0 }
-            Pass ("GET /api/games — $count entries ({0})" -f $games.DurationMs) + 'ms'
+            Pass ("POST /api/games — JSON response ({0})" -f $games.DurationMs) + 'ms'
         } catch {
-            Warn "GET /api/games — response is not valid JSON (may be HTML/error page)"
+            Warn "POST /api/games — response is not valid JSON (may be HTML/error page)"
         }
     } elseif ($games.StatusCode -eq 401 -or $games.StatusCode -eq 403) {
-        Fail "GET /api/games — auth failed (HTTP $($games.StatusCode))"
+        Fail "POST /api/games — auth failed (HTTP $($games.StatusCode))"
     } elseif ($games.StatusCode -eq 404) {
-        Fail "GET /api/games — 404 (nginx proxy_pass not routing to backend)"
+        Fail "POST /api/games — 404 (nginx proxy_pass not routing to backend)"
         Info '[FIX] Check proxy_pass in nginx config routes /api to backend port'
     } elseif ($games.StatusCode -eq 0) {
-        Fail "GET /api/games — connection refused"
+        Fail "POST /api/games — connection refused"
         Info '[FIX] Backend not reachable through nginx. Check sites-enabled symlink.'
     } else {
-        Fail "GET /api/games failed (HTTP $($games.StatusCode))"
+        Fail "POST /api/games failed (HTTP $($games.StatusCode))"
     }
     Write-Host ''
 
@@ -441,7 +446,14 @@ if ($IsRemote) {
         '/api/games' = $games.StatusCode
         '/api/admin/status' = $admin.StatusCode
     }
-    $apiFails = @($apiStatuses.GetEnumerator() | Where-Object { $_.Value -ne 200 })
+    $apiFails = @($apiStatuses.GetEnumerator() | Where-Object {
+        # /api/games is POST-only and returns 400 on invalid data, which is expected
+        if ($_.Key -eq '/api/games' -and ($_.Value -eq 200 -or $_.Value -eq 400)) {
+            $false
+        } else {
+            $_.Value -ne 200
+        }
+    })
     if ($apiFails.Count -eq $apiStatuses.Count) {
         $commonStatus = $apiFails[0].Value
         $allSame = ($apiFails | Where-Object { $_.Value -eq $commonStatus }).Count -eq $apiFails.Count
