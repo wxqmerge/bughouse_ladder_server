@@ -5,6 +5,7 @@ import { getFontSize, getScaledPadding, getScaledGap } from "../utils/getFontSiz
 import { useIntervalCheck } from "../utils/useIntervalCheck";
 import { titleToFileName, LADDER_SHORTCUTS, LADDER_COLORS } from "../../shared/utils/constants";
 import { debugClick } from "../utils/debug";
+import { useTooltips } from "../hooks/useTooltips";
 import {
   Folder,
   Upload,
@@ -68,6 +69,7 @@ interface MenuItem {
   disabled?: boolean;
   shortcut?: string;
   color?: string;
+  tooltip?: string;
 }
 
 export default function MenuBar({
@@ -100,6 +102,7 @@ export default function MenuBar({
 }: MenuBarProps) {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [isServerDown, setIsServerDown] = useState(false);
+  const { title: tt } = useTooltips();
 
   // Track server down mode
   const isServerDownValue = useIntervalCheck(() => getProgramMode() === 'server_down', 10000);
@@ -117,6 +120,7 @@ export default function MenuBar({
     setOpenMenu(openMenu === menuName ? null : menuName);
   };
 
+  // tooltip.md: [Menu Bar] File Menu Items
   const fileMenuItems: MenuItem[] = [
     {
       icon: <Upload size={16} />,
@@ -128,6 +132,7 @@ export default function MenuBar({
       },
       dataMenuItem: "Load",
       disabled: !isAdmin || miniGamesHaveResults,
+      tooltip: tt("Load a new .tab file to replace current ladder data"),
     },
     {
       icon: <Download size={16} />,
@@ -138,11 +143,13 @@ export default function MenuBar({
         closeAllMenus();
       },
       dataMenuItem: "Export",
+      tooltip: tt("Download current ladder data as a .tab file"),
     },
     ];
 
   const visibleTitles = getVisibleTitles(isAdmin, availableMiniGames);
 
+  // tooltip.md: [Menu Bar] Title Menu Items
   const titleMenuItems: MenuItem[] = visibleTitles
     .sort((a, b) => (LADDER_SHORTCUTS?.[a] ?? 99) - (LADDER_SHORTCUTS?.[b] ?? 99))
     .map((title) => {
@@ -157,6 +164,7 @@ export default function MenuBar({
         label: title,
         color: LADDER_COLORS[title],
         shortcut: shortcutNum ? `Ctrl+${shortcutNum}` : undefined,
+        tooltip: tt(title === "Ladder" ? "Main club ladder (ladder.tab)" : `Switch to mini-game tournament: ${title}`),
         onClick: () => {
           if (isDisabled) {
             alert(`"${title}" is not available yet. Only admin can create mini-games.`);
@@ -172,6 +180,7 @@ export default function MenuBar({
       };
     });
 
+  // tooltip.md: [Menu Bar] Sort Menu Items
   const sortMenuItems: MenuItem[] = [
     {
       icon: <Hash size={16} />,
@@ -182,6 +191,7 @@ export default function MenuBar({
         closeAllMenus();
       },
       dataMenuItem: "By Rank",
+      tooltip: tt("Sort by current rank order"),
     },
     {
       icon: <Type size={16} />,
@@ -192,6 +202,7 @@ export default function MenuBar({
         closeAllMenus();
       },
       dataMenuItem: "By Last Name",
+      tooltip: tt("Sort alphabetically by last name"),
     },
     {
       icon: <Type size={16} />,
@@ -202,6 +213,7 @@ export default function MenuBar({
         closeAllMenus();
       },
       dataMenuItem: "By First Name",
+      tooltip: tt("Sort alphabetically by first name"),
     },
     {
       icon: <TrendingUp size={16} />,
@@ -212,6 +224,7 @@ export default function MenuBar({
         closeAllMenus();
       },
       dataMenuItem: "By New Rating",
+      tooltip: tt("Sort by calculated new rating (high to low)"),
     },
     {
       icon: <History size={16} />,
@@ -222,10 +235,12 @@ export default function MenuBar({
         closeAllMenus();
       },
       dataMenuItem: "By Previous Rating",
+      tooltip: tt("Sort by previous rating (high to low)"),
     },
   ];
 
- const operationsMenuItems: MenuItem[] = [
+  // tooltip.md: [Menu Bar] Operations Menu Items
+  const operationsMenuItems: MenuItem[] = [
     {
       icon: <RefreshCw size={16} />,
       label: "Recalculate_Save",
@@ -236,6 +251,7 @@ export default function MenuBar({
       },
       dataMenuItem: "Recalculate_Save",
       disabled: !writePermission,
+      tooltip: tt("Recalculate all ratings from game results and save (Ctrl+E)"),
     },
     {
       icon: <AlertTriangle size={16} />,
@@ -246,6 +262,7 @@ export default function MenuBar({
         closeAllMenus();
       },
       dataMenuItem: "Check Errors",
+      tooltip: tt("Check for data entry errors in game results"),
     },
     {
       icon: <Type size={16} />,
@@ -257,6 +274,7 @@ export default function MenuBar({
       },
       dataMenuItem: "Enter Games",
       disabled: !writePermission,
+      tooltip: tt("Enter or correct game results (Ctrl+E)"),
     },
     {
       icon: <ClipboardPaste size={16} />,
@@ -268,19 +286,21 @@ export default function MenuBar({
       },
       dataMenuItem: "Paste Multiple Results",
       disabled: !writePermission,
+      tooltip: tt("Paste multiple game results from clipboard at once"),
     },
     ...(isAdmin && onAddPlayer
       ? [
           {
             icon: <Plus size={16} />,
-label: "Add Player",
-              onClick: () => {
-                debugClick("Add Player");
-                onAddPlayer?.();
-                closeAllMenus();
-              },
-              dataMenuItem: "Add Player",
+            label: "Add Player",
+            onClick: () => {
+              debugClick("Add Player");
+              onAddPlayer?.();
+              closeAllMenus();
+            },
+            dataMenuItem: "Add Player",
             disabled: !writePermission,
+            tooltip: tt("Add a new player to the ladder"),
           },
         ]
       : []),
@@ -288,14 +308,15 @@ label: "Add Player",
        ? [
            {
              icon: <Trash2 size={16} />,
-label: "Delete Players",
-              onClick: () => {
-                debugClick("Delete Hidden Players");
-                onDeleteHiddenPlayers?.();
-                closeAllMenus();
-              },
-              dataMenuItem: "Delete Hidden Players",
+             label: "Delete Players",
+             onClick: () => {
+               debugClick("Delete Hidden Players");
+               onDeleteHiddenPlayers?.();
+               closeAllMenus();
+             },
+             dataMenuItem: "Delete Hidden Players",
              disabled: !writePermission,
+             tooltip: tt("Delete hidden players (group ending in X)"),
            },
          ]
        : []),
@@ -303,14 +324,15 @@ label: "Delete Players",
        ? [
            {
              icon: <Type size={16} />,
-label: "Auto-Letter",
-              onClick: () => {
-                debugClick("Auto-Letter");
-                onAutoLetter?.();
-                closeAllMenus();
-              },
-              dataMenuItem: "Auto-Letter",
+             label: "Auto-Letter",
+             onClick: () => {
+               debugClick("Auto-Letter");
+               onAutoLetter?.();
+               closeAllMenus();
+             },
+             dataMenuItem: "Auto-Letter",
              disabled: !writePermission,
+             tooltip: tt("Auto-generate tournament letters for players"),
            },
          ]
        : []),
@@ -318,28 +340,30 @@ label: "Auto-Letter",
       ? []
       : [{
           icon: <Shield size={16} />,
-label: isAdmin ? "Exit Admin Mode" : "Admin Mode",
-            onClick: () => {
-              debugClick(isAdmin ? "Exit Admin Mode" : "Admin Mode");
-              onToggleAdmin?.();
-              closeAllMenus();
-            },
-            dataMenuItem: isAdmin ? "Exit Admin Mode" : "Admin Mode",
+          label: isAdmin ? "Exit Admin Mode" : "Admin Mode",
+          onClick: () => {
+            debugClick(isAdmin ? "Exit Admin Mode" : "Admin Mode");
+            onToggleAdmin?.();
+            closeAllMenus();
+          },
+          dataMenuItem: isAdmin ? "Exit Admin Mode" : "Admin Mode",
           disabled: !writePermission && !isAdmin,
+          tooltip: tt("Toggle admin mode for write access"),
         }]),
-    // Restore Backup - admin only, before Settings
-...(isAdmin && onRestoreBackup
+    // tooltip.md: [Menu Bar] Operations Menu Items
+    ...(isAdmin && onRestoreBackup
       ? [
           {
             icon: <History size={16} />,
- label: "Restore Backup",
-              onClick: () => {
-                debugClick("Restore Backup");
-                onRestoreBackup?.();
-                closeAllMenus();
-              },
-              dataMenuItem: "Restore Backup",
+            label: "Restore Backup",
+            onClick: () => {
+              debugClick("Restore Backup");
+              onRestoreBackup?.();
+              closeAllMenus();
+            },
+            dataMenuItem: "Restore Backup",
             disabled: !writePermission,
+            tooltip: tt("Restore ladder data from a previous backup"),
           },
         ]
       : []),
@@ -354,10 +378,11 @@ label: isAdmin ? "Exit Admin Mode" : "Admin Mode",
               closeAllMenus();
             },
             dataMenuItem: "Print Labels",
+            tooltip: tt("Print player labels for tournaments"),
           },
         ]
       : []),
-    // Settings - always accessible, moved to bottom of Operations
+    // tooltip.md: [Menu Bar] Operations Menu Items
     {
       icon: <SettingsIcon size={16} />,
       label: "Settings",
@@ -367,9 +392,11 @@ label: isAdmin ? "Exit Admin Mode" : "Admin Mode",
         closeAllMenus();
       },
       dataMenuItem: "Settings",
+      tooltip: tt("Open settings dialog (K-factor, debug level, server config)"),
     },
   ];
 
+  // tooltip.md: [Menu Bar] View Menu Items
   const viewMenuItems: MenuItem[] = [
     {
       icon: <Minus size={16} />,
@@ -380,6 +407,7 @@ label: isAdmin ? "Exit Admin Mode" : "Admin Mode",
         closeAllMenus();
       },
       dataMenuItem: "Zoom 50%",
+      tooltip: tt("Set table zoom to 50%"),
     },
     {
       icon: <Minus size={16} />,
@@ -390,6 +418,7 @@ label: isAdmin ? "Exit Admin Mode" : "Admin Mode",
         closeAllMenus();
       },
       dataMenuItem: "Zoom 70%",
+      tooltip: tt("Set table zoom to 70%"),
     },
     {
       icon: <Eye size={16} />,
@@ -400,6 +429,7 @@ label: isAdmin ? "Exit Admin Mode" : "Admin Mode",
         closeAllMenus();
       },
       dataMenuItem: "Zoom 100%",
+      tooltip: tt("Set table zoom to 100% (default)"),
     },
     {
       icon: <Plus size={16} />,
@@ -410,6 +440,7 @@ label: isAdmin ? "Exit Admin Mode" : "Admin Mode",
         closeAllMenus();
       },
       dataMenuItem: "Zoom 140%",
+      tooltip: tt("Set table zoom to 140%"),
     },
     {
       icon: <ZoomIn size={16} />,
@@ -420,6 +451,7 @@ label: isAdmin ? "Exit Admin Mode" : "Admin Mode",
         closeAllMenus();
       },
       dataMenuItem: "Zoom 200%",
+      tooltip: tt("Set table zoom to 200%"),
     },
     {
       icon: <span style={{ fontWeight: "bold", fontSize: "14px" }}>R</span>,
@@ -430,6 +462,7 @@ label: isAdmin ? "Exit Admin Mode" : "Admin Mode",
       },
       dataMenuItem: "Round Robin",
       hasCheckmark: showRoundRobin,
+      tooltip: tt("Toggle round-robin view showing matchups"),
     },
   ];
 
@@ -441,6 +474,7 @@ label: isAdmin ? "Exit Admin Mode" : "Admin Mode",
           data-menu-item={item.dataMenuItem}
           role="menuitem"
           tabIndex={item.disabled ? -1 : 0}
+          title={item.tooltip}
           onClick={item.onClick}
           onKeyDown={(e) => {
             if (!item.disabled && (e.key === "Enter" || e.key === " ")) {
@@ -519,6 +553,14 @@ label: isAdmin ? "Exit Admin Mode" : "Admin Mode",
     );
   };
 
+  // tooltip.md: [Menu Bar] Menu Triggers
+  const menuTriggerTooltips: Record<string, string | undefined> = {
+    File: tt("Load or export ladder data"),
+    Sort: tt("Sort players by different criteria"),
+    Operations: tt("Recalculate, enter games, manage players, and more"),
+    View: tt("Adjust zoom level and view options"),
+  };
+
   const renderMenuTrigger = (
     menuName: string,
     icon: React.ReactNode,
@@ -529,6 +571,7 @@ label: isAdmin ? "Exit Admin Mode" : "Admin Mode",
 <button
           data-menu={menuName}
           onClick={() => toggleMenu(menuName)}
+          title={menuTriggerTooltips[menuName]}
           style={{
             background: openMenu === menuName ? "#334155" : "transparent",
             color: "white",
@@ -597,23 +640,31 @@ label: isAdmin ? "Exit Admin Mode" : "Admin Mode",
             }}
           >
             {projectName} {getVersionString()}
+            {/* tooltip.md: [Status Banner] SERVER DOWN */}
             {isServerDown && (
-              <span style={{
-                marginLeft: getScaledGap(zoomLevel, 0.5),
-                padding: getScaledPadding(zoomLevel, 0.25, 0.5),
-                backgroundColor: '#f59e0b',
-                color: '#78350f',
-                borderRadius: '0.25rem',
-                fontSize: getFontSize(zoomLevel),
-                fontWeight: '600',
-              }}>
+              <span
+                title={tt("Connection to server is lost. Working with local data.")}
+                style={{
+                  marginLeft: getScaledGap(zoomLevel, 0.5),
+                  padding: getScaledPadding(zoomLevel, 0.25, 0.5),
+                  backgroundColor: '#f59e0b',
+                  color: '#78350f',
+                  borderRadius: '0.25rem',
+                  fontSize: getFontSize(zoomLevel),
+                  fontWeight: '600',
+                }}
+              >
                 ⚠️ SERVER DOWN
               </span>
             )}
           </h1>
         )}
+        {/* tooltip.md: [Menu Bar] Menu Bar Info */}
         {playerCount !== undefined && (
-          <div style={{ padding: getScaledPadding(zoomLevel, 0.75, 1), display: "flex", alignItems: "baseline", gap: "0.5rem" }}>
+          <div
+            title={tt("Number of players currently loaded")}
+            style={{ padding: getScaledPadding(zoomLevel, 0.75, 1), display: "flex", alignItems: "baseline", gap: "0.5rem" }}
+          >
             <span style={{ color: "rgba(255, 255, 255, 0.7)" }}>
               Total Players
             </span>

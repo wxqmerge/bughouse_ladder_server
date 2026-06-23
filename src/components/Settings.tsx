@@ -19,6 +19,7 @@ import "../css/index.css";
 import { getSettings, saveSettings } from "../services/storageService";
 import { loadUserSettings, saveUserSettings, normalizeServerUrl, getLastWorkingConfig, type UserSettings } from "../services/userSettingsStorage";
 import { debugClick, debugInput } from "../utils/debug";
+import { useTooltips } from "../hooks/useTooltips";
 
 interface ActionSettings {
   showRatings: boolean[];
@@ -67,6 +68,7 @@ export default function Settings({
   testMode,
   setTestMode,
 }: SettingsProps) {
+  const { title: tt, enabled: tooltipsEnabled, toggle: setTooltipsEnabled } = useTooltips();
   const [showRatings, setShowRatings] = useState(true);
   const [debugLevel, setDebugLevel] = useState(5);
   const [kFactor, setKFactor] = useState(20);
@@ -271,8 +273,10 @@ export default function Settings({
               Configuration
             </h3>
 
+            {/* tooltip.md: [Settings Panel] Configuration Section */}
             <div style={{ marginBottom: "1.5rem" }}>
               <label
+                title={tt("Show/hide rating columns in the ladder table")}
                 style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
               >
                 <input
@@ -294,9 +298,35 @@ export default function Settings({
               </p>
             </div>
 
+            {/* tooltip.md: [Settings Panel] Configuration Section */}
+            <div style={{ marginBottom: "1.5rem" }}>
+              <label
+                title={tt("Enable/disable hover tooltips on menu items and settings")}
+                style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
+              >
+                <input
+                  type="checkbox"
+                  checked={tooltipsEnabled}
+                  onChange={() => setTooltipsEnabled()}
+                />
+                <span>Show Tooltips</span>
+              </label>
+              <p
+                style={{
+                  fontSize: "0.75rem",
+                  color: "#64748b",
+                  marginTop: "0.25rem",
+                  paddingLeft: "1.5rem",
+                }}
+              >
+                Hover over menu items and settings to see descriptions
+              </p>
+            </div>
+
             <div style={{ marginBottom: "1.5rem" }}>
               <label
                 htmlFor="debugLevel"
+                title={tt("Controls console log verbosity")}
                 style={{
                   display: "block",
                   fontSize: "0.875rem",
@@ -313,6 +343,7 @@ export default function Settings({
                 min="0"
                 max="20"
                 value={debugLevel}
+                title={tt("0=all logs, 5=default, 10+=critical")}
                 onChange={(e) => {
                   const parsed = parseInt(e.target.value, 10);
                   debugInput("Debug Level", e.target.value);
@@ -343,6 +374,7 @@ export default function Settings({
             <div style={{ marginBottom: "1.5rem" }}>
               <label
                 htmlFor="kFactor"
+                title={tt("Controls how much ratings change per game")}
                 style={{
                   display: "block",
                   fontSize: "0.875rem",
@@ -354,17 +386,18 @@ export default function Settings({
                 K-Factor (Elo volatility)
               </label>
               <input
-                 type="number"
-                 id="kFactor"
-                 min="1"
-                 max="100"
-                 value={kFactor}
-                 onChange={(e) => {
-                   debugInput("K-Factor", e.target.value);
-                   setKFactor(
-                     Math.max(1, Math.min(100, parseInt(e.target.value) || 20)),
-                   );
-                 }}
+                type="number"
+                id="kFactor"
+                min="1"
+                max="100"
+                value={kFactor}
+                title={tt("Default is 20. Higher values make ratings more volatile")}
+                onChange={(e) => {
+                  debugInput("K-Factor", e.target.value);
+                  setKFactor(
+                    Math.max(1, Math.min(100, parseInt(e.target.value) || 20)),
+                  );
+                }}
                 style={{
                   width: "100%",
                   padding: "0.5rem",
@@ -410,75 +443,16 @@ export default function Settings({
               }}
             >
 {isAdmin && (
-                <>
-                  {/* Good buttons */}
-                  {onWalkThroughReports && (
-                    <button
-                      onClick={() => {
-                        debugClick("Settings:Walk Through Reports");
-                        saveForAction();
-                        onClose();
-                        onWalkThroughReports();
-                      }}
-                      style={{
-                        width: "100%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: "0.5rem",
-                        padding: "0.75rem",
-                        backgroundColor: "#f59e0b",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "0.25rem",
-                        cursor: "pointer",
-                        fontSize: "0.875rem",
-                        fontWeight: "500",
-                      }}
-                    >
-                      <Eye size={16} />
-                      Walk Through Reports
-                    </button>
-                  )}
-
-                  {onGenerateTrophies && (
-                    <button
-                      onClick={() => {
-                        console.debug(">>> [SETTINGS ACTION] Generate Trophies");
-                        debugClick("Settings:Generate Trophies");
-                        saveForAction();
-                        onClose();
-                        onGenerateTrophies();
-                      }}
-                      style={{
-                        width: "100%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: "0.5rem",
-                        padding: "0.75rem",
-                        backgroundColor: "#f97316",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "0.25rem",
-                        cursor: "pointer",
-                        fontSize: "0.875rem",
-                        fontWeight: "500",
-                      }}
-                    >
-                    <BarChart3 size={16} />
-                       Generate Trophies
-                     </button>
-                   )}
-
-                   {onGenerateActivityReport && (
+                 <>
+                   {/* tooltip.md: [Settings Panel] Actions Section */}
+                   {onWalkThroughReports && (
                      <button
+                       title={tt("Step through game-by-game rating calculations")}
                        onClick={() => {
-                         console.debug(">>> [SETTINGS ACTION] Generate Activity Report");
-                         debugClick("Settings:Generate Activity Report");
+                         debugClick("Settings:Walk Through Reports");
                          saveForAction();
                          onClose();
-                         onGenerateActivityReport();
+                         onWalkThroughReports();
                        }}
                        style={{
                          width: "100%",
@@ -487,7 +461,7 @@ export default function Settings({
                          justifyContent: "center",
                          gap: "0.5rem",
                          padding: "0.75rem",
-                         backgroundColor: "#8b5cf6",
+                         backgroundColor: "#f59e0b",
                          color: "white",
                          border: "none",
                          borderRadius: "0.25rem",
@@ -496,97 +470,20 @@ export default function Settings({
                          fontWeight: "500",
                        }}
                      >
-                       <BarChart3 size={16} />
-                       Generate Activity Report
+                       <Eye size={16} />
+                       Walk Through Reports
                      </button>
                    )}
 
-{!miniGamesHaveResults && (
-                     <>
-                       <button
-                         onClick={handleNewDay}
-                        style={{
-                          width: "100%",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: "0.5rem",
-                          padding: "0.75rem",
-                          backgroundColor: "#3b82f6",
-                          color: "white",
-                          border: "none",
-                          borderRadius: "0.25rem",
-                          cursor: "pointer",
-                          fontSize: "0.875rem",
-                          fontWeight: "500",
-                        }}
-                      >
-                        <CalendarDays size={16} />
-                        New Day
-                      </button>
-
-                      <button
-                        onClick={handleNewDayWithReRank}
-                        style={{
-                          width: "100%",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: "0.5rem",
-                          padding: "0.75rem",
-                          backgroundColor: "#10b981",
-                          color: "white",
-                          border: "none",
-                          borderRadius: "0.25rem",
-                          cursor: "pointer",
-                          fontSize: "0.875rem",
-                          fontWeight: "500",
-                        }}
-                      >
-                        <CalendarDays size={16} />
-                        New Day + Re-rank
-                      </button>
-                    </>
-                  )}
-
-                  {miniGamesHaveResults && onExportTournamentFiles && (
-                    <button
-                      onClick={() => {
-                        console.debug(">>> [SETTINGS ACTION] Export Tournament Files");
-                        debugClick("Settings:Export Tournament Files");
-                        saveForAction();
-                        onClose();
-                        onExportTournamentFiles();
-                      }}
-                      style={{
-                        width: "100%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: "0.5rem",
-                        padding: "0.75rem",
-                        backgroundColor: "#0ea5e9",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "0.25rem",
-                        cursor: "pointer",
-                        fontSize: "0.875rem",
-                        fontWeight: "500",
-                      }}
-                    >
-                      <CalendarDays size={16} />
-                      Export Tournament Files
-                    </button>
-                  )}
-
-{!miniGamesHaveResults && onImportSingleMiniGame && (
+                   {onGenerateTrophies && (
                      <button
+                       title={tt("Generate trophy report for all players and mini-games")}
                        onClick={() => {
-                         console.debug(">>> [SETTINGS ACTION] Import Single Mini-Game");
-                         debugClick("Settings:Import Single Mini-Game");
+                         console.debug(">>> [SETTINGS ACTION] Generate Trophies");
+                         debugClick("Settings:Generate Trophies");
                          saveForAction();
                          onClose();
-                         onImportSingleMiniGame();
+                         onGenerateTrophies();
                        }}
                        style={{
                          width: "100%",
@@ -595,7 +492,119 @@ export default function Settings({
                          justifyContent: "center",
                          gap: "0.5rem",
                          padding: "0.75rem",
-                         backgroundColor: "#059669",
+                         backgroundColor: "#f97316",
+                         color: "white",
+                         border: "none",
+                         borderRadius: "0.25rem",
+                         cursor: "pointer",
+                         fontSize: "0.875rem",
+                         fontWeight: "500",
+                       }}
+                     >
+                     <BarChart3 size={16} />
+                        Generate Trophies
+                      </button>
+                    )}
+
+                    {onGenerateActivityReport && (
+                      <button
+                        title={tt("Generate a report of player activity and game counts")}
+                        onClick={() => {
+                          console.debug(">>> [SETTINGS ACTION] Generate Activity Report");
+                          debugClick("Settings:Generate Activity Report");
+                          saveForAction();
+                          onClose();
+                          onGenerateActivityReport();
+                        }}
+                        style={{
+                          width: "100%",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "0.5rem",
+                          padding: "0.75rem",
+                          backgroundColor: "#8b5cf6",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "0.25rem",
+                          cursor: "pointer",
+                          fontSize: "0.875rem",
+                          fontWeight: "500",
+                        }}
+                      >
+                        <BarChart3 size={16} />
+                        Generate Activity Report
+                      </button>
+                    )}
+
+ {!miniGamesHaveResults && (
+                      <>
+                        <button
+                          title={tt("Start a new day: copy New Rating to Previous Rating, clear reports")}
+                          onClick={handleNewDay}
+                         style={{
+                           width: "100%",
+                           display: "flex",
+                           alignItems: "center",
+                           justifyContent: "center",
+                           gap: "0.5rem",
+                           padding: "0.75rem",
+                           backgroundColor: "#3b82f6",
+                           color: "white",
+                           border: "none",
+                           borderRadius: "0.25rem",
+                           cursor: "pointer",
+                           fontSize: "0.875rem",
+                           fontWeight: "500",
+                         }}
+                       >
+                         <CalendarDays size={16} />
+                         New Day
+                       </button>
+
+                       <button
+                         title={tt("Start a new day and re-rank players by rating")}
+                         onClick={handleNewDayWithReRank}
+                         style={{
+                           width: "100%",
+                           display: "flex",
+                           alignItems: "center",
+                           justifyContent: "center",
+                           gap: "0.5rem",
+                           padding: "0.75rem",
+                           backgroundColor: "#10b981",
+                           color: "white",
+                           border: "none",
+                           borderRadius: "0.25rem",
+                           cursor: "pointer",
+                           fontSize: "0.875rem",
+                           fontWeight: "500",
+                         }}
+                       >
+                         <CalendarDays size={16} />
+                         New Day + Re-rank
+                       </button>
+                     </>
+                   )}
+
+                   {miniGamesHaveResults && onExportTournamentFiles && (
+                     <button
+                       title={tt("Export all mini-game .tab files as a ZIP archive")}
+                       onClick={() => {
+                         console.debug(">>> [SETTINGS ACTION] Export Tournament Files");
+                         debugClick("Settings:Export Tournament Files");
+                         saveForAction();
+                         onClose();
+                         onExportTournamentFiles();
+                       }}
+                       style={{
+                         width: "100%",
+                         display: "flex",
+                         alignItems: "center",
+                         justifyContent: "center",
+                         gap: "0.5rem",
+                         padding: "0.75rem",
+                         backgroundColor: "#0ea5e9",
                          color: "white",
                          border: "none",
                          borderRadius: "0.25rem",
@@ -605,83 +614,117 @@ export default function Settings({
                        }}
                      >
                        <CalendarDays size={16} />
-                       Import Single Mini-Game
+                       Export Tournament Files
                      </button>
                    )}
 
-                  {/* Space between good and destructive */}
-                  <div style={{ height: "1rem" }} />
-
-                  {/* Destructive buttons */}
-                  {onImportTournamentFiles && (
-                    <button
-                      onClick={() => {
-                        console.debug(">>> [SETTINGS ACTION] Import Tournament Files");
-                        debugClick("Settings:Import Tournament Files");
-                        saveForAction();
-                        onClose();
-                        onImportTournamentFiles();
-                      }}
-                      style={{
-                        width: "100%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: "0.5rem",
-                        padding: "0.75rem",
-                        backgroundColor: "#7c3aed",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "0.25rem",
-                        cursor: "pointer",
-                        fontSize: "0.875rem",
-                        fontWeight: "500",
-                      }}
-                    >
-                      <CalendarDays size={16} />
-                      Import Tournament Files
-                    </button>
-                  )}
-
-                  {onClearMiniGames && (
-                    <button
-                      onClick={() => {
-                        console.debug(">>> [SETTINGS ACTION] Clear Mini-Games");
-                        debugClick("Settings:Clear Mini-Games");
-                        if (window.confirm("Clear all mini-game files? This will remove all 7 mini-game .tab files.")) {
+ {!miniGamesHaveResults && onImportSingleMiniGame && (
+                      <button
+                        title={tt("Import a single .tab file into a mini-game slot")}
+                        onClick={() => {
+                          console.debug(">>> [SETTINGS ACTION] Import Single Mini-Game");
+                          debugClick("Settings:Import Single Mini-Game");
                           saveForAction();
-                          onClearMiniGames();
-                        }
-                      }}
-                      style={{
-                        width: "100%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: "0.5rem",
-                        padding: "0.75rem",
-                        backgroundColor: "#dc2626",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "0.25rem",
-                        cursor: "pointer",
-                        fontSize: "0.875rem",
-                        fontWeight: "500",
-                      }}
-                    >
-                      <Trash2 size={16} />
-                      Clear Mini-Games
-                    </button>
-                  )}
+                          onClose();
+                          onImportSingleMiniGame();
+                        }}
+                        style={{
+                          width: "100%",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "0.5rem",
+                          padding: "0.75rem",
+                          backgroundColor: "#059669",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "0.25rem",
+                          cursor: "pointer",
+                          fontSize: "0.875rem",
+                          fontWeight: "500",
+                        }}
+                      >
+                        <CalendarDays size={16} />
+                        Import Single Mini-Game
+                      </button>
+                    )}
 
-                  <button
-                    onClick={handleClearAll}
-                    style={{
-                      width: "100%",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: "0.5rem",
+                   {/* Space between good and destructive */}
+                   <div style={{ height: "1rem" }} />
+
+                   {/* Destructive buttons */}
+                   {onImportTournamentFiles && (
+                     <button
+                       title={tt("Import multiple .tab files from a ZIP archive")}
+                       onClick={() => {
+                         console.debug(">>> [SETTINGS ACTION] Import Tournament Files");
+                         debugClick("Settings:Import Tournament Files");
+                         saveForAction();
+                         onClose();
+                         onImportTournamentFiles();
+                       }}
+                       style={{
+                         width: "100%",
+                         display: "flex",
+                         alignItems: "center",
+                         justifyContent: "center",
+                         gap: "0.5rem",
+                         padding: "0.75rem",
+                         backgroundColor: "#7c3aed",
+                         color: "white",
+                         border: "none",
+                         borderRadius: "0.25rem",
+                         cursor: "pointer",
+                         fontSize: "0.875rem",
+                         fontWeight: "500",
+                       }}
+                     >
+                       <CalendarDays size={16} />
+                       Import Tournament Files
+                     </button>
+                   )}
+
+                   {onClearMiniGames && (
+                     <button
+                       title={tt("Remove all 7 mini-game .tab files")}
+                       onClick={() => {
+                         console.debug(">>> [SETTINGS ACTION] Clear Mini-Games");
+                         debugClick("Settings:Clear Mini-Games");
+                         if (window.confirm("Clear all mini-game files? This will remove all 7 mini-game .tab files.")) {
+                           saveForAction();
+                           onClearMiniGames();
+                         }
+                       }}
+                       style={{
+                         width: "100%",
+                         display: "flex",
+                         alignItems: "center",
+                         justifyContent: "center",
+                         gap: "0.5rem",
+                         padding: "0.75rem",
+                         backgroundColor: "#dc2626",
+                         color: "white",
+                         border: "none",
+                         borderRadius: "0.25rem",
+                         cursor: "pointer",
+                         fontSize: "0.875rem",
+                         fontWeight: "500",
+                       }}
+                     >
+                       <Trash2 size={16} />
+                       Clear Mini-Games
+                     </button>
+                   )}
+
+                   <button
+                     title={tt("Clear all game results, keep player data intact")}
+                     onClick={handleClearAll}
+                     style={{
+                       width: "100%",
+                       display: "flex",
+                       alignItems: "center",
+                       justifyContent: "center",
+                       gap: "0.5rem",
                       padding: "0.75rem",
                       backgroundColor: "#9ca3af",
                       color: "white",
@@ -697,28 +740,29 @@ export default function Settings({
                   </button>
 
                   {!miniGamesHaveResults && (
-                    <button
-                      onClick={handleSetSampleData}
-                      style={{
-                        width: "100%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: "0.5rem",
-                        padding: "0.75rem",
-                        backgroundColor: "#ef4444",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "0.25rem",
-                        cursor: "pointer",
-                        fontSize: "0.875rem",
-                        fontWeight: "500",
-                      }}
-                    >
-                      <Trash2 size={16} />
-                      Set Sample Data
-                    </button>
-                  )}
+                     <button
+                       title={tt("Reset to sample data for testing")}
+                       onClick={handleSetSampleData}
+                       style={{
+                         width: "100%",
+                         display: "flex",
+                         alignItems: "center",
+                         justifyContent: "center",
+                         gap: "0.5rem",
+                         padding: "0.75rem",
+                         backgroundColor: "#ef4444",
+                         color: "white",
+                         border: "none",
+                         borderRadius: "0.25rem",
+                         cursor: "pointer",
+                         fontSize: "0.875rem",
+                         fontWeight: "500",
+                       }}
+                     >
+                       <Trash2 size={16} />
+                       Set Sample Data
+                     </button>
+                   )}
                 </>
               )}
             </div>
@@ -726,7 +770,7 @@ export default function Settings({
         </div>
         )}
 
-        {/* Server Connection Section */}
+        {/* tooltip.md: [Settings Panel] Server Connection Section */}
         <div
           style={{
             backgroundColor: '#f8fafc',
@@ -737,6 +781,7 @@ export default function Settings({
           }}
         >
           <h3
+            title={tt("Configure connection to the ladder server")}
             style={{
               fontSize: "0.875rem",
               fontWeight: "600",
@@ -756,6 +801,7 @@ export default function Settings({
           {onToggleAdmin && (!serverUrl.trim() || apiKey.trim()) && (
             <div style={{ marginBottom: '1.5rem' }}>
               <button
+                title={tt(isAdmin ? "Exit admin mode and release the admin lock" : "Enter admin mode to access configuration and actions")}
                 onClick={async () => {
                   debugClick("Settings:Toggle Admin Mode");
                   setAdminToggleLoading(true);
@@ -807,7 +853,7 @@ export default function Settings({
           )}
           {isAdmin && hasAdminKey && (
             <div style={{ marginBottom: '1.5rem' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+              <label title={tt("Enable random result buttons in Enter Games mode for testing")} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
                 <input
                   type="checkbox"
                   checked={testMode}
@@ -821,11 +867,12 @@ export default function Settings({
               </p>
             </div>
           )}
-          
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
             <div>
               {lastWorkingConfig && (
                 <button
+                  title={tt("Restore the last working server URL and API key")}
                   onClick={() => {
                     debugClick("Settings:Restore Last Server Config");
                     setServerUrl(lastWorkingConfig.server);
@@ -854,6 +901,7 @@ export default function Settings({
               )}
               <label
                 htmlFor="serverUrl"
+                title={tt("URL of the ladder server")}
                 style={{
                   display: "block",
                   fontSize: "0.875rem",
@@ -865,23 +913,24 @@ export default function Settings({
                 Server URL
               </label>
              <input
-                 type="text"
-                 id="serverUrl"
-                 value={serverUrl}
-                 onChange={(e) => {
-                   debugInput("Server URL", e.target.value);
-                   setServerUrl(normalizeServerUrl(e.target.value));
+                  type="text"
+                  id="serverUrl"
+                  value={serverUrl}
+                  title={tt("When empty, data is stored in browser localStorage only")}
+                  onChange={(e) => {
+                    debugInput("Server URL", e.target.value);
+                    setServerUrl(normalizeServerUrl(e.target.value));
+                  }}
+                 placeholder="http://omen.com:3000 or omen.com:3000"
+                 style={{
+                   width: "100%",
+                   padding: "0.5rem",
+                   border: "1px solid #d1d5db",
+                   borderRadius: "0.25rem",
+                   fontSize: "0.875rem",
+                   boxSizing: "border-box",
                  }}
-                placeholder="http://omen.com:3000 or omen.com:3000"
-                style={{
-                  width: "100%",
-                  padding: "0.5rem",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "0.25rem",
-                  fontSize: "0.875rem",
-                  boxSizing: "border-box",
-                }}
-              />
+               />
               <p
                 style={{
                   fontSize: "0.75rem",
@@ -896,6 +945,7 @@ export default function Settings({
             <div>
               <label
                 htmlFor="apiKey"
+                title={tt("API key for server authentication")}
                 style={{
                   display: "block",
                   fontSize: "0.875rem",
@@ -907,23 +957,24 @@ export default function Settings({
                 API Key
               </label>
             <input
-                 type="password"
-                 id="apiKey"
-                 value={apiKey}
-                 onChange={(e) => {
-                   debugInput("API Key", e.target.value);
-                   setApiKey(e.target.value);
+                  type="password"
+                  id="apiKey"
+                  value={apiKey}
+                  title={tt("Provided by the server administrator")}
+                  onChange={(e) => {
+                    debugInput("API Key", e.target.value);
+                    setApiKey(e.target.value);
+                  }}
+                 placeholder="Your API key (optional)"
+                 style={{
+                   width: "100%",
+                   padding: "0.5rem",
+                   border: "1px solid #d1d5db",
+                   borderRadius: "0.25rem",
+                   fontSize: "0.875rem",
+                   boxSizing: "border-box",
                  }}
-                placeholder="Your API key (optional)"
-                style={{
-                  width: "100%",
-                  padding: "0.5rem",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "0.25rem",
-                  fontSize: "0.875rem",
-                  boxSizing: "border-box",
-                }}
-              />
+               />
               <p
                 style={{
                   fontSize: "0.75rem",

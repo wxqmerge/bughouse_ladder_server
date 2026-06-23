@@ -24,6 +24,7 @@ import MenuBar from "./MenuBar";
 import MobileMenu from "./MobileMenu";
 import { Menu as MenuIcon, Server } from "lucide-react";
 import { shouldLog, debugClick, debugInput } from "../utils/debug";
+import { useTooltips } from "../hooks/useTooltips";
 import { getVersionString, isServerDownMode, getProgramMode, testServerConnection, isValidServerUrl } from "../utils/mode";
 import { log } from "../utils/log";
 import { gatedFetch } from "../utils/requestGate";
@@ -242,6 +243,7 @@ export default function LadderForm({
   testMode: testModeProp,
   setTestMode: _setTestModeProp,
 }: LadderFormProps = {}) {
+  const { title: tt } = useTooltips();
   const [players, setPlayers] = useState<PlayerData[]>([]);
   const [miniGamesHaveResultsFlag, setMiniGamesHaveResultsFlag] = useState(false);
   const [zoomLevel, setZoomLevel] = useState<
@@ -5525,8 +5527,10 @@ miniGamesHaveResults={miniGamesHaveResultsFlag}
         >
           <thead>
             <tr>
+              {/* tooltip.md: [LadderForm Column Headers] */}
               <th
                 key="head-rank"
+                title={tt("Player rank on the ladder")}
                 style={{
                   padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                   textAlign: "right",
@@ -5540,6 +5544,7 @@ miniGamesHaveResults={miniGamesHaveResultsFlag}
               </th>
               <th
                 key="head-group"
+                title={tt("Player group (A1-A8, I1-I8, Z1-Z8, etc.)")}
                 style={{
                   padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                   textAlign: "left",
@@ -5553,6 +5558,7 @@ miniGamesHaveResults={miniGamesHaveResultsFlag}
               </th>
               <th
                 key="head-lastName"
+                title={tt("Player last name")}
                 style={{
                   padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                   textAlign: "left",
@@ -5566,6 +5572,7 @@ miniGamesHaveResults={miniGamesHaveResultsFlag}
               </th>
               <th
                 key="head-firstName"
+                title={tt("Player first name")}
                 style={{
                   padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                   textAlign: "left",
@@ -5579,6 +5586,7 @@ miniGamesHaveResults={miniGamesHaveResultsFlag}
               </th>
               <th
                 key="head-rating"
+                title={tt("Rating before today's games")}
                 style={{
                   padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                   textAlign: "right",
@@ -5592,6 +5600,7 @@ miniGamesHaveResults={miniGamesHaveResultsFlag}
               </th>
               <th
                 key="head-nRating"
+                title={tt("Calculated rating after today's games")}
                 style={{
                   padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                   textAlign: "right",
@@ -5605,6 +5614,7 @@ miniGamesHaveResults={miniGamesHaveResultsFlag}
                </th>
                <th
                  key="head-trophy"
+                 title={tt("Trophy eligibility flag")}
                  style={{
                    padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                    textAlign: "center",
@@ -5621,6 +5631,7 @@ borderBottom: `2px solid ${headerBorder}`,
                 <>
                   <th
                     key="head-grade"
+                    title={tt("Player grade level")}
                     style={{
                       padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                       textAlign: "right",
@@ -5634,6 +5645,7 @@ borderBottom: `2px solid ${headerBorder}`,
                   </th>
                   <th
                     key="head-num_games"
+                    title={tt("Number of games played")}
                     style={{
                       padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                       textAlign: "right",
@@ -5647,6 +5659,7 @@ borderBottom: `2px solid ${headerBorder}`,
                   </th>
                   <th
                     key="head-attendance"
+                    title={tt("Attendance record")}
                     style={{
                       padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                       textAlign: "right",
@@ -5661,6 +5674,7 @@ borderBottom: `2px solid ${headerBorder}`,
                   </th>
                   <th
                     key="head-phone"
+                    title={tt("Player phone number")}
                     style={{
                       padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                       textAlign: "left",
@@ -5674,6 +5688,7 @@ borderBottom: `2px solid ${headerBorder}`,
                   </th>
                   <th
                     key="head-info"
+                    title={tt("Additional player information")}
                     style={{
                       padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                       textAlign: "left",
@@ -5688,6 +5703,7 @@ borderBottom: `2px solid ${headerBorder}`,
                   </th>
                   <th
                     key="head-school"
+                    title={tt("Player school")}
                     style={{
                       padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                       textAlign: "left",
@@ -5702,6 +5718,7 @@ borderBottom: `2px solid ${headerBorder}`,
                   </th>
                   <th
                     key="head-room"
+                    title={tt("Player room assignment")}
                     style={{
                       padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                       textAlign: "left",
@@ -5722,6 +5739,7 @@ borderBottom: `2px solid ${headerBorder}`,
                   return (
                 <th
                   key={`head-round-${round}`}
+                  title={tt(`Game result for round ${round + 1}. Enter: W (win), L (loss), D (draw), or blank`)}
                   style={{
                     padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                     textAlign: "center",
