@@ -14,6 +14,7 @@ import {
   generateTrophyReport as sharedGenerateTrophyReport,
   parseMiniGameImportContent,
 } from '../../shared/utils/trophyGeneration';
+import { parsePlayerLine, playersToTabContent as sharedPlayersToTabContent } from '../../shared/utils/tabUtils';
 
 const MINI_GAME_PREFIX = 'mini_game_';
 
@@ -50,45 +51,8 @@ export function parseTabContent(content: string): LadderData {
   const players: PlayerData[] = [];
 
   for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split('\t');
-    if (cols.length < 14) continue;
-
-    const ratingStr = String(cols[3] || "").trim();
-    const isNegRating = ratingStr.startsWith("-");
-    const nRateStr = String(cols[5] || "").trim();
-
-    const safeInt = (val: string | null | undefined, fallback: number = 0): number => {
-      if (val === null || val === undefined || val.trim() === '') return fallback;
-      const n = parseInt(val, 10);
-      return isNaN(n) ? fallback : n;
-    };
-
-    const player: PlayerData = {
-      rank: safeInt(cols[4]),
-      group: cols[0] && cols[0].trim() !== "" ? cols[0].trim() : "",
-      lastName: cols[1] !== null ? cols[1] : "",
-      firstName: cols[2] !== null ? cols[2] : "",
-      rating: Math.abs(safeInt(ratingStr)),
-      nRating: Math.abs(safeInt(nRateStr)),
-      trophyEligible: !isNegRating,
-      grade: cols[6] !== null ? cols[6] : "N/A",
-      num_games: safeInt(cols[7]),
-      attendance: safeInt(cols[8]),
-      phone: cols[9] !== null ? cols[9] : "",
-      info: cols[10] !== null ? cols[10] : "",
-      school: cols[11] !== null ? cols[11] : "",
-      room: cols[12] !== null ? cols[12] : "",
-      gameResults: [],
-    };
-
-    const gameResults: (string | null)[] = [];
-    for (let g = 0; g < 31; g++) {
-      const idx = 13 + g;
-      gameResults.push(idx < cols.length ? cols[idx] : null);
-    }
-    player.gameResults = gameResults;
-
-    if (player.rank > 0 && (player.lastName || player.firstName || player.nRating !== 0)) {
+    const player = parsePlayerLine(lines[i]);
+    if (player && player.rank > 0 && (player.lastName || player.firstName || player.nRating !== 0)) {
       players.push(player);
     }
   }
@@ -101,31 +65,7 @@ function generateTabContent(ladderData: LadderData): string {
 }
 
 export function playersToTabContent(players: PlayerData[]): string {
-  const header = ['Group', 'Last Name', 'First Name', 'Rating', 'Rank', 'NRate', 'Grade', 'Num Games', 'Attendance', 'Phone', 'Info', 'School', 'Room', ...Array(NUM_ROUNDS).fill('')].join('\t');
-  const lines = [header];
-
-  for (const p of players) {
-    const ratingStr = p.trophyEligible ? String(p.rating) : `-${p.rating}`;
-    const cols = [
-      p.group || '',
-      p.lastName || '',
-      p.firstName || '',
-      ratingStr,
-      String(p.rank),
-      String(p.nRating),
-      p.grade || 'N/A',
-      String(p.num_games),
-      String(p.attendance),
-      p.phone || '',
-      p.info || '',
-      p.school || '',
-      p.room || '',
-      ...(p.gameResults || []).map(r => r || ''),
-    ];
-    lines.push(cols.join('\t'));
-  }
-
-  return lines.join('\n') + '\n';
+  return sharedPlayersToTabContent(players);
 }
 
 export async function importMiniGameFiles(content: string): Promise<{ imported: string[]; errors: string[] }> {

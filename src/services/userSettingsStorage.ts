@@ -12,6 +12,7 @@
  */
 
 import { gatedFetch } from '../utils/requestGate';
+import { DEFAULT_GAME_RESULTS } from '../../shared/types';
 
 function getLadderPrefix(): string {
   // Same logic as derivePrefixFromLocation in storageService.ts
@@ -275,7 +276,7 @@ export async function loadConfigFromUrl(): Promise<boolean> {
           if (Array.isArray(players)) {
             for (const player of players) {
               if (player && Array.isArray(player.gameResults)) {
-                player.gameResults = new Array(31).fill(null);
+                player.gameResults = [...DEFAULT_GAME_RESULTS];
                 cleared++;
               }
             }

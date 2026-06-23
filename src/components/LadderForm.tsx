@@ -12,7 +12,7 @@ import {
   updatePlayerGameData,
 } from "../../shared/utils/hashUtils";
 import { processNewDayTransformations, isMiniGameTitle, titleToFileName, getNextTitle, SHORTCUT_TO_TITLE, LADDER_COLORS, compareByPseudoRating, formatRatingForExport, NUM_ROUNDS, getValidationErrorMessage } from "../../shared/utils/constants";
-import { MINI_GAME_FILES } from "../../shared/types";
+import { MINI_GAME_FILES, DEFAULT_GAME_RESULTS } from "../../shared/types";
 import { dataService } from "../services/dataService";
 import { miniGamesHaveResults } from "../services/miniGameLocalStorage";
 import ErrorDialog from "./ErrorDialog";
@@ -142,7 +142,7 @@ export const loadSampleData = () => {
 
     // Random number of games (2-5 rounds)
     const numGames = 2 + Math.floor(pseudoRandom2(index * 10) * 4);
-    const gameResults: (string | null)[] = Array(31).fill(null);
+    const gameResults: (string | null)[] = [...DEFAULT_GAME_RESULTS];
 
     const excluded: number[] = [];
 
@@ -6338,7 +6338,7 @@ if (result.endsWith('_')) {
                               showToast(`${result.createdPlayers.length} player${result.createdPlayers.length > 1 ? 's' : ''} added`);
                               
                               if (result.remainingCols) {
-                                const newGameResults = Array(31).fill(null);
+                                const newGameResults = [...DEFAULT_GAME_RESULTS];
                                 const newEmptyRow = {
                                   firstName: "", lastName: "", group: "", rating: 0, nRating: 0,
                                   trophyEligible: true, grade: "", num_games: 0, attendance: 0,
@@ -6427,7 +6427,7 @@ if (result.endsWith('_')) {
                                    firstName: "", lastName: "", group: "", rating: 0, nRating: 0,
                                    trophyEligible: true, grade: "", num_games: 0, attendance: 0,
                                    phone: "", info: "", school: "", room: "",
-                                   gameResults: Array(31).fill(null),
+                                    gameResults: [...DEFAULT_GAME_RESULTS],
                                  } as typeof emptyPlayerRow;
                                  setEmptyPlayerRow(emptyReset);
                                  emptyPlayerRowRef.current = emptyReset;
