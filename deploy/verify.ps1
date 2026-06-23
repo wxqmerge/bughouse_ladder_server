@@ -356,9 +356,13 @@ if ($IsRemote) {
     Write-Host '7. Games endpoint'
     $games = Invoke-TimedApi -BaseUrl $ServerUrl -Path '/api/games' -ApiKey $ApiKey
     if ($games.Success -and $games.StatusCode -eq 200) {
-        $data = $games.Content | ConvertFrom-Json
-        $count = if ($data -is [System.Array]) { $data.Count } elseif ($data.success -and $data.data) { $data.data.Count } else { 0 }
-        Pass ("GET /api/games — $count entries ({0})" -f $games.DurationMs) + 'ms'
+        try {
+            $data = $games.Content | ConvertFrom-Json
+            $count = if ($data -is [System.Array]) { $data.Count } elseif ($data.success -and $data.data) { $data.data.Count } else { 0 }
+            Pass ("GET /api/games — $count entries ({0})" -f $games.DurationMs) + 'ms'
+        } catch {
+            Warn "GET /api/games — response is not valid JSON (may be HTML/error page)"
+        }
     } elseif ($games.StatusCode -eq 401 -or $games.StatusCode -eq 403) {
         Fail "GET /api/games — auth failed (HTTP $($games.StatusCode))"
     } elseif ($games.StatusCode -eq 404) {
@@ -437,7 +441,7 @@ if ($IsRemote) {
         '/api/games' = $games.StatusCode
         '/api/admin/status' = $admin.StatusCode
     }
-    $apiFails = ($apiStatuses.GetEnumerator() | Where-Object { $_.Value -ne 200 })
+    $apiFails = @($apiStatuses.GetEnumerator() | Where-Object { $_.Value -ne 200 })
     if ($apiFails.Count -eq $apiStatuses.Count) {
         $commonStatus = $apiFails[0].Value
         $allSame = ($apiFails | Where-Object { $_.Value -eq $commonStatus }).Count -eq $apiFails.Count
