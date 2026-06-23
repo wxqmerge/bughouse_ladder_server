@@ -11,6 +11,7 @@ import {
 import { getVisibleTitles } from "../utils/titleMenu";
 import { titleToFileName, LADDER_COLORS } from "../../shared/utils/constants";
 import { debugClick } from "../utils/debug";
+import { useTooltips } from "../hooks/useTooltips";
 
 interface MobileMenuProps {
   isOpen: boolean;
@@ -48,6 +49,7 @@ interface MenuItem {
   hasCheckmark?: boolean;
   disabled?: boolean;
   color?: string;
+  tooltip?: string;
 }
 
 export default function MobileMenu({
@@ -76,6 +78,8 @@ export default function MobileMenu({
   serverUrl,
   hasAdminApiKey = false,
 }: MobileMenuProps) {
+  const { title: tt } = useTooltips();
+
   if (!isOpen) return null;
 
   const handleItemClick = (label: string, onClick: () => void) => {
@@ -84,22 +88,26 @@ export default function MobileMenu({
     onClose();
   };
 
+  // tooltip.md: [Mobile Menu] File Menu Items
   const fileItems: MenuItem[] = [
     {
       label: "Load",
       onClick: () => handleItemClick("Load", () => onFileAction("load")),
       dataMenuItem: "Load",
       disabled: !isAdmin || miniGamesHaveResults,
+      tooltip: tt("Load a new .tab file to replace current ladder data"),
     },
     {
       label: "Export",
       onClick: () => handleItemClick("Export", () => onFileAction("export")),
       dataMenuItem: "Export",
+      tooltip: tt("Download current ladder data as a .tab file"),
     },
   ];
 
   const visibleTitles = getVisibleTitles(isAdmin, availableMiniGames);
 
+  // tooltip.md: [Mobile Menu] Title Menu Items
   const titleItems: MenuItem[] = visibleTitles.map((title) => {
     const isMiniGame = title !== "Ladder";
     const fileName = isMiniGame ? titleToFileName(title) : null;
@@ -109,6 +117,7 @@ export default function MobileMenu({
     return {
       label: title,
       color: LADDER_COLORS[title],
+      tooltip: tt(title === "Ladder" ? "Main club ladder (ladder.tab)" : `Switch to mini-game tournament: ${title}`),
       onClick: () => {
         if (isDisabled) {
           alert(`"${title}" is not available yet. Only admin can create mini-games.`);
@@ -122,57 +131,68 @@ export default function MobileMenu({
     };
   });
 
+  // tooltip.md: [Mobile Menu] Sort Menu Items
   const sortItems: MenuItem[] = [
     {
       label: "By Rank",
       onClick: () => handleItemClick("Sort:By Rank", () => onSort("rank")),
       dataMenuItem: "By Rank",
+      tooltip: tt("Sort by current rank order"),
     },
     {
       label: "By Last Name",
       onClick: () => handleItemClick("Sort:By Last Name", () => onSort("byLastName")),
       dataMenuItem: "By Last Name",
+      tooltip: tt("Sort alphabetically by last name"),
     },
     {
       label: "By First Name",
       onClick: () => handleItemClick("Sort:By First Name", () => onSort("byFirstName")),
       dataMenuItem: "By First Name",
+      tooltip: tt("Sort alphabetically by first name"),
     },
     {
       label: "By New Rating",
       onClick: () => handleItemClick("Sort:By New Rating", () => onSort("nRating")),
       dataMenuItem: "By New Rating",
+      tooltip: tt("Sort by calculated new rating (high to low)"),
     },
     {
       label: "By Previous Rating",
       onClick: () => handleItemClick("Sort:By Previous Rating", () => onSort("rating")),
       dataMenuItem: "By Previous Rating",
+      tooltip: tt("Sort by previous rating (high to low)"),
     },
   ];
 
- const operationsItems: MenuItem[] = [
+  // tooltip.md: [Mobile Menu] Operations Menu Items
+  const operationsItems: MenuItem[] = [
     {
       label: "Recalculate_Save",
       onClick: () => handleItemClick("Recalculate_Save", onRecalculateRatings),
       dataMenuItem: "Recalculate_Save",
       disabled: !writePermission,
+      tooltip: tt("Recalculate all ratings from game results and save (Ctrl+E)"),
     },
     {
       label: "Check Errors",
       onClick: () => handleItemClick("Check Errors", onCheckErrors),
       dataMenuItem: "Check Errors",
+      tooltip: tt("Check for data entry errors in game results"),
     },
     {
       label: "Enter Games",
       onClick: () => handleItemClick("Enter Games", onEnterGames || (() => {})),
       dataMenuItem: "Enter Games",
       disabled: !writePermission,
+      tooltip: tt("Enter or correct game results (Ctrl+E)"),
     },
     {
       label: "Paste Multiple Results",
       onClick: () => handleItemClick("Paste Multiple Results", onBulkPaste || (() => {})),
       dataMenuItem: "Paste Multiple Results",
       disabled: !writePermission,
+      tooltip: tt("Paste multiple game results from clipboard at once"),
     },
     ...(serverUrl && !hasAdminApiKey && !isAdmin
       ? []
@@ -181,83 +201,97 @@ export default function MobileMenu({
           onClick: () => handleItemClick(isAdmin ? "Exit Admin Mode" : "Admin Mode", onToggleAdmin),
           dataMenuItem: isAdmin ? "Exit Admin Mode" : "Admin Mode",
           disabled: !writePermission && !isAdmin,
+          tooltip: tt("Toggle admin mode for write access"),
         }]),
-...(isAdmin && onAddPlayer
+    // tooltip.md: [Mobile Menu] Operations Menu Items
+    ...(isAdmin && onAddPlayer
        ? [
            {
-label: "Add Player",
-              onClick: () => handleItemClick("Add Player", onAddPlayer),
-              dataMenuItem: "Add Player",
-             disabled: !writePermission,
+            label: "Add Player",
+            onClick: () => handleItemClick("Add Player", onAddPlayer),
+            dataMenuItem: "Add Player",
+            disabled: !writePermission,
+            tooltip: tt("Add a new player to the ladder"),
            },
          ]
        : []),
       ...(isAdmin && onDeleteHiddenPlayers
        ? [
            {
-label: "Delete Players",
-              onClick: () => handleItemClick("Delete Hidden Players", onDeleteHiddenPlayers),
-              dataMenuItem: "Delete Hidden Players",
-             disabled: !writePermission,
+            label: "Delete Players",
+            onClick: () => handleItemClick("Delete Hidden Players", onDeleteHiddenPlayers),
+            dataMenuItem: "Delete Hidden Players",
+            disabled: !writePermission,
+            tooltip: tt("Delete hidden players (group ending in X)"),
            },
          ]
        : []),
       ...(isAdmin && onAutoLetter
        ? [
            {
-label: "Auto-Letter",
-              onClick: () => handleItemClick("Auto-Letter", onAutoLetter),
-              dataMenuItem: "Auto-Letter",
-             disabled: !writePermission,
+            label: "Auto-Letter",
+            onClick: () => handleItemClick("Auto-Letter", onAutoLetter),
+            dataMenuItem: "Auto-Letter",
+            disabled: !writePermission,
+            tooltip: tt("Auto-generate tournament letters for players"),
            },
          ]
        : []),
-...(isAdmin && onRestoreBackup
-        ? [
-            {
- label: "Restore Backup",
+    // tooltip.md: [Mobile Menu] Operations Menu Items
+    ...(isAdmin && onRestoreBackup
+         ? [
+             {
+              label: "Restore Backup",
               onClick: () => handleItemClick("Restore Backup", onRestoreBackup),
               dataMenuItem: "Restore Backup",
               disabled: !writePermission,
-            },
-          ]
-        : []),
+              tooltip: tt("Restore ladder data from a previous backup"),
+             },
+           ]
+         : []),
       ...(isAdmin && onPrintLabels
-        ? [
-            {
-              label: "Print Labels",
-              onClick: () => handleItemClick("Print Labels", onPrintLabels),
-              dataMenuItem: "Print Labels",
-            },
-          ]
-        : []),
+         ? [
+             {
+               label: "Print Labels",
+               onClick: () => handleItemClick("Print Labels", onPrintLabels),
+               dataMenuItem: "Print Labels",
+               tooltip: tt("Print player labels for tournaments"),
+             },
+           ]
+         : []),
   ];
 
+  // tooltip.md: [Mobile Menu] View Menu Items
   const viewItems: MenuItem[] = [
     {
       label: "Zoom 50%",
       onClick: () => handleItemClick("Zoom 50%", () => onSetZoom("50%")),
       dataMenuItem: "Zoom 50%",
+      tooltip: tt("Set table zoom to 50%"),
     },
     {
       label: "Zoom 70%",
       onClick: () => handleItemClick("Zoom 70%", () => onSetZoom("70%")),
       dataMenuItem: "Zoom 70%",
+      tooltip: tt("Set table zoom to 70%"),
     },
     {
       label: "Zoom 100%",
       onClick: () => handleItemClick("Zoom 100%", () => onSetZoom("100%")),
       dataMenuItem: "Zoom 100%",
+      tooltip: tt("Set table zoom to 100% (default)"),
     },
     {
       label: "Zoom 140%",
       onClick: () => handleItemClick("Zoom 140%", () => onSetZoom("140%")),
       dataMenuItem: "Zoom 140%",
+      tooltip: tt("Set table zoom to 140%"),
     },
     {
       label: "Zoom 200%",
       onClick: () => handleItemClick("Zoom 200%", () => onSetZoom("200%")),
       dataMenuItem: "Zoom 200%",
+      tooltip: tt("Set table zoom to 200%"),
     },
   ];
 
@@ -289,6 +323,7 @@ label: "Auto-Letter",
           <button
             key={item.dataMenuItem}
             data-menu-item={item.dataMenuItem}
+            title={item.tooltip}
             onClick={item.onClick}
             disabled={item.disabled}
             style={{
