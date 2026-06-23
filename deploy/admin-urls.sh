@@ -16,8 +16,8 @@ for dir in "$BASE"/*/; do
     [ -d "$dir" ] || continue
     name=$(basename "$dir")
 
-    # Skip non-ladder directories
-    [ -f "$dir/package.json" ] || continue
+    # Skip non-ladder directories (ladders always have "ladder" in name)
+    echo "$name" | grep -qi "ladder" || continue
 
     # Read admin key from .env
     env_file="$dir/server/.env"
