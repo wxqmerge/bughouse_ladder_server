@@ -186,9 +186,13 @@ if ($IsRemote) {
                 $tcp.Close()
             } else {
                 Fail "TCP connection to $($Script:UriParts.Host):$port refused"
+                Info '[FIX] Server not reachable. Check firewall rules and nginx is running.'
+                Info '[FIX] On server: sudo systemctl status nginx'
             }
         } else {
             Fail "TCP connection to $($Script:UriParts.Host):$port timed out"
+            Info '[FIX] Connection timed out — check DNS, firewall, and server is online.'
+            Info '[FIX] Test DNS: nslookup $($Script:UriParts.Host)'
         }
     } catch {
         Fail "TCP connection failed: $_"
@@ -250,9 +254,13 @@ if ($IsRemote) {
         if ($rootContent -match 'BUGHOUSE') {
             Pass "Root serves frontend ($($rootCheck['DurationMs'])ms)"
         } elseif ($rootContent -match '<html|<!DOCTYPE') {
-            Pass "Root serves HTML ($($rootCheck['DurationMs'])ms)"
             if ($rootContent -match 'nginx') {
-                Info 'Note: appears to be nginx default/redirect page'
+                Fail "Root serves nginx default page — proxy_pass not configured"
+                Info '[FIX] Check nginx config: cat /etc/nginx/sites-available/*'
+                Info '[FIX] Enable config: sudo ln -s /etc/nginx/sites-available/YOUR_CONF /etc/nginx/sites-enabled/'
+                Info '[FIX] Reload: sudo systemctl reload nginx'
+            } else {
+                Pass "Root serves HTML ($($rootCheck['DurationMs'])ms)"
             }
         } else {
             Pass "Root responds ($($rootCheck['DurationMs'])ms)"
@@ -260,6 +268,10 @@ if ($IsRemote) {
     } else {
         Fail "Root URL returned HTTP $($rootCheck['StatusCode'])"
         if ($rootCheck['Error']) { Info "Error: $($rootCheck['Error'])" }
+        if ($rootCheck['StatusCode'] -eq 0) {
+            Info '[FIX] Connection refused — check nginx is enabled: ls -la /etc/nginx/sites-enabled/'
+            Info '[FIX] Enable config: sudo ln -s /etc/nginx/sites-available/YOUR_CONF /etc/nginx/sites-enabled/'
+        }
     }
     Write-Host ''
 
@@ -284,6 +296,15 @@ if ($IsRemote) {
     } else {
         Fail "GET /health failed (HTTP $($health.StatusCode))"
         if ($health.Error) { Info "Error: $($health.Error)" }
+        if ($health.StatusCode -eq 0) {
+            Info '[FIX] Connection refused — nginx config may not be enabled'
+            Info '[FIX] Check: ls -la /etc/nginx/sites-enabled/'
+            Info '[FIX] Enable: sudo ln -s /etc/nginx/sites-available/YOUR_CONF /etc/nginx/sites-enabled/'
+            Info '[FIX] Reload: sudo systemctl reload nginx'
+        } elseif ($health.StatusCode -eq 404) {
+            Info '[FIX] nginx returns 404 — proxy_pass likely misconfigured or missing'
+            Info '[FIX] Check config: cat /etc/nginx/sites-available/*'
+        }
     }
     Write-Host ''
 
@@ -319,6 +340,13 @@ if ($IsRemote) {
         }
     } elseif ($ladder.StatusCode -eq 401 -or $ladder.StatusCode -eq 403) {
         Fail "GET /api/ladder — auth failed (HTTP $($ladder.StatusCode)). Key may be invalid."
+    } elseif ($ladder.StatusCode -eq 404) {
+        Fail "GET /api/ladder — 404 (nginx proxy_pass not routing to backend)"
+        Info '[FIX] Check proxy_pass in nginx config routes /api to backend port'
+        Info '[FIX] Verify backend is running: ss -tlnp | grep PORT'
+    } elseif ($ladder.StatusCode -eq 0) {
+        Fail "GET /api/ladder — connection refused"
+        Info '[FIX] Backend not reachable through nginx. Check sites-enabled symlink.'
     } else {
         Fail "GET /api/ladder failed (HTTP $($ladder.StatusCode))"
     }
@@ -333,6 +361,12 @@ if ($IsRemote) {
         Pass "GET /api/games — $count entries ($($games.DurationMs)ms)"
     } elseif ($games.StatusCode -eq 401 -or $games.StatusCode -eq 403) {
         Fail "GET /api/games — auth failed (HTTP $($games.StatusCode))"
+    } elseif ($games.StatusCode -eq 404) {
+        Fail "GET /api/games — 404 (nginx proxy_pass not routing to backend)"
+        Info '[FIX] Check proxy_pass in nginx config routes /api to backend port'
+    } elseif ($games.StatusCode -eq 0) {
+        Fail "GET /api/games — connection refused"
+        Info '[FIX] Backend not reachable through nginx. Check sites-enabled symlink.'
     } else {
         Fail "GET /api/games failed (HTTP $($games.StatusCode))"
     }
@@ -346,7 +380,11 @@ if ($IsRemote) {
     } elseif ($admin.StatusCode -eq 403) {
         Warn 'Admin endpoint rejected key — this may be a user-only key'
     } elseif ($admin.StatusCode -eq 404) {
-        Info '/api/admin/status not found (may not exist)'
+        Warn '/api/admin/status returned 404 — may not exist, or nginx not proxying'
+        Info '[FIX] If all /api/* endpoints 404, check nginx proxy_pass configuration'
+    } elseif ($admin.StatusCode -eq 0) {
+        Fail "GET /api/admin/status — connection refused"
+        Info '[FIX] Backend not reachable. Check sites-enabled symlink and backend port.'
     } else {
         Fail "GET /api/admin/status failed (HTTP $($admin.StatusCode))"
     }
@@ -391,8 +429,40 @@ if ($IsRemote) {
     }
     Write-Host ''
 
-    # ---- 9. Response time summary ----
-    Write-Host '10. Response time summary'
+    # ---- 9a. Nginx proxy diagnostics ----
+    Write-Host '10. Nginx proxy diagnostics'
+    $apiStatuses = @{
+        '/health' = $health.StatusCode
+        '/api/ladder' = $ladder.StatusCode
+        '/api/games' = $games.StatusCode
+        '/api/admin/status' = $admin.StatusCode
+    }
+    $apiFails = ($apiStatuses.GetEnumerator() | Where-Object { $_.Value -ne 200 })
+    if ($apiFails.Count -eq $apiStatuses.Count) {
+        $commonStatus = $apiFails[0].Value
+        $allSame = ($apiFails | Where-Object { $_.Value -eq $commonStatus }).Count -eq $apiFails.Count
+        if ($allSame) {
+            Fail "All endpoints return HTTP $commonStatus — nginx proxy is not working"
+            if ($commonStatus -eq 0) {
+                Info '[FIX] Connection refused — nginx config likely not enabled'
+                Info '[FIX]   ls -la /etc/nginx/sites-enabled/'
+                Info '[FIX]   sudo ln -s /etc/nginx/sites-available/YOUR_CONF /etc/nginx/sites-enabled/'
+                Info '[FIX]   sudo systemctl reload nginx'
+            } elseif ($commonStatus -eq 404) {
+                Info '[FIX] 404 — nginx is running but proxy_pass not configured'
+                Info '[FIX]   cat /etc/nginx/sites-available/YOUR_CONF'
+                Info '[FIX]   Ensure config has: location /api { proxy_pass http://127.0.0.1:PORT; }'
+            }
+        }
+    } elseif ($apiFails.Count -gt 0) {
+        Warn "$($apiFails.Count)/$($apiStatuses.Count) endpoints failing — partial proxy misconfiguration"
+    } else {
+        Pass "All API endpoints respond with HTTP 200"
+    }
+    Write-Host ''
+
+    # ---- 11. Response time summary ----
+    Write-Host '11. Response time summary'
     $endpointMap = @{ rootCheck='/'; health='/health'; ladder='/api/ladder'; games='/api/games'; admin='/api/admin/status' }
     foreach ($name in $endpointMap.Keys) {
         $var = Get-Variable -Name $name -ErrorAction SilentlyContinue
@@ -410,8 +480,8 @@ if ($IsRemote) {
     }
     Write-Host ''
 
-    # ---- 10. Print layouts ----
-    Write-Host '11. Print layouts'
+    # ---- 12. Print layouts ----
+    Write-Host '12. Print layouts'
     $print = Invoke-TimedApi -BaseUrl $ServerUrl -Path '/api/print-layouts' -ApiKey $ApiKey
     if ($print.Success -and $print.StatusCode -eq 200) {
         Pass "GET /api/print-layouts ($($print.DurationMs)ms)"
@@ -422,8 +492,8 @@ if ($IsRemote) {
     }
     Write-Host ''
 
-    # ---- 11. DNS resolution ----
-    Write-Host '12. DNS resolution'
+    # ---- 13. DNS resolution ----
+    Write-Host '13. DNS resolution'
     try {
         $dnsResult = Resolve-DnsName -Name $Script:UriParts.Host -Type A -ErrorAction Stop | Select-Object -First 1
         if ($dnsResult) {
@@ -442,8 +512,8 @@ if ($IsRemote) {
     }
     Write-Host ''
 
-    # ---- 12. Deployed version vs local codebase ----
-    Write-Host '13. Deployed version'
+    # ---- 14. Deployed version vs local codebase ----
+    Write-Host '14. Deployed version'
     $localVer = Get-PackageVersion (Join-Path $Root 'package.json')
     if ($localVer) {
         Info "Local codebase version: $localVer"
@@ -466,8 +536,8 @@ if ($IsRemote) {
     }
     Write-Host ''
 
-    # ---- 13. Security headers ----
-    Write-Host '14. Security headers'
+    # ---- 15. Security headers ----
+    Write-Host '15. Security headers'
     $secResp = Invoke-Api -BaseUrl $ServerUrl -Path '/health'
     $secHeaders = $secResp['Headers']
     $secChecks = @{
@@ -491,14 +561,16 @@ if ($IsRemote) {
     }
     Write-Host ''
 
-    # ---- 14. Rate limiting headers ----
-    Write-Host '15. Rate limiting'
+    # ---- 16. Rate limiting headers ----
+    Write-Host '16. Rate limiting'
     $rlResp = Invoke-Api -BaseUrl $ServerUrl -Path '/api/ladder' -ApiKey $ApiKey
     $rlHeaders = $rlResp['Headers']
     if ($rlHeaders['X-RateLimit-Limit'] -or $rlHeaders['X-RateLimit-Remaining']) {
         Pass 'Rate limit headers present'
-        Info "Limit: $($rlHeaders['X-RateLimit-Limit'] ? $rlHeaders['X-RateLimit-Limit'] : 'N/A')"
-        Info "Remaining: $($rlHeaders['X-RateLimit-Remaining'] ? $rlHeaders['X-RateLimit-Remaining'] : 'N/A')"
+        $rlLimit = if ($rlHeaders['X-RateLimit-Limit']) { $rlHeaders['X-RateLimit-Limit'] } else { 'N/A' }
+        $rlRemain = if ($rlHeaders['X-RateLimit-Remaining']) { $rlHeaders['X-RateLimit-Remaining'] } else { 'N/A' }
+        Info "Limit: $rlLimit"
+        Info "Remaining: $rlRemain"
     } else {
         # express-rate-limit uses standard headers by default
         if ($rlHeaders['RateLimit-Policy'] -or $rlHeaders['RateLimit-Limit']) {
@@ -509,8 +581,8 @@ if ($IsRemote) {
     }
     Write-Host ''
 
-    # ---- 15. API key type detection ----
-    Write-Host '16. API key type'
+    # ---- 17. API key type detection ----
+    Write-Host '17. API key type'
     $adminTest = Invoke-Api -BaseUrl $ServerUrl -Path '/api/admin/backups' -ApiKey $ApiKey
     if ($adminTest['Success'] -and $adminTest['StatusCode'] -eq 200) {
         Pass 'Key has admin access'
@@ -523,8 +595,8 @@ if ($IsRemote) {
     }
     Write-Host ''
 
-    # ---- 16. CORS actual headers on API response ----
-    Write-Host '17. CORS headers (API response)'
+    # ---- 18. CORS actual headers on API response ----
+    Write-Host '18. CORS headers (API response)'
     $corsTest = Invoke-Api -BaseUrl $ServerUrl -Path '/api/ladder' -ApiKey $ApiKey
     $corsHdrs = $corsTest['Headers']
     $allowOrigin = $corsHdrs['Access-Control-Allow-Origin']
@@ -542,8 +614,8 @@ if ($IsRemote) {
     }
     Write-Host ''
 
-    # ---- 17. HTTP to HTTPS redirect ----
-    Write-Host '18. HTTP to HTTPS redirect'
+    # ---- 19. HTTP to HTTPS redirect ----
+    Write-Host '19. HTTP to HTTPS redirect'
     if ($Script:UriParts.Scheme -eq 'https') {
         $httpUrl = "http://$($Script:UriParts.Host)"
         if ($Script:UriParts.Port -ne 443 -and $Script:UriParts.Port -ne -1) {
@@ -569,8 +641,8 @@ if ($IsRemote) {
     }
     Write-Host ''
 
-    # ---- 18. Backup endpoint ----
-    Write-Host '19. Backup endpoint'
+    # ---- 20. Backup endpoint ----
+    Write-Host '20. Backup endpoint'
     $backupTest = Invoke-Api -BaseUrl $ServerUrl -Path '/api/admin/backups' -ApiKey $ApiKey
     if ($backupTest['Success'] -and $backupTest['StatusCode'] -eq 200) {
         $backupData = $backupTest['Content'] | ConvertFrom-Json
@@ -585,8 +657,8 @@ if ($IsRemote) {
     }
     Write-Host ''
 
-    # ---- 19. Client config string ----
-    Write-Host '20. Client config strings'
+    # ---- 21. Client config string ----
+    Write-Host '21. Client config strings'
     Info "Admin: ${ServerUrl}/?config=1&server=${ServerUrl}&key=${ApiKey}"
     Info "View:  ${ServerUrl}/"
     Write-Host ''
@@ -610,22 +682,24 @@ if ($IsRemote) {
 
     function Check-File {
         param([string]$Path, [string]$Label = '')
+        $display = if ($Label) { $Label } else { $Path }
         if (Test-Path -LiteralPath $Path) {
-            Pass ($Label ? $Label : $Path)
+            Pass $display
             $null, $true
         } else {
-            Fail ($Label ? $Label : $Path)
+            Fail $display
             $null, $false
         }
     }
 
     function Check-Directory {
         param([string]$Path, [string]$Label = '')
+        $display = if ($Label) { $Label } else { $Path }
         if (Test-Path -LiteralPath $Path -PathType Container) {
-            Pass ($Label ? $Label : $Path)
+            Pass $display
             $null, $true
         } else {
-            Fail ($Label ? $Label : $Path)
+            Fail $display
             $null, $false
         }
     }
@@ -723,10 +797,14 @@ if ($IsRemote) {
         $port     = Get-EnvValue 'PORT' $envFile
         $cors     = Get-EnvValue 'CORS_ORIGINS' $envFile
         $tabFile  = Get-EnvValue 'TAB_FILE_PATH' $envFile
-        Info "NODE_ENV: $($nodeEnv ? $nodeEnv : '(default: development)')"
-        Info "PORT:     $($port ? $port : '(default: 3000)')"
-        Info "CORS:     $($cors ? $cors : '(default: *)')"
-        Info "TAB_FILE: $($tabFile ? $tabFile : '(default: ./data/ladder.tab)')"
+        $neDisp = if ($nodeEnv) { $nodeEnv } else { '(default: development)' }
+        $pDisp = if ($port) { $port } else { '(default: 3000)' }
+        $cDisp = if ($cors) { $cors } else { '(default: *)' }
+        $tDisp = if ($tabFile) { $tabFile } else { '(default: ./data/ladder.tab)' }
+        Info "NODE_ENV: $neDisp"
+        Info "PORT:     $pDisp"
+        Info "CORS:     $cDisp"
+        Info "TAB_FILE: $tDisp"
         if ($adminKey) { Pass "ADMIN_API_KEY is set ($($adminKey.Length) chars)" }
         elseif ($nodeEnv -eq 'production') { Fail 'ADMIN_API_KEY is empty — server will NOT start in production' }
         else { Warn 'ADMIN_API_KEY not set — admin endpoints unprotected' }
