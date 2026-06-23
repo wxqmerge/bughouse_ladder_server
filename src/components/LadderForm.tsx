@@ -366,9 +366,11 @@ export default function LadderForm({
   const [isEnterGamesMode, setIsEnterGamesMode] = useState(false);
   const [isEnterGamesOverride, setIsEnterGamesOverride] = useState(false);
   const [isTeleporting, setIsTeleporting] = useState(false);
-  // Splash screen server configuration state
-  const [splashServerUrl, setSplashServerUrl] = useState('');
-  const [splashApiKey, setSplashApiKey] = useState('');
+  // Splash screen server configuration state — initialized synchronously from localStorage
+  // so the first render has the correct values (avoids hidden Admin Mode button on startup)
+  const initialUserSettings = (() => { try { return loadUserSettings(); } catch { return { server: '', apiKey: '' }; } })();
+  const [splashServerUrl, setSplashServerUrl] = useState(initialUserSettings.server ? (normalizeServerUrl(initialUserSettings.server) || '') : '');
+  const [splashApiKey, setSplashApiKey] = useState(initialUserSettings.apiKey || '');
   const [, setHadExistingUserSettings] = useState(false);
   const [hasLocalPlayerData, setHasLocalPlayerData] = useState(false);
   const [isRetryingConnection, setIsRetryingConnection] = useState(false);
