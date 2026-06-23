@@ -7,7 +7,7 @@
 - **Manual:** **Operations → Settings**. Enter URL and API key, then **Save**.
 - **One-Click URL:** http://domain.com/?config=1&server=URL&key=KEY
 - **Local Mode:** Drag a .tab, .xls, or .txt file onto the splash screen.
-- **Quick Test:** [Click here](https://example.com/round-robin-ladder/dist/?config=1&server=https://round-robin-ladder.example.com&key=REDACTED_API_KEY99fe7ebc73b226da08e621915ba9e0261a4e71f3471e21f851bdb6ccd)
+- **Quick Test:** Use your own `?config=1&server=YOUR_SERVER&key=YOUR_KEY` URL
 
 ---
 

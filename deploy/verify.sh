@@ -381,7 +381,7 @@ if [ -n "$CORS_ORIGINS" ]; then
             proj_domain=$(grep 'server_name' "$SERVER_CONF" 2>/dev/null | sed 's/server_name//;s/;//' | tr -s ' ' | awk '{print $1}')
             if [ -n "$proj_domain" ]; then
                 # The parent domain is everything after the first dot in the project domain
-                # e.g., round-robin-ladder.example.com -> example.com
+                # e.g., project.example.com -> example.com
                 parent_domain=$(echo "$proj_domain" | sed 's/^[^.]*\.//')
                 parent_origin="https://$parent_domain"
 

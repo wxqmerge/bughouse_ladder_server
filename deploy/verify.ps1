@@ -7,7 +7,7 @@
     Remote: checks a deployed server via its API endpoints.
 .PARAMETER ClientConfigUrl
   Client config URL containing ?server= and ?key= query params.
-  Example: https://example.com/dev-ladder/dist/?config=1&server=https://dev-ladder.example.com&key=ABC123
+  Example: https://example.com/ladder/dist/?config=1&server=https://ladder.example.com&key=ABC123
 .PARAMETER Fast
   Skip slow checks (typecheck, port scan). Local mode only.
 .PARAMETER SkipSsl
@@ -15,7 +15,7 @@
 .EXAMPLES
   .\deploy\verify.ps1                          # local dev checks
   .\deploy\verify.ps1 -Fast                    # local, skip slow
-  .\deploy\verify.ps1 "https://example.com/dev-ladder/dist/?config=1&server=https://dev-ladder.example.com&key=..."
+  .\deploy\verify.ps1 "https://example.com/ladder/dist/?config=1&server=https://ladder.example.com&key=..."
   .\deploy\verify.ps1 "https://..." -SkipSsl   # remote, skip SSL validation
 #>
 param(
