@@ -70,7 +70,7 @@ function App() {
   // Show server-down blocking dialog on first load if server is unreachable
   const [showServerDownBlocking, setShowServerDownBlocking] = useState(false);
   const [versionMismatch, setVersionMismatch] = useState(false);
-const [tournamentActive, setTournamentActive] = useState(false);
+const [miniGamesHaveResults, setMiniGamesHaveResults] = useState(false);
   const [testMode, setTestMode] = useState(() => {
     try {
       const stored = localStorage.getItem('testMode');
@@ -779,7 +779,7 @@ const handleClearAll = async () => {
 onTitleSwitch={handleTitleSwitch}
         testMode={testMode}
         setTestMode={setTestMode}
-        onTournamentActiveChange={setTournamentActive}
+        onTournamentActiveChange={setMiniGamesHaveResults}
 
        />
       {showSettings && (
@@ -796,7 +796,7 @@ onTitleSwitch={handleTitleSwitch}
            onImportSingleMiniGame={isAdmin ? handleImportSingleMiniGame : undefined}
            onGenerateTrophies={isAdmin ? handleGenerateTrophies : undefined}
             onGenerateActivityReport={isAdmin ? handleGenerateActivityReport : undefined}
- isTournamentActive={tournamentActive}
+ miniGamesHaveResults={miniGamesHaveResults}
            isAdmin={isAdmin}
            onToggleAdmin={toggleAdminRef.current}
 onSaveBeforeAction={handleSaveSettingsForAction}

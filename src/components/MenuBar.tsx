@@ -54,7 +54,7 @@ interface MenuBarProps {
   playerCount?: number;
   serverUrl?: string | null;
   hasAdminApiKey?: boolean;
-  isTournamentActive?: boolean;
+  miniGamesHaveResults?: boolean;
   availableMiniGames?: string[];
   writePermission?: boolean;
 }
@@ -94,7 +94,7 @@ export default function MenuBar({
   playerCount,
   serverUrl,
   hasAdminApiKey = false,
-  isTournamentActive = false,
+  miniGamesHaveResults = false,
   availableMiniGames = [],
   writePermission = true,
 }: MenuBarProps) {
@@ -127,7 +127,7 @@ export default function MenuBar({
         closeAllMenus();
       },
       dataMenuItem: "Load",
-      disabled: !isAdmin || isTournamentActive,
+      disabled: !isAdmin || miniGamesHaveResults,
     },
     {
       icon: <Download size={16} />,
@@ -557,7 +557,7 @@ label: isAdmin ? "Exit Admin Mode" : "Admin Mode",
         style={{
           display: "flex",
           alignItems: "center",
-          background: isTournamentActive ? "linear-gradient(135deg, #166534 0%, #22c55e 100%)"
+          background: miniGamesHaveResults ? "linear-gradient(135deg, #166534 0%, #22c55e 100%)"
             : !writePermission ? "linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)"
             : "linear-gradient(135deg, #0f172a 0%, #334155 100%)",
           borderBottom: "1px solid #334155",

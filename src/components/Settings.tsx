@@ -39,7 +39,7 @@ interface SettingsProps {
   onImportSingleMiniGame?: () => void;
   onGenerateTrophies?: () => void;
   onGenerateActivityReport?: () => void;
-  isTournamentActive?: boolean;
+  miniGamesHaveResults?: boolean;
   isAdmin: boolean;
   onToggleAdmin?: () => Promise<void>;
   onSaveBeforeAction?: (settings: ActionSettings, userSettings: UserSettings) => void;
@@ -60,7 +60,7 @@ export default function Settings({
   onImportSingleMiniGame,
   onGenerateTrophies,
   onGenerateActivityReport,
-  isTournamentActive,
+  miniGamesHaveResults,
   isAdmin,
   onToggleAdmin,
   onSaveBeforeAction,
@@ -501,10 +501,10 @@ export default function Settings({
                      </button>
                    )}
 
-                   {!isTournamentActive && (
-                    <>
-                      <button
-                        onClick={handleNewDay}
+{!miniGamesHaveResults && (
+                     <>
+                       <button
+                         onClick={handleNewDay}
                         style={{
                           width: "100%",
                           display: "flex",
@@ -549,7 +549,7 @@ export default function Settings({
                     </>
                   )}
 
-                  {isTournamentActive && onExportTournamentFiles && (
+                  {miniGamesHaveResults && onExportTournamentFiles && (
                     <button
                       onClick={() => {
                         console.debug(">>> [SETTINGS ACTION] Export Tournament Files");
@@ -579,7 +579,7 @@ export default function Settings({
                     </button>
                   )}
 
-{!isTournamentActive && onImportSingleMiniGame && (
+{!miniGamesHaveResults && onImportSingleMiniGame && (
                      <button
                        onClick={() => {
                          console.debug(">>> [SETTINGS ACTION] Import Single Mini-Game");
@@ -696,7 +696,7 @@ export default function Settings({
                     Clear All
                   </button>
 
-                  {!isTournamentActive && (
+                  {!miniGamesHaveResults && (
                     <button
                       onClick={handleSetSampleData}
                       style={{

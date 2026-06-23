@@ -4210,12 +4210,10 @@ const handleDeleteConfirm = () => {
     return () => { cancelled = true; };
   }, [players]);
 
-  // Report tournament active status to App when it changes
+  // Report mini-game status to App when it changes
   useEffect(() => {
-    const mainHasResults = players.some(p => (p.gameResults || []).some(r => r && r.trim() !== ''));
-    const active = mainHasResults || miniGamesHaveResultsFlag;
-    onTournamentActiveChange?.(active);
-  }, [players, miniGamesHaveResultsFlag, onTournamentActiveChange]);
+    onTournamentActiveChange?.(miniGamesHaveResultsFlag);
+  }, [miniGamesHaveResultsFlag, onTournamentActiveChange]);
 
   // Keyboard shortcuts: Ctrl+1 through Ctrl+9 to switch ladders (skips current)
   useEffect(() => {
@@ -5248,8 +5246,8 @@ const handleDeleteConfirm = () => {
 onAutoLetter={isAdmin ? handleAutoLetter : undefined}
            onPrintLabels={isAdmin ? handleOpenPrintLabels : undefined}
            isAdmin={isAdmin}
-           isTournamentActive={players.some(p => (p.gameResults || []).some(r => r && r.trim() !== ''))}
-          projectName={projectName}
+miniGamesHaveResults={miniGamesHaveResultsFlag}
+           projectName={projectName}
           onSetTitle={handleSetTitle}
           availableMiniGames={availableMiniGames}
           serverUrl={splashServerUrl}
@@ -5357,7 +5355,7 @@ onAutoLetter={isAdmin ? handleAutoLetter : undefined}
             onSetTitle={handleSetTitle}
 
             playerCount={players.length}
-isTournamentActive={players.some(p => (p.gameResults || []).some(r => r && r.trim() !== '')) || miniGamesHaveResultsFlag}
+miniGamesHaveResults={miniGamesHaveResultsFlag}
             
             availableMiniGames={availableMiniGames}
 
