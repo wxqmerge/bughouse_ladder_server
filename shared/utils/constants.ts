@@ -2,7 +2,12 @@
  * Shared constants for the Bughouse Ladder application
  */
 
-export const NUM_ROUNDS = 31;
+import { NUM_ROUNDS as _NUM_ROUNDS, DEFAULT_GAME_RESULTS as _DEFAULT_GAME_RESULTS } from '../constants.js';
+export { NUM_ROUNDS, DEFAULT_GAME_RESULTS } from '../constants.js';
+
+// Local aliases for use within this file
+const NUM_ROUNDS = _NUM_ROUNDS;
+const DEFAULT_GAME_RESULTS = _DEFAULT_GAME_RESULTS;
 
 export const MINI_GAMES_WITH_BUGHOUSE = [
   "BG_Game",
@@ -117,7 +122,7 @@ export function processNewDayTransformations(
         nRating: 0, // Reset so next recalc reads from rating column
        num_games: (player.num_games || 0) + gameCount,
        attendance: newAttendance,
-       gameResults: Array(31).fill(null),
+        gameResults: [...DEFAULT_GAME_RESULTS],
      };
   });
 

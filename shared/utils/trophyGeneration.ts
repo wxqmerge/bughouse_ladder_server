@@ -3,7 +3,7 @@
  * Used by both server (tournamentStore) and client (miniGameStore)
  */
 
-import { PlayerData, LadderData, MiniGameData } from '../types/index.js';
+import { PlayerData, LadderData, MiniGameData, DEFAULT_GAME_RESULTS } from '../types/index.js';
 
 export interface TrophyReportResult {
   success: boolean;
@@ -66,7 +66,7 @@ export function copyPlayersToTarget(sourcePlayers: PlayerData[], targetPlayers: 
     if (!existingKeys.has(key)) {
       updatedTarget.push({
         ...player,
-        gameResults: Array(31).fill(null),
+        gameResults: [...DEFAULT_GAME_RESULTS],
         num_games: 0,
       });
     }
@@ -89,7 +89,7 @@ export function isValidGameResult(r: string | null): boolean {
   return !!r && r !== '' && r !== '_';
 }
 
-function countGames(gameResults: (string | null)[] | undefined): number {
+export function countGames(gameResults: (string | null)[] | undefined): number {
   if (!gameResults) return 0;
   return gameResults.filter(isValidGameResult).length;
 }

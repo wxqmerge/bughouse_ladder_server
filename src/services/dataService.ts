@@ -7,8 +7,9 @@
  * - SERVER: Client-server flow targeting production server
  */
 
-import { PlayerData, DeltaOperation, MiniGameStore } from '../../shared/types';
+import { PlayerData, DeltaOperation, MiniGameStore, DEFAULT_GAME_RESULTS } from '../../shared/types';
 import { NUM_ROUNDS } from '../../shared/utils/constants';
+import { buildActivityReportData, formatActivityReportTSV } from '../../shared/utils/activityReport';
 import {
   getLocalPlayers as storageGetLocalPlayers,
   savePlayers as storageSavePlayers,
@@ -659,16 +660,7 @@ class DataService {
   }
 
   private async updatePlayers(players: PlayerData[]): Promise<void> {
-    const response = await gatedFetch(`${this.getApiUrl()}/api/ladder`, {
-      method: 'PUT',
-      headers: {
-        ...this.getAuthHeaders(),
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ players }),
-    });
-
-    await throwIfNotOk(response, 'Failed to update players');
+    await this.apiRequest('/ladder', { method: 'PUT', body: { players } });
 
     // Update localStorage cache only (skipServerSync=true because updatePlayers already PUT to server)
     storageSavePlayers(players, false, true);
@@ -706,58 +698,20 @@ class DataService {
   }
 
   private async updateMiniGamePlayers(players: PlayerData[]): Promise<void> {
-    const response = await gatedFetch(`${this.getApiUrl()}/api/ladder/mini-games/write`, {
-      method: 'POST',
-      headers: {
-        ...this.getAuthHeaders(),
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        fileName: this.currentMiniGameFile,
-        players,
-      }),
-    });
-
-    await throwIfNotOk(response, 'Failed to update mini-game players');
+    await this.apiRequest('/ladder/mini-games/write', { method: 'POST', body: { fileName: this.currentMiniGameFile, players } });
     // SSE 'miniGameWritten' event triggers refresh
   }
 
   private async updatePlayerApi(player: PlayerData): Promise<void> {
-    let response: Response;
-    
     if (this.currentMiniGameFile) {
       const players = await this.fetchMiniGamePlayers();
       const playerIndex = players.findIndex(p => p.rank === player.rank);
-      if (playerIndex === -1) {
-        return;
-      }
+      if (playerIndex === -1) return;
       players[playerIndex] = { ...players[playerIndex], ...player };
-      response = await gatedFetch(`${this.getApiUrl()}/api/ladder/mini-games/write`, {
-        method: 'POST',
-        headers: {
-          ...this.getAuthHeaders(),
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          fileName: this.currentMiniGameFile,
-          players,
-        }),
-      });
+      await this.apiRequest('/ladder/mini-games/write', { method: 'POST', body: { fileName: this.currentMiniGameFile, players } });
     } else {
-      response = await gatedFetch(
-        `${this.getApiUrl()}/api/ladder/${player.rank}`,
-        {
-          method: 'PUT',
-          headers: {
-            ...this.getAuthHeaders(),
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(player),
-        }
-      );
+      await this.apiRequest(`/ladder/${player.rank}`, { method: 'PUT', body: player });
     }
-
-    await throwIfNotOk(response, 'Failed to update player');
     // SSE 'playerUpdated'/'miniGameWritten' event triggers refresh
   }
 
@@ -766,50 +720,26 @@ class DataService {
     round: number,
     result: string
   ): Promise<void> {
-    let response: Response;
-    
     if (this.currentMiniGameFile) {
       const players = await this.fetchMiniGamePlayers();
       const player = players.find(p => p.rank === playerRank);
-      if (!player) {
-        return;
-      }
+      if (!player) return;
       if (!player.gameResults) {
         player.gameResults = new Array(NUM_ROUNDS).fill(null);
       }
       player.gameResults[round] = result;
       player.num_games = (player.num_games || 0) + 1;
-      
-      response = await gatedFetch(`${this.getApiUrl()}/api/ladder/mini-games/write`, {
-        method: 'POST',
-        headers: {
-          ...this.getAuthHeaders(),
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          fileName: this.currentMiniGameFile,
-          players,
-        }),
-      });
+      await this.apiRequest('/ladder/mini-games/write', { method: 'POST', body: { fileName: this.currentMiniGameFile, players } });
     } else {
-      response = await gatedFetch(`${this.getApiUrl()}/api/games/submit`, {
-        method: 'POST',
-        headers: {
-          ...this.getAuthHeaders(),
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ playerRank, round, result }),
-      });
+      await this.apiRequest('/games/submit', { method: 'POST', body: { playerRank, round, result } });
     }
-
-    await throwIfNotOk(response, 'Failed to submit game');
     // SSE 'gameSubmitted'/'miniGameWritten' event triggers refresh
   }
 
   async submitDeltaBatch(deltas: DeltaOperation[]): Promise<void> {
     if (this.currentMiniGameFile) {
       const players = await this.fetchMiniGamePlayers();
-      
+
       for (const delta of deltas) {
         if (delta.type === 'GAME_RESULT') {
           const player = players.find(p => p.rank === delta.playerRank);
@@ -822,68 +752,26 @@ class DataService {
           }
         }
       }
-      
-      const response = await gatedFetch(`${this.getApiUrl()}/api/ladder/mini-games/write`, {
-        method: 'POST',
-        headers: {
-          ...this.getAuthHeaders(),
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          fileName: this.currentMiniGameFile,
-          players,
-        }),
-      });
 
-await throwIfNotOk(response, 'Failed to submit delta batch');
-    // SSE 'miniGameWritten' event triggers refresh
+      await this.apiRequest('/ladder/mini-games/write', { method: 'POST', body: { fileName: this.currentMiniGameFile, players } });
+      // SSE 'miniGameWritten' event triggers refresh
     } else {
-      const response = await gatedFetch(`${this.getApiUrl()}/api/ladder/batch`, {
-        method: 'POST',
-        headers: {
-          ...this.getAuthHeaders(),
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ deltas }),
-      });
-
-await throwIfNotOk(response, 'Failed to submit delta batch');
-    // SSE 'deltasSubmitted' event triggers refresh
+      await this.apiRequest('/ladder/batch', { method: 'POST', body: { deltas } });
+      // SSE 'deltasSubmitted' event triggers refresh
     }
   }
 
   private async clearCellApi(playerRank: number, roundIndex: number): Promise<void> {
-    let response: Response;
-    
     if (this.currentMiniGameFile) {
       const players = await this.fetchMiniGamePlayers();
       const player = players.find(p => p.rank === playerRank);
       if (player && player.gameResults) {
         player.gameResults[roundIndex] = null;
       }
-      
-      response = await gatedFetch(`${this.getApiUrl()}/api/ladder/mini-games/write`, {
-        method: 'POST',
-        headers: {
-          ...this.getAuthHeaders(),
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          fileName: this.currentMiniGameFile,
-          players,
-        }),
-      });
+      await this.apiRequest('/ladder/mini-games/write', { method: 'POST', body: { fileName: this.currentMiniGameFile, players } });
     } else {
-      response = await gatedFetch(
-        `${this.getApiUrl()}/api/ladder/${playerRank}/round/${roundIndex}`,
-        {
-          method: 'DELETE',
-          headers: this.getAuthHeaders(),
-        }
-      );
+      await this.apiRequest(`/ladder/${playerRank}/round/${roundIndex}`, { method: 'DELETE' });
     }
-
-    await throwIfNotOk(response, 'Failed to clear cell');
 
     // Also update localStorage cache
     const players = await this.getLocalPlayers();
@@ -909,14 +797,30 @@ await throwIfNotOk(response, 'Failed to submit delta batch');
 
   private getAuthHeaders(): Record<string, string> {
     const headers: Record<string, string> = {};
-    
+
     // Add API key if user has configured one
     const userSettings = loadUserSettings();
     if (userSettings.apiKey && userSettings.apiKey.trim()) {
       headers['X-API-Key'] = userSettings.apiKey.trim();
     }
-    
+
     return headers;
+  }
+
+  private apiRequest(path: string, options?: { method?: string; body?: unknown }): Promise<Response> {
+    const init: RequestInit = {
+      method: options?.method || 'GET',
+      headers: {
+        ...this.getAuthHeaders(),
+        ...(options?.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+      },
+    };
+    if (options?.body !== undefined) {
+      init.body = JSON.stringify(options.body);
+    }
+    return gatedFetch(`${this.getApiUrl()}/api${path}`, init).then(response => {
+      return throwIfNotOk(response, `API request failed: ${init.method} ${path}`).then(() => response);
+    });
   }
 
   // ==================== MINI-GAME STORE OPERATIONS ====================
@@ -975,7 +879,7 @@ await throwIfNotOk(response, 'Failed to submit delta batch');
       }
       const targetPlayers = players.map(player => ({
         ...player,
-        gameResults: Array(31).fill(null),
+        gameResults: [...DEFAULT_GAME_RESULTS],
         num_games: 0,
       }));
       
@@ -1379,68 +1283,15 @@ await throwIfNotOk(response, 'Failed to submit delta batch');
       const store = this.getStore();
       const clubPlayers = await this.getLocalPlayers();
 
-      // Count club ladder games per player
-      const clubGames = new Map<number, number>();
-      for (const p of clubPlayers) {
-        const count = (p.gameResults || []).filter(r => r && r.trim() !== '').length;
-        if (count > 0) {
-          clubGames.set(p.rank, count);
-        }
-      }
-
-      // Count per-mini-game games per player
-      const miniGameCounts = new Map<string, Map<number, number>>();
-      const miniGameFiles = store.getMiniGameFiles();
-      for (const fileName of miniGameFiles) {
+      // Collect mini-game players from localStorage
+      const miniGameFilePlayers = new Map<string, PlayerData[]>();
+      for (const fileName of store.getMiniGameFiles()) {
         const fileData = await store.readMiniGameFile(fileName);
-        if (!fileData) continue;
-        const counts = new Map<number, number>();
-        for (const p of fileData.players) {
-          const count = (p.gameResults || []).filter(r => r && r.trim() !== '').length;
-          if (count > 0) counts.set(p.rank, count);
-        }
-        miniGameCounts.set(fileName, counts);
+        if (fileData) miniGameFilePlayers.set(fileName, fileData.players);
       }
 
-      const activeMiniGames = [...miniGameCounts.entries()].filter(([_, counts]) => counts.size > 0);
-
-      // Player map
-      const playerMap = new Map<number, typeof clubPlayers[0]>();
-      for (const p of clubPlayers) {
-        playerMap.set(p.rank, p);
-      }
-
-      // ── Section 1: Club Ladder ──
-      const clubHeader = 'Rank\tLast Name\tFirst Name\tClub Games';
-      const clubRows: string[] = [];
-      const clubRanks = [...clubGames.entries()].filter(([_, c]) => c > 0).map(([rank]) => rank).sort((a, b) => a - b);
-      for (const rank of clubRanks) {
-        const player = playerMap.get(rank);
-        if (!player) continue;
-        clubRows.push(`${rank}\t${player.lastName}\t${player.firstName}\t${clubGames.get(rank)}`);
-      }
-
-      // ── Section 2: Mini-Games ──
-      const miniLabels = activeMiniGames.map(([file]) => file.replace('.tab', ''));
-      const miniHeader = `Rank\tLast Name\tFirst Name\tMini Total\t${miniLabels.join('\t')}`;
-      const miniRows: string[] = [];
-      const allMiniRanks = new Set<number>();
-      for (const [, counts] of activeMiniGames) {
-        for (const rank of counts.keys()) allMiniRanks.add(rank);
-      }
-      const sortedMiniRanks = [...allMiniRanks].sort((a, b) => a - b);
-      for (const rank of sortedMiniRanks) {
-        const player = playerMap.get(rank);
-        if (!player) continue;
-        const cols = activeMiniGames.map(([file, counts]) => counts.get(rank) || 0);
-        const total = cols.reduce((s, v) => s + v, 0);
-        miniRows.push(`${rank}\t${player.lastName}\t${player.firstName}\t${total}\t${cols.join('\t')}`);
-      }
-
-      // Combine sections
-      const section1 = [clubHeader, ...clubRows].join('\n');
-      const section2 = activeMiniGames.length > 0 ? [miniHeader, ...miniRows].join('\n') : '';
-      const content = [section1, section2].filter(Boolean).join('\n\n') + '\n';
+      const reportData = buildActivityReportData(clubPlayers, miniGameFilePlayers);
+      const content = formatActivityReportTSV(clubPlayers, reportData);
       return new Blob([content], { type: 'text/tab-separated-values' });
     } else {
       const response = await gatedFetch(`${this.getApiUrl()}/api/admin/activity-report`, {

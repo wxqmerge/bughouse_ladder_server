@@ -4,7 +4,10 @@ import path from 'path';
 import fs from 'fs/promises';
 import archiver from 'archiver';
 import { requireAdminKey } from '../middleware/auth.middleware.js';
+import { asyncHandler } from '../middleware/asyncHandler.js';
+import { AppError } from '../middleware/errorHandler.js';
 import { readLadderFile, writeLadderFile, ensureDataDirectory, generateTabContent, createBackup, rotateBackups, withTiming, getBackupList, restoreBackup, previewBackup, deleteBackup } from '../services/dataService.js';
+import { DEFAULT_GAME_RESULTS } from '../../../shared/types/index.js';
 import { log, logError } from '../utils/logger.js';
 import { broadcastSSEEvent } from '../services/sseService.js';
 import { isTrophyReport, isValidLadderHeader } from '../../../shared/utils/trophyFileGuard.js';
@@ -25,6 +28,7 @@ import {
   ZipEntry,
 } from '../services/tournamentService.js';
 import { buildTrophyReportString } from '../../../shared/utils/trophyDebugReport.js';
+import { buildActivityReportData, formatActivityReportTSV } from '../../../shared/utils/activityReport.js';
 
 const router = Router();
 
@@ -48,14 +52,9 @@ const upload = multer({
 });
 
 // Upload .tab or .xls file
-router.post('/upload', upload.single('file'), async (req: Request, res: Response): Promise<void> => {
-  try {
+router.post('/upload', upload.single('file'), asyncHandler(async (req: Request, res: Response): Promise<void> => {
     if (!req.file) {
-      res.status(400).json({
-        success: false,
-        error: { message: 'No file uploaded' },
-      });
-      return;
+      throw new AppError('No file uploaded', 400);
     }
 
     await withTiming('ensureDataDirectory', ensureDataDirectory);
@@ -67,21 +66,13 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
     const lines = content.split('\n').filter(line => line.trim());
     if (lines.length === 0) {
       await withTiming('unlink(empty)', () => fs.unlink(req.file!.path));
-      res.status(400).json({
-        success: false,
-        error: { message: 'Empty file' },
-      });
-      return;
+      throw new AppError('Empty file', 400);
     }
 
     // Guard: reject trophy report files uploaded as ladder data
     if (isTrophyReport(content)) {
       await withTiming('unlink(trophy)', () => fs.unlink(req.file!.path));
-      res.status(400).json({
-        success: false,
-        error: { message: 'Trophy report file detected. Trophy reports cannot be uploaded as ladder data.' },
-      });
-      return;
+      throw new AppError('Trophy report file detected. Trophy reports cannot be uploaded as ladder data.', 400);
     }
 
     if (!isValidLadderHeader(content)) {
@@ -118,36 +109,22 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
       success: true,
       data: { message: 'File uploaded successfully', lines: lines.length },
     });
-  } catch (error) {
-    console.error('Upload error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Failed to upload file' },
-    });
   }
-});
+));
 
 // Export ladder data as .tab file
-router.get('/export', async (_req: Request, res: Response): Promise<void> => {
-  try {
+router.get('/export', asyncHandler(async (_req: Request, res: Response): Promise<void> => {
     const ladderData = await readLadderFile();
     const content = generateTabContent(ladderData);
 
     res.setHeader('Content-Type', 'text/tab-separated-values');
     res.setHeader('Content-Disposition', `attachment; filename="ladder_${new Date().toISOString().split('T')[0]}.tab"`);
     res.send(content);
-  } catch (error) {
-    console.error('Export error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Failed to export data' },
-    });
   }
-});
+));
 
 // List available backups
-router.get('/backups', async (req: Request, res: Response): Promise<void> => {
-  try {
+router.get('/backups', asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const ladderName = req.query.ladder as string | undefined;
     console.log('[RESTORE BACKUP] ladderName query:', ladderName);
     const backups = await getBackupList(ladderName);
@@ -161,26 +138,15 @@ router.get('/backups', async (req: Request, res: Response): Promise<void> => {
         backups,
       },
     });
-  } catch (error) {
-    console.error('Backups list error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Failed to list backups' },
-    });
   }
-});
+));
 
 // Restore from a specific backup
-router.post('/backups/restore/:filename', async (req: Request, res: Response): Promise<void> => {
-  try {
+router.post('/backups/restore/:filename', asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const filename = req.params.filename;
     
     if (!filename || !filename.endsWith('.tab')) {
-      res.status(400).json({
-        success: false,
-        error: { message: 'Invalid backup filename' },
-      });
-      return;
+      throw new AppError('Invalid backup filename', 400);
     }
 
     const restored = await restoreBackup(filename);
@@ -195,31 +161,17 @@ router.post('/backups/restore/:filename', async (req: Request, res: Response): P
         },
       });
     } else {
-      res.status(404).json({
-        success: false,
-        error: { message: `Backup not found: ${filename}` },
-      });
+      throw new AppError(`Backup not found: ${filename}`, 404);
     }
-  } catch (error) {
-    console.error('Restore backup error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Failed to restore backup' },
-    });
   }
-});
+));
 
 // Preview backup contents without restoring
-router.get('/backups/preview/:filename', async (req: Request, res: Response): Promise<void> => {
-  try {
+router.get('/backups/preview/:filename', asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const filename = req.params.filename;
 
     if (!filename || !filename.endsWith('.tab')) {
-      res.status(400).json({
-        success: false,
-        error: { message: 'Invalid backup filename' },
-      });
-      return;
+      throw new AppError('Invalid backup filename', 400);
     }
 
     const content = await previewBackup(filename);
@@ -230,31 +182,17 @@ router.get('/backups/preview/:filename', async (req: Request, res: Response): Pr
         data: { content, filename },
       });
     } else {
-      res.status(404).json({
-        success: false,
-        error: { message: `Backup not found: ${filename}` },
-      });
+      throw new AppError(`Backup not found: ${filename}`, 404);
     }
-  } catch (error) {
-    console.error('Preview backup error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Failed to preview backup' },
-    });
   }
-});
+));
 
 // Delete a specific backup
-router.delete('/backups/:filename', async (req: Request, res: Response): Promise<void> => {
-  try {
+router.delete('/backups/:filename', asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const filename = req.params.filename;
     
     if (!filename || !filename.endsWith('.tab')) {
-      res.status(400).json({
-        success: false,
-        error: { message: 'Invalid backup filename' },
-      });
-      return;
+      throw new AppError('Invalid backup filename', 400);
     }
 
     const deleted = await deleteBackup(filename);
@@ -265,33 +203,19 @@ router.delete('/backups/:filename', async (req: Request, res: Response): Promise
         data: { message: `Deleted backup: ${filename}` },
       });
     } else {
-      res.status(404).json({
-        success: false,
-        error: { message: `Backup not found: ${filename}` },
-      });
+      throw new AppError(`Backup not found: ${filename}`, 404);
     }
-  } catch (error) {
-    console.error('Delete backup error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Failed to delete backup' },
-    });
   }
-});
+));
 
 // ── Tournament Endpoints ─────────────────────────────────────────
 
 // Save mini-game file (called on New-Day during tournament mode)
-router.post('/tournament/save-mini-game', async (req: Request, res: Response): Promise<void> => {
-  try {
+router.post('/tournament/save-mini-game', asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { fileName } = req.body;
     
     if (!fileName || !MINI_GAME_FILES.includes(fileName)) {
-      res.status(400).json({
-        success: false,
-        error: { message: 'Invalid mini-game file name' },
-      });
-      return;
+      throw new AppError('Invalid mini-game file name', 400);
     }
 
     // Read current ladder data
@@ -336,26 +260,15 @@ router.post('/tournament/save-mini-game', async (req: Request, res: Response): P
       success: true,
       data: { message: `Saved ${fileName}` },
     });
-  } catch (error) {
-    console.error('Save mini-game error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Failed to save mini-game file' },
-    });
   }
-});
+));
 
 // Read mini-game file (for tournament mode - ladder form reads from mini-game file)
-router.get('/tournament/read-mini-game', async (req: Request, res: Response): Promise<void> => {
-  try {
+router.get('/tournament/read-mini-game', asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { fileName } = req.query;
     
     if (!fileName || !MINI_GAME_FILES.includes(fileName as string)) {
-      res.status(400).json({
-        success: false,
-        error: { message: 'Invalid mini-game file name' },
-      });
-      return;
+      throw new AppError('Invalid mini-game file name', 400);
     }
 
     const miniGameData = await readMiniGameFile(fileName as string);
@@ -379,34 +292,19 @@ router.get('/tournament/read-mini-game', async (req: Request, res: Response): Pr
         playerCount: miniGameData.players.length,
       },
     });
-  } catch (error) {
-    console.error('Read mini-game error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Failed to read mini-game file' },
-    });
   }
-});
+));
 
 // Write mini-game file (for tournament mode - ladder form writes to mini-game file)
-router.post('/tournament/write-mini-game', async (req: Request, res: Response): Promise<void> => {
-  try {
+router.post('/tournament/write-mini-game', asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { fileName, players } = req.body;
     
     if (!fileName || !MINI_GAME_FILES.includes(fileName)) {
-      res.status(400).json({
-        success: false,
-        error: { message: 'Invalid mini-game file name' },
-      });
-      return;
+      throw new AppError('Invalid mini-game file name', 400);
     }
 
     if (!players || !Array.isArray(players)) {
-      res.status(400).json({
-        success: false,
-        error: { message: 'Invalid players data' },
-      });
-      return;
+      throw new AppError('Invalid players data', 400);
     }
 
     await writeMiniGameFile(fileName, {
@@ -421,26 +319,15 @@ router.post('/tournament/write-mini-game', async (req: Request, res: Response): 
       success: true,
       data: { message: `Saved ${fileName}` },
     });
-  } catch (error) {
-    console.error('Write mini-game error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Failed to write mini-game file' },
-    });
   }
-});
+));
 
 // Copy players to new mini-game file
-router.post('/tournament/copy-players', async (req: Request, res: Response): Promise<void> => {
-  try {
+router.post('/tournament/copy-players', asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { fileName } = req.body;
     
     if (!fileName || !MINI_GAME_FILES.includes(fileName)) {
-      res.status(400).json({
-        success: false,
-        error: { message: 'Invalid mini-game file name' },
-      });
-      return;
+      throw new AppError('Invalid mini-game file name', 400);
     }
 
     // Read current ladder data
@@ -449,7 +336,7 @@ router.post('/tournament/copy-players', async (req: Request, res: Response): Pro
     // Always copy players with fresh results (mini-games are separate ladders)
     const targetPlayers = ladderData.players.map(player => ({
       ...player,
-      gameResults: Array(31).fill(null),
+      gameResults: [...DEFAULT_GAME_RESULTS],
       num_games: 0,
     }));
     
@@ -466,26 +353,15 @@ router.post('/tournament/copy-players', async (req: Request, res: Response): Pro
       success: true,
       data: { message: `Copied players to ${fileName}` },
     });
-  } catch (error) {
-    console.error('Copy players error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Failed to copy players' },
-    });
   }
-});
+));
 
 // Export tournament files
-router.get('/tournament/export', async (_req: Request, res: Response): Promise<void> => {
-  try {
+router.get('/tournament/export', asyncHandler(async (_req: Request, res: Response): Promise<void> => {
     const result = await exportTournamentFiles();
     
     if (!result.success) {
-      res.status(404).json({
-        success: false,
-        error: { message: result.message },
-      });
-      return;
+      throw new AppError(result.message, 404);
     }
 
     // Generate trophy report and add to zip
@@ -504,27 +380,16 @@ router.get('/tournament/export', async (_req: Request, res: Response): Promise<v
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', `attachment; filename="tournament_${new Date().toISOString().split('T')[0]}.zip"`);
     res.send(zipBuffer);
-  } catch (error) {
-    console.error('Export tournament error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Failed to export tournament files' },
-    });
   }
-});
+));
 
 // Generate trophy report
-router.get('/tournament/trophies', async (req: Request, res: Response): Promise<void> => {
-  try {
+router.get('/tournament/trophies', asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const debugLevel = parseInt(req.query.debugLevel as string, 10) || 3;
     const result = await generateTrophyReport(debugLevel);
     
     if (!result.success) {
-      res.status(404).json({
-        success: false,
-        error: { message: result.message },
-      });
-      return;
+      throw new AppError(result.message, 404);
     }
 
     // Save trophy file to server
@@ -542,34 +407,19 @@ router.get('/tournament/trophies', async (req: Request, res: Response): Promise<
     res.setHeader('Content-Type', 'text/tab-separated-values');
     res.setHeader('Content-Disposition', `attachment; filename="${trophyFileName}"`);
     res.send(tabContent);
-  } catch (error) {
-    console.error('Generate trophies error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Failed to generate trophy report' },
-    });
   }
-});
+));
 
 // Import single .tab file into a mini-game slot
-router.post('/tournament/import-single', upload.single('file'), async (req: Request, res: Response): Promise<void> => {
-  try {
+router.post('/tournament/import-single', upload.single('file'), asyncHandler(async (req: Request, res: Response): Promise<void> => {
     if (!req.file) {
-      res.status(400).json({
-        success: false,
-        error: { message: 'No file uploaded' },
-      });
-      return;
+      throw new AppError('No file uploaded', 400);
     }
 
     const { targetGame } = req.body;
     if (!targetGame || !MINI_GAME_FILES.includes(targetGame)) {
       await withTiming('unlink(bad-target)', () => fs.unlink(req.file!.path));
-      res.status(400).json({
-        success: false,
-        error: { message: `Invalid target mini-game. Must be one of: ${MINI_GAME_FILES.join(', ')}` },
-      });
-      return;
+      throw new AppError(`Invalid target mini-game. Must be one of: ${MINI_GAME_FILES.join(', ')}`, 400);
     }
 
     await withTiming('ensureDataDirectory', ensureDataDirectory);
@@ -579,23 +429,14 @@ router.post('/tournament/import-single', upload.single('file'), async (req: Requ
     // Guard: reject trophy report files
     if (isTrophyReport(content)) {
       await withTiming('unlink(trophy)', () => fs.unlink(req.file!.path));
-      res.status(400).json({
-        success: false,
-        error: { message: 'Trophy report file detected. Trophy reports cannot be imported as mini-game data.' },
-      });
-      return;
+      throw new AppError('Trophy report file detected. Trophy reports cannot be imported as mini-game data.', 400);
     }
 
     if (!isValidLadderHeader(content)) {
       const allowOverride = req.body?.override === 'true';
       if (!allowOverride) {
         await withTiming('unlink(header)', () => fs.unlink(req.file!.path));
-        res.status(400).json({
-          success: false,
-          error: { message: 'File does not start with "Group" header. Not a valid ladder file. Retry with override=true to force.' },
-          needsOverride: true,
-        });
-        return;
+        throw new AppError('File does not start with "Group" header. Not a valid ladder file. Retry with override=true to force.', 400);
       }
     }
 
@@ -612,26 +453,15 @@ router.post('/tournament/import-single', upload.single('file'), async (req: Requ
       success: true,
       data: { message: `Imported to ${targetGame}`, fileName: targetGame },
     });
-  } catch (error) {
-    console.error('Import single mini-game error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Failed to import mini-game file' },
-    });
   }
-});
+));
 
 // Import mini-game files
-router.post('/tournament/import', async (req: Request, res: Response): Promise<void> => {
-  try {
+router.post('/tournament/import', asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { content } = req.body;
     
     if (!content || typeof content !== 'string') {
-      res.status(400).json({
-        success: false,
-        error: { message: 'Missing content' },
-      });
-      return;
+      throw new AppError('Missing content', 400);
     }
     
     const result = await tournamentStore.importMiniGameFiles(content);
@@ -642,18 +472,11 @@ router.post('/tournament/import', async (req: Request, res: Response): Promise<v
       success: true,
       data: result,
     });
-  } catch (error) {
-    console.error('Import mini-games error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Failed to import mini-game files' },
-    });
   }
-});
+));
 
 // Clear all mini-game files
-router.post('/tournament/clear-mini-games', async (_req: Request, res: Response): Promise<void> => {
-  try {
+router.post('/tournament/clear-mini-games', asyncHandler(async (_req: Request, res: Response): Promise<void> => {
     const dataDir = path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data'));
     let deletedCount = 0;
     
@@ -674,26 +497,15 @@ router.post('/tournament/clear-mini-games', async (_req: Request, res: Response)
       success: true,
       data: { message: `Cleared ${deletedCount} mini-game files`, deletedCount },
     });
-  } catch (error) {
-    console.error('Clear mini-games error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Failed to clear mini-game files' },
-    });
   }
-});
+));
 
 // Add player to all mini-game files
-router.post('/tournament/add-player-to-mini-games', async (req: Request, res: Response): Promise<void> => {
-  try {
+router.post('/tournament/add-player-to-mini-games', asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { player } = req.body;
     
     if (!player) {
-      res.status(400).json({
-        success: false,
-        error: { message: 'Player data required' },
-      });
-      return;
+      throw new AppError('Player data required', 400);
     }
     
     await addPlayerToAllMiniGames(player);
@@ -704,26 +516,15 @@ router.post('/tournament/add-player-to-mini-games', async (req: Request, res: Re
       success: true,
       data: { message: 'Player added to all mini-game files' },
     });
-  } catch (error) {
-    console.error('Add player to mini-games error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Failed to add player to mini-game files' },
-    });
   }
-});
+));
 
 // Remove player from club ladder + all mini-game files
-router.post('/tournament/remove-player-from-all', async (req: Request, res: Response): Promise<void> => {
-  try {
+router.post('/tournament/remove-player-from-all', asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { lastName, firstName } = req.body;
 
     if (!lastName || !firstName) {
-      res.status(400).json({
-        success: false,
-        error: { message: 'lastName and firstName required' },
-      });
-      return;
+      throw new AppError('lastName and firstName required', 400);
     }
 
     await removePlayerFromAll(lastName, firstName);
@@ -734,26 +535,15 @@ router.post('/tournament/remove-player-from-all', async (req: Request, res: Resp
       success: true,
       data: { message: 'Player removed from all files' },
     });
-  } catch (error) {
-    console.error('Remove player from all error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Failed to remove player from all files' },
-    });
   }
-});
+));
 
 // Update player info across club ladder + all mini-game files
-router.put('/tournament/update-player-in-all', async (req: Request, res: Response): Promise<void> => {
-  try {
+router.put('/tournament/update-player-in-all', asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { rank, originalLastName, originalFirstName, updates } = req.body;
 
     if (rank === null || rank === undefined || !originalLastName || !originalFirstName || !updates) {
-      res.status(400).json({
-        success: false,
-        error: { message: 'rank, originalLastName, originalFirstName, and updates required' },
-      });
-      return;
+      throw new AppError('rank, originalLastName, originalFirstName, and updates required', 400);
     }
 
     await updatePlayerInAll(rank, originalLastName, originalFirstName, updates);
@@ -764,32 +554,19 @@ router.put('/tournament/update-player-in-all', async (req: Request, res: Respons
       success: true,
       data: { message: 'Player updated in all files' },
     });
-  } catch (error) {
-    console.error('Update player in all error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Failed to update player in all files' },
-    });
   }
-});
+));
 
 // Check which mini-game files have data
-router.get('/tournament/check-mini-games', async (_req: Request, res: Response): Promise<void> => {
-  try {
+router.get('/tournament/check-mini-games', asyncHandler(async (_req: Request, res: Response): Promise<void> => {
     const filesWith = await checkMiniGameFilesWith();
     
     res.json({
       success: true,
       data: { files: filesWith },
     });
-  } catch (error) {
-    console.error('Check mini-games error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Failed to check mini-game files' },
-    });
   }
-});
+));
 
 // Helper function to create ZIP buffer
 async function createZipBuffer(files: ZipEntry[]): Promise<Buffer> {
@@ -814,97 +591,40 @@ async function createZipBuffer(files: ZipEntry[]): Promise<Buffer> {
 }
 
 // Generate activity report: Rank, Last Name, First Name, Club Games, Mini Total
-router.get('/activity-report', async (_req: Request, res: Response): Promise<void> => {
-  try {
+router.get('/activity-report', asyncHandler(async (_req: Request, res: Response): Promise<void> => {
     const ladderData = await readLadderFile();
     const clubPlayers = ladderData.players || [];
 
-    // Count club games per rank
-    const clubGames = new Map<number, number>();
-    for (const p of clubPlayers) {
-      const count = (p.gameResults || []).filter((r: string | null) => r && r.trim() !== '').length;
-      clubGames.set(p.rank, count);
-    }
-
-    // Count per-mini-game results per rank
-    const miniGameCounts = new Map<string, Map<number, number>>();
+    // Collect mini-game players from disk
+    const miniGameFilePlayers = new Map<string, import('../services/dataService.js').PlayerData[]>();
     for (const miniFile of MINI_GAME_FILES) {
       try {
         const miniData = await readMiniGameFile(miniFile);
-        if (!miniData || !miniData.players) continue;
-        const counts = new Map<number, number>();
-        for (const p of miniData.players) {
-          const count = (p.gameResults || []).filter((r: string | null) => r && r.trim() !== '').length;
-          if (count > 0) counts.set(p.rank, count);
+        if (miniData && miniData.players) {
+          miniGameFilePlayers.set(miniFile, miniData.players);
         }
-        miniGameCounts.set(miniFile, counts);
       } catch {
         // File doesn't exist, skip
       }
     }
 
-    // Active mini-game files (those with at least one game)
-    const activeMiniGames = [...miniGameCounts.entries()].filter(([_, counts]) => counts.size > 0);
-
-    // Player map
-    const playerMap = new Map<number, typeof clubPlayers[0]>();
-    for (const p of clubPlayers) {
-      playerMap.set(p.rank, p);
-    }
-
-    // ── Section 1: Club Ladder ──
-    const clubHeader = 'Rank\tLast Name\tFirst Name\tClub Games';
-    const clubRows: string[] = [];
-    const clubRanks = [...clubGames.entries()].filter(([_, c]) => c > 0).map(([rank]) => rank).sort((a, b) => a - b);
-    for (const rank of clubRanks) {
-      const player = playerMap.get(rank);
-      if (!player) continue;
-      clubRows.push(`${rank}\t${player.lastName}\t${player.firstName}\t${clubGames.get(rank)}`);
-    }
-
-    // ── Section 2: Mini-Games ──
-    const miniLabels = activeMiniGames.map(([file]) => file.replace('.tab', ''));
-    const miniHeader = `Rank\tLast Name\tFirst Name\tMini Total\t${miniLabels.join('\t')}`;
-    const miniRows: string[] = [];
-    const allMiniRanks = new Set<number>();
-    for (const [, counts] of activeMiniGames) {
-      for (const rank of counts.keys()) allMiniRanks.add(rank);
-    }
-    const sortedMiniRanks = [...allMiniRanks].sort((a, b) => a - b);
-    for (const rank of sortedMiniRanks) {
-      const player = playerMap.get(rank);
-      if (!player) continue;
-      const cols = activeMiniGames.map(([file, counts]) => counts.get(rank) || 0);
-      const total = cols.reduce((s, v) => s + v, 0);
-      miniRows.push(`${rank}\t${player.lastName}\t${player.firstName}\t${total}\t${cols.join('\t')}`);
-    }
-
-    // Combine sections
+    const reportData = buildActivityReportData(clubPlayers, miniGameFilePlayers);
+    const content = formatActivityReportTSV(clubPlayers, reportData);
     const dateStr = new Date().toISOString().split('T')[0];
-    const section1 = [clubHeader, ...clubRows].join('\n');
-    const section2 = activeMiniGames.length > 0 ? [miniHeader, ...miniRows].join('\n') : '';
-    const content = [section1, section2].filter(Boolean).join('\n\n') + '\n';
     const blob = Buffer.from(content, 'utf-8');
 
     res.setHeader('Content-Type', 'text/tab-separated-values');
     res.setHeader('Content-Disposition', `attachment; filename=activity_${dateStr}.tab`);
     res.send(blob);
-  } catch (error) {
-    console.error('Activity report error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Failed to generate activity report' },
-    });
   }
-});
+));
 
 // Clear all game results, keep player data intact
-router.post('/clear-results', async (_req: Request, res: Response): Promise<void> => {
-  try {
+router.post('/clear-results', asyncHandler(async (_req: Request, res: Response): Promise<void> => {
     const ladderData = await readLadderFile();
     const cleared = ladderData.players.length;
     for (const player of ladderData.players) {
-      player.gameResults = new Array(31).fill(null);
+      player.gameResults = [...DEFAULT_GAME_RESULTS];
     }
     await writeLadderFile(ladderData);
     broadcastSSEEvent('resultsCleared', { type: 'clearResults', count: cleared });
@@ -912,18 +632,11 @@ router.post('/clear-results', async (_req: Request, res: Response): Promise<void
       success: true,
       data: { message: `Cleared results for ${cleared} players`, cleared },
     });
-  } catch (error) {
-    logError('[SERVER]', 'Error clearing results:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Failed to clear results' },
-    });
   }
-});
+));
 
 // Export all data TAB files (ladder + mini-games) into a zip
-router.get('/export-mini-data', async (_req: Request, res: Response): Promise<void> => {
-  try {
+router.get('/export-mini-data', asyncHandler(async (_req: Request, res: Response): Promise<void> => {
     const dataDir = path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data'));
     const files: ZipEntry[] = [{ name: 'ladder.tab', filePath: path.join(dataDir, 'ladder.tab') }];
     
@@ -945,13 +658,7 @@ router.get('/export-mini-data', async (_req: Request, res: Response): Promise<vo
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', `attachment; filename=mini_data_${new Date().toISOString().split('T')[0]}.zip`);
     res.send(zipBuffer);
-  } catch (error) {
-    console.error('Export mini data error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Failed to export mini data' },
-    });
   }
-});
+));
 
 export { router };
