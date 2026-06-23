@@ -252,7 +252,7 @@ if ($IsRemote) {
     if ($rootCheck['Success']) {
         $rootContent = $rootCheck['Content']
         if ($rootContent -match 'BUGHOUSE') {
-            Pass "Root serves frontend ($($rootCheck['DurationMs'])ms)"
+            Pass ("Root serves frontend ({0})" -f $rootCheck.DurationMs) + 'ms'
         } elseif ($rootContent -match '<html|<!DOCTYPE') {
             if ($rootContent -match 'nginx') {
                 Fail "Root serves nginx default page — proxy_pass not configured"
@@ -260,10 +260,10 @@ if ($IsRemote) {
                 Info '[FIX] Enable config: sudo ln -s /etc/nginx/sites-available/YOUR_CONF /etc/nginx/sites-enabled/'
                 Info '[FIX] Reload: sudo systemctl reload nginx'
             } else {
-                Pass "Root serves HTML ($($rootCheck['DurationMs'])ms)"
+                Pass ("Root serves HTML ({0})" -f $rootCheck.DurationMs) + 'ms'
             }
         } else {
-            Pass "Root responds ($($rootCheck['DurationMs'])ms)"
+            Pass ("Root responds ({0})" -f $rootCheck.DurationMs) + 'ms'
         }
     } else {
         Fail "Root URL returned HTTP $($rootCheck['StatusCode'])"
@@ -280,7 +280,7 @@ if ($IsRemote) {
     $health = Invoke-TimedApi -BaseUrl $ServerUrl -Path '/health'
     if ($health.Success -and $health.StatusCode -eq 200) {
         $body = $health.Content | ConvertFrom-Json
-        Pass "GET /health ($($health.DurationMs)ms)"
+        Pass ("GET /health ({0})" -f $health.DurationMs) + 'ms'
         Info "Status: $($body.status)"
         Info "Version: $($body.version)"
         if ($body.writeHealth) {
@@ -334,7 +334,7 @@ if ($IsRemote) {
         $data = $ladder.Content | ConvertFrom-Json
         if ($data.success) {
             $count = if ($data.data -is [System.Array]) { $data.data.Count } else { 0 }
-            Pass "GET /api/ladder — $count entries ($($ladder.DurationMs)ms)"
+            Pass ("GET /api/ladder — $count entries ({0})" -f $ladder.DurationMs) + 'ms'
         } else {
             Fail "GET /api/ladder returned error in response body"
         }
@@ -358,7 +358,7 @@ if ($IsRemote) {
     if ($games.Success -and $games.StatusCode -eq 200) {
         $data = $games.Content | ConvertFrom-Json
         $count = if ($data -is [System.Array]) { $data.Count } elseif ($data.success -and $data.data) { $data.data.Count } else { 0 }
-        Pass "GET /api/games — $count entries ($($games.DurationMs)ms)"
+        Pass ("GET /api/games — $count entries ({0})" -f $games.DurationMs) + 'ms'
     } elseif ($games.StatusCode -eq 401 -or $games.StatusCode -eq 403) {
         Fail "GET /api/games — auth failed (HTTP $($games.StatusCode))"
     } elseif ($games.StatusCode -eq 404) {
@@ -376,7 +376,7 @@ if ($IsRemote) {
     Write-Host '8. Admin endpoint'
     $admin = Invoke-TimedApi -BaseUrl $ServerUrl -Path '/api/admin/status' -ApiKey $ApiKey
     if ($admin.Success -and $admin.StatusCode -eq 200) {
-        Pass "GET /api/admin/status ($($admin.DurationMs)ms)"
+        Pass ("GET /api/admin/status ({0})" -f $admin.DurationMs) + 'ms'
     } elseif ($admin.StatusCode -eq 403) {
         Warn 'Admin endpoint rejected key — this may be a user-only key'
     } elseif ($admin.StatusCode -eq 404) {
@@ -414,15 +414,15 @@ if ($IsRemote) {
             Info "Content-Type: $ct"
         }
         if ($resp.Content -match 'event:') {
-            Pass "SSE connected and returned events ($($sw.ElapsedMilliseconds)ms)"
+            Pass ("SSE connected and returned events ({0})" -f $sw.ElapsedMilliseconds) + 'ms'
         } else {
-            Warn "SSE connected but no events in response ($($sw.ElapsedMilliseconds)ms)"
+            Warn ("SSE connected but no events in response ({0})" -f $sw.ElapsedMilliseconds) + 'ms'
         }
     } catch {
         $sw.Stop()
         if ($sw.ElapsedMilliseconds -ge 4500) {
             # Timeout is expected — SSE holds the connection open
-            Pass "SSE connection held open ($($sw.ElapsedMilliseconds)ms — expected behavior)"
+            Pass ("SSE connection held open ({0})" -f $sw.ElapsedMilliseconds) + 'ms — expected behavior'
         } else {
             Fail "SSE connection failed: $_"
         }
@@ -484,7 +484,7 @@ if ($IsRemote) {
     Write-Host '12. Print layouts'
     $print = Invoke-TimedApi -BaseUrl $ServerUrl -Path '/api/print-layouts' -ApiKey $ApiKey
     if ($print.Success -and $print.StatusCode -eq 200) {
-        Pass "GET /api/print-layouts ($($print.DurationMs)ms)"
+        Pass ("GET /api/print-layouts ({0})" -f $print.DurationMs) + 'ms'
     } elseif ($print.StatusCode -eq 404) {
         Info '/api/print-layouts not available'
     } else {
