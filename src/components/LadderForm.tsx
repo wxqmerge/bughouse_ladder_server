@@ -34,6 +34,7 @@ import { useIntervalCheck } from "../utils/useIntervalCheck";
 import { mergeServerWithLocal as _mergeServerWithLocal } from "../utils/mergeUtils";
 import { deduplicatePlayers } from "../../shared/utils/dedupUtils";
 import { isTrophyReport, isValidLadderHeader } from "../../shared/utils/trophyFileGuard";
+import { isValidGameResult } from "../../shared/utils/trophyGeneration";
 import { loadUserSettings, saveUserSettings, saveLastWorkingConfig, normalizeServerUrl } from "../services/userSettingsStorage";
 import {
   getKeyPrefix,
@@ -250,6 +251,7 @@ export default function LadderForm({
     "50%" | "70%" | "100%" | "140%" | "200%"
   >("100%");
   const [showRoundRobin, setShowRoundRobin] = useState(false);
+  const [hideHiddenPlayers, setHideHiddenPlayers] = useState(true);
  const [isAdmin, setIsAdmin] = useState(() => {
     try {
       const serverUrl = getServerUrl();
@@ -3874,7 +3876,10 @@ const handleWalkthroughNextForReview = () => {
     if (shouldLog(10)) {
       console.debug(">>> [MENU ACTION] Delete Hidden Players");
     }
-    const hiddenPlayers = players.filter(p => p.group?.toLowerCase().endsWith('x'));
+    const hiddenPlayers = players.filter(p => {
+      const hasResults = (p.gameResults || []).some(isValidGameResult);
+      return p.group?.toLowerCase().endsWith('x') && !hasResults;
+    });
     if (hiddenPlayers.length > 0) {
       setHiddenPlayersToDelete(hiddenPlayers);
       setDeleteAllPlayers(false);
@@ -4653,6 +4658,8 @@ const handleDeleteConfirm = () => {
     }
   };
 
+  const isHiddenPlayer = (p: PlayerData) => hideHiddenPlayers && p.group?.toLowerCase().endsWith('x') && !(p.gameResults || []).some(isValidGameResult);
+
   // Server-down blocking dialog - shown at startup when server is unreachable
   if (showServerDownBlocking) {
     const userSettings = loadUserSettings();
@@ -5351,6 +5358,8 @@ onAutoLetter={isAdmin ? handleAutoLetter : undefined}
             onPrintLabels={isAdmin ? handleOpenPrintLabels : undefined}
             showRoundRobin={showRoundRobin}
           onToggleRoundRobin={() => setShowRoundRobin(prev => !prev)}
+            hideHiddenPlayers={hideHiddenPlayers}
+            onToggleHideHidden={() => setHideHiddenPlayers(prev => !prev)}
           isAdmin={isAdmin}
           zoomLevel={zoomLevel}
           projectName={projectName}
@@ -5734,7 +5743,7 @@ borderBottom: `2px solid ${headerBorder}`,
                 </>
               )}
               {Array.from({ length: 31 }).map((_, round) => {
-                  const rrRanks = showRoundRobin ? players.map(p => p.rank) : [];
+                  const rrRanks = showRoundRobin ? players.filter(p => !isHiddenPlayer(p)).map(p => p.rank) : [];
                   const rrRank = rrRanks[round];
                   return (
                 <th
@@ -5757,7 +5766,9 @@ borderBottom: `2px solid ${headerBorder}`,
             </tr>
           </thead>
           <tbody>
-            {(isAdmin ? players : players.filter(p => !p.group?.toLowerCase().endsWith('x'))).map((player, rowIndex) => {
+            {players
+              .filter(p => !isHiddenPlayer(p))
+              .map((player, rowIndex) => {
               const gameResults =
                 player.gameResults || new Array(NUM_ROUNDS).fill(null);
 
@@ -6072,7 +6083,7 @@ onBlur={(e) => {
                   })}
 {gameResults.map((result, gCol) => {
                      // Round Robin: columns represent actual player ranks, show W/L
-                       const rrOpponent = showRoundRobin ? players[gCol]?.rank : 0;
+                        const rrOpponent = showRoundRobin ? players.filter(p => !isHiddenPlayer(p))[gCol]?.rank : 0;
                        const rrResult = showRoundRobin && rrOpponent && rrOpponent !== player.rank
                          ? rrLookup[player.rank]?.[rrOpponent] ?? null
                          : null;

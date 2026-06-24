@@ -473,7 +473,7 @@ describe("MenuBar component", () => {
       fireEvent.click(screen.getByText("View"));
       
       const menuItems = document.querySelectorAll('[data-menu-item]');
-      expect(menuItems.length).toBe(6); // 5 zoom + Round Robin
+      expect(menuItems.length).toBe(7); // 5 zoom + Round Robin + Hide Hidden Players
     });
 
     it("should have data-menu attributes on menu triggers", () => {

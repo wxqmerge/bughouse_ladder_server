@@ -39,9 +39,9 @@ Tooltips are enabled by default, toggleable via settings.
 ### Operations Menu Items
 | Element | Tooltip |
 |---------|---------|
-| Recalculate_Save | "Recalculate all ratings from game results and save (Ctrl+E)" |
+| Recalculate_Save | "Recalculate all ratings from game results and save" |
 | Check Errors | "Check for data entry errors in game results" |
-| Enter Games | "Enter or correct game results (Ctrl+E)" |
+| Enter Games | "Enter or correct game results" |
 | Paste Multiple Results | "Paste multiple game results from clipboard at once" |
 | Add Player | "Add a new player to the ladder" |
 | Delete Players | "Delete hidden players (group ending in X)" |
@@ -59,7 +59,7 @@ Tooltips are enabled by default, toggleable via settings.
 | Zoom 100% | "Set table zoom to 100% (default)" |
 | Zoom 140% | "Set table zoom to 140%" |
 | Zoom 200% | "Set table zoom to 200%" |
-| Round Robin | "Toggle round-robin view showing matchups" |
+| Round Robin | "Toggle round-robin view showing matchups (max of 31 players)" |
 
 ### Menu Bar Info
 | Element | Tooltip |
