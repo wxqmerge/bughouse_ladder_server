@@ -4659,6 +4659,7 @@ const handleDeleteConfirm = () => {
   };
 
   const isHiddenPlayer = (p: PlayerData) => hideHiddenPlayers && p.group?.toLowerCase().endsWith('x') && !(p.gameResults || []).some(isValidGameResult);
+  const effectiveShowRoundRobin = showRoundRobin && players.length <= 31;
 
   // Server-down blocking dialog - shown at startup when server is unreachable
   if (showServerDownBlocking) {
@@ -5743,7 +5744,7 @@ borderBottom: `2px solid ${headerBorder}`,
                 </>
               )}
               {Array.from({ length: 31 }).map((_, round) => {
-                  const rrRanks = showRoundRobin ? players.filter(p => !isHiddenPlayer(p)).map(p => p.rank) : [];
+                  const rrRanks = effectiveShowRoundRobin ? players.filter(p => !isHiddenPlayer(p)).map(p => p.rank) : [];
                   const rrRank = rrRanks[round];
                   return (
                 <th
@@ -5756,10 +5757,10 @@ borderBottom: `2px solid ${headerBorder}`,
                     borderBottom: `2px solid ${headerBorder}`,
                     backgroundColor: headerBg,
                     color: "white",
-                    display: showRoundRobin && !rrRank ? "none" : "table-cell",
+                    display: effectiveShowRoundRobin && !rrRank ? "none" : "table-cell",
                   }}
                 >
-                  {showRoundRobin ? rrRank : `Round ${round + 1}`}
+                  {effectiveShowRoundRobin ? rrRank : `Round ${round + 1}`}
                 </th>
               );
               })}
@@ -6083,8 +6084,8 @@ onBlur={(e) => {
                   })}
 {gameResults.map((result, gCol) => {
                      // Round Robin: columns represent actual player ranks, show W/L
-                        const rrOpponent = showRoundRobin ? players.filter(p => !isHiddenPlayer(p))[gCol]?.rank : 0;
-                       const rrResult = showRoundRobin && rrOpponent && rrOpponent !== player.rank
+                        const rrOpponent = effectiveShowRoundRobin ? players.filter(p => !isHiddenPlayer(p))[gCol]?.rank : 0;
+                       const rrResult = effectiveShowRoundRobin && rrOpponent && rrOpponent !== player.rank
                          ? rrLookup[player.rank]?.[rrOpponent] ?? null
                          : null;
                       const displayValue = getCellDisplayValue(player.rank, gCol, result);
@@ -6101,9 +6102,9 @@ onBlur={(e) => {
                             borderBottom: "1px solid #e2e8f0",
                             verticalAlign: "middle",
                             borderRight: "1px solid #e2e8f0",
-                            display: showRoundRobin && !rrOpponent ? "none" : "table-cell",
+                            display: effectiveShowRoundRobin && !rrOpponent ? "none" : "table-cell",
                             backgroundColor:
-                              !showRoundRobin &&
+                              !effectiveShowRoundRobin &&
                               entryCell &&
                               entryCell.playerRank === player.rank &&
                               entryCell.round === gCol
@@ -6112,9 +6113,9 @@ onBlur={(e) => {
                                  ? "#f8fafc"
                                  : "transparent",
 fontSize: getFontSize(zoomLevel),
-                            cursor: showRoundRobin ? "default" : (isAdmin ? "default" : "pointer"),
+                            cursor: effectiveShowRoundRobin ? "default" : (isAdmin ? "default" : "pointer"),
 borderColor:
-                              !showRoundRobin &&
+                              !effectiveShowRoundRobin &&
                               entryCell &&
                               entryCell.playerRank === player.rank &&
                               entryCell.round === gCol
@@ -6126,7 +6127,7 @@ borderColor:
                                  : "#e2e8f0",
                          }}
                          >
-                            {showRoundRobin ? (
+                            {effectiveShowRoundRobin ? (
                                <span data-cell={`player-${player.rank}-game-${gCol}`}>
                                  {rrOpponent === player.rank ? "*" : (rrResult || "")}
                                </span>
