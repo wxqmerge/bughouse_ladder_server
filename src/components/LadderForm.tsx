@@ -2463,11 +2463,11 @@ const handleRandomResult = (setter: (value: string) => void) => {
       // Round Robin is 1v1 only — skip 4-player games
       if (s.includes(':')) return null;
 
-      // 2P, 2-result: "12W13L" — player 12 gets W, player 13 gets L
-      const m2r = s.match(/(\d+)([WLDSH])(\d+)([WLDSH])$/);
+      // 2P, 2-result: "10WL11" — player 10 gets W/L, player 11 gets L/W
+      const m2r = s.match(/(\d+)([WLDSH])([WLDSH])(\d+)/);
       if (m2r) {
-        const [_, p1, res1, p3, res2] = m2r;
-        const r1 = +p1, r2 = +p3;
+        const [_, p1, res1, res2, p2] = m2r;
+        const r1 = +p1, r2 = +p2;
         if (r1 === playerRank) return { opponent: r2, result: res1 + '/' + res2 };
         if (r2 === playerRank) return { opponent: r1, result: res2 + '/' + res1 };
         return null;
