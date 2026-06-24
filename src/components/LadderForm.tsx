@@ -4659,7 +4659,8 @@ const handleDeleteConfirm = () => {
   };
 
   const isHiddenPlayer = (p: PlayerData) => hideHiddenPlayers && p.group?.toLowerCase().endsWith('x') && !(p.gameResults || []).some(isValidGameResult);
-  const effectiveShowRoundRobin = showRoundRobin && players.length <= 31;
+  const visiblePlayers = players.filter(p => !isHiddenPlayer(p));
+  const effectiveShowRoundRobin = showRoundRobin && visiblePlayers.length <= 31;
 
   // Server-down blocking dialog - shown at startup when server is unreachable
   if (showServerDownBlocking) {
@@ -5744,7 +5745,7 @@ borderBottom: `2px solid ${headerBorder}`,
                 </>
               )}
               {Array.from({ length: 31 }).map((_, round) => {
-                  const rrRanks = effectiveShowRoundRobin ? players.filter(p => !isHiddenPlayer(p)).map(p => p.rank) : [];
+                  const rrRanks = effectiveShowRoundRobin ? visiblePlayers.map(p => p.rank) : [];
                   const rrRank = rrRanks[round];
                   return (
                 <th
@@ -6084,7 +6085,7 @@ onBlur={(e) => {
                   })}
 {gameResults.map((result, gCol) => {
                      // Round Robin: columns represent actual player ranks, show W/L
-                        const rrOpponent = effectiveShowRoundRobin ? players.filter(p => !isHiddenPlayer(p))[gCol]?.rank : 0;
+                        const rrOpponent = effectiveShowRoundRobin ? visiblePlayers[gCol]?.rank : 0;
                        const rrResult = effectiveShowRoundRobin && rrOpponent && rrOpponent !== player.rank
                          ? rrLookup[player.rank]?.[rrOpponent] ?? null
                          : null;
