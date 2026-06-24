@@ -256,7 +256,7 @@ export default function MenuBar({
       },
       dataMenuItem: "Recalculate_Save",
       disabled: !writePermission,
-      tooltip: tt("Recalculate all ratings from game results and save (Ctrl+E)"),
+      tooltip: tt("Recalculate all ratings from game results and save"),
     },
     {
       icon: <AlertTriangle size={16} />,
@@ -279,7 +279,7 @@ export default function MenuBar({
       },
       dataMenuItem: "Enter Games",
       disabled: !writePermission,
-      tooltip: tt("Enter or correct game results (Ctrl+E)"),
+      tooltip: tt("Enter or correct game results"),
     },
     {
       icon: <ClipboardPaste size={16} />,
@@ -467,7 +467,7 @@ export default function MenuBar({
       },
       dataMenuItem: "Round Robin",
       hasCheckmark: showRoundRobin,
-      tooltip: tt("Toggle round-robin view showing matchups"),
+      tooltip: tt("Toggle round-robin view showing matchups (max of 31 players)"),
     },
     {
       icon: hideHiddenPlayers ? <EyeOff size={16} /> : <Eye size={16} />,
