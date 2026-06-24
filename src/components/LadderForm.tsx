@@ -1550,12 +1550,12 @@ export default function LadderForm({
   };
 
 const handleRandomResult = (setter: (value: string) => void) => {
-    if (players.length < 2) return;
-    const i = Math.floor(Math.random() * players.length);
-    let j = Math.floor(Math.random() * (players.length - 1));
+    if (visiblePlayers.length < 2) return;
+    const i = Math.floor(Math.random() * visiblePlayers.length);
+    let j = Math.floor(Math.random() * (visiblePlayers.length - 1));
     j = j >= i ? j + 1 : j;
-    const p1 = players[i];
-    const p2 = players[j];
+    const p1 = visiblePlayers[i];
+    const p2 = visiblePlayers[j];
     const diff = (p1.nRating ?? p1.rating) - (p2.nRating ?? p2.rating);
     const expected = 1 / (1 + Math.pow(10, -diff / 400));
     const pickResult = () => {
@@ -2469,7 +2469,10 @@ const handleRandomResult = (setter: (value: string) => void) => {
         const [_, p1, res1, res2, p2] = m2r;
         const r1 = +p1, r2 = +p2;
         if (r1 === playerRank) return { opponent: r2, result: res1 + '/' + res2 };
-        if (r2 === playerRank) return { opponent: r1, result: res2 + '/' + res1 };
+        if (r2 === playerRank) {
+          const invert = (r: string) => r === 'W' ? 'L' : r === 'L' ? 'W' : r;
+          return { opponent: r1, result: invert(res1) + '/' + invert(res2) };
+        }
         return null;
       }
 
