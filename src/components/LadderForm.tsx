@@ -6128,10 +6128,14 @@ borderColor:
                                  : "#e2e8f0",
                          }}
                          >
-                            {effectiveShowRoundRobin ? (
-                               <span data-cell={`player-${player.rank}-game-${gCol}`}>
-                                 {rrOpponent === player.rank ? "*" : (rrResult || "")}
-                               </span>
+                             {effectiveShowRoundRobin ? (
+                                <span
+                                  data-cell={`player-${player.rank}-game-${gCol}`}
+                                  onClick={() => console.log(`[RR] player=${player.rank}, opponent=${rrOpponent}, round=${gCol + 1}, result="${result}", rrResult="${rrResult}"`)}
+                                  style={{ cursor: "pointer" }}
+                                >
+                                  {rrOpponent === player.rank ? "*" : (rrResult || "")}
+                                </span>
                             ) : isAdmin ? (
                               // Admin mode: always allow editing any game result cell
                               <span
