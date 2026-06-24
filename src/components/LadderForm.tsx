@@ -2455,42 +2455,19 @@ const handleRandomResult = (setter: (value: string) => void) => {
  /**
     * Parse game result to extract opponent rank and W/L for Round Robin view
     */
-   function parseRoundRobinResult(resultStr: string | null, playerRank: number): { opponent: number; result: string } | null {
-     if (!resultStr || resultStr.trim() === '') return null;
-     const s = resultStr.replace(/_+$/, '').trim();
-     if (!s) return null;
+    function parseRoundRobinResult(resultStr: string | null, playerRank: number): { opponent: number; result: string } | null {
+      if (!resultStr || resultStr.trim() === '') return null;
+      const s = resultStr.replace(/_+$/, '').trim();
+      if (!s) return null;
 
-      const is4P = s.includes(':');
-      if (is4P) {
-        const m2res = s.match(/(\d+):(\d+)([WLDSH])(\d+):(\d+)([WLDSH])/);
-        if (m2res) {
-          const [_, p1, p2, res1, p3, p4, res2] = m2res;
-          const ranks = [+p1, +p2, +p3, +p4];
-          const idx = ranks.indexOf(playerRank);
-          if (idx < 0) return null;
-          if (idx === 0) return { opponent: ranks[2], result: res1 };
-          if (idx === 1) return { opponent: ranks[3], result: res2 };
-          const inv = (r: string) => r === 'W' ? 'L' : r === 'L' ? 'W' : r;
-          if (idx === 2) return { opponent: ranks[0], result: inv(res1) };
-          if (idx === 3) return { opponent: ranks[1], result: inv(res2) };
-          return null;
-        }
-        const m = s.match(/(\d+):(\d+)([WLDSH])(\d+):(\d+)/);
-        if (!m) return null;
-        const [_, p1, p2, res, p3, p4] = m;
-        const ranks = [+p1, +p2, +p3, +p4];
-        const idx = ranks.indexOf(playerRank);
-        if (idx < 0) return null;
-        const team = idx < 2 ? [ranks[0], ranks[1]] : [ranks[2], ranks[3]];
-        const opponents = idx < 2 ? [ranks[2], ranks[3]] : [ranks[0], ranks[1]];
-        return { opponent: opponents[0], result: res };
-      }
+      // Round Robin is 1v1 only — skip 4-player games
+      if (s.includes(':')) return null;
 
-     const m2 = s.match(/(\d+)([WLDSH])(\d+)/);
-     if (!m2) return null;
-     const [_, r1, res, r2] = m2;
-     const opp = +r1 === playerRank ? +r2 : +r1;
-     const myRes = +r1 === playerRank ? res : (res === 'W' ? 'L' : res === 'L' ? 'W' : res);
+      const m2 = s.match(/(\d+)([WLDSH])(\d+)/);
+      if (!m2) return null;
+      const [_, r1, res, r2] = m2;
+      const opp = +r1 === playerRank ? +r2 : +r1;
+      const myRes = +r1 === playerRank ? res : (res === 'W' ? 'L' : res === 'L' ? 'W' : res);
       return { opponent: opp, result: myRes };
     }
 
