@@ -172,7 +172,7 @@ export default function MobileMenu({
       onClick: () => handleItemClick("Recalculate_Save", onRecalculateRatings),
       dataMenuItem: "Recalculate_Save",
       disabled: !writePermission,
-      tooltip: tt("Recalculate all ratings from game results and save (Ctrl+E)"),
+      tooltip: tt("Recalculate all ratings from game results and save"),
     },
     {
       label: "Check Errors",
@@ -185,7 +185,7 @@ export default function MobileMenu({
       onClick: () => handleItemClick("Enter Games", onEnterGames || (() => {})),
       dataMenuItem: "Enter Games",
       disabled: !writePermission,
-      tooltip: tt("Enter or correct game results (Ctrl+E)"),
+      tooltip: tt("Enter or correct game results"),
     },
     {
       label: "Paste Multiple Results",

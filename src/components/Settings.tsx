@@ -287,6 +287,7 @@ export default function Settings({
                 <span>Show ratings</span>
               </label>
               <p
+                title={tt("Rating groups displayed when 'Show ratings' is enabled")}
                 style={{
                   fontSize: "0.75rem",
                   color: "#64748b",

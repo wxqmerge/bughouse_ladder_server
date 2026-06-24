@@ -115,6 +115,37 @@ Opens from the **Layout Editor** button in the Print Labels dialog.
 
 ---
 
+## Round Robin View
+
+Access via **View → Round Robin**. Replaces the standard game-results columns with a matchup grid showing each player's Win/Loss record against every other player.
+
+### How It Works
+
+- **Toggle:** Check/uncheck **Round Robin** in the View menu.
+- **Player Cap:** Activates only when there are **31 or fewer visible players**. If more than 31 players are visible, the toggle remains unchecked and the view stays in standard mode.
+- **1v1 Only:** Only 2-player games (single or double result) are displayed. 4-player team games (containing `:`) are ignored.
+- **Hidden Players:** Players filtered by "Hide Hidden Players" are excluded from both rows and columns. The 31-player cap counts only visible players.
+
+### Reading the Grid
+
+| Cell Value | Meaning |
+| :--- | :--- |
+| **W** | Row player won (single game) |
+| **L** | Row player lost (single game) |
+| **D** | Draw |
+| **W/L** or **L/W** | Two-game match result (first result is game 1, second is game 2) |
+| *(blank)* | No game played between these two players |
+
+Each row represents a player. Each column represents their opponent (in rank order). The diagonal (player vs self) is hidden.
+
+### Example
+
+If Player 5 has `12W5` in their record, the cell at row 5, column corresponding to Player 12's rank will show **W**. Player 12's row will show **L** at the column for Player 5.
+
+If Player 10 has `10WL11`, the grid shows **W/L** at row 10 vs column 11, and **L/W** at row 11 vs column 10.
+
+---
+
 ## Tips & Troubleshooting
 
 - **Header Colors:**
