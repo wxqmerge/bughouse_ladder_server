@@ -22,6 +22,7 @@ import {
   AlertTriangle,
   Shield,
   Eye,
+  EyeOff,
   Minus,
   Plus,
   ZoomIn,
@@ -48,6 +49,8 @@ interface MenuBarProps {
   onPrintLabels?: () => void;
   showRoundRobin?: boolean;
   onToggleRoundRobin?: () => void;
+  hideHiddenPlayers?: boolean;
+  onToggleHideHidden?: () => void;
   isAdmin: boolean;
   zoomLevel: "50%" | "70%" | "100%" | "140%" | "200%";
   projectName?: string;
@@ -89,6 +92,8 @@ export default function MenuBar({
   onPrintLabels,
   showRoundRobin = false,
   onToggleRoundRobin,
+  hideHiddenPlayers = false,
+  onToggleHideHidden,
   isAdmin,
   zoomLevel,
   projectName,
@@ -463,6 +468,18 @@ export default function MenuBar({
       dataMenuItem: "Round Robin",
       hasCheckmark: showRoundRobin,
       tooltip: tt("Toggle round-robin view showing matchups"),
+    },
+    {
+      icon: hideHiddenPlayers ? <EyeOff size={16} /> : <Eye size={16} />,
+      label: "Hide Hidden Players",
+      onClick: () => {
+        debugClick("Hide Hidden Players");
+        onToggleHideHidden?.();
+        closeAllMenus();
+      },
+      dataMenuItem: "Hide Hidden Players",
+      hasCheckmark: hideHiddenPlayers,
+      tooltip: tt("Hide all players whose group ends in X"),
     },
   ];
 
