@@ -32,6 +32,13 @@ import { buildActivityReportData, formatActivityReportTSV } from '../../../share
 
 const router = Router();
 
+/** Normalize a mini-game file name to lowercase and validate against allowed list. */
+function normalizeFileName(input: string | undefined | null): string | null {
+  if (!input) return null;
+  const lower = String(input).toLowerCase();
+  return MINI_GAME_FILES.includes(lower) ? lower : null;
+}
+
 // All admin routes require admin API key (if configured)
 router.use(requireAdminKey);
 
@@ -213,8 +220,9 @@ router.delete('/backups/:filename', asyncHandler(async (req: Request, res: Respo
 // Save mini-game file (called on New-Day during tournament mode)
 router.post('/tournament/save-mini-game', asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { fileName } = req.body;
+    const normFileName = normalizeFileName(fileName);
     
-    if (!fileName || !MINI_GAME_FILES.includes(fileName)) {
+    if (!normFileName) {
       throw new AppError('Invalid mini-game file name', 400);
     }
 
@@ -222,7 +230,7 @@ router.post('/tournament/save-mini-game', asyncHandler(async (req: Request, res:
     const ladderData = await readLadderFile();
     
     // Check if file already exists
-    const existingFile = await readMiniGameFileRaw(fileName);
+    const existingFile = await readMiniGameFileRaw(normFileName);
     
     if (existingFile) {
       // Merge game results
@@ -252,13 +260,13 @@ router.post('/tournament/save-mini-game', asyncHandler(async (req: Request, res:
     }
     
     // Write mini-game file
-    await writeMiniGameFile(fileName, ladderData);
+    await writeMiniGameFile(normFileName, ladderData);
     
-    broadcastSSEEvent('miniGameSaved', { fileName, type: 'miniGameSave' });
+    broadcastSSEEvent('miniGameSaved', { fileName: normFileName, type: 'miniGameSave' });
     
     res.json({
       success: true,
-      data: { message: `Saved ${fileName}` },
+      data: { message: `Saved ${normFileName}` },
     });
   }
 ));
@@ -266,12 +274,13 @@ router.post('/tournament/save-mini-game', asyncHandler(async (req: Request, res:
 // Read mini-game file (for tournament mode - ladder form reads from mini-game file)
 router.get('/tournament/read-mini-game', asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { fileName } = req.query;
+    const normFileName = normalizeFileName(fileName);
     
-    if (!fileName || !MINI_GAME_FILES.includes(fileName as string)) {
+    if (!normFileName) {
       throw new AppError('Invalid mini-game file name', 400);
     }
 
-    const miniGameData = await readMiniGameFile(fileName as string);
+    const miniGameData = await readMiniGameFile(normFileName);
     if (!miniGameData) {
       res.json({
         success: true,
@@ -298,8 +307,9 @@ router.get('/tournament/read-mini-game', asyncHandler(async (req: Request, res: 
 // Write mini-game file (for tournament mode - ladder form writes to mini-game file)
 router.post('/tournament/write-mini-game', asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { fileName, players } = req.body;
+    const normFileName = normalizeFileName(fileName);
     
-    if (!fileName || !MINI_GAME_FILES.includes(fileName)) {
+    if (!normFileName) {
       throw new AppError('Invalid mini-game file name', 400);
     }
 
@@ -307,17 +317,17 @@ router.post('/tournament/write-mini-game', asyncHandler(async (req: Request, res
       throw new AppError('Invalid players data', 400);
     }
 
-    await writeMiniGameFile(fileName, {
+    await writeMiniGameFile(normFileName, {
       header: [],
       players,
       rawLines: [],
     });
 
-    broadcastSSEEvent('miniGameWritten', { fileName, type: 'miniGameWrite' });
+    broadcastSSEEvent('miniGameWritten', { fileName: normFileName, type: 'miniGameWrite' });
 
     res.json({
       success: true,
-      data: { message: `Saved ${fileName}` },
+      data: { message: `Saved ${normFileName}` },
     });
   }
 ));
@@ -325,8 +335,9 @@ router.post('/tournament/write-mini-game', asyncHandler(async (req: Request, res
 // Copy players to new mini-game file
 router.post('/tournament/copy-players', asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { fileName } = req.body;
+    const normFileName = normalizeFileName(fileName);
     
-    if (!fileName || !MINI_GAME_FILES.includes(fileName)) {
+    if (!normFileName) {
       throw new AppError('Invalid mini-game file name', 400);
     }
 
@@ -341,7 +352,7 @@ router.post('/tournament/copy-players', asyncHandler(async (req: Request, res: R
     }));
     
     // Write mini-game file
-    await writeMiniGameFile(fileName, {
+    await writeMiniGameFile(normFileName, {
       header: [],
       players: targetPlayers,
       rawLines: [],
@@ -417,7 +428,8 @@ router.post('/tournament/import-single', upload.single('file'), asyncHandler(asy
     }
 
     const { targetGame } = req.body;
-    if (!targetGame || !MINI_GAME_FILES.includes(targetGame)) {
+    const normTargetGame = normalizeFileName(targetGame);
+    if (!normTargetGame) {
       await withTiming('unlink(bad-target)', () => fs.unlink(req.file!.path));
       throw new AppError(`Invalid target mini-game. Must be one of: ${MINI_GAME_FILES.join(', ')}`, 400);
     }
@@ -441,17 +453,17 @@ router.post('/tournament/import-single', upload.single('file'), asyncHandler(asy
     }
 
     const dataDir = path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data/ladder.tab'));
-    const filePath = path.join(dataDir, targetGame);
+    const filePath = path.join(dataDir, normTargetGame);
     await withTiming(`writeFile(${filePath})`, () => fs.writeFile(filePath, content + '\n', 'utf-8'));
 
     // Clean up uploaded file
     await withTiming('unlink(upload)', () => fs.unlink(req.file!.path));
 
-    broadcastSSEEvent('miniGameImported', { fileName: targetGame, type: 'miniGameImport' });
+    broadcastSSEEvent('miniGameImported', { fileName: normTargetGame, type: 'miniGameImport' });
 
     res.json({
       success: true,
-      data: { message: `Imported to ${targetGame}`, fileName: targetGame },
+      data: { message: `Imported to ${normTargetGame}`, fileName: normTargetGame },
     });
   }
 ));

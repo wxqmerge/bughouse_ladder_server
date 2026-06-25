@@ -24,12 +24,12 @@ Both modes use the same `MiniGameStore` interface — the code path is identical
 ```
 data/
 ├── club_ladder.tab              # Main club ladder (one per club)
-├── BG_Game.tab                  # BG_Game mini-game ladder
-├── Bishop_Game.tab              # Bishop_Game mini-game ladder
-├── Pillar_Game.tab              # Pillar_Game mini-game ladder
-├── Kings_Cross.tab              # Kings_Cross mini-game ladder
-├── Pawn_Game.tab                # Pawn_Game mini-game ladder
-├── Queen_Game.tab               # Queen_Game mini-game ladder
+├── bg_game.tab                  # BG_Game mini-game ladder
+├── bishop_game.tab              # Bishop_Game mini-game ladder
+├── pillar_game.tab              # Pillar_Game mini-game ladder
+├── kings_cross.tab              # Kings_Cross mini-game ladder
+├── pawn_game.tab                # Pawn_Game mini-game ladder
+├── queen_game.tab               # Queen_Game mini-game ladder
 └── bughouse.tab                 # Bughouse mini-game ladder (7th file, same as others)
 ```
 
@@ -37,12 +37,12 @@ data/
 
 ```
 localStorage:
-  mini_game_BG_Game.tab        # BG_Game mini-game ladder
-  mini_game_Bishop_Game.tab    # Bishop_Game mini-game ladder
-  mini_game_Pillar_Game.tab    # Pillar_Game mini-game ladder
-  mini_game_Kings_Cross.tab    # Kings_Cross mini-game ladder
-  mini_game_Pawn_Game.tab      # Pawn_Game mini-game ladder
-  mini_game_Queen_Game.tab     # Queen_Game mini-game ladder
+  mini_game_bg_game.tab        # BG_Game mini-game ladder
+  mini_game_bishop_game.tab    # Bishop_Game mini-game ladder
+  mini_game_pillar_game.tab    # Pillar_Game mini-game ladder
+  mini_game_kings_cross.tab    # Kings_Cross mini-game ladder
+  mini_game_pawn_game.tab      # Pawn_Game mini-game ladder
+  mini_game_queen_game.tab     # Queen_Game mini-game ladder
   mini_game_bughouse.tab       # Bughouse mini-game ladder (7th file, same as others)
 ```
 
@@ -54,7 +54,7 @@ All 7 mini-game files are treated identically - same code paths, same logic, no 
 ┌─────────────────────────────────────────────────────────────────┐
 │  ADMIN SELECTS MINI-GAME TITLE (e.g., BG_Game) FROM FILE MENU    │
 │  - Tournament mode AUTOMATICALLY ACTIVATED                      │
-│  - Players + ratings copied to BG_Game.tab                      │
+│  - Players + ratings copied to bg_game.tab                      │
 │  - Status banner appears with quick actions                     │
 │  - All 7 mini-game files exist simultaneously                   │
 │  - New-Day is DISABLED during tournament mode                   │
@@ -78,8 +78,8 @@ All 7 mini-game files are treated identically - same code paths, same logic, no 
 │  (e.g., BG_Game → Bishop_Game)                                  │
 │                                                                  │
 │  When switching to a NEW mini-game file (doesn't exist yet):    │
-│  1. Load current active file (e.g., BG_Game.tab)                │
-│  2. Copy players + ratings to new file (Bishop_Game.tab)        │
+│  1. Load current active file (e.g., bg_game.tab)                │
+│  2. Copy players + ratings to new file (bishop_game.tab)        │
 │  3. If player count differs: add new players                    │
 │  4. Start with empty gameResults                                │
 │                                                                  │
@@ -159,7 +159,7 @@ When you switch from a mini-game back to "Ladder":
 Multiple clients can view and enter results in different mini-games simultaneously:
 
 - **Client A** switches to bughouse → all operations route to `bughouse.tab`
-- **Client B** switches to BG_Game → all operations route to `BG_Game.tab`
+- **Client B** switches to BG_Game → all operations route to `bg_game.tab`
 - Each client's `DataService` has its own `currentMiniGameFile` — no cross-contamination
 - Individual cell operations (`submitGameResult`, `updatePlayer`, `clearPlayerCell`) all check `currentMiniGameFile` and route correctly
 
@@ -169,7 +169,7 @@ Multiple clients can view and enter results in different mini-games simultaneous
 1. Start tournament in BG_Game (20 players, 10 games played)
 2. Switch to Bishop_Game → copy 20 players, start fresh, switch data source
 3. Play 8 games in Bishop_Game
-4. Switch back to BG_Game → load existing BG_Game.tab (10 games), switch data source
+4. Switch back to BG_Game → load existing bg_game.tab (10 games), switch data source
 5. Play 5 more games in BG_Game → now 15 total
 6. Switch to Pillar_Game → copy 20 players (from Bishop_Game), start fresh, switch data source
 7. Play 12 games in Pillar_Game
@@ -189,12 +189,12 @@ Each mini-game .tab file is stored on the server alongside the club ladder file,
 ```
 data/ (server) or localStorage (local):
 ├── club_ladder.tab / ladder_players
-├── BG_Game.tab / mini_game_BG_Game.tab
-├── Bishop_Game.tab / mini_game_Bishop_Game.tab
-├── Pillar_Game.tab / mini_game_Pillar_Game.tab
-├── Kings_Cross.tab / mini_game_Kings_Cross.tab
-├── Pawn_Game.tab / mini_game_Pawn_Game.tab
-├── Queen_Game.tab / mini_game_Queen_Game.tab
+├── bg_game.tab / mini_game_bg_game.tab
+├── bishop_game.tab / mini_game_bishop_game.tab
+├── pillar_game.tab / mini_game_pillar_game.tab
+├── kings_cross.tab / mini_game_kings_cross.tab
+├── pawn_game.tab / mini_game_pawn_game.tab
+├── queen_game.tab / mini_game_queen_game.tab
 └── bughouse.tab / mini_game_bughouse.tab  # Single file for bughouse (not per-mini-game)
 ```
 
@@ -241,7 +241,7 @@ This requires:
 - `MiniGameStore` interface (abstracts storage backend)
 - Player matching logic (lastName + firstName)
 - Player merge logic (add missing players)
-- Title-to-filename mapping (handle spaces: `Kings_Cross` → `Kings_Cross.tab`)
+- Title-to-filename mapping (handle spaces: `Kings_Cross` → `kings_cross.tab`)
 
 Two implementations of `MiniGameStore`:
 - **Server**: `tournamentStore` in `tournamentService.ts` — reads/writes `.tab` files to `data/` directory
@@ -567,7 +567,7 @@ Tournament mode state stored server-side (not in PlayerData or .tab files):
 28. **Grade completeness** - If any grade gets trophies, ALL grades must receive trophies
 28. **Local mode export** - Returns combined text blob with `=== filename.tab ===` headers between each file (acceptable, no ZIP support in localStorage)
 29. **Manual title switch during tournament** - Should be prevented (admin must use "Clear Mini-Games" in Settings to end tournament)
-30. **Bughouse file naming** - Bughouse is treated as just another mini-game, no special naming like `Bughouse_BG_Game.tab`
+30. **Bughouse file naming** - Bughouse is treated as just another mini-game, no special naming like `Bughouse_bg_game.tab`
 31. **ZIP metadata** - Keep it simple, no extra metadata in exported ZIP
 32. **Mini-game files not archived with timestamps** - Files are overwritten/merged, zip/blob is the backup
 33. **Export includes club ladder** - Export (ZIP for server, blob for local) includes club_ladder.tab + all mini-game files

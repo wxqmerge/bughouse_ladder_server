@@ -181,7 +181,7 @@ describe('addPlayerToAllMiniGames', () => {
     const newPlayer = createMatchPlayer(2, 'New', 'Player', 1300, '6', 0, []);
     await addPlayerToAllMiniGames(newPlayer);
 
-    // Check BG_Game.tab has both players
+    // Check bg_game.tab has both players
     const bgData = await readLadderFile(path.join(testDir, 'bg_game.tab'));
     expect(bgData.players.length).toBe(2);
     expect(bgData.players.find(p => p.lastName === 'Existing')).toBeDefined();
