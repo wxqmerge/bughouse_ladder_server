@@ -13,7 +13,7 @@ import {
 } from "../../shared/utils/hashUtils";
 import { processNewDayTransformations, isMiniGameTitle, titleToFileName, getNextTitle, SHORTCUT_TO_TITLE, LADDER_COLORS, compareByPseudoRating, formatRatingForExport, NUM_ROUNDS, getValidationErrorMessage } from "../../shared/utils/constants";
 import { MINI_GAME_FILES, DEFAULT_GAME_RESULTS } from "../../shared/types";
-import { dataService } from "../services/dataService";
+import { dataService, DataServiceMode } from "../services/dataService";
 import { miniGamesHaveResults } from "../services/miniGameLocalStorage";
 import ErrorDialog from "./ErrorDialog";
 import AddPlayerDialog from "./AddPlayerDialog";
@@ -4212,10 +4212,18 @@ const handleDeleteConfirm = () => {
     onSetToggleAdmin?.(handleToggleAdmin);
   }, [onSetToggleAdmin, handleToggleAdmin]);
 
-  // Check if any mini-game has results (async, reads from localStorage cache)
+  // Check if any mini-game has results (localStorage for LOCAL, server API for SERVER)
   useEffect(() => {
     let cancelled = false;
-    miniGamesHaveResults().then(result => {
+    const check = async () => {
+      if (dataService.getMode() === DataServiceMode.LOCAL) {
+        return miniGamesHaveResults();
+      } else {
+        const files = await dataService.checkMiniGameFiles();
+        return files.length > 0;
+      }
+    };
+    check().then(result => {
       if (!cancelled) setMiniGamesHaveResultsFlag(result);
     });
     return () => { cancelled = true; };
