@@ -538,6 +538,20 @@ export const tournamentStore: MiniGameStore = {
 
     for (const { fileName, fileContent } of sections) {
       const normFileName = fileName.toLowerCase();
+
+      // Handle ladder.tab separately (not in MINI_GAME_FILES)
+      if (normFileName === 'ladder.tab') {
+        try {
+          const targetPath = process.env.TAB_FILE_PATH || path.join(__dirname, '../../data/ladder.tab');
+          await fs.writeFile(targetPath, fileContent + '\n', 'utf-8');
+          imported.push(normFileName);
+          loggerLog('[TOURNAMENT]', `Imported ${normFileName}`);
+        } catch (err) {
+          errors.push(`Failed to write ${normFileName}: ${(err as Error).message}`);
+        }
+        continue;
+      }
+
       if (!MINI_GAME_FILES.includes(normFileName)) {
         errors.push(`Unknown file: ${fileName}`);
         continue;
