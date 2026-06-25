@@ -7,6 +7,8 @@ import { StatusBanner } from "./components/StatusBanner";
 import { loadSampleData } from "./components/LadderForm";
 
 import { getNextTitle, processNewDayTransformations, isMiniGameTitle, NUM_ROUNDS } from "../shared/utils/constants";
+import { detectDuplicateRanks } from "../shared/utils/rankValidation";
+import { validatePlayersNamesOnly } from "../shared/utils/sanityCheck";
 import { downloadBlob } from "./utils/downloadBlob";
 import { formatPrefixToTitle } from "./utils/titleUtils";
 import type { ProgramMode } from "./utils/mode";
@@ -84,7 +86,7 @@ const [miniGamesHaveResults, setMiniGamesHaveResults] = useState(false);
   const [status, setStatus] = useState<string | null>("Initializing...");
   
   const recalculateRef = useRef<(() => void) | undefined>(undefined);
-  const refreshPlayersRef = useRef<(() => void) | undefined>(undefined);
+  const refreshPlayersRef = useRef<((force?: boolean) => void) | undefined>(undefined);
   const toggleAdminRef = useRef<(() => Promise<void>) | undefined>(undefined);
   const initRef = useRef(false);
 
@@ -438,10 +440,11 @@ const handleClearAll = async () => {
             content = new TextDecoder().decode(uint8Array);
           }
           const result = await dataService.importMiniGameFiles(content);
-          if (result.imported.length > 0) {
-            const firstFile = result.imported[0];
-            const title = firstFile.replace('.tab', '');
-            const titleMap: Record<string, string> = {
+          const sanityIssues: string[] = [];
+            if (result.imported.length > 0) {
+             const firstFile = result.imported[0];
+             const title = firstFile.replace('.tab', '');
+             const titleMap: Record<string, string> = {
               'ladder': 'Ladder',
               'bg_game': 'BG_Game',
               'bishop_game': 'Bishop_Game',
@@ -454,10 +457,52 @@ const handleClearAll = async () => {
             const importedTitle = titleMap[firstFile] || title;
             setProjectName(importedTitle);
             setProjectNameStorage(importedTitle);
+
+            // Post-import sanity check: compare imported mini-game against club ladder
+            const miniGameFiles = result.imported.filter(f => f !== 'ladder.tab');
+            if (miniGameFiles.length > 0) {
+              const settings = loadUserSettings();
+              const serverUrl = settings.server?.trim();
+              for (const mgFile of miniGameFiles) {
+                let mgPlayers: any[] = [];
+                let clubPlayers: any[] = [];
+                if (serverUrl) {
+                  try {
+                    const clubResp = await gatedFetch(`${serverUrl}/api/ladder`);
+                    if (clubResp.ok) {
+                      clubPlayers = (await clubResp.json()).data?.players || [];
+                    }
+                  } catch (_e) {}
+                  try {
+                    const mgResp = await gatedFetch(`${serverUrl}/api/admin/tournament/read-mini-game?fileName=${encodeURIComponent(mgFile)}`, {
+                      headers: { ...settings.apiKey ? { 'X-API-Key': settings.apiKey } : {} },
+                    });
+                    if (mgResp.ok) {
+                      mgPlayers = (await mgResp.json()).data?.players || [];
+                    }
+                  } catch (_e) {}
+                }
+                if (mgPlayers.length === 0 || clubPlayers.length === 0) continue;
+                const dupRanks = detectDuplicateRanks(mgPlayers);
+                if (dupRanks.length > 0) sanityIssues.push(`${mgFile}: Duplicate ranks: ${dupRanks.join(', ')}`);
+                const check = validatePlayersNamesOnly(mgPlayers, clubPlayers);
+                if (check.orphanRanks.length > 0) sanityIssues.push(`${mgFile}: Orphan ranks: ${check.orphanRanks.join(', ')}`);
+                if (check.countMismatch) sanityIssues.push(`${mgFile}: Count mismatch: mini-game=${check.localCount}, club=${check.clubCount}`);
+                if (check.diverged.length > 0) sanityIssues.push(`${mgFile}: Name mismatch for ${check.diverged.length} player(s): ${check.diverged.slice(0, 10).join(', ')}${check.diverged.length > 10 ? '...' : ''}`);
+              }
+            }
           }
           alert(`Imported: ${result.imported.join(', ')}`);
           if (result.errors.length > 0) {
             alert(`Errors: ${result.errors.join(', ')}`);
+          }
+          if (sanityIssues.length > 0) {
+            alert(`Imported data has integrity issues:\n\n${sanityIssues.join('\n')}\n\nThis mini-game file may be from a different ladder.`);
+          }
+          // Force refresh to load imported data (bypasses hash guard)
+          if (refreshPlayersRef.current) {
+            console.debug('[IMPORT] Forcing player refresh after import');
+            await refreshPlayersRef.current(true);
           }
         } catch (error) {
           console.error('Failed to import:', error);
@@ -501,10 +546,45 @@ const handleClearAll = async () => {
         if (!file) return;
         try {
           const result = await dataService.importSingleMiniGameFile(file, selectedGame);
-          setProjectName(selectedGame.replace('.tab', ''));
-          setProjectNameStorage(selectedGame.replace('.tab', ''));
-          alert(result.message);
-        } catch (error) {
+           setProjectName(selectedGame.replace('.tab', ''));
+           setProjectNameStorage(selectedGame.replace('.tab', ''));
+           
+           // Post-import sanity check
+           const singleSanityIssues: string[] = [];
+           const sSettings = loadUserSettings();
+           const sServerUrl = sSettings.server?.trim();
+           if (sServerUrl) {
+             let mgPlayers: any[] = [];
+             let clubPlayers: any[] = [];
+             try {
+               const clubResp = await gatedFetch(`${sServerUrl}/api/ladder`);
+               if (clubResp.ok) clubPlayers = (await clubResp.json()).data?.players || [];
+             } catch (_e) {}
+             try {
+               const mgResp = await gatedFetch(`${sServerUrl}/api/admin/tournament/read-mini-game?fileName=${encodeURIComponent(selectedGame)}`, {
+                 headers: { ...sSettings.apiKey ? { 'X-API-Key': sSettings.apiKey } : {} },
+               });
+               if (mgResp.ok) mgPlayers = (await mgResp.json()).data?.players || [];
+             } catch (_e) {}
+              if (mgPlayers.length > 0 && clubPlayers.length > 0) {
+                const dupRanks = detectDuplicateRanks(mgPlayers);
+                if (dupRanks.length > 0) singleSanityIssues.push(`Duplicate ranks: ${dupRanks.join(', ')}`);
+                const check = validatePlayersNamesOnly(mgPlayers, clubPlayers);
+                if (check.orphanRanks.length > 0) singleSanityIssues.push(`Orphan ranks: ${check.orphanRanks.join(', ')}`);
+                if (check.countMismatch) singleSanityIssues.push(`Count mismatch: mini-game=${check.localCount}, club=${check.clubCount}`);
+                if (check.diverged.length > 0) singleSanityIssues.push(`Name mismatch for ${check.diverged.length} player(s): ${check.diverged.slice(0, 10).join(', ')}${check.diverged.length > 10 ? '...' : ''}`);
+              }
+           }
+            alert(result.message);
+            if (singleSanityIssues.length > 0) {
+              alert(`Imported data has integrity issues:\n\n${singleSanityIssues.join('\n')}\n\nThis mini-game file may be from a different ladder.`);
+            }
+            // Force refresh to load imported data (bypasses hash guard)
+            if (refreshPlayersRef.current) {
+              console.debug('[IMPORT] Forcing player refresh after single import');
+              await refreshPlayersRef.current(true);
+            }
+         } catch (error) {
           console.error('Failed to import:', error);
           alert('Failed to import: ' + (error as Error).message);
         }

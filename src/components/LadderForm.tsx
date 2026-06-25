@@ -32,7 +32,10 @@ import { downloadBlob } from "../utils/downloadBlob";
 import { getFontSize, getScaledPadding, getScaledGap } from "../utils/getFontSize";
 import { useIntervalCheck } from "../utils/useIntervalCheck";
 import { mergeServerWithLocal as _mergeServerWithLocal } from "../utils/mergeUtils";
-import { deduplicatePlayers } from "../../shared/utils/dedupUtils";
+import { deduplicatePlayers, lockAndDeduplicate } from "../../shared/utils/dedupUtils";
+import { detectDuplicateRanks, detectMissingRanks } from "../../shared/utils/rankValidation";
+import { validatePlayersAgainstClubLadder, validatePlayersNamesOnly } from "../../shared/utils/sanityCheck";
+import { parsePlayerLine, parseTabContent } from "../../shared/utils/tabUtils";
 import { isTrophyReport, isValidLadderHeader } from "../../shared/utils/trophyFileGuard";
 import { isValidGameResult } from "../../shared/utils/trophyGeneration";
 import { loadUserSettings, saveUserSettings, saveLastWorkingConfig, normalizeServerUrl } from "../services/userSettingsStorage";
@@ -878,55 +881,13 @@ export default function LadderForm({
 
         let cols = line.split("\t");
         if (cols[0].length > 2) {
-          // if (line.startsWith('\t')){
-          //             console.log('adding leading space to line:', line);
           cols.unshift(" ");
         }
-        //if (parts.length < 14) continue;  // Need at least columns 0-13
 
-        // const lastChar = cols[cols.length - 1];
-        // const hasTail = lastChar === '' ? cols.length - 1 : cols.length;
-
-        const ratingStr = String(cols[3] || "").trim();
-        const isNegRating = ratingStr.startsWith("-");
-        const nRateStr = String(cols[5] || "").trim();
-
-        const player: PlayerData = {
-          rank: cols[4] ? parseInt(cols[4]) : 0,
-          group: cols[0] && cols[0].trim() !== "" ? cols[0].trim() : "",
-          lastName: cols[1] != null ? cols[1] : "",
-          firstName: cols[2] != null ? cols[2] : "",
-          rating: Math.abs(parseInt(ratingStr)) || 0,
-          nRating: Math.abs(parseInt(nRateStr)) || 0,
-          trophyEligible: !isNegRating,
-          grade: cols[6] != null ? cols[6] : "N/A",
-          num_games:
-            cols[7] != null && !isNaN(parseInt(cols[7]))
-              ? parseInt(cols[7])
-              : 0,
-          attendance:
-            cols[8] != null && !isNaN(parseInt(cols[8]))
-              ? parseInt(cols[8])
-              : 0,
-          phone: cols[9] != null ? cols[9] : "",
-          info: cols[10] != null ? cols[10] : "",
-          school: cols[11] != null ? cols[11] : "",
-          room: cols[12] != null ? cols[12] : "",
-          gameResults: [],
-        };
-
-        if (
-          parseInt(String(player.rank)) > 0 &&
-          (player.lastName || player.firstName || player.nRating !== 0)
-        ) {
+        const player = parsePlayerLine(cols.join("\t"));
+        if (player && parseInt(String(player.rank)) > 0 && (player.lastName || player.firstName || player.nRating !== 0)) {
           loadedPlayers.push(player);
         }
-
-        const gameResults: (string | null)[] = [];
-        for (let g = 0; g < numRounds; g++) {
-          gameResults.push(cols[13 + g]);
-        }
-        player.gameResults = gameResults;
       }
 
       // Max 200 players limit
@@ -1067,37 +1028,10 @@ export default function LadderForm({
           const cols = trimmed.split('\t');
           if (cols[0].length > 2) cols.unshift(' ');
 
-          const ratingStr = String(cols[3] || '').trim();
-          const isNegRating = ratingStr.startsWith('-');
-          const nRateStr = String(cols[5] || '').trim();
-
-          const player: PlayerData = {
-            rank: cols[4] ? parseInt(cols[4]) : 0,
-            group: cols[0] && cols[0].trim() !== '' ? cols[0].trim() : '',
-            lastName: cols[1] != null ? cols[1] : '',
-            firstName: cols[2] != null ? cols[2] : '',
-            rating: Math.abs(parseInt(ratingStr)) || 0,
-            nRating: Math.abs(parseInt(nRateStr)) || 0,
-            trophyEligible: !isNegRating,
-            grade: cols[6] != null ? cols[6] : 'N/A',
-            num_games: cols[7] != null && !isNaN(parseInt(cols[7])) ? parseInt(cols[7]) : 0,
-            attendance: cols[8] != null && !isNaN(parseInt(cols[8])) ? parseInt(cols[8]) : 0,
-            phone: cols[9] != null ? cols[9] : '',
-            info: cols[10] != null ? cols[10] : '',
-            school: cols[11] != null ? cols[11] : '',
-            room: cols[12] != null ? cols[12] : '',
-            gameResults: [],
-          };
-
-          if (parseInt(String(player.rank)) > 0 && (player.lastName || player.firstName || player.nRating !== 0)) {
+          const player = parsePlayerLine(cols.join('\t'));
+          if (player && parseInt(String(player.rank)) > 0 && (player.lastName || player.firstName || player.nRating !== 0)) {
             loadedPlayers.push(player);
           }
-
-          const gameResults: (string | null)[] = [];
-          for (let g = 0; g < 31; g++) {
-            gameResults.push(cols[13 + g]);
-          }
-          player.gameResults = gameResults;
         }
 
         if (loadedPlayers.length > 200) {
@@ -1367,25 +1301,23 @@ export default function LadderForm({
      const warnings: string[] = [];
      if (playersList.length === 0) return { blockingErrors, warnings };
 
-     const ranks = playersList.map(p => p.rank).sort((a, b) => a - b);
-     const rankSet = new Set(ranks);
-
-     // Check for duplicates — auto-fix by moving 2nd+ occurrence to next available rank
-     if (rankSet.size !== ranks.length) {
-       const duplicates = ranks.filter((r, i) => ranks.indexOf(r) !== i);
-       const uniqueDups = [...new Set(duplicates)];
-       console.debug(`[RANK FIX] Duplicate ranks found: ${uniqueDups.join(', ')} — auto-fixing`);
-       const seen = new Map<number, PlayerData>();
+     // Check for duplicates — surface as blocking error
+     const dupRanks = detectDuplicateRanks(playersList);
+     if (dupRanks.length > 0) {
+       const dupMsg = `Duplicate ranks detected: ${dupRanks.join(', ')}. Fix duplicates before recalculating.`;
+       blockingErrors.push(dupMsg);
+       console.debug(`[RANK ERROR] ${dupMsg}`);
+       // Still auto-fix for downstream processing
+       const seen2 = new Map<number, PlayerData>();
        const fixedPlayers: PlayerData[] = [];
        for (const p of playersList) {
-         if (seen.has(p.rank)) {
+         if (seen2.has(p.rank)) {
            const used = new Set(fixedPlayers.map(fp => fp.rank));
            let newR = p.rank + 1;
            while (used.has(newR)) newR++;
            fixedPlayers.push({ ...p, rank: newR });
-           console.debug(`[RANK FIX] Moved player "${p.firstName} ${p.lastName}" from rank ${p.rank} → ${newR}`);
          } else {
-           seen.set(p.rank, p);
+           seen2.set(p.rank, p);
            fixedPlayers.push(p);
          }
        }
@@ -1393,9 +1325,7 @@ export default function LadderForm({
      }
 
      // Check for gaps (warning)
-     const maxRank = ranks[ranks.length - 1];
-     const expectedRanks = new Set(Array.from({ length: maxRank }, (_, i) => i + 1));
-     const missing = ranks.filter(r => !expectedRanks.has(r));
+     const missing = detectMissingRanks(playersList);
      if (missing.length > 0) {
        warnings.push(`Missing ranks: ${missing.join(', ')}`);
      }
@@ -1785,6 +1715,49 @@ const handleRandomResult = (setter: (value: string) => void) => {
     setIsEnterGamesOverride(false);
   };
 
+  /**
+   * Process pending New Day operation.
+   * @param playersToTransform Players to apply New Day transformations to.
+   * @param reRank Whether to re-rank players.
+   * @param postSave Callback after save (e.g., clearSettings).
+   * @param reload Whether to reload window after processing.
+   */
+  const processPendingNewDayOp = async (
+    playersToTransform: PlayerData[],
+    reRank: boolean,
+    postSave?: () => void,
+    reload = true
+  ): Promise<boolean> => {
+    const pendingNewDay = getPendingNewDay();
+    if (!pendingNewDay) return false;
+
+    console.debug(`>>> [NEW DAY] Processing with reRank=${reRank}`);
+
+    const currentTitle = getProjectName();
+    console.debug(`>>> [NEW DAY] Current title from storage: "${currentTitle}"`);
+    console.debug(`>>> [NEW DAY] Next title will be: "${getNextTitle(currentTitle)}"`);
+
+    const finalPlayers = processNewDayTransformations(playersToTransform, reRank);
+
+    await savePlayers(finalPlayers);
+    setProjectNameStorage(getNextTitle(currentTitle));
+    clearPendingNewDay();
+    postSave?.();
+
+    if (shouldLog(10)) {
+      console.debug(`New Day complete - Title: ${getNextTitle(currentTitle)}, ReRank: ${reRank}\n`);
+    }
+
+    setPlayers(finalPlayers);
+
+    await endBatch();
+
+    if (reload) {
+      window.location.reload();
+    }
+    return true;
+  };
+
   const recalculateRatings = async () => {
     console.debug(`>>> [BUTTON PRESSED] Recalculate Ratings - ${players.length} players, isAdmin=${isAdmin}`);
 
@@ -1796,6 +1769,61 @@ const handleRandomResult = (setter: (value: string) => void) => {
 
       // Start batch mode - defer server sync until all operations complete
       startBatch();
+
+      // Sanity check: validate local data against club ladder
+      const sanityIssues: string[] = [];
+
+      // Check for duplicate ranks in local players
+      {
+        const dupRanks = detectDuplicateRanks(players);
+        if (dupRanks.length > 0) {
+          sanityIssues.push(`Duplicate ranks: ${dupRanks.join(', ')}`);
+        }
+      }
+
+      // Compare against club ladder by rank
+      const userSettings = loadUserSettings();
+      const recalcServerUrl = userSettings.server?.trim();
+      if (recalcServerUrl) {
+        try {
+          const clubResp = await gatedFetch(`${recalcServerUrl}/api/ladder`);
+          if (clubResp.ok) {
+            const clubData = await clubResp.json();
+            const clubPlayers = clubData.data?.players || [];
+            const check = validatePlayersAgainstClubLadder(players, clubPlayers);
+            if (check.orphanRanks.length > 0) {
+              sanityIssues.push(`Local players with no club ladder match at their rank: ranks ${check.orphanRanks.join(', ')}`);
+            }
+            if (check.countMismatch) {
+              sanityIssues.push(`Player count mismatch: local=${check.localCount}, club=${check.clubCount}`);
+            }
+            if (check.diverged.length > 4) {
+              alert(`Too many player mismatches with club ladder (${check.diverged.length} players differ).\n\nThis likely means you loaded a mini-game from a different ladder. Recalculate aborted.`);
+              endBatch();
+              return;
+            }
+            if (check.diverged.length > 0) {
+              sanityIssues.push(`Data diverged for ${check.diverged.length} player(s): ${check.diverged.join(', ')}`);
+            }
+          }
+        } catch (_e) {
+          // Server unavailable, skip check
+        }
+      }
+
+      // Report sanity issues
+      if (sanityIssues.length > 0) {
+        const msg = `Data integrity issues detected before recalculate:\n\n${sanityIssues.join('\n')}\n\nThis may be from importing a corrupted or mismatched mini-game file.`;
+        if (sanityIssues.some(i => i.startsWith('Duplicate ranks'))) {
+          alert(msg + '\n\nFix rank duplicates before recalculating.');
+          endBatch();
+          return;
+        }
+        if (!confirm(msg + '\n\nContinue anyway?')) {
+          endBatch();
+          return;
+        }
+      }
 
       // Track current working players to avoid mutating React state
       let currentPlayers = players;
@@ -1829,6 +1857,14 @@ const handleRandomResult = (setter: (value: string) => void) => {
             // ignore
           }
         }
+      }
+
+      // Block on rank errors
+      if (result.rankBlockingErrors && result.rankBlockingErrors.length > 0) {
+        console.debug(`=== RECALC PAUSED === Rank blocking errors`);
+        alert('Rank Errors:\n\n' + result.rankBlockingErrors.join('\n') + '\n\nPlease fix ranks before recalculating.');
+        endBatch();
+        return;
       }
 
       // If there are errors, show the error dialog and return early
@@ -1876,42 +1912,10 @@ const handleRandomResult = (setter: (value: string) => void) => {
           `>>> [RECALC COMPLETE] Pending New Day detected: ${JSON.stringify(pendingNewDayData)}`,
         );
         try {
-          const pendingNewDay = pendingNewDayData;
-          const reRank = pendingNewDay.reRank === true;
-          console.debug(`>>> [NEW DAY] Processing with reRank=${reRank}`);
-
-          // Get current title and determine next title for mini-games
-          const currentTitle = getProjectName();
-          console.debug(
-            `>>> [NEW DAY] Current title from storage: "${currentTitle}"`,
-          );
-          console.debug(`>>> [NEW DAY] Next title will be: "${getNextTitle(currentTitle)}"`);
-
-      // Apply New Day transformations
-         const finalPlayers = processNewDayTransformations(
-           calculatedPlayers,
-           reRank,
-         );
-
-            await savePlayers(finalPlayers);
-           setProjectNameStorage(getNextTitle(currentTitle));
-           clearPendingNewDay();
-           clearSettings();
-
-           if (shouldLog(10)) {
-             console.debug(
-               `New Day complete - Title: ${getNextTitle(currentTitle)}, ReRank: ${reRank}\n`,
-             );
-           }
-
-          setPlayers(finalPlayers);
-
-          // Flush batch buffer to server before reload
-          await endBatch();
-
-          // Reload to apply changes
-          window.location.reload();
-          return;
+          const reRank = pendingNewDayData.reRank === true;
+          if (await processPendingNewDayOp(calculatedPlayers, reRank, clearSettings)) {
+            return;
+          }
         } catch (err) {
           console.error("Failed to process pending New Day:", err);
           clearPendingNewDay();
@@ -1953,58 +1957,26 @@ const handleRandomResult = (setter: (value: string) => void) => {
    const recalculateAndSave = async (): Promise<boolean> => {
       log('[RECALC]', 'Starting recalculate_and_save');
 
-   // Check for pending New Day operation (set by App.tsx before calling recalculate)
+    // Check for pending New Day operation (set by App.tsx before calling recalculate)
     const pendingNewDayData = getPendingNewDay();
     if (pendingNewDayData) {
       console.debug(
         `>>> [RECALC COMPLETE] Pending New Day detected: ${JSON.stringify(pendingNewDayData)}`,
       );
       try {
-        const pendingNewDay = pendingNewDayData;
-        const reRank = pendingNewDay.reRank === true;
-          console.debug(`>>> [NEW DAY] Processing with reRank=${reRank}`);
-
-          // Get current title and determine next title for mini-games
-          const currentTitle = getProjectName();
-          console.debug(`>>> [NEW DAY] Current title from storage: "${currentTitle}"`);
-          console.debug(`>>> [NEW DAY] Next title will be: "${getNextTitle(currentTitle)}"`);
-
-
-         // Fix rank issues before New Day transformations
-           let playersToTransform = normalizePlayersAttendance(normalizePlayersTrophy(players));
-           if (reRank) {
-             playersToTransform = fixPlayerRanks(playersToTransform);
-           }
-         // Apply New Day transformations
-             const finalPlayers = processNewDayTransformations(
-               playersToTransform,
-               reRank,
-             );
-
-           await savePlayers(finalPlayers);
-          setProjectNameStorage(getNextTitle(currentTitle));
-          clearPendingNewDay();
-          clearSettings();
-
-          if (shouldLog(10)) {
-            console.debug(
-              `New Day complete - Title: ${getNextTitle(currentTitle)}, ReRank: ${reRank}\n`,
-            );
-          }
-
-         setPlayers(finalPlayers);
-
-          // Flush batch buffer to server before reload
-          await endBatch();
-
-          // Reload to apply changes
-          window.location.reload();
-          return false;
-        } catch (err) {
-          console.error("Failed to process pending New Day (recalculateAndSave):", err);
-          clearPendingNewDay();
+        const reRank = pendingNewDayData.reRank === true;
+        let playersToTransform = normalizePlayersAttendance(normalizePlayersTrophy(players));
+        if (reRank) {
+          playersToTransform = fixPlayerRanks(playersToTransform);
         }
+        if (await processPendingNewDayOp(playersToTransform, reRank, clearSettings)) {
+          return false;
+        }
+      } catch (err) {
+        console.error("Failed to process pending New Day (recalculateAndSave):", err);
+        clearPendingNewDay();
       }
+    }
 
      // Admin mode: fetch fresh server data, merge with local, then push back atomically
        if (isAdmin) {
@@ -2022,10 +1994,37 @@ const handleRandomResult = (setter: (value: string) => void) => {
            try {
              const response = await gatedFetch(`${serverUrl}/api/ladder`);
              if (response.ok) {
-               const data = await response.json();
-               const serverPlayers = data.data?.players || [];
+                const data = await response.json();
+                const serverPlayers = data.data?.players || [];
 
-               // Merge: take player data from server, keep local nRatings, and merge
+                // Sanity check: validate local data against club ladder
+                const adminSanityIssues: string[] = [];
+                {
+                  const dupRanks = detectDuplicateRanks(playersRef.current);
+                  if (dupRanks.length > 0) {
+                    adminSanityIssues.push(`Duplicate ranks: ${dupRanks.join(', ')}`);
+                  }
+                }
+                const adminCheck = validatePlayersAgainstClubLadder(playersRef.current, serverPlayers);
+                if (adminCheck.orphanRanks.length > 0) adminSanityIssues.push(`Orphan ranks (no server match): ${adminCheck.orphanRanks.join(', ')}`);
+                if (adminCheck.countMismatch) adminSanityIssues.push(`Player count mismatch: local=${adminCheck.localCount}, server=${adminCheck.clubCount}`);
+                if (adminCheck.diverged.length > 4) {
+                  alert(`Too many player mismatches with club ladder (${adminCheck.diverged.length} players differ).\n\nThis likely means you loaded a mini-game from a different ladder. Recalculate aborted.`);
+                  return true;
+                }
+                if (adminCheck.diverged.length > 0) adminSanityIssues.push(`Data diverged for ${adminCheck.diverged.length} player(s): ${adminCheck.diverged.join(', ')}`);
+                if (adminSanityIssues.length > 0) {
+                  const msg = `Data integrity issues detected before recalculate:\n\n${adminSanityIssues.join('\n')}\n\nThis may be from importing a corrupted or mismatched mini-game file.`;
+                  if (adminSanityIssues.some(i => i.startsWith('Duplicate ranks'))) {
+                    alert(msg + '\n\nFix rank duplicates before recalculating.');
+                    return true;
+                  }
+                  if (!confirm(msg + '\n\nContinue anyway?')) {
+                    return true;
+                  }
+                }
+
+                // Merge: take player data from server, keep local nRatings, and merge
                // gameResults cell-by-cell so local unconfirmed entries are not lost
                mergePlayers = serverPlayers.map((sp: PlayerData) => {
                   const localPlayer = playersRef.current.find(lp => lp.rank === sp.rank);
@@ -2144,13 +2143,7 @@ const handleRandomResult = (setter: (value: string) => void) => {
         }
 
         // Lock all game results with "_" suffix to mark as confirmed
-        const lockedPlayers = normalizedPlayers.map(p => ({
-          ...p,
-          gameResults: (p.gameResults || []).map(r => r && r.trim() ? `${r.replace(/_+$/, '')}_` : r),
-        }));
-
-        // Deduplicate to prevent duplicate entries
-        const dedupedAdminPlayers = deduplicatePlayers(lockedPlayers);
+        const dedupedAdminPlayers = lockAndDeduplicate(normalizedPlayers);
 
         if (shouldLog(3)) {
           console.debug('[RECALC_DEBUG] [ADMIN] After locking:');
@@ -2256,18 +2249,12 @@ const handleRandomResult = (setter: (value: string) => void) => {
     }
 
     // Lock all game results with "_" suffix to mark as confirmed
-    const lockedPlayers = normalizedPlayers.map(p => ({
-      ...p,
-      gameResults: (p.gameResults || []).map(r => r && r.trim() ? `${r.replace(/_+$/, '')}_` : r),
-    }));
-
-    // Deduplicate to prevent duplicate entries
-    const dedupedPlayers = deduplicatePlayers(lockedPlayers);
+    const dedupedPlayers = lockAndDeduplicate(normalizedPlayers);
 
     if (shouldLog(3)) {
       console.debug('[RECALC_DEBUG] After locking:');
-      for (const p of lockedPlayers) {
-        const filled = (p.gameResults || []).filter((r) => r && r.trim() && r.trim() !== '');
+      for (const p of dedupedPlayers) {
+        const filled = (p.gameResults || []).filter((r: string | null) => r && r.trim() && r.trim() !== '');
         if (filled.length > 0) {
           console.debug('[RECALC_DEBUG] P' + p.rank + ' locked:', filled.map((r, i) => 'R' + i + '=' + r));
         }
@@ -2336,7 +2323,7 @@ const handleRandomResult = (setter: (value: string) => void) => {
    * Refresh players from server/storage
    * Called when polling detects data changes from other clients
    */
-  const refreshPlayers = async () => {
+  const refreshPlayers = async (force: boolean = false) => {
     // Skip server refresh during Enter Games mode to prevent overwriting
     // local game result entries with stale server data
     if (isEnterGamesMode) {
@@ -2369,7 +2356,7 @@ const handleRandomResult = (setter: (value: string) => void) => {
         const hashStart = performance.now();
         const newHash = computePlayersHash(freshPlayers);
         const hashMs = performance.now() - hashStart;
-        if (newHash === lastRefreshHash.current) {
+        if (!force && newHash === lastRefreshHash.current) {
           log('[REFRESH]', `⊘ Data unchanged (hash=${newHash.slice(0, 12)}) — skipping setPlayers (hash: ${hashMs.toFixed(1)}ms)`);
           return;
         }
@@ -2388,7 +2375,14 @@ const handleRandomResult = (setter: (value: string) => void) => {
         }));
         const mapMs = performance.now() - mapStart;
 
-        setPlayers(playersWithResults);
+        // Dedup guard: prevent duplicate ranks from corrupting the UI
+        const beforeDedup = playersWithResults.length;
+        const dedupedPlayers = deduplicatePlayers(playersWithResults);
+        if (beforeDedup !== dedupedPlayers.length) {
+          console.error(`[REFRESH] DEDUP: removed ${beforeDedup - dedupedPlayers.length} duplicate players from refresh`);
+        }
+
+        setPlayers(dedupedPlayers);
         const totalMs = performance.now() - refreshStart;
 
         log('[PERF REFRESH]', `✓ Set ${playersWithResults.length} players | total: ${totalMs.toFixed(0)}ms | fetch: ${fetchMs.toFixed(0)}ms | hash: ${hashMs.toFixed(1)}ms | map: ${mapMs.toFixed(1)}ms`);

@@ -99,3 +99,15 @@ export function deduplicatePlayers(players: PlayerData[]): PlayerData[] {
 
   return result;
 }
+
+/**
+ * Lock all game results with "_" suffix and deduplicate.
+ * Used after recalculate to mark cells as confirmed.
+ */
+export function lockAndDeduplicate(players: PlayerData[]): PlayerData[] {
+  const locked = players.map(p => ({
+    ...p,
+    gameResults: (p.gameResults || []).map(r => r && r.trim() ? `${r.replace(/_+$/, '')}_` : r),
+  }));
+  return deduplicatePlayers(locked);
+}

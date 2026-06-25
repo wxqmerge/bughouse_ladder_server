@@ -23,6 +23,9 @@ import {
   removePlayerFromAll,
   updatePlayerInAll,
   checkMiniGameFilesWith,
+  reconcileMiniGameWithClubLadder,
+  getMiniGameFilePath,
+  clearMiniGameCache,
   tournamentStore,
   MINI_GAME_FILES,
   ZipEntry,
@@ -455,6 +458,10 @@ router.post('/tournament/import-single', upload.single('file'), asyncHandler(asy
     const dataDir = path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data/ladder.tab'));
     const filePath = path.join(dataDir, normTargetGame);
     await withTiming(`writeFile(${filePath})`, () => fs.writeFile(filePath, content + '\n', 'utf-8'));
+
+    // Post-import reconciliation: align player identity with ladder.tab
+    clearMiniGameCache();
+    await reconcileMiniGameWithClubLadder(normTargetGame);
 
     // Clean up uploaded file
     await withTiming('unlink(upload)', () => fs.unlink(req.file!.path));
