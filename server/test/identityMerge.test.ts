@@ -57,11 +57,11 @@ describe('readMiniGameFile identity merge', () => {
     const mgPlayers = [makePlayer({ rank: 1, lastName: 'MiniName', rating: 1100, nRating: 1500 })];
     await writeLadderFile(
       { header: [], players: mgPlayers, rawLines: [] },
-      path.join(testDir, 'BG_Game.tab')
+      path.join(testDir, 'bg_game.tab')
     );
 
     // Read merged
-    const merged = await readMiniGameFile('BG_Game.tab');
+    const merged = await readMiniGameFile('bg_game.tab');
     expect(merged).not.toBeNull();
     expect(merged!.players[0].lastName).toBe('ClubName');
     expect(merged!.players[0].rating).toBe(1300);
@@ -73,10 +73,10 @@ describe('readMiniGameFile identity merge', () => {
     const mgPlayers = [makePlayer({ rank: 1, lastName: 'MiniName', nRating: 1500 })];
     await writeLadderFile(
       { header: [], players: mgPlayers, rawLines: [] },
-      path.join(testDir, 'BG_Game.tab')
+      path.join(testDir, 'bg_game.tab')
     );
 
-    const merged = await readMiniGameFile('BG_Game.tab');
+    const merged = await readMiniGameFile('bg_game.tab');
     expect(merged).not.toBeNull();
     expect(merged!.players[0].lastName).toBe('MiniName');
     expect(merged!.players[0].nRating).toBe(1500);
@@ -92,16 +92,16 @@ describe('readMiniGameFile identity merge', () => {
     const mgPlayers = [makePlayer({ rank: 1, lastName: 'MiniName', nRating: 1500 })];
     await writeLadderFile(
       { header: [], players: mgPlayers, rawLines: [] },
-      path.join(testDir, 'BG_Game.tab')
+      path.join(testDir, 'bg_game.tab')
     );
 
-    const raw = await readMiniGameFileRaw('BG_Game.tab');
+    const raw = await readMiniGameFileRaw('bg_game.tab');
     expect(raw).not.toBeNull();
     expect(raw!.players[0].lastName).toBe('MiniName');
   });
 
   it('returns null for non-existent mini-game file', async () => {
-    const result = await readMiniGameFile('Queen_Game.tab');
+    const result = await readMiniGameFile('queen_game.tab');
     expect(result).toBeNull();
   });
 
@@ -113,11 +113,11 @@ describe('readMiniGameFile identity merge', () => {
     const mgPlayers = [makePlayer({ rank: 1, lastName: 'MiniName', nRating: 1500 })];
     await writeLadderFile(
       { header: [], players: mgPlayers, rawLines: [] },
-      path.join(testDir, 'BG_Game.tab')
+      path.join(testDir, 'bg_game.tab')
     );
 
     // First read
-    const first = await readMiniGameFile('BG_Game.tab');
+    const first = await readMiniGameFile('bg_game.tab');
     expect(first!.players[0].lastName).toBe('ClubName');
 
     // Update club ladder
@@ -126,12 +126,12 @@ describe('readMiniGameFile identity merge', () => {
 
     // Second read: mini-game cache still has raw data, but identity merge runs fresh each call
     // so it picks up the updated club ladder
-    const second = await readMiniGameFile('BG_Game.tab');
+    const second = await readMiniGameFile('bg_game.tab');
     expect(second!.players[0].lastName).toBe('UpdatedName');
 
     // Clear cache and re-read
     clearMiniGameCache();
-    const third = await readMiniGameFile('BG_Game.tab');
+    const third = await readMiniGameFile('bg_game.tab');
     expect(third!.players[0].lastName).toBe('UpdatedName');
   });
 });
@@ -158,7 +158,7 @@ describe('writeMiniGameFile identity split', () => {
 
     // Write mini-game with identity change
     const mgPlayers = [makePlayer({ rank: 1, lastName: 'Edited', rating: 1200, nRating: 1500, gameResults: ['W', 'L', null] })];
-    const result = await writeMiniGameFile('BG_Game.tab', {
+    const result = await writeMiniGameFile('bg_game.tab', {
       header: [],
       players: mgPlayers,
       rawLines: [],
@@ -173,7 +173,7 @@ describe('writeMiniGameFile identity split', () => {
     expect(updatedClub.players[0].lastName).toBe('Edited');
 
     // Verify mini-game file has club identity + original nRating/gameResults
-    const raw = await readMiniGameFileRaw('BG_Game.tab');
+    const raw = await readMiniGameFileRaw('bg_game.tab');
     // Mini-game file gets club identity (Original), not the incoming edit
     expect(raw!.players[0].lastName).toBe('Original');
     expect(raw!.players[0].nRating).toBe(1500);
@@ -190,7 +190,7 @@ describe('writeMiniGameFile identity split', () => {
     await writeLadderFile({ header: [], players: clubPlayers, rawLines: [] }, clubLadderPath);
 
     const mgPlayers = [makePlayer({ rank: 1, lastName: 'Smith', rating: 1200, nRating: 1500 })];
-    const result = await writeMiniGameFile('BG_Game.tab', {
+    const result = await writeMiniGameFile('bg_game.tab', {
       header: [],
       players: mgPlayers,
       rawLines: [],
@@ -201,7 +201,7 @@ describe('writeMiniGameFile identity split', () => {
 
   it('writes as-is when club ladder does not exist', async () => {
     const mgPlayers = [makePlayer({ rank: 1, lastName: 'MiniName', nRating: 1500 })];
-    const result = await writeMiniGameFile('BG_Game.tab', {
+    const result = await writeMiniGameFile('bg_game.tab', {
       header: [],
       players: mgPlayers,
       rawLines: [],
@@ -210,7 +210,7 @@ describe('writeMiniGameFile identity split', () => {
     expect(result.identityUpdates.length).toBe(0);
     expect(result.miniGameWritten).toBe(true);
 
-    const raw = await readMiniGameFileRaw('BG_Game.tab');
+    const raw = await readMiniGameFileRaw('bg_game.tab');
     expect(raw!.players[0].lastName).toBe('MiniName');
   });
 
@@ -226,7 +226,7 @@ describe('writeMiniGameFile identity split', () => {
       makePlayer({ rank: 1, lastName: 'A_Changed', rating: 1200, nRating: 1500 }),
       makePlayer({ rank: 2, lastName: 'B_Changed', rating: 1300, nRating: 1600 }),
     ];
-    const result = await writeMiniGameFile('BG_Game.tab', {
+    const result = await writeMiniGameFile('bg_game.tab', {
       header: [],
       players: mgPlayers,
       rawLines: [],
@@ -321,12 +321,12 @@ describe('round-trip: read merge -> edit -> write split', () => {
     const mgPlayers = [makePlayer({ rank: 1, lastName: 'Mini', nRating: 1500, gameResults: ['W', 'L'] })];
     await writeLadderFile(
       { header: [], players: mgPlayers, rawLines: [] },
-      path.join(testDir, 'BG_Game.tab')
+      path.join(testDir, 'bg_game.tab')
     );
 
     // Step 1: Read (merged)
     clearMiniGameCache();
-    const merged = await readMiniGameFile('BG_Game.tab');
+    const merged = await readMiniGameFile('bg_game.tab');
     expect(merged).not.toBeNull();
     expect(merged!.players[0].lastName).toBe('Club');
     expect(merged!.players[0].nRating).toBe(1500);
@@ -337,7 +337,7 @@ describe('round-trip: read merge -> edit -> write split', () => {
     merged!.players[0].lastName = 'Edited';
 
     // Step 3: Write (split)
-    const result = await writeMiniGameFile('BG_Game.tab', merged!);
+    const result = await writeMiniGameFile('bg_game.tab', merged!);
     expect(result.identityUpdates.length).toBe(1);
     expect(result.identityUpdates[0].lastName).toBe('Edited');
 
@@ -347,7 +347,7 @@ describe('round-trip: read merge -> edit -> write split', () => {
 
     // Step 5: Read again — should show updated identity
     clearMiniGameCache();
-    const reRead = await readMiniGameFile('BG_Game.tab');
+    const reRead = await readMiniGameFile('bg_game.tab');
     expect(reRead!.players[0].lastName).toBe('Edited');
     expect(reRead!.players[0].nRating).toBe(1500);
     expect(reRead!.players[0].gameResults[0]).toBe('W');

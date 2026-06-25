@@ -280,19 +280,19 @@ describe('getExistingMiniGameFiles', () => {
 
   it('should list existing mini-game files', async () => {
     // Create some mini-game files
-    await fs.writeFile(path.join(testDir, 'BG_Game.tab'), 'test');
+    await fs.writeFile(path.join(testDir, 'bg_game.tab'), 'test');
     await fs.writeFile(path.join(testDir, 'bughouse.tab'), 'test');
 
     const result = await getExistingMiniGameFiles();
-    expect(result).toContain('BG_Game.tab');
+    expect(result).toContain('bg_game.tab');
     expect(result).toContain('bughouse.tab');
-    expect(result).not.toContain('Queen_Game.tab');
+    expect(result).not.toContain('queen_game.tab');
   });
 
   it('should return all 7 files when all exist', async () => {
     const allFiles = [
-      'BG_Game.tab', 'Bishop_Game.tab', 'Pillar_Game.tab',
-      'Kings_Cross.tab', 'Pawn_Game.tab', 'Queen_Game.tab', 'bughouse.tab',
+      'bg_game.tab', 'bishop_game.tab', 'pillar_game.tab',
+      'kings_cross.tab', 'pawn_game.tab', 'queen_game.tab', 'bughouse.tab',
     ];
 
     for (const file of allFiles) {
@@ -312,8 +312,8 @@ describe('getMiniGameFilePath', () => {
     const originalTabPath = process.env.TAB_FILE_PATH;
     process.env.TAB_FILE_PATH = '/data/ladder.tab';
 
-    const result = getMiniGameFilePath('BG_Game.tab');
-    expect(result).toContain('BG_Game.tab');
+    const result = getMiniGameFilePath('bg_game.tab');
+    expect(result).toContain('bg_game.tab');
     expect(result).toContain('data');
 
     process.env.TAB_FILE_PATH = originalTabPath;

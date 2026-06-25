@@ -46,22 +46,22 @@ export interface ValidationResult {
 }
 
 export const MINI_GAME_FILES: string[] = [
-  'BG_Game.tab',
-  'Bishop_Game.tab',
-  'Pillar_Game.tab',
-  'Kings_Cross.tab',
-  'Pawn_Game.tab',
-  'Queen_Game.tab',
+  'bg_game.tab',
+  'bishop_game.tab',
+  'pillar_game.tab',
+  'kings_cross.tab',
+  'pawn_game.tab',
+  'queen_game.tab',
   'bughouse.tab',
 ];
 
 export const MINI_GAME_DIFFICULTY_ORDER: string[] = [
-  'Queen_Game.tab',
-  'Pawn_Game.tab',
-  'Kings_Cross.tab',
-  'Pillar_Game.tab',
-  'Bishop_Game.tab',
-  'BG_Game.tab',
+  'queen_game.tab',
+  'pawn_game.tab',
+  'kings_cross.tab',
+  'pillar_game.tab',
+  'bishop_game.tab',
+  'bg_game.tab',
   'bughouse.tab',
 ];
 

@@ -126,7 +126,7 @@ describe('Mini-Game File Switching', () => {
     
     dataService.updateConfig({ miniGameStore: mockStore });
     
-    dataService.setMiniGameFile('BG_Game.tab');
+    dataService.setMiniGameFile('bg_game.tab');
     
     const testPlayers = [
       { rank: 1, group: 'A', lastName: 'Test', firstName: 'Player', rating: 1500, nRating: 1500, trophyEligible: true, grade: '5', num_games: 1, attendance: 0, phone: '', info: '', school: '', room: '', gameResults: ['1L1', null, null] }
@@ -134,7 +134,7 @@ describe('Mini-Game File Switching', () => {
     
     await dataService.savePlayers(testPlayers);
     
-    expect(mockStore.writeMiniGameFile).toHaveBeenCalledWith('BG_Game.tab', expect.objectContaining({
+    expect(mockStore.writeMiniGameFile).toHaveBeenCalledWith('bg_game.tab', expect.objectContaining({
       players: testPlayers
     }));
   });
@@ -182,7 +182,7 @@ describe('Mini-Game File Switching', () => {
     
     dataService.updateConfig({ miniGameStore: mockStore });
     
-    dataService.setMiniGameFile('Queen_Game.tab');
+    dataService.setMiniGameFile('queen_game.tab');
     
     const reloaded = await dataService.reloadPlayers();
     
