@@ -442,12 +442,13 @@ const handleClearAll = async () => {
             const firstFile = result.imported[0];
             const title = firstFile.replace('.tab', '');
             const titleMap: Record<string, string> = {
-              'BG_Game': 'BG_Game',
-              'Bishop_Game': 'Bishop_Game',
-              'Pillar_Game': 'Pillar_Game',
-              'Kings_Cross': 'Kings_Cross',
-              'Pawn_Game': 'Pawn_Game',
-              'Queen_Game': 'Queen_Game',
+              'ladder': 'Ladder',
+              'bg_game': 'BG_Game',
+              'bishop_game': 'Bishop_Game',
+              'pillar_game': 'Pillar_Game',
+              'kings_cross': 'Kings_Cross',
+              'pawn_game': 'Pawn_Game',
+              'queen_game': 'Queen_Game',
               'bughouse': 'Bughouse',
             };
             const importedTitle = titleMap[firstFile] || title;

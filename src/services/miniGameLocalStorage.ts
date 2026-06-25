@@ -75,15 +75,29 @@ export async function importMiniGameFiles(content: string): Promise<{ imported: 
   const sections = parseMiniGameImportContent(content);
 
   for (const { fileName, fileContent } of sections) {
-    if (!MINI_GAME_FILES.includes(fileName)) {
+    const normFileName = fileName.toLowerCase();
+
+    // Handle ladder.tab separately (not in MINI_GAME_FILES)
+    if (normFileName === 'ladder.tab') {
+      try {
+        const ladderData = parseTabContent(fileContent);
+        setJson('ladder_players', ladderData.players);
+        imported.push(normFileName);
+      } catch (err) {
+        errors.push(`Failed to parse ${fileName}: ${(err as Error).message}`);
+      }
+      continue;
+    }
+
+    if (!MINI_GAME_FILES.includes(normFileName)) {
       errors.push(`Unknown file: ${fileName}`);
       continue;
     }
 
     try {
       const ladderData = parseTabContent(fileContent);
-      localStorage.setItem(getStorageKey(fileName), generateTabContent(ladderData));
-      imported.push(fileName);
+      localStorage.setItem(getStorageKey(normFileName), generateTabContent(ladderData));
+      imported.push(normFileName);
     } catch (err) {
       errors.push(`Failed to parse ${fileName}: ${(err as Error).message}`);
     }
