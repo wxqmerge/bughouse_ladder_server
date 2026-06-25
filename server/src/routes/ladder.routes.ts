@@ -12,6 +12,13 @@ import { NUM_ROUNDS } from '../../../shared/utils/constants.js';
 
 const router = Router();
 
+/** Normalize a mini-game file name to lowercase and validate against allowed list. */
+function normalizeFileName(input: string | undefined | null): string | null {
+  if (!input) return null;
+  const lower = String(input).toLowerCase();
+  return MINI_GAME_FILES.includes(lower) ? lower : null;
+}
+
 // Get all ladder data (public read access)
 router.get('/', asyncHandler(async (_req: Request, res: Response) => {
   const ladderData = await readLadderFile();
@@ -265,12 +272,13 @@ router.get('/mini-games/check', asyncHandler(async (_req: Request, res: Response
 // Read mini-game file (public read-only endpoint)
 router.get('/mini-games/read', asyncHandler(async (req: Request, res: Response) => {
   const { fileName } = req.query;
+  const normFileName = normalizeFileName(fileName);
 
-  if (!fileName || !MINI_GAME_FILES.includes(fileName as string)) {
+  if (!normFileName) {
     throw new AppError('Invalid mini-game file name', 400);
   }
 
-  const miniGameData = await readMiniGameFile(fileName as string);
+  const miniGameData = await readMiniGameFile(normFileName);
   if (!miniGameData) {
     res.json({
       success: true,
@@ -296,8 +304,9 @@ router.get('/mini-games/read', asyncHandler(async (req: Request, res: Response) 
 // Write mini-game file (user+admin can write, admin-only operations like copy-players remain in admin.routes)
 router.post('/mini-games/write', requireUserKey, writeLimiter, asyncHandler(async (req: Request, res: Response) => {
   const { fileName, players } = req.body;
+  const normFileName = normalizeFileName(fileName);
 
-  if (!fileName || !MINI_GAME_FILES.includes(fileName)) {
+  if (!normFileName) {
     throw new AppError('Invalid mini-game file name', 400);
   }
 
@@ -305,7 +314,7 @@ router.post('/mini-games/write', requireUserKey, writeLimiter, asyncHandler(asyn
     throw new AppError('Invalid players data', 400);
   }
 
-  const result = await writeMiniGameFile(fileName, {
+  const result = await writeMiniGameFile(normFileName, {
     header: [],
     players,
     rawLines: [],
@@ -314,11 +323,11 @@ router.post('/mini-games/write', requireUserKey, writeLimiter, asyncHandler(asyn
   if (result.identityUpdates.length > 0) {
     broadcastSSEEvent('ladderUpdated', { type: 'bulkUpdate', count: result.identityUpdates.length, identityMerge: true });
   }
-  broadcastSSEEvent('miniGameWritten', { fileName, type: 'miniGameWrite' });
+  broadcastSSEEvent('miniGameWritten', { fileName: normFileName, type: 'miniGameWrite' });
 
   res.json({
     success: true,
-    data: { message: `Saved ${fileName}` },
+    data: { message: `Saved ${normFileName}` },
   });
 }));
 
