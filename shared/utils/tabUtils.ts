@@ -2,6 +2,47 @@ import type { PlayerData, LadderData } from '../types/index.js';
 import { NUM_ROUNDS } from './constants.js';
 
 /**
+ * Parse TSV content into a LadderData object.
+ * Handles header detection, duplicate header repair, and metadata line skipping.
+ */
+export function parseTabContent(content: string): LadderData {
+  let lines = content.split('\n').filter(line => line.trim());
+  if (lines.length === 0) {
+    return { header: [], players: [], rawLines: [] };
+  }
+
+  // Detect and repair duplicate header
+  if (lines.length > 1) {
+    const secondLine = lines[1].replace(/\r/g, '');
+    const secondLineCols = secondLine.split('\t');
+    const isHeader = secondLineCols[13] && secondLineCols[13].trim() === '1';
+
+    if (!isHeader && secondLine.includes('Last Name') && secondLine.includes('First Name')) {
+      const normCols = secondLine.split('\t');
+      if (normCols[13] && normCols[13].trim() === '1') {
+        lines = [lines[0], ...lines.slice(2)];
+      }
+    }
+
+    if (isHeader) {
+      lines = [lines[0], ...lines.slice(2)];
+    }
+  }
+
+  const header = lines[0].split('\t');
+  const players: PlayerData[] = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const player = parsePlayerLine(lines[i]);
+    if (player && player.rank > 0 && (player.lastName || player.firstName || player.nRating !== 0)) {
+      players.push(player);
+    }
+  }
+
+  return { header, players, rawLines: lines };
+}
+
+/**
  * Parse a single TSV line into a PlayerData object.
  * Shared between server (readLadderFile) and frontend (parseTabContent).
  */

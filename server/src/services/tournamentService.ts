@@ -6,7 +6,9 @@ import { readLadderFile, writeLadderFile, PlayerData, LadderData, ensureDataDire
 import { MINI_GAME_FILES, MINI_GAME_DIFFICULTY_ORDER } from '../../../shared/types/index.js';
 import { clearRankReferences } from '../../../shared/utils/hashUtils.js';
 import { NUM_ROUNDS } from '../../../shared/utils/constants.js';
-import { IDENTITY_FIELDS, IdentityField, mergeIdentityFromClubLadder, splitIdentityChanges } from '../../../shared/utils/identityMerge.js';
+import { IDENTITY_FIELDS, IdentityField, mergeIdentityFromClubLadder, mergeIdentityFromClubLadderByName, splitIdentityChanges } from '../../../shared/utils/identityMerge.js';
+import { deduplicatePlayers } from '../../../shared/utils/dedupUtils.js';
+import { parsePlayerLine, generateTabContent } from '../../../shared/utils/tabUtils.js';
 import {
   copyPlayersToTarget as sharedCopyPlayersToTarget,
   mergeGameResults as sharedMergeGameResults,
@@ -245,6 +247,48 @@ export async function writeMiniGameFile(
 	return { identityUpdates, miniGameWritten: true };
 }
 
+/**
+ * After a raw import, reconcile the mini-game file's player identity with ladder.tab.
+ * Matches by name (not rank) so that imported files with mismatched ranks still get
+ * correct player data from the club ladder.
+ */
+export async function reconcileMiniGameWithClubLadder(fileName: string): Promise<void> {
+	const clubLadderPath = path.join(path.dirname(getMiniGameFilePath(fileName)), 'ladder.tab');
+	let clubLadder: LadderData | null = null;
+	try {
+		clubLadder = await readLadderFile(clubLadderPath);
+	} catch {
+		return;
+	}
+
+	if (!clubLadder || clubLadder.players.length === 0) return;
+
+	const raw = await readMiniGameFileRaw(fileName);
+	if (!raw || raw.players.length === 0) return;
+
+	const reconciled = mergeIdentityFromClubLadderByName(raw.players, clubLadder.players);
+
+	// Check if anything actually changed
+	let changed = false;
+	for (let i = 0; i < raw.players.length && i < reconciled.length; i++) {
+		for (const field of IDENTITY_FIELDS) {
+			if (field === 'rank') continue;
+			if (raw.players[i][field] !== reconciled[i][field]) {
+				changed = true;
+				break;
+			}
+		}
+		if (changed) break;
+	}
+
+	if (!changed) return;
+
+	// Invalidate cache before writing
+	miniGameCache.delete(getMiniGameFilePath(fileName));
+	await writeMiniGameFile(fileName, { ...raw, players: reconciled });
+	loggerLog('[RECONCILE]', `Reconciled ${fileName} with club ladder (${reconciled.length} players)`);
+}
+
 // Re-export shared functions for backward compatibility
 export const copyPlayersToTarget = sharedCopyPlayersToTarget;
 export const mergeGameResults = sharedMergeGameResults;
@@ -392,23 +436,33 @@ export async function addPlayerToAllMiniGames(newPlayer: PlayerData): Promise<vo
   }
 }
 
+/**
+ * Remove a player from a LadderData and clear rank references.
+ */
+function removePlayerAndClearRefs(ladderData: LadderData, key: string): { removed: boolean; deletedRank?: number } {
+  const idx = ladderData.players.findIndex(
+    p => p.lastName.toLowerCase() + '|' + p.firstName.toLowerCase() === key
+  );
+  if (idx === -1) return { removed: false };
+
+  const deletedRank = ladderData.players[idx].rank;
+  ladderData.players.splice(idx, 1);
+  for (const player of ladderData.players) {
+    if (player.gameResults) {
+      player.gameResults = clearRankReferences(player.gameResults, deletedRank);
+    }
+  }
+  return { removed: true, deletedRank };
+}
+
 export async function removePlayerFromAll(lastName: string, firstName: string): Promise<void> {
   const key = lastName.toLowerCase() + '|' + firstName.toLowerCase();
 
   const ladderData = await readLadderFile();
-  const deletedIdx = ladderData.players.findIndex(
-    p => p.lastName.toLowerCase() + '|' + p.firstName.toLowerCase() === key
-  );
-  if (deletedIdx !== -1) {
-    const deletedRank = ladderData.players[deletedIdx].rank;
-    ladderData.players.splice(deletedIdx, 1);
-    for (const player of ladderData.players) {
-      if (player.gameResults) {
-        player.gameResults = clearRankReferences(player.gameResults, deletedRank);
-      }
-    }
+  const ladderResult = removePlayerAndClearRefs(ladderData, key);
+  if (ladderResult.removed) {
     await writeLadderFile(ladderData);
-    loggerLog('[TOURNAMENT]', 'Removed player ' + firstName + ' ' + lastName + ' (rank ' + deletedRank + ') from club ladder');
+    loggerLog('[TOURNAMENT]', 'Removed player ' + firstName + ' ' + lastName + ' (rank ' + ladderResult.deletedRank + ') from club ladder');
   }
 
   const existingFiles = await getExistingMiniGameFiles();
@@ -416,19 +470,10 @@ export async function removePlayerFromAll(lastName: string, firstName: string): 
     const miniGameData = await readMiniGameFileRaw(fileName);
     if (!miniGameData) continue;
 
-    const idx = miniGameData.players.findIndex(
-      p => p.lastName.toLowerCase() + '|' + p.firstName.toLowerCase() === key
-    );
-    if (idx !== -1) {
-      const deletedRank = miniGameData.players[idx].rank;
-      miniGameData.players.splice(idx, 1);
-      for (const player of miniGameData.players) {
-        if (player.gameResults) {
-          player.gameResults = clearRankReferences(player.gameResults, deletedRank);
-        }
-      }
+    const result = removePlayerAndClearRefs(miniGameData, key);
+    if (result.removed) {
       await writeMiniGameFile(fileName, miniGameData);
-      loggerLog('[TOURNAMENT]', 'Removed player ' + firstName + ' ' + lastName + ' (rank ' + deletedRank + ') from ' + fileName);
+      loggerLog('[TOURNAMENT]', 'Removed player ' + firstName + ' ' + lastName + ' (rank ' + result.deletedRank + ') from ' + fileName);
     }
   }
 }
@@ -533,8 +578,39 @@ export const tournamentStore: MiniGameStore = {
   async importMiniGameFiles(content: string): Promise<{ imported: string[]; errors: string[] }> {
     const imported: string[] = [];
     const errors: string[] = [];
+    const dataDir = path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data/ladder.tab'));
+
+    // Backup existing files to old/ directory before import
+    const backupDir = path.join(dataDir, 'old');
+    try {
+      await fs.mkdir(backupDir, { recursive: true });
+    } catch (err) {
+      loggerLog('[TOURNAMENT]', `Failed to create backup directory: ${(err as Error).message}`);
+    }
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const backupPath = path.join(backupDir, timestamp);
+    try {
+      await fs.mkdir(backupPath, { recursive: true });
+      // Backup ladder.tab
+      const ladderPath = process.env.TAB_FILE_PATH || path.join(__dirname, '../../data/ladder.tab');
+      try {
+        await fs.copyFile(ladderPath, path.join(backupPath, 'ladder.tab'));
+        loggerLog('[TOURNAMENT]', `Backed up ladder.tab to ${backupPath}`);
+      } catch { /* ladder.tab may not exist */ }
+      // Backup existing mini-game files
+      for (const fileName of MINI_GAME_FILES) {
+        const filePath = path.join(dataDir, fileName);
+        try {
+          await fs.copyFile(filePath, path.join(backupPath, fileName));
+          loggerLog('[TOURNAMENT]', `Backed up ${fileName} to ${backupPath}`);
+        } catch { /* file may not exist */ }
+      }
+    } catch (err) {
+      loggerLog('[TOURNAMENT]', `Backup failed: ${(err as Error).message}`);
+    }
 
     const sections = parseMiniGameImportContent(content);
+    const importedMiniGames = new Set<string>();
 
     for (const { fileName, fileContent } of sections) {
       const normFileName = fileName.toLowerCase();
@@ -558,13 +634,41 @@ export const tournamentStore: MiniGameStore = {
       }
 
       try {
-        const dataDir = path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data/ladder.tab'));
+        // Parse and dedup before writing to prevent duplicate ranks
+        const lines = fileContent.split('\n').filter(l => l.trim());
+        const players: PlayerData[] = [];
+        for (const line of lines) {
+          const p = parsePlayerLine(line);
+          if (p) players.push(p);
+        }
+        const beforeDedup = players.length;
+        const deduped = deduplicatePlayers(players);
+        if (beforeDedup !== deduped.length) {
+          loggerLog('[TOURNAMENT]', `${normFileName}: removed ${beforeDedup - deduped.length} duplicate players`);
+        }
         const filePath = path.join(dataDir, normFileName);
-        await fs.writeFile(filePath, fileContent + '\n', 'utf-8');
+        await fs.writeFile(filePath, generateTabContent(deduped) + '\n', 'utf-8');
+        // Post-import reconciliation: align player identity with ladder.tab
+        miniGameCache.delete(getMiniGameFilePath(normFileName));
+        await reconcileMiniGameWithClubLadder(normFileName);
         imported.push(normFileName);
+        importedMiniGames.add(normFileName);
         loggerLog('[TOURNAMENT]', `Imported ${normFileName}`);
       } catch (err) {
         errors.push(`Failed to write ${normFileName}: ${(err as Error).message}`);
+      }
+    }
+
+    // Remove mini-game files that weren't in the import
+    for (const fileName of MINI_GAME_FILES) {
+      if (importedMiniGames.has(fileName)) continue;
+      const filePath = path.join(dataDir, fileName);
+      try {
+        await fs.access(filePath);
+        await fs.unlink(filePath);
+        loggerLog('[TOURNAMENT]', `Removed stale mini-game: ${fileName}`);
+      } catch {
+        // File doesn't exist, skip
       }
     }
 

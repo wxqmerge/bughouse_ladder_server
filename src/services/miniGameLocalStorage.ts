@@ -7,14 +7,18 @@ import { PlayerData, LadderData, MiniGameStore, MINI_GAME_FILES } from '../../sh
 import { clearRankReferences } from '../../shared/utils/hashUtils';
 import { NUM_ROUNDS } from '../../shared/utils/constants';
 import { mergeIdentityFromClubLadder, splitIdentityChanges } from '../../shared/utils/identityMerge';
-import { getLocalPlayers, setJson } from './storageService';
+import { deduplicatePlayers } from '../../shared/utils/dedupUtils';
+import { getLocalPlayers, getJson, setJson } from './storageService';
 import {
   copyPlayersToTarget as sharedCopyPlayersToTarget,
   mergeGameResults as sharedMergeGameResults,
   generateTrophyReport as sharedGenerateTrophyReport,
   parseMiniGameImportContent,
 } from '../../shared/utils/trophyGeneration';
-import { parsePlayerLine, playersToTabContent as sharedPlayersToTabContent } from '../../shared/utils/tabUtils';
+import { parsePlayerLine, parseTabContent as sharedParseTabContent, playersToTabContent as sharedPlayersToTabContent } from '../../shared/utils/tabUtils';
+
+// Re-export for backward compatibility
+export { parseTabContent } from '../../shared/utils/tabUtils';
 
 const MINI_GAME_PREFIX = 'mini_game_';
 
@@ -22,45 +26,7 @@ function getStorageKey(fileName: string): string {
   return MINI_GAME_PREFIX + fileName;
 }
 
-export function parseTabContent(content: string): LadderData {
-  let lines = content.split('\n').filter(line => line.trim());
-  if (lines.length === 0) {
-    return { header: [], players: [], rawLines: [] };
-  }
-
-  // Detect and repair duplicate header
-  if (lines.length > 1) {
-    const secondLine = lines[1];
-    const secondLineNorm = secondLine.replace(/\r/g, '');
-    const secondLineCols = secondLineNorm.split('\t');
-    const isHeader = secondLineCols[13] && secondLineCols[13].trim() === '1';
-    
-    if (!isHeader && secondLineNorm.includes('Last Name') && secondLineNorm.includes('First Name')) {
-      const normCols = secondLineNorm.split('\t');
-      if (normCols[13] && normCols[13].trim() === '1') {
-        lines = [lines[0], ...lines.slice(2)];
-      }
-    }
-    
-    if (isHeader) {
-      lines = [lines[0], ...lines.slice(2)];
-    }
-  }
-
-  const header = lines[0].split('\t');
-  const players: PlayerData[] = [];
-
-  for (let i = 1; i < lines.length; i++) {
-    const player = parsePlayerLine(lines[i]);
-    if (player && player.rank > 0 && (player.lastName || player.firstName || player.nRating !== 0)) {
-      players.push(player);
-    }
-  }
-
-  return { header, players, rawLines: lines };
-}
-
-function generateTabContent(ladderData: LadderData): string {
+function preserveRawTabContent(ladderData: LadderData): string {
   return ladderData.rawLines.join('\n') + '\n';
 }
 
@@ -72,7 +38,28 @@ export async function importMiniGameFiles(content: string): Promise<{ imported: 
   const imported: string[] = [];
   const errors: string[] = [];
 
+  // Backup existing data before import
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const backupKey = `ladder_backup_${timestamp}`;
+  const backup: Record<string, string> = {};
+  // Backup ladder players
+  try {
+    const ladderData = getJson('ladder_players');
+    if (ladderData) backup['ladder_players'] = JSON.stringify(ladderData);
+  } catch { /* no ladder data */ }
+  // Backup existing mini-game files
+  for (const fileName of MINI_GAME_FILES) {
+    try {
+      const content = localStorage.getItem(getStorageKey(fileName));
+      if (content) backup[getStorageKey(fileName)] = content;
+    } catch { /* file may not exist */ }
+  }
+  if (Object.keys(backup).length > 0) {
+    localStorage.setItem(backupKey, JSON.stringify(backup));
+  }
+
   const sections = parseMiniGameImportContent(content);
+  const importedMiniGames = new Set<string>();
 
   for (const { fileName, fileContent } of sections) {
     const normFileName = fileName.toLowerCase();
@@ -80,8 +67,13 @@ export async function importMiniGameFiles(content: string): Promise<{ imported: 
     // Handle ladder.tab separately (not in MINI_GAME_FILES)
     if (normFileName === 'ladder.tab') {
       try {
-        const ladderData = parseTabContent(fileContent);
-        setJson('ladder_players', ladderData.players);
+        const ladderData = sharedParseTabContent(fileContent);
+        const beforeDedup = ladderData.players.length;
+        const deduped = deduplicatePlayers(ladderData.players);
+        if (beforeDedup !== deduped.length) {
+          console.warn(`[IMPORT] ${normFileName}: removed ${beforeDedup - deduped.length} duplicate players`);
+        }
+        setJson('ladder_players', deduped);
         imported.push(normFileName);
       } catch (err) {
         errors.push(`Failed to parse ${fileName}: ${(err as Error).message}`);
@@ -95,12 +87,25 @@ export async function importMiniGameFiles(content: string): Promise<{ imported: 
     }
 
     try {
-      const ladderData = parseTabContent(fileContent);
-      localStorage.setItem(getStorageKey(normFileName), generateTabContent(ladderData));
+      let ladderData = sharedParseTabContent(fileContent);
+      // Dedup guard: prevent duplicate ranks from corrupting the import
+      const beforeDedup = ladderData.players.length;
+      ladderData = { ...ladderData, players: deduplicatePlayers(ladderData.players) };
+      if (beforeDedup !== ladderData.players.length) {
+        console.warn(`[IMPORT] ${normFileName}: removed ${beforeDedup - ladderData.players.length} duplicate players`);
+      }
+      localStorage.setItem(getStorageKey(normFileName), preserveRawTabContent(ladderData));
       imported.push(normFileName);
+      importedMiniGames.add(normFileName);
     } catch (err) {
       errors.push(`Failed to parse ${fileName}: ${(err as Error).message}`);
     }
+  }
+
+  // Remove mini-game files that weren't in the import
+  for (const fileName of MINI_GAME_FILES) {
+    if (importedMiniGames.has(fileName)) continue;
+    localStorage.removeItem(getStorageKey(fileName));
   }
 
   return { imported, errors };
@@ -124,7 +129,7 @@ async function readMiniGameFile(fileName: string): Promise<LadderData | null> {
   try {
     const content = localStorage.getItem(getStorageKey(fileName));
     if (!content) return null;
-    const raw = parseTabContent(content);
+    const raw = sharedParseTabContent(content);
     const clubPlayers = getLocalPlayers();
     const mergedPlayers = mergeIdentityFromClubLadder(raw.players, clubPlayers);
     return { ...raw, players: mergedPlayers };
@@ -156,7 +161,7 @@ async function writeMiniGameFile(fileName: string, ladderData: LadderData): Prom
   }
 
   // Write mini-game file with merged identity + original nRating/gameResults
-  const content = generateTabContent({ ...ladderData, players: miniGamePlayers });
+  const content = preserveRawTabContent({ ...ladderData, players: miniGamePlayers });
   localStorage.setItem(getStorageKey(fileName), content);
 
   return { identityUpdates, miniGameWritten: true };
