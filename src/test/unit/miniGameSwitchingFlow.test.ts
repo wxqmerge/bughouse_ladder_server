@@ -42,7 +42,7 @@ describe('Mini-Game Switching Decision Logic', () => {
 
   describe('file not found', () => {
     it('should copy players when file not found and admin', () => {
-      const result = decideMiniGameSwitch('BG_Game.tab', ['ladder.tab'], true, 0);
+      const result = decideMiniGameSwitch('bg_game.tab', ['ladder.tab'], true, 0);
       expect(result.action).toBe('copy');
       expect(result.shouldCopy).toBe(true);
       expect(result.shouldLoad).toBe(true);
@@ -50,7 +50,7 @@ describe('Mini-Game Switching Decision Logic', () => {
     });
 
     it('should abort when file not found and not admin', () => {
-      const result = decideMiniGameSwitch('Pawn_Game.tab', ['ladder.tab'], false, 0);
+      const result = decideMiniGameSwitch('pawn_game.tab', ['ladder.tab'], false, 0);
       expect(result.action).toBe('abort');
       expect(result.shouldCopy).toBe(false);
       expect(result.shouldLoad).toBe(false);
@@ -79,8 +79,8 @@ describe('Mini-Game Switching Decision Logic', () => {
   describe('file exists', () => {
     it('should load directly when file has players', () => {
       const result = decideMiniGameSwitch(
-        'BG_Game.tab',
-        ['ladder.tab', 'BG_Game.tab'],
+        'bg_game.tab',
+        ['ladder.tab', 'bg_game.tab'],
         true,
         14
       );
@@ -91,8 +91,8 @@ describe('Mini-Game Switching Decision Logic', () => {
 
     it('should recreate when file exists but is empty and admin', () => {
       const result = decideMiniGameSwitch(
-        'Pawn_Game.tab',
-        ['ladder.tab', 'Pawn_Game.tab'],
+        'pawn_game.tab',
+        ['ladder.tab', 'pawn_game.tab'],
         true,
         0
       );
@@ -103,8 +103,8 @@ describe('Mini-Game Switching Decision Logic', () => {
 
     it('should abort when file exists, empty, and not admin', () => {
       const result = decideMiniGameSwitch(
-        'Queen_Game.tab',
-        ['ladder.tab', 'Queen_Game.tab'],
+        'queen_game.tab',
+        ['ladder.tab', 'queen_game.tab'],
         false,
         0
       );
@@ -121,29 +121,29 @@ describe('Mini-Game Switching Decision Logic', () => {
       const isAdmin = true;
 
       // Step 1: Switch to BG_Game (not found → copy)
-      let result = decideMiniGameSwitch('BG_Game.tab', existingFiles, isAdmin, 0);
+      let result = decideMiniGameSwitch('bg_game.tab', existingFiles, isAdmin, 0);
       expect(result.action).toBe('copy');
-      existingFiles.push('BG_Game.tab');
+      existingFiles.push('bg_game.tab');
 
       // Step 2: Switch to Pawn_Game (not found → copy)
-      result = decideMiniGameSwitch('Pawn_Game.tab', existingFiles, isAdmin, 0);
+      result = decideMiniGameSwitch('pawn_game.tab', existingFiles, isAdmin, 0);
       expect(result.action).toBe('copy');
-      existingFiles.push('Pawn_Game.tab');
+      existingFiles.push('pawn_game.tab');
 
       // Step 3: Switch to Queen_Game (not found → copy)
-      result = decideMiniGameSwitch('Queen_Game.tab', existingFiles, isAdmin, 0);
+      result = decideMiniGameSwitch('queen_game.tab', existingFiles, isAdmin, 0);
       expect(result.action).toBe('copy');
-      existingFiles.push('Queen_Game.tab');
+      existingFiles.push('queen_game.tab');
 
       // Step 4: Switch back to BG_Game (exists → load)
-      result = decideMiniGameSwitch('BG_Game.tab', existingFiles, isAdmin, 14);
+      result = decideMiniGameSwitch('bg_game.tab', existingFiles, isAdmin, 14);
       expect(result.action).toBe('load');
       expect(result.shouldCopy).toBe(false);
     });
 
     it('should handle switching back to ladder', () => {
       // Switching from mini-game to ladder resets mini-game file to null
-      let currentMiniGame = 'BG_Game.tab';
+      let currentMiniGame = 'bg_game.tab';
       const newTitle = 'Ladder';
       const newIsMiniGame = newTitle !== 'Ladder' && !newTitle.includes('Chess Ladder');
 
@@ -157,7 +157,7 @@ describe('Mini-Game Switching Decision Logic', () => {
 
   describe('edge cases', () => {
     it('should handle empty existing files list', () => {
-      const result = decideMiniGameSwitch('BG_Game.tab', [], true, 0);
+      const result = decideMiniGameSwitch('bg_game.tab', [], true, 0);
       expect(result.action).toBe('copy');
     });
 
@@ -175,8 +175,8 @@ describe('Mini-Game Switching Decision Logic', () => {
 
     it('should handle large player count', () => {
       const result = decideMiniGameSwitch(
-        'BG_Game.tab',
-        ['ladder.tab', 'BG_Game.tab'],
+        'bg_game.tab',
+        ['ladder.tab', 'bg_game.tab'],
         true,
         150
       );

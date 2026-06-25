@@ -472,12 +472,12 @@ const handleClearAll = async () => {
 
   const handleImportSingleMiniGame = async () => {
     const MINI_GAME_FILES = [
-      'BG_Game.tab',
-      'Bishop_Game.tab',
-      'Pillar_Game.tab',
-      'Kings_Cross.tab',
-      'Pawn_Game.tab',
-      'Queen_Game.tab',
+      'bg_game.tab',
+      'bishop_game.tab',
+      'pillar_game.tab',
+      'kings_cross.tab',
+      'pawn_game.tab',
+      'queen_game.tab',
       'bughouse.tab',
     ];
     const targetGame = prompt(

@@ -55,10 +55,7 @@ export function isMiniGameTitle(title: string): boolean {
 
 export function titleToFileName(title: string): string {
    const normalized = String(title || "").toLowerCase().trim();
-   if (normalized === "bughouse") {
-     return "bughouse.tab";
-   }
-   return `${title}.tab`;
+   return `${normalized}.tab`;
  }
 
  export function fileNameToTitle(fileName: string): string {

@@ -66,7 +66,7 @@ describe('clearMiniGames', () => {
 
   it('should only delete mini-game files, not ladder.tab', async () => {
     await fs.writeFile(path.join(testDir, 'ladder.tab'), 'ladder data');
-    await fs.writeFile(path.join(testDir, 'BG_Game.tab'), 'game data');
+    await fs.writeFile(path.join(testDir, 'bg_game.tab'), 'game data');
 
     await clearMiniGames();
 
@@ -95,7 +95,7 @@ describe('hasMiniGameFiles', () => {
   });
 
   it('should return true when at least one mini-game file exists', async () => {
-    await fs.writeFile(path.join(testDir, 'BG_Game.tab'), 'test');
+    await fs.writeFile(path.join(testDir, 'bg_game.tab'), 'test');
     const result = await hasMiniGameFiles();
     expect(result).toBe(true);
   });
@@ -129,14 +129,14 @@ describe('exportTournamentFiles', () => {
   });
 
   it('should list only existing mini-game files', async () => {
-    await fs.writeFile(path.join(testDir, 'BG_Game.tab'), 'bg data');
-    await fs.writeFile(path.join(testDir, 'Queen_Game.tab'), 'queen data');
+    await fs.writeFile(path.join(testDir, 'bg_game.tab'), 'bg data');
+    await fs.writeFile(path.join(testDir, 'queen_game.tab'), 'queen data');
 
     const result = await exportTournamentFiles();
     expect(result.success).toBe(true);
     expect(result.files!.length).toBeGreaterThanOrEqual(2);
-    expect(result.files!.map(f => f.name)).toContain('BG_Game.tab');
-    expect(result.files!.map(f => f.name)).toContain('Queen_Game.tab');
+    expect(result.files!.map(f => f.name)).toContain('bg_game.tab');
+    expect(result.files!.map(f => f.name)).toContain('queen_game.tab');
     expect(result.files!.map(f => f.name)).not.toContain('bughouse.tab');
   });
 });
@@ -176,13 +176,13 @@ describe('addPlayerToAllMiniGames', () => {
     // Create one mini-game file with existing players
     const existingPlayers = [createMatchPlayer(1, 'Existing', 'Player', 1400, '5', 3, ['1L1'])];
     const ladderData = createLadderData(existingPlayers);
-    await writeLadderFile(ladderData, path.join(testDir, 'BG_Game.tab'));
+    await writeLadderFile(ladderData, path.join(testDir, 'bg_game.tab'));
 
     const newPlayer = createMatchPlayer(2, 'New', 'Player', 1300, '6', 0, []);
     await addPlayerToAllMiniGames(newPlayer);
 
     // Check BG_Game.tab has both players
-    const bgData = await readLadderFile(path.join(testDir, 'BG_Game.tab'));
+    const bgData = await readLadderFile(path.join(testDir, 'bg_game.tab'));
     expect(bgData.players.length).toBe(2);
     expect(bgData.players.find(p => p.lastName === 'Existing')).toBeDefined();
     expect(bgData.players.find(p => p.lastName === 'New')).toBeDefined();
@@ -199,7 +199,7 @@ describe('addPlayerToAllMiniGames', () => {
     await addPlayerToAllMiniGames(existingPlayer);
     await addPlayerToAllMiniGames(existingPlayer);
 
-    const data = await readLadderFile(path.join(testDir, 'BG_Game.tab'));
+    const data = await readLadderFile(path.join(testDir, 'bg_game.tab'));
     const samePlayers = data.players.filter(p => p.lastName === 'Same');
     expect(samePlayers.length).toBe(1);
   });
@@ -311,7 +311,7 @@ describe('Gr trophy generation - mini-game tournament mode', () => {
       createMatchPlayer(2, 'Pawn', 'Winner', 1500, '5', 8, []),
       createMatchPlayer(3, 'Bishop', 'Winner', 1400, '6', 5, []),
     ];
-    const existingFiles = ['Queen_Game.tab', 'Pawn_Game.tab', 'Bishop_Game.tab'];
+    const existingFiles = ['queen_game.tab', 'pawn_game.tab', 'bishop_game.tab'];
 
     // Create the mini-game files with proper player data
     for (const file of existingFiles) {
@@ -404,7 +404,7 @@ describe('countGamesAcrossMiniGames', () => {
       await addPlayerToAllMiniGames(player);
       await addPlayerToAllMiniGames(player);
 
-      const data = await readLadderFile(path.join(testDir2, 'BG_Game.tab'));
+      const data = await readLadderFile(path.join(testDir2, 'bg_game.tab'));
       const countPlayers = data.players.filter(p => p.lastName === 'Count');
       expect(countPlayers.length).toBe(1);
     } finally {
@@ -495,21 +495,21 @@ describe('Mini-game trophy stress test', () => {
     try {
       // Generate 6 mini-game files with valid game entries using rating stress test approach
       const miniGameFiles = [
-        'Queen_Game.tab',
-        'Pawn_Game.tab',
-        'Pillar_Game.tab',
-        'Bishop_Game.tab',
-        'BG_Game.tab',
+        'queen_game.tab',
+        'pawn_game.tab',
+        'pillar_game.tab',
+        'bishop_game.tab',
+        'bg_game.tab',
         'bughouse.tab',
       ];
 
       const miniGamePlayers: Record<string, PlayerData[]> = {};
       const gameTypes: Record<string, '2p' | '4p'> = {
-        'Queen_Game.tab': '2p',
-        'Pawn_Game.tab': '2p',
-        'Pillar_Game.tab': '2p',
-        'Bishop_Game.tab': '2p',
-        'BG_Game.tab': '2p',
+        'queen_game.tab': '2p',
+        'pawn_game.tab': '2p',
+        'pillar_game.tab': '2p',
+        'bishop_game.tab': '2p',
+        'bg_game.tab': '2p',
         'bughouse.tab': '4p',
       };
       let seed = 42;
@@ -589,7 +589,7 @@ describe('Mini-game trophy stress test', () => {
       for (const fileName of miniGameFiles) {
         expect(zipFileNames).toContain(fileName);
       }
-      expect(zipFileNames).not.toContain('Kings_Cross.tab');
+      expect(zipFileNames).not.toContain('kings_cross.tab');
 
       // Verify each mini-game file in ZIP has 50 players
       for (const fileName of miniGameFiles) {

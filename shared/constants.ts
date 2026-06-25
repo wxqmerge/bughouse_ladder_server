@@ -9,11 +9,11 @@ export const DEFAULT_GAME_RESULTS: (string | null)[] = Array(NUM_ROUNDS).fill(nu
 
 /** Mini-game file names (with .tab extension) */
 export const MINI_GAME_FILES: string[] = [
-  'BG_Game.tab',
-  'Bishop_Game.tab',
-  'Pillar_Game.tab',
-  'Kings_Cross.tab',
-  'Pawn_Game.tab',
-  'Queen_Game.tab',
+  'bg_game.tab',
+  'bishop_game.tab',
+  'pillar_game.tab',
+  'kings_cross.tab',
+  'pawn_game.tab',
+  'queen_game.tab',
   'bughouse.tab',
 ];
