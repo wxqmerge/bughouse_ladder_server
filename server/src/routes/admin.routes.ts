@@ -274,7 +274,7 @@ router.post('/tournament/save-mini-game', asyncHandler(async (req: Request, res:
 // Read mini-game file (for tournament mode - ladder form reads from mini-game file)
 router.get('/tournament/read-mini-game', asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { fileName } = req.query;
-    const normFileName = normalizeFileName(fileName);
+    const normFileName = normalizeFileName(typeof fileName === 'string' ? fileName : undefined);
     
     if (!normFileName) {
       throw new AppError('Invalid mini-game file name', 400);

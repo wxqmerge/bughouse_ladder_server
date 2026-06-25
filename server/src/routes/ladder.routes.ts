@@ -272,7 +272,7 @@ router.get('/mini-games/check', asyncHandler(async (_req: Request, res: Response
 // Read mini-game file (public read-only endpoint)
 router.get('/mini-games/read', asyncHandler(async (req: Request, res: Response) => {
   const { fileName } = req.query;
-  const normFileName = normalizeFileName(fileName);
+  const normFileName = normalizeFileName(typeof fileName === 'string' ? fileName : undefined);
 
   if (!normFileName) {
     throw new AppError('Invalid mini-game file name', 400);
