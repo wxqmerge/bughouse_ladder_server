@@ -3,7 +3,7 @@
 # Verify setup - checks everything without sudo
 # Run: ./deploy/verify.sh
 
-# Derive project name from directory (e.g., /var/www/html/dev-ladder -> dev-ladder)
+# Derive project name from directory (e.g., /var/www/html/my-project -> my-project)
 PROJECT_NAME=$(basename "$(pwd)")
 
 # Domain: CLI arg > .env > scan for matching config

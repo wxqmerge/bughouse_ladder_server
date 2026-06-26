@@ -262,7 +262,7 @@ server {
 }
 ```
 
-> **Note:** For multi-version deployments, use subdomains where the subdomain matches the project directory name (e.g., `dev-ladder.your-domain.com` for the `dev-ladder` project). See [Multi-Version Deployment](#multi-version-deployment) below.
+> **Note:** For multi-version deployments, use subdomains where the subdomain matches the project directory name (e.g., `my-project.your-domain.com` for the `my-project` project). See [Multi-Version Deployment](#multi-version-deployment) below.
 
 Enable the site:
 
@@ -493,13 +493,13 @@ To run multiple ladder versions (e.g., development and release) on the same serv
 
 **SUBDOMAIN == PROJECT_NAME** — The subdomain always matches the project directory name:
 
-- Directory: `/var/www/html/dev-ladder` → Subdomain: `dev-ladder.your-domain.com`
+- Directory: `/var/www/html/my-project` → Subdomain: `my-project.your-domain.com`
 - Directory: `/var/www/html/rel-ladder` → Subdomain: `rel-ladder.your-domain.com`
 
 ### Architecture
 
 ```
-Browser → your-domain.com/dev-ladder/dist/ → dev-ladder.your-domain.com (HTTPS) → Nginx → localhost:3000
+Browser → your-domain.com/my-project/dist/ → my-project.your-domain.com (HTTPS) → Nginx → localhost:3000
 Browser → your-domain.com/rel-ladder/dist/ → rel-ladder.your-domain.com (HTTPS) → Nginx → localhost:3001
 ```
 
@@ -507,7 +507,7 @@ Browser → your-domain.com/rel-ladder/dist/ → rel-ladder.your-domain.com (HTT
 
 Each ladder version needs a systemd service file.
 
-**dev-ladder.service** (`/etc/systemd/system/dev-ladder.service`):
+**my-project.service** (`/etc/systemd/system/my-project.service`):
 
 ```ini
 [Unit]
@@ -518,7 +518,7 @@ After=network.target
 Type=simple
 User=www-data
 Group=www-data
-WorkingDirectory=/var/www/bughouse-ladder/deploy/instances/dev-ladder
+WorkingDirectory=/var/www/bughouse-ladder/deploy/instances/my-project
 Environment=NODE_ENV=production
 Environment=PORT=3000
 ExecStart=/usr/bin/node dist/index.js
@@ -559,26 +559,26 @@ WantedBy=multi-user.target
 
 ```bash
 # Copy service files from deploy directory
-sudo cp deploy/instances/dev-ladder/dev-ladder.service /etc/systemd/system/
+sudo cp deploy/instances/my-project/my-project.service /etc/systemd/system/
 sudo cp deploy/instances/rel-ladder/rel-ladder.service /etc/systemd/system/
 
 # Enable and start both services
 sudo systemctl daemon-reload
-sudo systemctl enable dev-ladder rel-ladder
-sudo systemctl start dev-ladder rel-ladder
+sudo systemctl enable my-project rel-ladder
+sudo systemctl start my-project rel-ladder
 
 # Verify both are running
-sudo systemctl status dev-ladder rel-ladder
+sudo systemctl status my-project rel-ladder
 ```
 
 ### Nginx Configuration for Multiple Versions
 
-**dev-ladder.your-domain.com** (`/etc/nginx/sites-available/dev-ladder.your-domain.com.conf`):
+**my-project.your-domain.com** (`/etc/nginx/sites-available/my-project.your-domain.com.conf`):
 
 ```nginx
 server {
     listen 80;
-    server_name dev-ladder.your-domain.com;
+    server_name my-project.your-domain.com;
 
     location / {
         proxy_pass http://127.0.0.1:3000;
@@ -619,11 +619,11 @@ server {
 
 ```bash
 # Copy configs to Nginx
-sudo cp deploy/nginx/dev-ladder.<hostname>.conf /etc/nginx/sites-available/dev-ladder.<hostname>.conf
+sudo cp deploy/nginx/my-project.<hostname>.conf /etc/nginx/sites-available/my-project.<hostname>.conf
 sudo cp deploy/nginx/rel-ladder.<hostname>.conf /etc/nginx/sites-available/rel-ladder.<hostname>.conf
 
 # Enable them (symlink)
-sudo ln -s /etc/nginx/sites-available/dev-ladder.<hostname>.conf /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/my-project.<hostname>.conf /etc/nginx/sites-enabled/
 sudo ln -s /etc/nginx/sites-available/rel-ladder.<hostname>.conf /etc/nginx/sites-enabled/
 
 # Test and reload
@@ -634,7 +634,7 @@ sudo nginx -t && sudo systemctl reload nginx
 
 **Development:**
 ```
-https://your-domain.com/dev-ladder/dist/?config=1&server=https://dev-ladder.your-domain.com&key=mykey
+https://your-domain.com/my-project/dist/?config=1&server=https://my-project.your-domain.com&key=mykey
 ```
 
 **Release:**
@@ -645,15 +645,15 @@ https://your-domain.com/rel-ladder/dist/?config=1&server=https://rel-ladder.your
 ### SSL for Multiple Subdomains
 
 ```bash
-sudo certbot --nginx -d dev-ladder.your-domain.com
+sudo certbot --nginx -d my-project.your-domain.com
 sudo certbot --nginx -d rel-ladder.your-domain.com
 ```
 
 ### Tracing Logs
 
 ```bash
-# Live logs for dev-ladder
-sudo journalctl -u dev-ladder -f
+# Live logs for my-project
+sudo journalctl -u my-project -f
 
 # Live logs for rel-ladder
 sudo journalctl -u rel-ladder -f
@@ -663,15 +663,15 @@ sudo journalctl -u rel-ladder -f
 
 ```bash
 # Restart a specific version
-sudo systemctl restart dev-ladder
+sudo systemctl restart my-project
 sudo systemctl restart rel-ladder
 
 # Check status
-sudo systemctl status dev-ladder
+sudo systemctl status my-project
 sudo systemctl status rel-ladder
 
 # Stop a version
-sudo systemctl stop dev-ladder
+sudo systemctl stop my-project
 ```
 
 ---
@@ -716,7 +716,7 @@ curl -I https://your-domain.com/api/ladder
 sudo systemctl status bughouse-ladder
 
 # Multi-version
-sudo systemctl status dev-ladder
+sudo systemctl status my-project
 sudo systemctl status rel-ladder
 ```
 
@@ -733,7 +733,7 @@ Should show `active (running)`.
 sudo journalctl -u bughouse-ladder -n 50 --no-pager
 
 # Check logs (multi-version)
-sudo journalctl -u dev-ladder -n 50 --no-pager
+sudo journalctl -u my-project -n 50 --no-pager
 sudo journalctl -u rel-ladder -n 50 --no-pager
 
 # Check if port is in use
@@ -752,7 +752,7 @@ NODE_ENV=production node dist/index.js
 sudo systemctl status bughouse-ladder
 
 # Check if backend is running (multi-version)
-sudo systemctl status dev-ladder
+sudo systemctl status my-project
 sudo systemctl status rel-ladder
 
 # Test backend directly
@@ -821,7 +821,7 @@ cd server && npm run build && cd ..
 sudo systemctl restart bughouse-ladder
 
 # Restart services (multi-version)
-sudo systemctl restart dev-ladder rel-ladder
+sudo systemctl restart my-project rel-ladder
 ```
 
 ### Backup Data
@@ -840,7 +840,7 @@ sudo tar -czf /var/backups/bughouse-ladder-$(date +%Y%m%d).tar.gz \
 sudo journalctl -u bughouse-ladder -f
 
 # Application logs (multi-version)
-sudo journalctl -u dev-ladder -f
+sudo journalctl -u my-project -f
 sudo journalctl -u rel-ladder -f
 
 # Nginx access log

@@ -3,7 +3,7 @@
 ## Architecture
 
 ```
-Browser → your-domain.com/dev-ladder/dist/ → dev-ladder.your-domain.com (HTTPS) → Nginx → localhost:3000
+Browser → your-domain.com/my-project/dist/ → my-project.your-domain.com (HTTPS) → Nginx → localhost:3000
 ```
 
 The frontend is served from `your-domain.com/<project-name>/dist/`. The subdomain `<project-name>.your-domain.com` is always the same as the project directory name. When the client needs API data, it calls `https://<project-name>.your-domain.com/api/...`, which Nginx proxies to the backend.
@@ -12,7 +12,7 @@ The frontend is served from `your-domain.com/<project-name>/dist/`. The subdomai
 
 **SUBDOMAIN == PROJECT_NAME** — The subdomain always matches the project directory name:
 
-- Directory: `/var/www/html/dev-ladder` → Subdomain: `dev-ladder.your-domain.com`
+- Directory: `/var/www/html/my-project` → Subdomain: `my-project.your-domain.com`
 - Directory: `/var/www/html/rel-ladder` → Subdomain: `rel-ladder.your-domain.com`
 
 This convention is enforced by `manage_versions.sh` which derives the project name from `basename "$(pwd)"`.
@@ -24,13 +24,13 @@ This convention is enforced by `manage_versions.sh` which derives the project na
 ```bash
 sudo mkdir -p /var/www/html
 cd /var/www/html
-git clone <repo-url> dev-ladder
-cd dev-ladder
+git clone <repo-url> my-project
+cd my-project
 ```
 
 The directory name becomes the project name, subdomain, and systemd service name.
 
-**Naming rules:** Only letters, numbers, and hyphens (`-`). No underscores (`_`), spaces, or dots. Examples: `dev-ladder`, `rel-ladder`, `test-ladder`.
+**Naming rules:** Only letters, numbers, and hyphens (`-`). No underscores (`_`), spaces, or dots. Examples: `my-project`, `rel-ladder`, `test-ladder`.
 
 ### 2. Configure server/.env
 
@@ -51,27 +51,27 @@ Both `ADMIN_API_KEY` and `USER_API_KEY` are required in production. The server w
 ### 3. Create the instance (nginx + systemd)
 
 ```bash
-cd /var/www/html/dev-ladder
+cd /var/www/html/my-project
 sudo ./deploy/manage_versions.sh add
 ```
 
 Requires root — checks that you're running as sudo and that `server/.env` contains `PORT`, `DOMAIN`, `ADMIN_API_KEY`, and `USER_API_KEY` (all required in production).
 
 This creates:
-- Nginx config at `/etc/nginx/sites-available/dev-ladder.your-domain.com.conf`
-- Systemd service at `/etc/systemd/system/dev-ladder.service`
+- Nginx config at `/etc/nginx/sites-available/my-project.your-domain.com.conf`
+- Systemd service at `/etc/systemd/system/my-project.service`
 - Starts the service automatically
 
 ### 4. Provision SSL
 
 ```bash
-sudo certbot --nginx -d dev-ladder.your-domain.com
+sudo certbot --nginx -d my-project.your-domain.com
 ```
 
 ### 5. Build and deploy
 
 ```bash
-cd /var/www/html/dev-ladder
+cd /var/www/html/my-project
 sudo ./deploy/update.sh
 ```
 
@@ -88,7 +88,7 @@ Output shows health checks and client config strings for admin/user/view access.
 ## Updating an Existing Instance
 
 ```bash
-cd /var/www/html/dev-ladder
+cd /var/www/html/my-project
 git pull          # or make your changes
 sudo ./deploy/update.sh
 ```
@@ -96,7 +96,7 @@ sudo ./deploy/update.sh
 ## Removing an Instance
 
 ```bash
-cd /var/www/html/dev-ladder
+cd /var/www/html/my-project
 sudo ./deploy/manage_versions.sh remove
 ```
 
@@ -106,14 +106,14 @@ This stops the service, removes nginx config, and deletes the instance directory
 
 | Project  | Subdomain              | Config URL |
 |----------|------------------------|------------|
-| dev-ladder | dev-ladder.your-domain.com | https://your-domain.com/dev-ladder/dist/?config=1&server=https://dev-ladder.your-domain.com&key=mykey |
+| my-project | my-project.your-domain.com | https://your-domain.com/my-project/dist/?config=1&server=https://my-project.your-domain.com&key=mykey |
 | rel-ladder | rel-ladder.your-domain.com | https://your-domain.com/rel-ladder/dist/?config=1&server=https://rel-ladder.your-domain.com&key=mykey |
 
 ## Frontend Config Strings
 
 **Development:**
 ```
-https://your-domain.com/dev-ladder/dist/?config=1&server=https://dev-ladder.your-domain.com&key=mykey
+https://your-domain.com/my-project/dist/?config=1&server=https://my-project.your-domain.com&key=mykey
 ```
 
 **Release:**
@@ -125,12 +125,12 @@ Enter the API key in Settings > Server Connection.
 
 ## Nginx Configs
 
-### dev-ladder.your-domain.com
+### my-project.your-domain.com
 
 ```
 server {
     listen 80;
-    server_name dev-ladder.your-domain.com;
+    server_name my-project.your-domain.com;
 
     location / {
         proxy_pass http://127.0.0.1:3000;
@@ -170,7 +170,7 @@ server {
 ## DNS
 
 Ensure A records exist for:
-- `dev-ladder.your-domain.com` → your server IP
+- `my-project.your-domain.com` → your server IP
 - `rel-ladder.your-domain.com` → your server IP
 
 ## Systemd Service Files
@@ -179,20 +179,20 @@ Ensure A records exist for:
 
 If `EnvironmentFile` is missing from a deployed service file, `update.sh` [8/9] injects it automatically before restarting. This is required for the server to load API keys from `server/.env`.
 
-### dev-ladder.service
+### my-project.service
 
 ```ini
 [Unit]
-Description=Bughouse Chess Ladder - dev-ladder
+Description=Bughouse Chess Ladder - my-project
 After=network.target
 
 [Service]
 Type=simple
 User=www-data
 Group=www-data
-WorkingDirectory=/var/www/html/dev-ladder/instances/dev-ladder
+WorkingDirectory=/var/www/html/my-project/instances/my-project
 Environment=NODE_ENV=production
-EnvironmentFile=/var/www/html/dev-ladder/server/.env
+EnvironmentFile=/var/www/html/my-project/server/.env
 ExecStart=/usr/bin/node dist/index.js
 Restart=always
 RestartSec=10
@@ -230,8 +230,8 @@ WantedBy=multi-user.target
 ### Tracing Logs
 
 ```bash
-# Live logs for dev-ladder
-sudo journalctl -u dev-ladder -f
+# Live logs for my-project
+sudo journalctl -u my-project -f
 
 # Live logs for rel-ladder
 sudo journalctl -u rel-ladder -f
