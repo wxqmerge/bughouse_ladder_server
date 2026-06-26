@@ -101,6 +101,16 @@ export function deduplicatePlayers(players: PlayerData[]): PlayerData[] {
 }
 
 /**
+ * Normalize grade values: replace 'N/A' with ' ' (a space).
+ */
+export function normalizeGrades(players: PlayerData[]): PlayerData[] {
+  return players.map(p => ({
+    ...p,
+    grade: p.grade === 'N/A' ? ' ' : p.grade,
+  }));
+}
+
+/**
  * Lock all game results with "_" suffix and deduplicate.
  * Used after recalculate to mark cells as confirmed.
  */
