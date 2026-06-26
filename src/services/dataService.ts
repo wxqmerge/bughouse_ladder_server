@@ -9,6 +9,7 @@
 
 import { PlayerData, DeltaOperation, MiniGameStore, DEFAULT_GAME_RESULTS } from '../../shared/types';
 import { NUM_ROUNDS } from '../../shared/utils/constants';
+import { normalizeGrades } from '../../shared/utils/dedupUtils';
 import { buildActivityReportData, formatActivityReportTSV } from '../../shared/utils/activityReport';
 import {
   getLocalPlayers as storageGetLocalPlayers,
@@ -640,9 +641,10 @@ class DataService {
     if (!data || !data.data || !Array.isArray(data.data.players)) {
       throw new Error('Invalid server response: missing data.players array');
     }
+    const players = normalizeGrades(data.data.players);
     // Cache in localStorage via storageService (skip server sync - we're fetching FROM server)
-    storageSavePlayers(data.data.players, false, true);
-    return data.data.players;
+    storageSavePlayers(players, false, true);
+    return players;
   }
 
   private async fetchPlayer(rank: number): Promise<PlayerData | undefined> {
@@ -684,7 +686,7 @@ class DataService {
     await throwIfNotOk(response, 'Failed to fetch mini-game players');
 
     const data = await response.json();
-    const players = data.data.players || [];
+    const players = normalizeGrades(data.data.players || []);
     // Cache in localStorage mini-game store
     if (this.currentMiniGameFile && players.length > 0) {
       const store = this.getStore();

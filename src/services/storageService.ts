@@ -8,6 +8,7 @@
  */
 
 import { PlayerData, DeltaOperation } from '../../shared/types';
+import { normalizeGrades } from '../../shared/utils/dedupUtils';
 import { log } from '../utils/log';
 import { NUM_ROUNDS } from '../../shared/utils/constants';
 import { dataService, DataServiceMode } from './dataService';
@@ -67,7 +68,7 @@ export function getJsonArray<T = any>(keyName: string): T[] {
  */
 export function getLocalPlayers(): PlayerData[] {
   const data = getJson<PlayerData[]>('ladder_players');
-  return Array.isArray(data) ? data : [];
+  return Array.isArray(data) ? normalizeGrades(data) : [];
 }
 
 /**

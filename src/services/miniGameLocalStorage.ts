@@ -7,7 +7,7 @@ import { PlayerData, LadderData, MiniGameStore, MINI_GAME_FILES } from '../../sh
 import { clearRankReferences } from '../../shared/utils/hashUtils';
 import { NUM_ROUNDS } from '../../shared/utils/constants';
 import { mergeIdentityFromClubLadder, splitIdentityChanges } from '../../shared/utils/identityMerge';
-import { deduplicatePlayers } from '../../shared/utils/dedupUtils';
+import { deduplicatePlayers, normalizeGrades } from '../../shared/utils/dedupUtils';
 import { getLocalPlayers, getJson, setJson } from './storageService';
 import {
   copyPlayersToTarget as sharedCopyPlayersToTarget,
@@ -73,7 +73,7 @@ export async function importMiniGameFiles(content: string): Promise<{ imported: 
         if (beforeDedup !== deduped.length) {
           console.warn(`[IMPORT] ${normFileName}: removed ${beforeDedup - deduped.length} duplicate players`);
         }
-        setJson('ladder_players', deduped);
+        setJson('ladder_players', normalizeGrades(deduped));
         imported.push(normFileName);
       } catch (err) {
         errors.push(`Failed to parse ${fileName}: ${(err as Error).message}`);
