@@ -413,7 +413,7 @@ export default function PrintLabelsDialog({
               color: "#64748b",
             }}
           >
-            {playerCount} player{playerCount !== 1 ? "s" : ""}{fillBlanks ? ` + ${fillBlanksMax - playerCount} blanks` : ""} \u2192{" "}
+            {playerCount} player{playerCount !== 1 ? "s" : ""}{fillBlanks ? ` + ${fillBlanksMax - playerCount} blanks` : ""} {"→"}{" "}
             {Math.ceil((fillBlanks ? fillBlanksMax : playerCount) / labelsPerPage)} page{Math.ceil((fillBlanks ? fillBlanksMax : playerCount) / labelsPerPage) !== 1 ? "s" : ""}
             {copies > 1
               ? ` \u00D7 ${copies} copies = ${(Math.ceil((fillBlanks ? fillBlanksMax : playerCount) / labelsPerPage) * copies).toLocaleString()} pages`
