@@ -193,7 +193,7 @@ console.debug('[mode.ts] Same-origin detection threw error:', (e as Error).messa
      try {
        const hostname = window.location.hostname;
 
-       // Extract project name from path (e.g., /dev-ladder/dist/ → dev-ladder)
+       // Extract project name from path (e.g., /my-project/dist/ → my-project)
        const match = pathname.match(/^\/([^/]+)\/dist(?:\/.*)?$/);
        if (match) {
          const projectName = match[1];

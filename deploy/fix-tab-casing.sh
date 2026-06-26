@@ -1,11 +1,11 @@
 #!/bin/bash
 # fix-tab-casing.sh — rename mini-game .tab files to lowercase, delete uppercase duplicates
 # Usage: ./fix-tab-casing.sh [data_directory]
-# Default data directory: /var/www/html/dev-ladder/server/data
+# Default data directory: current directory
 
 set -euo pipefail
 
-DATA_DIR="${1:-/var/www/html/dev-ladder/server/data}"
+DATA_DIR="${1:-.}"
 
 if [ ! -d "$DATA_DIR" ]; then
   echo "ERROR: Data directory not found: $DATA_DIR"
