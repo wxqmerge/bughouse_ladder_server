@@ -5631,7 +5631,7 @@ miniGamesHaveResults={miniGamesHaveResultsFlag}
                </th>
                <th
                  key="head-trophy"
-                 title={tt("Trophy eligibility flag")}
+                  title={tt("Trophy eligibility flag -ineligible +eligible")}
                  style={{
                    padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                    textAlign: "center",
@@ -5720,7 +5720,7 @@ borderBottom: `2px solid ${headerBorder}`,
                   </th>
                   <th
                     key="head-school"
-                    title={tt("Player school")}
+                    title={tt("School Room")}
                     style={{
                       padding: getScaledPadding(zoomLevel, 0.5, 0.75),
                       textAlign: "left",

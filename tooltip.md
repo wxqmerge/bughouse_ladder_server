@@ -78,13 +78,13 @@ Tooltips are enabled by default, toggleable via settings.
 | First Name | "Player first name" |
 | Previous Rating | "Rating before today's games" |
 | New Rating | "Calculated rating after today's games" |
-| T (Trophy) | "Trophy eligibility flag" |
+| T (Trophy) | "Trophy eligibility flag -ineligible +eligible" |
 | Gr (Grade) | "Player grade level" |
 | Gms (Games) | "Number of games played" |
 | Attend (Attendance) | "Attendance record" |
 | Phone | "Player phone number" |
 | I (Info) | "Additional player information" |
-| S (School) | "Player school" |
+| S (School) | "School Room" |
 | R (Room) | "Player room assignment" |
 | Round 1-31 | "Game result for round {N}. Enter: W (win), L (loss), D (draw), or blank" |
 
