@@ -462,7 +462,7 @@ if [ -f "/etc/nginx/sites-available/${PROJECT_NAME}.${DOMAIN}.conf" ]; then
     echo "    User:"
     echo "      https://$DOMAIN/$PROJECT_NAME/dist/?config=1&server=https://${PROJECT_NAME}.${DOMAIN}&key=$USER_KEY"
     echo ""
-    echo "    View:"
+     echo "    View:"
     echo "      https://$DOMAIN/$PROJECT_NAME/dist/"
     echo ""
 else
@@ -470,6 +470,22 @@ else
     FAIL=$((FAIL + 1))
 fi
 echo ""
+
+# --- Quick Access ---
+echo "18. Quick Access"
+if [ -f "/etc/nginx/sites-available/${PROJECT_NAME}.${DOMAIN}.conf" ]; then
+    proj_domain="${PROJECT_NAME}.${DOMAIN}"
+    echo "  Admin URL:"
+    echo "    https://$DOMAIN/$PROJECT_NAME/dist/?config=1&server=https://${proj_domain}&key=$ADMIN_KEY"
+    echo ""
+    echo "  Watch server logs:"
+    echo "    sudo journalctl -u $PROJECT_NAME -f"
+    echo ""
+else
+    echo "  [INFO] Admin URL: configure nginx first"
+    echo "  [INFO] Watch logs: sudo journalctl -u $PROJECT_NAME -f"
+    echo ""
+fi
 
 # --- Suggestions ---
 if [ $FAIL -gt 0 ]; then
