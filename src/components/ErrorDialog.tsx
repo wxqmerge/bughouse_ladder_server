@@ -192,7 +192,7 @@ export default function ErrorDialog({
   const isGameEntry = mode === "game-entry";
   const isRecalculate = mode === "recalculate";
   const isEnterGames = mode === "enter-games";
-  const isDev = window.location.href.startsWith('http://localhost:5173');
+
 
   // Keyboard shortcuts: Ctrl+letter for buttons
   useEffect(() => {
@@ -236,7 +236,7 @@ export default function ErrorDialog({
           break;
         case "r":
           e.preventDefault();
-          if (isEnterGames && (isDev || testMode) && cb.onRandomResult) {
+           if (isEnterGames && testMode && hasAdminKey && cb.onRandomResult) {
             cb.onRandomResult((v: string) => {
               setCurrentInputValue(v);
               if (inputRef.current) inputRef.current.value = v;
@@ -260,7 +260,7 @@ export default function ErrorDialog({
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isEnterGames, isDev, testMode]);
+  }, [isEnterGames, testMode, hasAdminKey]);
 
   // Sync input value when existingValue changes (e.g., clicking different cell)
   useEffect(() => {
@@ -1577,7 +1577,7 @@ export default function ErrorDialog({
             {/* Enter-Games mode: Cancel + Enter_Recalculate_Save */}
 {isEnterGames ? (
 <>
-               {(isDev || testMode) && onRandomResult && (
+                {testMode && hasAdminKey && onRandomResult && (
                   <button
                     type="button"
                     onClick={() => { console.debug('>>> [BUTTON PRESSED] Random Result'); onRandomResult?.(setCurrentInputValue); }}

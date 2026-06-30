@@ -852,7 +852,7 @@ export default function Settings({
               </p>
             </div>
           )}
-          {isAdmin && hasAdminKey && (
+          {hasAdminKey && (
             <div style={{ marginBottom: '1.5rem' }}>
               <label title={tt("Enable random result buttons in Enter Games mode for testing")} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
                 <input
