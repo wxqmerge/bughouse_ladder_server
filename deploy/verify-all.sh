@@ -36,10 +36,10 @@ for dir in "$BASE"/*/; do
     output=$(bash deploy/verify.sh 2>&1)
     echo "$output"
 
-    # Extract counts from summary line
-    pass=$(echo "$output" | grep -oP '^\s+\K\d+(?= passed)' | tail -1)
-    fail=$(echo "$output" | grep -oP '^\s+\K\d+(?= failed)' | tail -1)
-    warn=$(echo "$output" | grep -oP '^\s+\K\d+(?= warnings)' | tail -1)
+    # Extract counts from summary line (format: "  Summary: 20 passed, 0 failed, 1 warnings")
+    pass=$(echo "$output" | grep 'Summary:' | grep -oP '\d+(?= passed)')
+    fail=$(echo "$output" | grep 'Summary:' | grep -oP '\d+(?= failed)')
+    warn=$(echo "$output" | grep 'Summary:' | grep -oP '\d+(?= warnings)')
 
     PASS_TOTAL=$((PASS_TOTAL + ${pass:-0}))
     FAIL_TOTAL=$((FAIL_TOTAL + ${fail:-0}))
