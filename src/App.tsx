@@ -155,7 +155,7 @@ const [miniGamesHaveResults, setMiniGamesHaveResults] = useState(false);
           if (mode !== 'local' && mode !== 'server_down') {
             // Hash init moved to LadderForm - it calls dataService.setHash() after fetching players
             // console.log('[APP] Starting data polling (60 second interval)');
-            dataService.startPolling(60000);
+             dataService.startPolling();
             
             // Start SSE for real-time updates (polling remains as fallback)
             dataService.startSSE();
@@ -177,18 +177,37 @@ const [miniGamesHaveResults, setMiniGamesHaveResults] = useState(false);
             });
             (window as any).__ladder_dataServiceUnsubscribe = unsubscribe;
 
-            // Start write health polling (every 30 seconds)
+            // Start write health polling with exponential backoff
             let healthCheckPending = false;
-            const healthCheckInterval = setInterval(async () => {
-              if (healthCheckPending) return;
+            let healthCheckFailures = 0;
+            const BASE_HEALTH_INTERVAL = 30000;
+            const MAX_HEALTH_INTERVAL = 300000;
+            const scheduleHealthCheck = () => {
+              const interval = Math.min(
+                BASE_HEALTH_INTERVAL * Math.pow(2, healthCheckFailures),
+                MAX_HEALTH_INTERVAL
+              );
+              return setTimeout(doHealthCheck, interval);
+            };
+            const doHealthCheck = async () => {
+              if (healthCheckPending) {
+                scheduleHealthCheck();
+                return;
+              }
               healthCheckPending = true;
               try {
                 const userSettings = loadUserSettings();
                 const serverUrl = userSettings.server?.trim();
-                if (!serverUrl) return;
+                if (!serverUrl) {
+                  scheduleHealthCheck();
+                  return;
+                }
 
                 const response = await gatedFetch(`${serverUrl}/health`);
-                if (!response.ok) return;
+                if (!response.ok) {
+                  scheduleHealthCheck();
+                  return;
+                }
 
                 const data = await response.json();
 
@@ -208,15 +227,22 @@ const [miniGamesHaveResults, setMiniGamesHaveResults] = useState(false);
                     console.warn(`[APP] Server write errors: ${wh.consecutiveFailures} consecutive failures. Last error: ${wh.lastError}`);
                   }
                 }
+                healthCheckFailures = 0;
               } catch (e) {
-                // Health check failed - server unreachable, log for observability
-                console.warn('[APP] Periodic health check failed (server may be unreachable):', e);
+                healthCheckFailures++;
+                console.warn(`[APP] Health check failed (${healthCheckFailures} consecutive):`, e);
               } finally {
                 healthCheckPending = false;
+                scheduleHealthCheck();
               }
-            }, 30000);
+            };
+            const healthCheckTimeout = scheduleHealthCheck();
 
-            (window as any).__ladder_healthCheckInterval = healthCheckInterval;
+            (window as any).__ladder_healthCheckInterval = {
+              clear: () => {
+                if (healthCheckTimeout) clearTimeout(healthCheckTimeout);
+              },
+            };
           }
 
           // Check for migration needs
@@ -251,8 +277,8 @@ const [miniGamesHaveResults, setMiniGamesHaveResults] = useState(false);
 
         if (oldMode === 'local' && newMode === 'server') {
           console.debug('[MODE CHANGE] Local -> Server: fetching fresh data');
-          dataService.initializeHash().then(async () => {
-            dataService.startPolling(60000);
+            dataService.initializeHash().then(async () => {
+            dataService.startPolling();
             dataService.startSSE();
             if (refreshPlayersRef.current) {
               console.debug('[MODE CHANGE] Calling refreshPlayersRef.current()');
