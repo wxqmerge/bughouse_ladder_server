@@ -2365,7 +2365,9 @@ const handleRandomResult = (setter: (value: string) => void) => {
         // Check if any local-only player would be lost
         const localOnly = players.filter(lp => !freshPlayers.find(sp => sp.rank === lp.rank));
         if (localOnly.length > 0) {
-          console.error('[DEBUG REFRESH] !!! LOCAL PLAYERS WILL BE LOST:', localOnly.map(p => `${p.firstName} ${p.lastName} rank=${p.rank}`).join('; '));
+          const names = localOnly.map(p => `${p.firstName} ${p.lastName}`).join(', ');
+          console.error(`[DEBUG REFRESH] !!! LOCAL PLAYERS WILL BE LOST: ${names}`);
+          showToast(`⚠ ${localOnly.length} local player(s) not on server: ${names}`, 6000);
         }
 
         const mapStart = performance.now();
@@ -3656,9 +3658,9 @@ const handleWalkthroughNextForReview = () => {
     }
   };
 
-  const showToast = (msg: string) => {
+  const showToast = (msg: string, duration: number = 2000) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 2000);
+    setTimeout(() => setToastMessage(null), duration);
   };
 
   const INLINE_FIELD_ORDER = [

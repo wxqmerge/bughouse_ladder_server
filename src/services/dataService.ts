@@ -59,7 +59,8 @@ export interface DataServiceConfig {
 
 class DataService {
   private config: DataServiceConfig;
-  private pollInterval: ReturnType<typeof setInterval> | null = null;
+  private pollTimeout: ReturnType<typeof setTimeout> | null = null;
+  private pollConsecutiveFailures = 0;
   private hashInitialized = false;
   private lastDataHash: string | null = null;
   private currentMiniGameFile: string | null = null;
@@ -68,9 +69,16 @@ class DataService {
   private activeRefreshCount = 0;
   private sseEventSource: EventSource | null = null;
   private sseConnected = false;
+  private sseReconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+  private sseConsecutiveFailures = 0;
   private notifyTimer: ReturnType<typeof setTimeout> | null = null;
   private sseEventCount = 0;
   private lastSseEventTime = 0;
+
+  private static readonly BASE_POLL_INTERVAL_MS = 60000;
+  private static readonly MAX_POLL_INTERVAL_MS = 300000;
+  private static readonly BASE_SSE_RECONNECT_MS = 1000;
+  private static readonly MAX_SSE_RECONNECT_MS = 60000;
 
   constructor(config: DataServiceConfig) {
     this.config = config;
@@ -100,49 +108,79 @@ class DataService {
     return this.config.serverUrl || '';
   }
 
+  private getNextPollInterval(): number {
+    const backoff = Math.min(
+      DataService.BASE_POLL_INTERVAL_MS * Math.pow(2, this.pollConsecutiveFailures),
+      DataService.MAX_POLL_INTERVAL_MS
+    );
+    return backoff;
+  }
+
+  private scheduleNextPoll(): void {
+    const interval = this.getNextPollInterval();
+    if (this.pollTimeout) clearTimeout(this.pollTimeout);
+    this.pollTimeout = setTimeout(() => this.pollOnce(), interval);
+  }
+
+  private async pollOnce(): Promise<void> {
+    if (this.isPolling) {
+      console.debug('[DataService] Skipping poll - previous request still pending');
+      this.scheduleNextPoll();
+      return;
+    }
+    this.isPolling = true;
+    try {
+      const changed = await this.refreshData();
+      if (changed) {
+        console.debug('[DataService] Polling detected data change - notifying subscribers');
+        this.notifySubscribers();
+      }
+      this.pollConsecutiveFailures = 0;
+    } catch (error) {
+      this.pollConsecutiveFailures++;
+      console.error(`[DataService] Polling failed (${this.pollConsecutiveFailures} consecutive):`, error);
+    } finally {
+      this.isPolling = false;
+      this.scheduleNextPoll();
+    }
+  }
+
   // Start polling for updates (in server modes)
-  startPolling(intervalMs: number = 60000): void {
+  startPolling(): void {
     this.stopPolling();
-    this.pollInterval = setInterval(async () => {
-      if (this.isPolling) {
-        console.debug('[DataService] Skipping poll - previous request still pending');
-        return;
-      }
-      this.isPolling = true;
-      try {
-        const changed = await this.refreshData();
-        if (changed) {
-          console.debug('[DataService] Polling detected data change - notifying subscribers');
-          this.notifySubscribers();
-        }
-      } catch (error) {
-        console.error('Polling error:', error);
-      } finally {
-        this.isPolling = false;
-      }
-    }, intervalMs);
+    this.pollConsecutiveFailures = 0;
+    this.scheduleNextPoll();
   }
 
   // Stop polling
   stopPolling(): void {
-    if (this.pollInterval) {
-      clearInterval(this.pollInterval);
-      this.pollInterval = null;
+    if (this.pollTimeout) {
+      clearTimeout(this.pollTimeout);
+      this.pollTimeout = null;
     }
   }
 
-  // Start SSE connection for real-time updates
-  startSSE(): void {
+  private getNextSseReconnectDelay(): number {
+    const delay = Math.min(
+      DataService.BASE_SSE_RECONNECT_MS * Math.pow(2, this.sseConsecutiveFailures),
+      DataService.MAX_SSE_RECONNECT_MS
+    );
+    return delay;
+  }
+
+  private connectSSE(): void {
     if (this.config.mode === DataServiceMode.LOCAL) return;
-    if (this.sseEventSource) return; // Already connected
-    
+    if (this.sseEventSource) return;
+
     const url = `${this.getApiUrl()}/api/ladder/events`;
     this.sseEventSource = new EventSource(url);
-    
+
     this.sseEventSource.onopen = () => {
+      this.sseConsecutiveFailures = 0;
       this.sseConnected = true;
+      console.debug('[DataService] SSE connected');
     };
-    
+
     this.sseEventSource.addEventListener('connected', (e: MessageEvent) => {
       try {
         const data = e.data ? JSON.parse(e.data) : null;
@@ -151,7 +189,7 @@ class DataService {
         }
       } catch { /* ignore parse errors on connected event */ }
     });
-    
+
     this.sseEventSource.addEventListener('playerUpdated', () => {
       this.sseEventCount++;
       const now = Date.now();
@@ -160,7 +198,7 @@ class DataService {
       console.debug(`[PERF SSE] #${this.sseEventCount} playerUpdated (since last: ${sinceLast}ms)`);
       this.notifySubscribers();
     });
-    
+
     this.sseEventSource.addEventListener('cellCleared', () => {
       this.sseEventCount++;
       const now = Date.now();
@@ -169,7 +207,7 @@ class DataService {
       console.debug(`[PERF SSE] #${this.sseEventCount} cellCleared (since last: ${sinceLast}ms)`);
       this.notifySubscribers();
     });
-    
+
     this.sseEventSource.addEventListener('ladderUpdated', () => {
       this.sseEventCount++;
       const now = Date.now();
@@ -178,7 +216,7 @@ class DataService {
       console.debug(`[PERF SSE] #${this.sseEventCount} ladderUpdated (since last: ${sinceLast}ms)`);
       this.notifySubscribers();
     });
-    
+
     this.sseEventSource.addEventListener('deltasSubmitted', () => {
       this.sseEventCount++;
       const now = Date.now();
@@ -187,7 +225,7 @@ class DataService {
       console.debug(`[PERF SSE] #${this.sseEventCount} deltasSubmitted (since last: ${sinceLast}ms)`);
       this.notifySubscribers();
     });
-    
+
     this.sseEventSource.addEventListener('gameSubmitted', () => {
       this.sseEventCount++;
       const now = Date.now();
@@ -196,7 +234,7 @@ class DataService {
       console.debug(`[PERF SSE] #${this.sseEventCount} gameSubmitted (since last: ${sinceLast}ms)`);
       this.notifySubscribers();
     });
-    
+
     this.sseEventSource.addEventListener('gamesSubmitted', () => {
       this.sseEventCount++;
       const now = Date.now();
@@ -205,7 +243,7 @@ class DataService {
       console.debug(`[PERF SSE] #${this.sseEventCount} gamesSubmitted (since last: ${sinceLast}ms)`);
       this.notifySubscribers();
     });
-    
+
     this.sseEventSource.addEventListener('miniGameSaved', () => {
       this.sseEventCount++;
       const now = Date.now();
@@ -214,7 +252,7 @@ class DataService {
       console.debug(`[PERF SSE] #${this.sseEventCount} miniGameSaved (since last: ${sinceLast}ms)`);
       this.notifySubscribers();
     });
-    
+
     this.sseEventSource.addEventListener('miniGameWritten', () => {
       this.sseEventCount++;
       const now = Date.now();
@@ -223,7 +261,7 @@ class DataService {
       console.debug(`[PERF SSE] #${this.sseEventCount} miniGameWritten (since last: ${sinceLast}ms)`);
       this.notifySubscribers();
     });
-    
+
     this.sseEventSource.addEventListener('playersCopied', () => {
       this.sseEventCount++;
       const now = Date.now();
@@ -232,7 +270,7 @@ class DataService {
       console.debug(`[PERF SSE] #${this.sseEventCount} playersCopied (since last: ${sinceLast}ms)`);
       this.notifySubscribers();
     });
-    
+
     this.sseEventSource.addEventListener('playerAdded', () => {
       this.sseEventCount++;
       const now = Date.now();
@@ -241,7 +279,7 @@ class DataService {
       console.debug(`[PERF SSE] #${this.sseEventCount} playerAdded (since last: ${sinceLast}ms)`);
       this.notifySubscribers();
     });
-    
+
     this.sseEventSource.addEventListener('miniGamesCleared', () => {
       this.sseEventCount++;
       const now = Date.now();
@@ -250,7 +288,7 @@ class DataService {
       console.debug(`[PERF SSE] #${this.sseEventCount} miniGamesCleared (since last: ${sinceLast}ms)`);
       this.notifySubscribers();
     });
-    
+
     this.sseEventSource.addEventListener('miniGamesImported', () => {
       this.sseEventCount++;
       const now = Date.now();
@@ -259,7 +297,7 @@ class DataService {
       console.debug(`[PERF SSE] #${this.sseEventCount} miniGamesImported (since last: ${sinceLast}ms)`);
       this.notifySubscribers();
     });
-    
+
     this.sseEventSource.addEventListener('fileUploaded', () => {
       this.sseEventCount++;
       const now = Date.now();
@@ -268,7 +306,7 @@ class DataService {
       console.debug(`[PERF SSE] #${this.sseEventCount} fileUploaded (since last: ${sinceLast}ms)`);
       this.notifySubscribers();
     });
-    
+
     this.sseEventSource.addEventListener('backupRestored', () => {
       this.sseEventCount++;
       const now = Date.now();
@@ -277,16 +315,41 @@ class DataService {
       console.debug(`[PERF SSE] #${this.sseEventCount} backupRestored (since last: ${sinceLast}ms)`);
       this.notifySubscribers();
     });
-    
-    this.sseEventSource.onerror = (_error) => {
+
+    this.sseEventSource.onerror = () => {
+      this.sseConsecutiveFailures++;
       this.sseConnected = false;
-      console.debug('[DataService] SSE connection error - falling back to polling');
-      // EventSource auto-reconnects, but log for visibility
+      console.warn(`[DataService] SSE error (${this.sseConsecutiveFailures} consecutive failures)`);
+
+      if (this.sseConsecutiveFailures >= 5) {
+        console.debug('[DataService] SSE giving up after 5 failures - relying on polling fallback');
+        this.sseEventSource?.close();
+        this.sseEventSource = null;
+      } else {
+        const delay = this.getNextSseReconnectDelay();
+        console.debug(`[DataService] SSE reconnecting in ${delay}ms`);
+        this.sseEventSource?.close();
+        this.sseEventSource = null;
+        if (this.sseReconnectTimeout) clearTimeout(this.sseReconnectTimeout);
+        this.sseReconnectTimeout = setTimeout(() => this.connectSSE(), delay);
+      }
     };
+  }
+
+  // Start SSE connection for real-time updates
+  startSSE(): void {
+    if (this.config.mode === DataServiceMode.LOCAL) return;
+    this.stopSSE();
+    this.sseConsecutiveFailures = 0;
+    this.connectSSE();
   }
 
   // Stop SSE connection
   stopSSE(): void {
+    if (this.sseReconnectTimeout) {
+      clearTimeout(this.sseReconnectTimeout);
+      this.sseReconnectTimeout = null;
+    }
     if (this.sseEventSource) {
       this.sseEventSource.close();
       this.sseEventSource = null;
