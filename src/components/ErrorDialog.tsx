@@ -520,13 +520,18 @@ export default function ErrorDialog({
 
   const handleEnterRecalculateSave = (e: React.FormEvent) => {
     e.preventDefault();
-    console.debug(">>> [BUTTON PRESSED] Enter_Recalculate_Save");
+    if (shouldLog(5)) console.log(">>> [BUTTON PRESSED] Enter_Recalculate_Save");
     const value = cleanInput();
     if (shouldLog(3)) console.debug('[3]DEBUG-TRACE] === handleEnterRecalculateSave === value="' + value + '"');
-    if (!value.trim()) return;
+    if (!value.trim()) {
+      if (shouldLog(5)) console.log("[ENTER_GAMES] ABORT: input is empty after cleaning");
+      return;
+    }
+    if (shouldLog(5)) console.log("[ENTER_GAMES] Calling onEnterRecalculateSave with value=\"" + value + "\"");
     if (onEnterRecalculateSave) {
       onEnterRecalculateSave(value);
     } else {
+      if (shouldLog(5)) console.log("[ENTER_GAMES] WARNING: onEnterRecalculateSave not set, falling back to onSubmit");
       onSubmit(value);
     }
   };

@@ -160,6 +160,7 @@ function isValidDelta(obj: unknown): obj is { playerRank: number; round: number;
 
 // Bulk update players (requires user or admin API key)
 router.put('/', requireUserKey, writeLimiter, asyncHandler(async (req: Request, res: Response) => {
+  const debugLevel = parseInt(req.headers['x-debug-level'] as string) || 99;
   const body = req.body as { players?: unknown };
   const players = body.players;
 
@@ -174,7 +175,38 @@ router.put('/', requireUserKey, writeLimiter, asyncHandler(async (req: Request, 
 
   const typedPlayers = players as PlayerData[];
 
+  // Debug: log ALL game results when client requests debug_level <= 5
+  if (debugLevel <= 5) {
+    console.log(`[SERVER_PUT] debugLevel=${debugLevel}, players=${typedPlayers.length}`);
+    for (const p of typedPlayers) {
+      if (p.gameResults) {
+        for (let r = 0; r < p.gameResults.length; r++) {
+          const result = p.gameResults[r];
+          if (result) {
+            console.log(`[SERVER_PUT] P${p.rank} R${r} = "${result}"`);
+          }
+        }
+      }
+    }
+  }
+
   const ladderData: any = await withTiming(`readLadderFile(bulk)`, readLadderFile);
+
+  // Debug: compare incoming data with file data
+  if (debugLevel <= 5) {
+    for (const ip of typedPlayers) {
+      const fp = ladderData.players?.find((p: PlayerData) => p.rank === ip.rank);
+      if (fp && fp.gameResults && ip.gameResults) {
+        for (let r = 0; r < 31; r++) {
+          const inv = ip.gameResults[r];
+          const fvl = fp.gameResults[r];
+          if (inv !== fvl) {
+            console.log(`[SERVER_PUT] DIFF P${ip.rank} R${r}: incoming="${inv}" file="${fvl}"`);
+          }
+        }
+      }
+    }
+  }
 
   // Log game results that contain W/L for bulk save
   for (const p of typedPlayers) {

@@ -1,5 +1,6 @@
 import { PlayerData } from '../types/index.js';
 import { NUM_ROUNDS } from './constants.js';
+import { shouldLog } from './debugUtils.js';
 
 /**
  * Merge game results from two players with the same name.
@@ -63,8 +64,9 @@ export function deduplicatePlayers(players: PlayerData[]): PlayerData[] {
   }
 
   const result: PlayerData[] = [];
+  const dupsRemoved: string[] = [];
 
-  for (const [, group] of groups) {
+  for (const [key, group] of groups) {
     if (group.length === 1) {
       result.push(group[0]);
       continue;
@@ -81,6 +83,7 @@ export function deduplicatePlayers(players: PlayerData[]): PlayerData[] {
 
     for (let i = 1; i < group.length; i++) {
       const dup = group[i];
+      dupsRemoved.push(`P${dup.rank} (dup of P${base.rank})`);
       mergedResults = mergeGameResultsDedup(mergedResults, dup.gameResults || new Array(NUM_ROUNDS).fill(null));
       sumNumGames += dup.num_games || 0;
       sumAttendance += dup.attendance || 0;
@@ -94,8 +97,14 @@ export function deduplicatePlayers(players: PlayerData[]): PlayerData[] {
     });
   }
 
+  if (dupsRemoved.length > 0 && shouldLog(5)) {
+    console.debug('[DEDUP] Removed ' + dupsRemoved.length + ' duplicate(s): ' + dupsRemoved.join(', '));
+  }
+
   // Sort final result by rank
   result.sort((a, b) => a.rank - b.rank);
+
+  if (shouldLog(5)) console.debug('[DEDUP] ' + players.length + ' -> ' + result.length + ' players');
 
   return result;
 }
@@ -119,5 +128,6 @@ export function lockAndDeduplicate(players: PlayerData[]): PlayerData[] {
     ...p,
     gameResults: (p.gameResults || []).map(r => r && r.trim() ? `${r.replace(/_+$/, '')}_` : r),
   }));
+  if (shouldLog(5)) console.debug('[LOCK] Locked ' + players.length + ' players (added "_" suffix to all results)');
   return deduplicatePlayers(locked);
 }
