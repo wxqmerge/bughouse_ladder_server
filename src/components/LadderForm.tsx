@@ -2313,7 +2313,11 @@ const handleRandomResult = (setter: (value: string) => void) => {
               }
             }
             if (pullPlayers && pullPlayers.length > 0) {
-              setPlayers(normalizePlayersAttendance(normalizePlayersTrophy(pullPlayers)));
+              let finalPlayers = normalizePlayersAttendance(normalizePlayersTrophy(pullPlayers));
+              if (sortBy) {
+                finalPlayers.sort(getSortComparator(sortBy));
+              }
+              setPlayers(finalPlayers);
               log('[RECALC]', '✓ Synced with server - UI refreshed from server data');
             } else {
               setPlayers(normalizedPlayers);
@@ -2323,7 +2327,7 @@ const handleRandomResult = (setter: (value: string) => void) => {
           }
 } catch (_e) {
          setPlayers(normalizedPlayers);
-       }
+        }
 
       log('[RECALC]', 'Recalculate_Save complete');
       (window as any).__ladder_setStatus?.(null);
@@ -2402,6 +2406,9 @@ const handleRandomResult = (setter: (value: string) => void) => {
           console.error(`[REFRESH] DEDUP: removed ${beforeDedup - dedupedPlayers.length} duplicate players from refresh`);
         }
 
+        if (sortBy) {
+          dedupedPlayers.sort(getSortComparator(sortBy));
+        }
         setPlayers(dedupedPlayers);
         const totalMs = performance.now() - refreshStart;
 
