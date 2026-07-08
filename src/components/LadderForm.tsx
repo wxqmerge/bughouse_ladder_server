@@ -399,7 +399,6 @@ export default function LadderForm({
   const lastRefreshHash = useRef<string | null>(null);
   const hiddenPlayersToDeleteRef = useRef<PlayerData[]>([]);
   const currentDeleteIndexRef = useRef(0);
-  const isSortingRef = useRef(false);
 
   // Keep playersRef in sync with players state for use in async closures
   useEffect(() => {
@@ -416,14 +415,20 @@ export default function LadderForm({
 
   // Re-apply active sort whenever players data changes (e.g., after server pull)
   useEffect(() => {
-    if (!sortBy || players.length === 0 || isSortingRef.current) return;
-    isSortingRef.current = true;
-    const sorted = players.map((player) => ({
+    if (!sortBy || players.length === 0) return;
+
+    const sorted = [...players].sort(getSortComparator(sortBy));
+
+    // Only update if the sort order actually changed (compare by unique rank)
+    const orderChanged = sorted.some((p, i) => p.rank !== players[i].rank);
+    if (!orderChanged) return;
+
+    const withResults = sorted.map((player) => ({
       ...player,
       gameResults: player.gameResults || new Array(NUM_ROUNDS).fill(null),
-    })).sort(getSortComparator(sortBy));
-    setPlayers(sorted);
-    isSortingRef.current = false;
+    }));
+
+    setPlayers(withResults);
   }, [players, sortBy]);
 
   // Performance: measure React render time after players state changes
