@@ -119,7 +119,7 @@ app.use(cors({
   origin: corsOrigins.length === 1 && corsOrigins[0] === '*' ? '*' : corsOrigins,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key', 'X-Debug-Level'],
 }));
 
 app.use('/api/admin-lock', adminLockLimiter); // Apply lenient limiter to admin-lock

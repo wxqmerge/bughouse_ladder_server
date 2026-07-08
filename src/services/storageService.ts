@@ -10,6 +10,8 @@
 import { PlayerData, DeltaOperation } from '../../shared/types';
 import { normalizeGrades } from '../../shared/utils/dedupUtils';
 import { log } from '../utils/log';
+import { shouldLog } from '../../shared/utils/debugUtils';
+import { getDebugLevel } from '../utils/debug';
 import { NUM_ROUNDS } from '../../shared/utils/constants';
 import { dataService, DataServiceMode } from './dataService';
 import { loadUserSettings, normalizeServerUrl } from './userSettingsStorage';
@@ -392,44 +394,82 @@ export interface SaveResult {
 }
 
 export async function savePlayers(players: PlayerData[], waitForServer = false, skipServerSync = false): Promise<SaveResult> {
-  if (isInBatch()) { batchBuffer = players; return { success: true, serverSynced: false }; }
+  if (isInBatch()) {
+    if (shouldLog(5)) console.debug('[SAVE] Batch mode — buffering ' + players.length + ' players');
+    batchBuffer = players;
+    return { success: true, serverSynced: false };
+  }
   const mode = dataService.getMode();
   const userSettings = loadUserSettings();
   const serverUrl = userSettings.server?.trim() || '';
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', 'X-Debug-Level': String(getDebugLevel()) };
   if (userSettings.apiKey && userSettings.apiKey.trim()) {
     headers['X-API-Key'] = userSettings.apiKey.trim();
   }
 
+  // Log game results being sent to server
+  if (shouldLog(5)) {
+    const affected = players.filter(p => p.gameResults && p.gameResults.some(r => r != null));
+    for (const p of affected) {
+      for (let r = 0; r < (p.gameResults?.length || 0); r++) {
+        const val = p.gameResults?.[r];
+        if (val) console.log(`[SAVE->SERVER] P${p.rank} R${r} = "${val}"`);
+      }
+    }
+  }
+
+  if (shouldLog(5)) console.debug('[SAVE] savePlayers: mode=' + mode + ', players=' + players.length + ', waitForServer=' + waitForServer + ', skipServerSync=' + skipServerSync);
+
   // Mini-game mode: save to mini-game endpoint, not main ladder
   const miniGameFile = dataService.getMiniGameFile();
   if (miniGameFile) {
+    if (shouldLog(5)) console.debug('[SAVE] Mini-game mode: file=' + miniGameFile);
     setJson('ladder_players', players);
+    if (shouldLog(5)) console.debug('[SAVE] Mini-game localStorage written');
     if (waitForServer) {
       const url = dataService.getConfigServerUrl();
-      if (!url) return { success: true, serverSynced: false, error: 'No server URL' };
+      if (!url) {
+        if (shouldLog(5)) console.debug('[SAVE] Mini-game: no server URL, skipping server sync');
+        return { success: true, serverSynced: false, error: 'No server URL' };
+      }
+      if (shouldLog(5)) console.debug('[SAVE] Mini-game POST: ' + url + '/api/ladder/mini-games/write');
       const res = await gatedFetch(`${url}/api/ladder/mini-games/write`, {
         method: 'POST',
         headers,
         body: JSON.stringify({ fileName: miniGameFile, players }),
       });
-      if (res.ok) return { success: true, serverSynced: true };
+      if (res.ok) {
+        if (shouldLog(5)) console.debug('[SAVE] Mini-game server sync OK');
+        return { success: true, serverSynced: true };
+      }
       let errorMsg = res.statusText;
       if (res.status === 401 || res.status === 403) {
         errorMsg = 'Write rejected by server. Check your API key in settings.';
       }
+      if (shouldLog(5)) console.debug('[SAVE] Mini-game server sync FAILED: ' + res.status + ' ' + errorMsg);
       return { success: false, serverSynced: false, error: errorMsg };
     } else if (skipServerSync) {
+      if (shouldLog(5)) console.debug('[SAVE] Mini-game: skipServerSync, server write skipped');
       return { success: true, serverSynced: false };
     } else {
+      if (shouldLog(5)) console.debug('[SAVE] Mini-game: fire-and-forget server sync queued');
       (async () => {
         const url = dataService.getConfigServerUrl();
         if (url) {
-await gatedFetch(`${url}/api/ladder/mini-games/write`, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({ fileName: miniGameFile, players }),
-          });
+          try {
+            const res = await gatedFetch(`${url}/api/ladder/mini-games/write`, {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({ fileName: miniGameFile, players }),
+            });
+            if (res.ok) {
+              if (shouldLog(5)) console.debug('[SAVE] Mini-game fire-and-forget OK');
+            } else {
+              console.error('[SAVE] Mini-game fire-and-forget FAILED: ' + res.status + ' ' + res.statusText);
+            }
+          } catch (err: any) {
+            console.error('[SAVE] Mini-game fire-and-forget ERROR: ' + err.message);
+          }
         }
       })();
       return { success: true, serverSynced: false };
@@ -437,6 +477,7 @@ await gatedFetch(`${url}/api/ladder/mini-games/write`, {
   }
 
   if (mode === DataServiceMode.LOCAL && !serverUrl) {
+    if (shouldLog(5)) console.debug('[SAVE] LOCAL mode: writing ' + players.length + ' players to localStorage');
     setJson('ladder_players', players);
     for (const p of players) {
       if (p.gameResults) {
@@ -445,30 +486,50 @@ await gatedFetch(`${url}/api/ladder/mini-games/write`, {
         }
       }
     }
+    if (shouldLog(5)) console.debug('[SAVE] LOCAL mode: save complete');
     return { success: true, serverSynced: true };
   } else {
+    if (shouldLog(5)) console.debug('[SAVE] SERVER mode: writing ' + players.length + ' players to localStorage + server');
     setJson('ladder_players', players);
+    if (shouldLog(5)) console.debug('[SAVE] SERVER mode: localStorage written');
     if (waitForServer) {
       const url = dataService.getConfigServerUrl();
-      if (!url) return { success: true, serverSynced: false, error: 'No server URL' };
+      if (!url) {
+        if (shouldLog(5)) console.debug('[SAVE] SERVER mode: no server URL, skipping server sync');
+        return { success: true, serverSynced: false, error: 'No server URL' };
+      }
+      if (shouldLog(5)) console.debug('[SAVE] SERVER mode PUT: ' + url + '/api/ladder');
       const res = await gatedFetch(`${url}/api/ladder`, { method: 'PUT', headers, body: JSON.stringify({ players }) });
       if (res.ok) {
         dataService.resetHashPublic();
+        if (shouldLog(5)) console.debug('[SAVE] SERVER mode: server sync OK, hash reset');
         return { success: true, serverSynced: true };
       }
       let errorMsg = res.statusText;
       if (res.status === 401 || res.status === 403) {
         errorMsg = 'Write rejected by server. Check your API key in settings.';
       }
+      if (shouldLog(5)) console.debug('[SAVE] SERVER mode: server sync FAILED: ' + res.status + ' ' + errorMsg);
       return { success: false, serverSynced: false, error: errorMsg };
     } else if (skipServerSync) {
+      if (shouldLog(5)) console.debug('[SAVE] SERVER mode: skipServerSync, server write skipped');
       return { success: true, serverSynced: false };
     } else {
+      if (shouldLog(5)) console.debug('[SAVE] SERVER mode: fire-and-forget server sync queued');
       (async () => {
         const url = dataService.getConfigServerUrl();
         if (url) {
-          const res = await gatedFetch(`${url}/api/ladder`, { method: 'PUT', headers, body: JSON.stringify({ players }) });
-          if (res.ok) dataService.resetHashPublic();
+          try {
+            const res = await gatedFetch(`${url}/api/ladder`, { method: 'PUT', headers, body: JSON.stringify({ players }) });
+            if (res.ok) {
+              dataService.resetHashPublic();
+              if (shouldLog(5)) console.debug('[SAVE] SERVER mode: fire-and-forget OK, hash reset');
+            } else {
+              console.error('[SAVE] SERVER mode: fire-and-forget FAILED: ' + res.status + ' ' + res.statusText);
+            }
+          } catch (err: any) {
+            console.error('[SAVE] SERVER mode: fire-and-forget ERROR: ' + err.message);
+          }
         }
       })();
       return { success: true, serverSynced: false };
