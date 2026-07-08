@@ -93,6 +93,7 @@ vi.mock('../../services/dataService', () => ({
     copyPlayersToMiniGame: vi.fn().mockResolvedValue(undefined),
     exportTournamentFiles: vi.fn().mockResolvedValue(new Blob()),
     generateTrophyReport: vi.fn().mockResolvedValue(new Blob()),
+    checkMiniGameFiles: vi.fn().mockResolvedValue([]),
   },
   DataServiceMode: {
     LOCAL: 'LOCAL',

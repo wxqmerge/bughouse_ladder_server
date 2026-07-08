@@ -93,6 +93,7 @@ vi.mock('../../services/dataService', () => ({
     copyPlayersToMiniGame: vi.fn().mockResolvedValue(undefined),
     exportTournamentFiles: vi.fn().mockResolvedValue(new Blob()),
     generateTrophyReport: vi.fn().mockResolvedValue(new Blob()),
+    checkMiniGameFiles: vi.fn().mockResolvedValue([]),
   },
   DataServiceMode: {
     LOCAL: 'LOCAL',
@@ -153,6 +154,8 @@ describe('Import Upload API Key', () => {
     localStorage.clear();
     (globalThis as any).__capturedOnAutoLetter = undefined;
     // Re-setup all mocks after reset
+    (dataService.dataService.getMode as any).mockReturnValue('LOCAL');
+    (dataService.dataService.checkMiniGameFiles as any).mockResolvedValue([]);
     (storageService.isAdminMode as any).mockReturnValue(true);
     (storageService.getServerUrl as any).mockReturnValueOnce(null).mockReturnValue('http://localhost:3000');
     (storageService.getLocalPlayers as any).mockReturnValue([]);

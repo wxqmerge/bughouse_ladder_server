@@ -399,6 +399,7 @@ export default function LadderForm({
   const lastRefreshHash = useRef<string | null>(null);
   const hiddenPlayersToDeleteRef = useRef<PlayerData[]>([]);
   const currentDeleteIndexRef = useRef(0);
+  const isSortingRef = useRef(false);
 
   // Keep playersRef in sync with players state for use in async closures
   useEffect(() => {
@@ -412,6 +413,18 @@ export default function LadderForm({
   useEffect(() => {
     currentDeleteIndexRef.current = currentDeleteIndex;
   }, [currentDeleteIndex]);
+
+  // Re-apply active sort whenever players data changes (e.g., after server pull)
+  useEffect(() => {
+    if (!sortBy || players.length === 0 || isSortingRef.current) return;
+    isSortingRef.current = true;
+    const sorted = players.map((player) => ({
+      ...player,
+      gameResults: player.gameResults || new Array(NUM_ROUNDS).fill(null),
+    })).sort(getSortComparator(sortBy));
+    setPlayers(sorted);
+    isSortingRef.current = false;
+  }, [players, sortBy]);
 
   // Performance: measure React render time after players state changes
   useEffect(() => {
@@ -3426,17 +3439,10 @@ const handleWalkthroughNextForReview = () => {
     return 0;
   };
 
-  const handleSort = (
+  const getSortComparator = (
     sortMethod: "rank" | "nRating" | "rating" | "byLastName" | "byFirstName",
-  ) => {
-    setSortBy(sortMethod);
-
-    const playersWithResults = players.map((player) => ({
-      ...player,
-      gameResults: player.gameResults || new Array(NUM_ROUNDS).fill(null),
-    }));
-
-    playersWithResults.sort((a, b) => {
+  ): (a: PlayerData, b: PlayerData) => number => {
+    return (a, b) => {
       if (sortMethod === "rank") {
         return a.rank - b.rank;
       } else if (sortMethod === "nRating") {
@@ -3463,7 +3469,20 @@ const handleWalkthroughNextForReview = () => {
         return 0;
       }
       return 0;
-    });
+    };
+  };
+
+  const handleSort = (
+    sortMethod: "rank" | "nRating" | "rating" | "byLastName" | "byFirstName",
+  ) => {
+    setSortBy(sortMethod);
+
+    const playersWithResults = players.map((player) => ({
+      ...player,
+      gameResults: player.gameResults || new Array(NUM_ROUNDS).fill(null),
+    }));
+
+    playersWithResults.sort(getSortComparator(sortMethod));
 
     setPlayers([...playersWithResults]);
     savePlayers(playersWithResults).catch((err) => {
