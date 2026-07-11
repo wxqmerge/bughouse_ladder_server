@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { PlayerData } from '../../../shared/types';
-import { NUM_ROUNDS } from '../../../shared/utils/constants';
+import { PlayerData, DEFAULT_GAME_RESULTS } from '../../../shared/types';
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -78,7 +77,7 @@ describe('savePlayers X-Debug-Level header', () => {
     phone: '',
     school: '',
     room: '',
-    gameResults: new Array(NUM_ROUNDS).fill(null),
+    gameResults: [...DEFAULT_GAME_RESULTS],
   };
 
   const setDebugLevel = (level: number) => {

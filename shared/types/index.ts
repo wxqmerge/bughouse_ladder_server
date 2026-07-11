@@ -25,7 +25,7 @@ export interface PlayerData {
   gameResults: (string | null)[];
 }
 
-export const DEFAULT_GAME_RESULTS: (string | null)[] = Array(31).fill(null);
+export { DEFAULT_GAME_RESULTS } from '../constants.js';
 
 export type PlayersArray = Record<number, PlayerData>;
 
@@ -45,15 +45,7 @@ export interface ValidationResult {
   conflictingResults?: { playerRank: number; result: string }[];
 }
 
-export const MINI_GAME_FILES: string[] = [
-  'bg_game.tab',
-  'bishop_game.tab',
-  'pillar_game.tab',
-  'kings_cross.tab',
-  'pawn_game.tab',
-  'queen_game.tab',
-  'bughouse.tab',
-];
+export { MINI_GAME_FILES } from '../constants.js';
 
 export const MINI_GAME_DIFFICULTY_ORDER: string[] = [
   'queen_game.tab',

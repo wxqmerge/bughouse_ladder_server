@@ -1,6 +1,5 @@
-import { PlayerData } from '../../shared/types';
+import { PlayerData, DEFAULT_GAME_RESULTS } from '../../shared/types';
 import { deduplicatePlayers } from '../../shared/utils/dedupUtils';
-import { NUM_ROUNDS } from '../../shared/utils/constants';
 
 /**
  * Merge server data with local changes.
@@ -25,7 +24,7 @@ export function mergeServerWithLocal(
     }
     
     const mergedGameResults = [
-      ...(sp.gameResults || new Array(NUM_ROUNDS).fill(null)),
+      ...(sp.gameResults || [...DEFAULT_GAME_RESULTS]),
     ];
     
     for (let r = 0; r < 31; r++) {

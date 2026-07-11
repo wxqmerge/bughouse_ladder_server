@@ -6,6 +6,7 @@ import { AppError } from '../middleware/errorHandler.js';
 import { readLadderFile, writeLadderFile, PlayerData, withTiming } from '../services/dataService.js';
 import { broadcastSSEEvent } from '../services/sseService.js';
 import { NUM_ROUNDS } from '../../../shared/utils/constants.js';
+import { DEFAULT_GAME_RESULTS } from '../../../shared/types/index.js';
 
 interface GameResult {
   playerRank: number;
@@ -52,7 +53,7 @@ router.post('/', requireUserKey, writeLimiter, asyncHandler(async (req: Request,
   // Ensure gameResults array exists and has enough slots
   const player = ladderData.players[playerIndex];
   if (!player.gameResults) {
-    player.gameResults = new Array(NUM_ROUNDS).fill(null);
+    player.gameResults = [...DEFAULT_GAME_RESULTS];
   }
   while (player.gameResults.length <= round) {
     player.gameResults.push(null);
@@ -99,7 +100,7 @@ router.post('/batch', requireUserKey, writeLimiter, asyncHandler(async (req: Req
 
     const player = ladderData.players[playerIndex];
     if (!player.gameResults) {
-      player.gameResults = new Array(NUM_ROUNDS).fill(null);
+      player.gameResults = [...DEFAULT_GAME_RESULTS];
     }
     while (player.gameResults.length <= game.round) {
       player.gameResults.push(null);

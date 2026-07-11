@@ -3,9 +3,8 @@
  * Uses shared trophy logic from shared/utils/trophyGeneration.ts
  */
 
-import { PlayerData, LadderData, MiniGameStore, MINI_GAME_FILES } from '../../shared/types';
+import { PlayerData, LadderData, MiniGameStore, MINI_GAME_FILES, DEFAULT_GAME_RESULTS } from '../../shared/types';
 import { clearRankReferences } from '../../shared/utils/hashUtils';
-import { NUM_ROUNDS } from '../../shared/utils/constants';
 import { mergeIdentityFromClubLadder, splitIdentityChanges } from '../../shared/utils/identityMerge';
 import { deduplicatePlayers, normalizeGrades } from '../../shared/utils/dedupUtils';
 import { getLocalPlayers, getJson, setJson } from './storageService';
@@ -243,7 +242,7 @@ export const miniGameStore: MiniGameStore = {
       if (!exists) {
         miniGameData.players.push({
           ...newPlayer,
-          gameResults: new Array(NUM_ROUNDS).fill(null),
+          gameResults: [...DEFAULT_GAME_RESULTS],
         });
         await this.writeMiniGameFile(fileName, miniGameData);
       }

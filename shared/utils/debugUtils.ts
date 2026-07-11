@@ -5,8 +5,22 @@
  */
 export function shouldLog(threshold: number): boolean {
   try {
-    const ls = (globalThis as Record<string, unknown>).localStorage as { getItem: (k: string) => string | null } | undefined;
-    const raw = ls ? ls.getItem('bughouse_settings') : null;
+    type LS = { getItem: (k: string) => string | null; length: number; key: (i: number) => string | null };
+    const ls = (globalThis as Record<string, unknown>).localStorage as LS | undefined;
+    if (!ls) return 5 <= threshold;
+
+    // Try unprefixed key first
+    let raw = ls.getItem('ladder_settings');
+    if (!raw) {
+      // Try prefixed keys (e.g. "ladder_localhost_ladder_settings")
+      for (let i = 0; i < ls.length; i++) {
+        const key = ls.key(i);
+        if (key && key.endsWith('_ladder_settings')) {
+          raw = ls.getItem(key);
+          break;
+        }
+      }
+    }
     if (raw) {
       const settings = JSON.parse(raw);
       const level = settings.debugLevel ?? 5;

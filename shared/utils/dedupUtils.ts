@@ -1,4 +1,4 @@
-import { PlayerData } from '../types/index.js';
+import { PlayerData, DEFAULT_GAME_RESULTS } from '../types/index.js';
 import { NUM_ROUNDS } from './constants.js';
 import { shouldLog } from './debugUtils.js';
 
@@ -77,14 +77,14 @@ export function deduplicatePlayers(players: PlayerData[]): PlayerData[] {
     const base = group[0];
 
     // Merge all duplicates into the base
-    let mergedResults = [...(base.gameResults || new Array(NUM_ROUNDS).fill(null))];
+    let mergedResults = [...(base.gameResults || [...DEFAULT_GAME_RESULTS])];
     let sumNumGames = base.num_games || 0;
     let sumAttendance = base.attendance || 0;
 
     for (let i = 1; i < group.length; i++) {
       const dup = group[i];
       dupsRemoved.push(`P${dup.rank} (dup of P${base.rank})`);
-      mergedResults = mergeGameResultsDedup(mergedResults, dup.gameResults || new Array(NUM_ROUNDS).fill(null));
+      mergedResults = mergeGameResultsDedup(mergedResults, dup.gameResults || [...DEFAULT_GAME_RESULTS]);
       sumNumGames += dup.num_games || 0;
       sumAttendance += dup.attendance || 0;
     }
