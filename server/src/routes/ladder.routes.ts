@@ -4,11 +4,12 @@ import { asyncHandler } from '../middleware/asyncHandler.js';
 import { writeLimiter } from '../middleware/rateLimit.middleware.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { readLadderFile, writeLadderFile, PlayerData, withTiming } from '../services/dataService.js';
-import { log, logError } from '../utils/logger.js';
+import { log, logError, shouldLog } from '../utils/logger.js';
 import { broadcastSSEEvent } from '../services/sseService.js';
 import { checkMiniGameFilesWith, readMiniGameFile, writeMiniGameFile, MINI_GAME_FILES } from '../services/tournamentService.js';
 import { deduplicatePlayers } from '../../../shared/utils/dedupUtils.js';
 import { NUM_ROUNDS } from '../../../shared/utils/constants.js';
+import { DEFAULT_GAME_RESULTS } from '../../../shared/types/index.js';
 
 const router = Router();
 
@@ -108,7 +109,7 @@ router.delete('/:rank/round/:roundIndex', requireUserKey, writeLimiter, asyncHan
 
   // Clear the cell
   if (!player.gameResults) {
-    player.gameResults = new Array(NUM_ROUNDS).fill(null);
+    player.gameResults = [...DEFAULT_GAME_RESULTS];
   }
   player.gameResults[roundIndex] = null;
 
@@ -160,7 +161,7 @@ function isValidDelta(obj: unknown): obj is { playerRank: number; round: number;
 
 // Bulk update players (requires user or admin API key)
 router.put('/', requireUserKey, writeLimiter, asyncHandler(async (req: Request, res: Response) => {
-  const debugLevel = parseInt(req.headers['x-debug-level'] as string) || 99;
+  const clientDebugLevel = parseInt(req.headers['x-debug-level'] as string, 10);
   const body = req.body as { players?: unknown };
   const players = body.players;
 
@@ -175,9 +176,9 @@ router.put('/', requireUserKey, writeLimiter, asyncHandler(async (req: Request, 
 
   const typedPlayers = players as PlayerData[];
 
-  // Debug: log ALL game results when client requests debug_level <= 5
-  if (debugLevel <= 5) {
-    console.log(`[SERVER_PUT] debugLevel=${debugLevel}, players=${typedPlayers.length}`);
+  // Debug: log ALL game results when debugLevel <= 5
+  if (shouldLog(5, isNaN(clientDebugLevel) ? undefined : clientDebugLevel)) {
+    log('[SERVER_PUT]', `players=${typedPlayers.length}`);
     for (const p of typedPlayers) {
       if (p.gameResults) {
         for (let r = 0; r < p.gameResults.length; r++) {
@@ -193,7 +194,7 @@ router.put('/', requireUserKey, writeLimiter, asyncHandler(async (req: Request, 
   const ladderData: any = await withTiming(`readLadderFile(bulk)`, readLadderFile);
 
   // Debug: compare incoming data with file data
-  if (debugLevel <= 5) {
+  if (shouldLog(5, isNaN(clientDebugLevel) ? undefined : clientDebugLevel)) {
     for (const ip of typedPlayers) {
       const fp = ladderData.players?.find((p: PlayerData) => p.rank === ip.rank);
       if (fp && fp.gameResults && ip.gameResults) {
@@ -269,7 +270,7 @@ router.post('/batch', requireUserKey, writeLimiter, asyncHandler(async (req: Req
 
     const player = ladderData.players[playerIndex];
     if (!player.gameResults) {
-      player.gameResults = new Array(NUM_ROUNDS).fill(null);
+      player.gameResults = [...DEFAULT_GAME_RESULTS];
     }
     while (player.gameResults.length <= delta.round) {
       player.gameResults.push(null);

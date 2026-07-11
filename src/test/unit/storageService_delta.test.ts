@@ -9,8 +9,7 @@ import {
 } from '../../services/storageService';
 import { dataService, DataServiceMode } from '../../services/dataService';
 
-import { PlayerData, DeltaOperation } from '../../shared/types';
-import { NUM_ROUNDS } from '../../../shared/utils/constants';
+import { PlayerData, DeltaOperation, DEFAULT_GAME_RESULTS } from '../../../shared/types';
 
 // Mock dataService
 vi.mock('../../services/dataService', () => ({
@@ -57,7 +56,7 @@ describe('storageService Delta Queue', () => {
     phone: '',
     school: '',
     room: '',
-    gameResults: new Array(NUM_ROUNDS).fill(null),
+    gameResults: [...DEFAULT_GAME_RESULTS],
   };
 
   beforeEach(() => {

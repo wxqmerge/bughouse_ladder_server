@@ -2,12 +2,8 @@
  * Shared constants for the Bughouse Ladder application
  */
 
-import { NUM_ROUNDS as _NUM_ROUNDS, DEFAULT_GAME_RESULTS as _DEFAULT_GAME_RESULTS } from '../constants.js';
+import { DEFAULT_GAME_RESULTS } from '../constants.js';
 export { NUM_ROUNDS, DEFAULT_GAME_RESULTS } from '../constants.js';
-
-// Local aliases for use within this file
-const NUM_ROUNDS = _NUM_ROUNDS;
-const DEFAULT_GAME_RESULTS = _DEFAULT_GAME_RESULTS;
 
 export const MINI_GAMES_WITH_BUGHOUSE = [
   "BG_Game",

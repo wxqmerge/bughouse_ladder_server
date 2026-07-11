@@ -8,7 +8,6 @@
  */
 
 import { PlayerData, DeltaOperation, MiniGameStore, DEFAULT_GAME_RESULTS } from '../../shared/types';
-import { NUM_ROUNDS } from '../../shared/utils/constants';
 import { normalizeGrades } from '../../shared/utils/dedupUtils';
 import { buildActivityReportData, formatActivityReportTSV } from '../../shared/utils/activityReport';
 import {
@@ -98,6 +97,15 @@ class DataService {
       console.debug(`[PERF NOTIFY] Debounce elapsed: ${debounceMs.toFixed(0)}ms, subscribers: ${this.subscribers.size}`);
       this.subscribers.forEach(callback => callback());
     }, 100);
+  }
+
+  private onSseEvent(eventName: string): void {
+    this.sseEventCount++;
+    const now = Date.now();
+    const sinceLast = now - this.lastSseEventTime;
+    this.lastSseEventTime = now;
+    console.debug(`[PERF SSE] #${this.sseEventCount} ${eventName} (since last: ${sinceLast}ms)`);
+    this.notifySubscribers();
   }
 
   updateConfig(newConfig: Partial<DataServiceConfig>): void {
@@ -190,131 +198,25 @@ class DataService {
       } catch { /* ignore parse errors on connected event */ }
     });
 
-    this.sseEventSource.addEventListener('playerUpdated', () => {
-      this.sseEventCount++;
-      const now = Date.now();
-      const sinceLast = now - this.lastSseEventTime;
-      this.lastSseEventTime = now;
-      console.debug(`[PERF SSE] #${this.sseEventCount} playerUpdated (since last: ${sinceLast}ms)`);
-      this.notifySubscribers();
-    });
-
-    this.sseEventSource.addEventListener('cellCleared', () => {
-      this.sseEventCount++;
-      const now = Date.now();
-      const sinceLast = now - this.lastSseEventTime;
-      this.lastSseEventTime = now;
-      console.debug(`[PERF SSE] #${this.sseEventCount} cellCleared (since last: ${sinceLast}ms)`);
-      this.notifySubscribers();
-    });
-
-    this.sseEventSource.addEventListener('ladderUpdated', () => {
-      this.sseEventCount++;
-      const now = Date.now();
-      const sinceLast = now - this.lastSseEventTime;
-      this.lastSseEventTime = now;
-      console.debug(`[PERF SSE] #${this.sseEventCount} ladderUpdated (since last: ${sinceLast}ms)`);
-      this.notifySubscribers();
-    });
-
-    this.sseEventSource.addEventListener('deltasSubmitted', () => {
-      this.sseEventCount++;
-      const now = Date.now();
-      const sinceLast = now - this.lastSseEventTime;
-      this.lastSseEventTime = now;
-      console.debug(`[PERF SSE] #${this.sseEventCount} deltasSubmitted (since last: ${sinceLast}ms)`);
-      this.notifySubscribers();
-    });
-
-    this.sseEventSource.addEventListener('gameSubmitted', () => {
-      this.sseEventCount++;
-      const now = Date.now();
-      const sinceLast = now - this.lastSseEventTime;
-      this.lastSseEventTime = now;
-      console.debug(`[PERF SSE] #${this.sseEventCount} gameSubmitted (since last: ${sinceLast}ms)`);
-      this.notifySubscribers();
-    });
-
-    this.sseEventSource.addEventListener('gamesSubmitted', () => {
-      this.sseEventCount++;
-      const now = Date.now();
-      const sinceLast = now - this.lastSseEventTime;
-      this.lastSseEventTime = now;
-      console.debug(`[PERF SSE] #${this.sseEventCount} gamesSubmitted (since last: ${sinceLast}ms)`);
-      this.notifySubscribers();
-    });
-
-    this.sseEventSource.addEventListener('miniGameSaved', () => {
-      this.sseEventCount++;
-      const now = Date.now();
-      const sinceLast = now - this.lastSseEventTime;
-      this.lastSseEventTime = now;
-      console.debug(`[PERF SSE] #${this.sseEventCount} miniGameSaved (since last: ${sinceLast}ms)`);
-      this.notifySubscribers();
-    });
-
-    this.sseEventSource.addEventListener('miniGameWritten', () => {
-      this.sseEventCount++;
-      const now = Date.now();
-      const sinceLast = now - this.lastSseEventTime;
-      this.lastSseEventTime = now;
-      console.debug(`[PERF SSE] #${this.sseEventCount} miniGameWritten (since last: ${sinceLast}ms)`);
-      this.notifySubscribers();
-    });
-
-    this.sseEventSource.addEventListener('playersCopied', () => {
-      this.sseEventCount++;
-      const now = Date.now();
-      const sinceLast = now - this.lastSseEventTime;
-      this.lastSseEventTime = now;
-      console.debug(`[PERF SSE] #${this.sseEventCount} playersCopied (since last: ${sinceLast}ms)`);
-      this.notifySubscribers();
-    });
-
-    this.sseEventSource.addEventListener('playerAdded', () => {
-      this.sseEventCount++;
-      const now = Date.now();
-      const sinceLast = now - this.lastSseEventTime;
-      this.lastSseEventTime = now;
-      console.debug(`[PERF SSE] #${this.sseEventCount} playerAdded (since last: ${sinceLast}ms)`);
-      this.notifySubscribers();
-    });
-
-    this.sseEventSource.addEventListener('miniGamesCleared', () => {
-      this.sseEventCount++;
-      const now = Date.now();
-      const sinceLast = now - this.lastSseEventTime;
-      this.lastSseEventTime = now;
-      console.debug(`[PERF SSE] #${this.sseEventCount} miniGamesCleared (since last: ${sinceLast}ms)`);
-      this.notifySubscribers();
-    });
-
-    this.sseEventSource.addEventListener('miniGamesImported', () => {
-      this.sseEventCount++;
-      const now = Date.now();
-      const sinceLast = now - this.lastSseEventTime;
-      this.lastSseEventTime = now;
-      console.debug(`[PERF SSE] #${this.sseEventCount} miniGamesImported (since last: ${sinceLast}ms)`);
-      this.notifySubscribers();
-    });
-
-    this.sseEventSource.addEventListener('fileUploaded', () => {
-      this.sseEventCount++;
-      const now = Date.now();
-      const sinceLast = now - this.lastSseEventTime;
-      this.lastSseEventTime = now;
-      console.debug(`[PERF SSE] #${this.sseEventCount} fileUploaded (since last: ${sinceLast}ms)`);
-      this.notifySubscribers();
-    });
-
-    this.sseEventSource.addEventListener('backupRestored', () => {
-      this.sseEventCount++;
-      const now = Date.now();
-      const sinceLast = now - this.lastSseEventTime;
-      this.lastSseEventTime = now;
-      console.debug(`[PERF SSE] #${this.sseEventCount} backupRestored (since last: ${sinceLast}ms)`);
-      this.notifySubscribers();
-    });
+    const sseEventNames = [
+      'playerUpdated',
+      'cellCleared',
+      'ladderUpdated',
+      'deltasSubmitted',
+      'gameSubmitted',
+      'gamesSubmitted',
+      'miniGameSaved',
+      'miniGameWritten',
+      'playersCopied',
+      'playerAdded',
+      'miniGamesCleared',
+      'miniGamesImported',
+      'fileUploaded',
+      'backupRestored',
+    ];
+    for (const eventName of sseEventNames) {
+      this.sseEventSource.addEventListener(eventName, () => this.onSseEvent(eventName));
+    }
 
     this.sseEventSource.onerror = () => {
       this.sseConsecutiveFailures++;
@@ -652,7 +554,7 @@ class DataService {
     const player = players.find(p => p.rank === playerRank);
     if (player) {
       if (!player.gameResults) {
-        player.gameResults = new Array(NUM_ROUNDS).fill(null);
+        player.gameResults = [...DEFAULT_GAME_RESULTS];
       }
       player.gameResults[round] = result;
       this.saveLocalPlayers(players);
@@ -664,7 +566,7 @@ class DataService {
     const player = players.find(p => p.rank === playerRank);
     if (player) {
       if (!player.gameResults) {
-        player.gameResults = new Array(NUM_ROUNDS).fill(null);
+        player.gameResults = [...DEFAULT_GAME_RESULTS];
       }
       player.gameResults[roundIndex] = null;
       this.saveLocalPlayers(players);
@@ -790,7 +692,7 @@ class DataService {
       const player = players.find(p => p.rank === playerRank);
       if (!player) return;
       if (!player.gameResults) {
-        player.gameResults = new Array(NUM_ROUNDS).fill(null);
+        player.gameResults = [...DEFAULT_GAME_RESULTS];
       }
       player.gameResults[round] = result;
       player.num_games = (player.num_games || 0) + 1;
@@ -810,7 +712,7 @@ class DataService {
           const player = players.find(p => p.rank === delta.playerRank);
           if (player) {
             if (!player.gameResults) {
-              player.gameResults = new Array(NUM_ROUNDS).fill(null);
+              player.gameResults = [...DEFAULT_GAME_RESULTS];
             }
             player.gameResults[delta.round] = delta.result;
             player.num_games = (player.num_games || 0) + 1;

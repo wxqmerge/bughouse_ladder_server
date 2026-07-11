@@ -11,7 +11,7 @@ import {
   repopulateGameResults,
   updatePlayerGameData,
 } from "../../shared/utils/hashUtils";
-import { processNewDayTransformations, isMiniGameTitle, titleToFileName, getNextTitle, SHORTCUT_TO_TITLE, LADDER_COLORS, compareByPseudoRating, formatRatingForExport, NUM_ROUNDS, getValidationErrorMessage } from "../../shared/utils/constants";
+import { processNewDayTransformations, isMiniGameTitle, titleToFileName, getNextTitle, SHORTCUT_TO_TITLE, LADDER_COLORS, compareByPseudoRating, formatRatingForExport, getValidationErrorMessage } from "../../shared/utils/constants";
 import { MINI_GAME_FILES, DEFAULT_GAME_RESULTS } from "../../shared/types";
 import { dataService, DataServiceMode } from "../services/dataService";
 import { miniGamesHaveResults } from "../services/miniGameLocalStorage";
@@ -315,7 +315,7 @@ export default function LadderForm({
     info: "",
     school: "",
     room: "",
-    gameResults: new Array(NUM_ROUNDS).fill(null),
+    gameResults: [...DEFAULT_GAME_RESULTS],
   });
   const emptyPlayerRowRef = useRef(emptyPlayerRow);
   emptyPlayerRowRef.current = emptyPlayerRow;
@@ -425,7 +425,7 @@ export default function LadderForm({
 
     const withResults = sorted.map((player) => ({
       ...player,
-      gameResults: player.gameResults || new Array(NUM_ROUNDS).fill(null),
+      gameResults: player.gameResults || [...DEFAULT_GAME_RESULTS],
     }));
 
     setPlayers(withResults);
@@ -741,7 +741,7 @@ export default function LadderForm({
               (window as any).__ladder_setStatus?.(`Loaded ${serverPlayers.length} players from server`);
               const playersWithResults = serverPlayers.map((player: PlayerData) => ({
                 ...player,
-                gameResults: player.gameResults || new Array(NUM_ROUNDS).fill(null),
+                gameResults: player.gameResults || [...DEFAULT_GAME_RESULTS],
               }));
               
               // Mark cells as saved if they have underscores
@@ -809,7 +809,7 @@ export default function LadderForm({
           try {
             const playersWithResults = localPlayers.map((player) => ({
               ...player,
-              gameResults: player.gameResults || new Array(NUM_ROUNDS).fill(null),
+              gameResults: player.gameResults || [...DEFAULT_GAME_RESULTS],
             }));
             setPlayers(playersWithResults);
             lastRefreshHash.current = computePlayersHash(playersWithResults);
@@ -1202,7 +1202,7 @@ export default function LadderForm({
           if (serverPlayers && serverPlayers.length > 0) {
             setPlayers(serverPlayers.map((p: PlayerData) => ({
               ...p,
-              gameResults: p.gameResults || new Array(NUM_ROUNDS).fill(null),
+              gameResults: p.gameResults || [...DEFAULT_GAME_RESULTS],
             })));
             log('[LOAD_FILE]', '✓ Restored from server');
           } else {
@@ -1256,7 +1256,7 @@ export default function LadderForm({
           if (serverPlayers && serverPlayers.length > 0) {
             const restoredPlayers = serverPlayers.map((p: PlayerData) => ({
               ...p,
-              gameResults: p.gameResults || new Array(NUM_ROUNDS).fill(null),
+              gameResults: p.gameResults || [...DEFAULT_GAME_RESULTS],
             }));
             log('[RESTORE_BACKUP]', '✓ Backup data loaded for preview');
             
@@ -2100,7 +2100,7 @@ const handleRandomResult = (setter: (value: string) => void) => {
                 // gameResults cell-by-cell so local unconfirmed entries are not lost
                 mergePlayers = serverPlayers.map((sp: PlayerData) => {
                    const localPlayer = playersRef.current.find(lp => lp.rank === sp.rank);
-                   const mergedResults = (sp.gameResults || new Array(NUM_ROUNDS).fill(null)).map(
+                   const mergedResults = (sp.gameResults || [...DEFAULT_GAME_RESULTS]).map(
                      (serverCell: string | null, idx: number) => {
                        const localCell = localPlayer?.gameResults?.[idx];
                        // Merge priority: local unconfirmed > server confirmed > server default
@@ -2462,7 +2462,7 @@ const handleRandomResult = (setter: (value: string) => void) => {
         const mapStart = performance.now();
         const playersWithResults = freshPlayers.map((player: PlayerData) => ({
           ...player,
-          gameResults: player.gameResults || new Array(NUM_ROUNDS).fill(null),
+          gameResults: player.gameResults || [...DEFAULT_GAME_RESULTS],
         }));
         const mapMs = performance.now() - mapStart;
 
@@ -3242,7 +3242,7 @@ const handleWalkthroughNextForReview = () => {
         const targetPlayers = await dataService.fetchMiniGamePlayers();
         targetPlayersWithResults = targetPlayers.map((p: PlayerData) => ({
           ...p,
-          gameResults: p.gameResults || new Array(NUM_ROUNDS).fill(null),
+          gameResults: p.gameResults || [...DEFAULT_GAME_RESULTS],
         }));
         setPlayers(targetPlayersWithResults);
         console.debug(`>>> [TELEPORT] Switched to ${targetLadder} with ${targetPlayersWithResults.length} players`);
@@ -3262,7 +3262,7 @@ const handleWalkthroughNextForReview = () => {
         const targetPlayers = await dataService.getPlayers();
         targetPlayersWithResults = targetPlayers.map((p: PlayerData) => ({
           ...p,
-          gameResults: p.gameResults || new Array(NUM_ROUNDS).fill(null),
+          gameResults: p.gameResults || [...DEFAULT_GAME_RESULTS],
         }));
         setPlayers(targetPlayersWithResults);
         console.debug(`>>> [TELEPORT] Switched to club ladder ${targetLadder} with ${targetPlayersWithResults.length} players`);
@@ -3558,7 +3558,7 @@ const handleWalkthroughNextForReview = () => {
 
     const playersWithResults = players.map((player) => ({
       ...player,
-      gameResults: player.gameResults || new Array(NUM_ROUNDS).fill(null),
+      gameResults: player.gameResults || [...DEFAULT_GAME_RESULTS],
     }));
 
     playersWithResults.sort(getSortComparator(sortMethod));
@@ -3692,7 +3692,7 @@ const handleWalkthroughNextForReview = () => {
           if (miniGamePlayers && miniGamePlayers.length > 0) {
             const playersWithResults = miniGamePlayers.map((player: PlayerData) => ({
               ...player,
-              gameResults: player.gameResults || new Array(NUM_ROUNDS).fill(null),
+              gameResults: player.gameResults || [...DEFAULT_GAME_RESULTS],
             }));
             setPlayers(playersWithResults);
             log('[MINI-GAME SWITCH]', `✓ Loaded ${playersWithResults.length} players from mini-game`);
@@ -3740,7 +3740,7 @@ const handleWalkthroughNextForReview = () => {
   const updatedPlayers = players.map(p => {
       const playerResults = results.filter(r => r.cellOwnerRank === p.rank);
       if (playerResults.length === 0) return p;
-      const src = p.gameResults || new Array(NUM_ROUNDS).fill(null);
+      const src = p.gameResults || [...DEFAULT_GAME_RESULTS];
       const newGr = [...src];
       for (const r of playerResults) {
         newGr[r.roundIndex] = r.resultString;
@@ -3801,7 +3801,7 @@ const handleWalkthroughNextForReview = () => {
       info: String(mapped.info || '').trim() || lastPlayer?.info || "",
       school: String(mapped.school || '').trim() || lastPlayer?.school || "",
       room: String(mapped.room || '').trim() || lastPlayer?.room || "",
-      gameResults: ((mapped as any).gameResults as (string | null)[]) || new Array(NUM_ROUNDS).fill(null),
+      gameResults: ((mapped as any).gameResults as (string | null)[]) || [...DEFAULT_GAME_RESULTS],
     };
   };
 
@@ -3838,7 +3838,7 @@ const handleWalkthroughNextForReview = () => {
         }
       });
 
-      (mapped as any).gameResults = gameResults.length ? gameResults : new Array(NUM_ROUNDS).fill(null);
+      (mapped as any).gameResults = gameResults.length ? gameResults : [...DEFAULT_GAME_RESULTS];
 
       const hasNames = String(mapped.lastName || '').trim() && String(mapped.firstName || '').trim();
 
@@ -3961,7 +3961,7 @@ const handleWalkthroughNextForReview = () => {
     const rows = text.split('\n').filter((r: string) => r.trim());
     if (rows.length <= 1) return;
     e.preventDefault();
-    const newResults = [...(players.find(p => p.rank === playerRank)?.gameResults || new Array(NUM_ROUNDS).fill(null))];
+    const newResults = [...(players.find(p => p.rank === playerRank)?.gameResults || [...DEFAULT_GAME_RESULTS])];
     for (let i = 0; i < rows.length && (startRound + i) < 31; i++) {
       newResults[startRound + i] = rows[i].trim() || null;
     }
@@ -4125,7 +4125,7 @@ const handleDeleteConfirm = () => {
          rank: newRank,
          nRating: Math.abs(playerData.rating || 1),
          trophyEligible: true,
-         gameResults: new Array(NUM_ROUNDS).fill(null),
+         gameResults: [...DEFAULT_GAME_RESULTS],
        };
 
        const updatedPlayers = [...prevPlayers, newPlayer];
@@ -4152,7 +4152,7 @@ const handleDeleteConfirm = () => {
         rank: newRank,
         nRating: Math.abs(playerData.rating || 1),
         trophyEligible: true,
-        gameResults: new Array(NUM_ROUNDS).fill(null),
+        gameResults: [...DEFAULT_GAME_RESULTS],
       };
 
       const updatedPending = [...pendingPlayers, newPlayer];
@@ -4442,7 +4442,7 @@ const handleDeleteConfirm = () => {
     let output = headerLine + "\n";
 
     players.forEach((player) => {
-      const gameResults = player.gameResults || new Array(NUM_ROUNDS).fill(null);
+      const gameResults = player.gameResults || [...DEFAULT_GAME_RESULTS];
 
       output += `${player.group || ""}\t${player.lastName || ""}\t${player.firstName || ""}\t${formatRatingForExport(player.rating, player.trophyEligible)}\t${player.rank}\t${formatRatingForExport(player.nRating, player.trophyEligible)}\t${player.grade || ""}\t${player.num_games || 0}\t${player.attendance || ""}\t${player.phone || ""}\t${player.info || ""}\t${player.school || ""}\t${player.room || ""}`;
 
@@ -5878,7 +5878,7 @@ borderBottom: `2px solid ${headerBorder}`,
               .filter(p => !isHiddenPlayer(p))
               .map((player, rowIndex) => {
               const gameResults =
-                player.gameResults || new Array(NUM_ROUNDS).fill(null);
+                player.gameResults || [...DEFAULT_GAME_RESULTS];
 
               return (
                 <tr
@@ -6291,7 +6291,7 @@ borderColor:
                                             ? {
                                                 ...p,
                                                 gameResults: [
-                                                  ...(p.gameResults || new Array(NUM_ROUNDS).fill(null)),
+                                                  ...(p.gameResults || [...DEFAULT_GAME_RESULTS]),
                                                 ].map((r, i) =>
                                                   i === gCol ? value.trim() || null : r,
                                                 ),
@@ -6362,7 +6362,7 @@ if (result.endsWith('_')) {
                                            ? {
                                                ...p,
                                                gameResults: [
-                                                 ...(p.gameResults || new Array(NUM_ROUNDS).fill(null)),
+                                                 ...(p.gameResults || [...DEFAULT_GAME_RESULTS]),
                                                ].map((r, i) =>
                                                  i === gCol ? value.trim() || null : r,
                                                ),

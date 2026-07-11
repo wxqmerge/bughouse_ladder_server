@@ -202,6 +202,22 @@ app.get('/api/ladder/events', (req: Request, res: Response) => {
   res.write(`id: init\nevent: connected\ndata: {"message":"SSE connected"}\n\n`);
 });
 
+// Debug level change tracker — logs unconditionally on every change
+const clientDebugLevels = new Map<string, number>();
+app.use('/api/*', (req, _res, next) => {
+  const raw = req.headers['x-debug-level'] as string | undefined;
+  if (raw) {
+    const val = parseInt(raw, 10);
+    const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
+    const prev = clientDebugLevels.get(clientIp);
+    if (!isNaN(val) && val !== prev) {
+      clientDebugLevels.set(clientIp, val);
+      console.log(`[DEBUG-LEVEL] ${clientIp} → ${val}`);
+    }
+  }
+  next();
+});
+
 // API Routes
 app.use('/api/ladder', ladderRouter);
 app.use('/api/games', gameRouter);

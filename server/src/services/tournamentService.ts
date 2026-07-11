@@ -3,7 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { log as loggerLog } from '../utils/logger.js';
 import { readLadderFile, writeLadderFile, PlayerData, LadderData, ensureDataDirectory } from './dataService.js';
-import { MINI_GAME_FILES, MINI_GAME_DIFFICULTY_ORDER } from '../../../shared/types/index.js';
+import { MINI_GAME_FILES, MINI_GAME_DIFFICULTY_ORDER, DEFAULT_GAME_RESULTS } from '../../../shared/types/index.js';
 import { clearRankReferences } from '../../../shared/utils/hashUtils.js';
 import { NUM_ROUNDS } from '../../../shared/utils/constants.js';
 import { IDENTITY_FIELDS, IdentityField, mergeIdentityFromClubLadder, mergeIdentityFromClubLadderByName, splitIdentityChanges } from '../../../shared/utils/identityMerge.js';
@@ -426,7 +426,7 @@ export async function addPlayerToAllMiniGames(newPlayer: PlayerData): Promise<vo
       // Add player with empty gameResults
       miniGameData.players.push({
         ...newPlayer,
-        gameResults: new Array(NUM_ROUNDS).fill(null),
+        gameResults: [...DEFAULT_GAME_RESULTS],
       });
       // Invalidate cache before write to ensure fresh state
       miniGameCache.delete(getMiniGameFilePath(fileName));

@@ -6,7 +6,8 @@ import { ReconnectDialog } from "./components/ReconnectDialog";
 import { StatusBanner } from "./components/StatusBanner";
 import { loadSampleData } from "./components/LadderForm";
 
-import { getNextTitle, processNewDayTransformations, isMiniGameTitle, NUM_ROUNDS } from "../shared/utils/constants";
+import { getNextTitle, processNewDayTransformations, isMiniGameTitle } from "../shared/utils/constants";
+import { DEFAULT_GAME_RESULTS } from "../shared/types";
 import { detectDuplicateRanks } from "../shared/utils/rankValidation";
 import { validatePlayersNamesOnly } from "../shared/utils/sanityCheck";
 import { downloadBlob } from "./utils/downloadBlob";
@@ -709,7 +710,7 @@ const handleClearAll = async () => {
           const mergedPlayers = serverPlayers.map((sp: any) => {
             const localPlayer = localPlayers.find((lp: any) => lp.rank === sp.rank);
             if (localPlayer && localPlayer.gameResults) {
-              const mergedGameResults = [...(sp.gameResults || new Array(NUM_ROUNDS).fill(null))];
+              const mergedGameResults = [...(sp.gameResults || [...DEFAULT_GAME_RESULTS])];
               for (let r = 0; r < 31; r++) {
               const localResult = localPlayer.gameResults[r];
                 // Preserve local unconfirmed entries
