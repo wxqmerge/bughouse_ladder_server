@@ -47,11 +47,13 @@ export function getJson<T = any>(keyName: string): T | null {
   }
 }
 
-export function setJson(keyName: string, value: any): void {
+export function setJson(keyName: string, value: any): boolean {
   try {
     localStorage.setItem(buildKey(keyName), JSON.stringify(value));
+    return true;
   } catch (error) {
     log('[STORAGE]', `Failed to save JSON for key "${keyName}":`, error);
+    return false;
   }
 }
 
@@ -359,7 +361,11 @@ function getCurrentPlayers(): PlayerData[] {
 
 async function commitBatchBuffer(): Promise<void> {
   if (!batchBuffer) return;
-  setJson('ladder_players', batchBuffer);
+  const localOk = setJson('ladder_players', batchBuffer);
+  if (!localOk) {
+    console.error('[STORAGE] Batch commit: failed to write localStorage — data may be lost!');
+    return;
+  }
   if (dataService.getMode() !== DataServiceMode.LOCAL) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);

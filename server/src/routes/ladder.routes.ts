@@ -10,15 +10,9 @@ import { checkMiniGameFilesWith, readMiniGameFile, writeMiniGameFile, MINI_GAME_
 import { deduplicatePlayers } from '../../../shared/utils/dedupUtils.js';
 import { NUM_ROUNDS } from '../../../shared/utils/constants.js';
 import { DEFAULT_GAME_RESULTS } from '../../../shared/types/index.js';
+import { normalizeFileName } from '../utils/miniGameUtils.js';
 
 const router = Router();
-
-/** Normalize a mini-game file name to lowercase and validate against allowed list. */
-function normalizeFileName(input: string | undefined | null): string | null {
-  if (!input) return null;
-  const lower = String(input).toLowerCase();
-  return MINI_GAME_FILES.includes(lower) ? lower : null;
-}
 
 // Get all ladder data (public read access)
 router.get('/', asyncHandler(async (_req: Request, res: Response) => {

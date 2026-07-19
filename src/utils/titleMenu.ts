@@ -1,6 +1,6 @@
-import { titleToFileName } from "../../shared/utils/constants";
+import { titleToFileName, MINI_GAMES_WITH_BUGHOUSE } from "../../shared/utils/constants";
 
-export const ALL_TITLES = ["Ladder", "Bughouse", "BG_Game", "Bishop_Game", "Pillar_Game", "Kings_Cross", "Pawn_Game", "Queen_Game"];
+export const ALL_TITLES: string[] = ["Ladder", ...MINI_GAMES_WITH_BUGHOUSE];
 
 export function getVisibleTitles(isAdmin: boolean, availableMiniGames: string[]): string[] {
   return isAdmin

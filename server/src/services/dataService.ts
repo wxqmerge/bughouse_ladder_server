@@ -7,25 +7,9 @@ import { MINI_GAME_FILES } from '../../../shared/types/index.js';
 import { parsePlayerLine, generateTabContent as sharedGenerateTabContent } from '../../../shared/utils/tabUtils.js';
 export { loggerLog as log };
 
-// Server-side PlayerData - kept inline due to NodeNext module resolution constraints
-// Canonical definition is in shared/types/index.ts
-export interface PlayerData {
-  rank: number;
-  group: string;
-  lastName: string;
-  firstName: string;
-  rating: number;
-  nRating: number;
-  trophyEligible: boolean;
-  grade: string;
-  num_games: number;
-  attendance: number;
-  info: string;
-  phone: string;
-  school: string;
-  room: string;
-  gameResults: (string | null)[];
-}
+// Re-export shared types for consumers that import from this module
+import type { PlayerData, LadderData } from '../../../shared/types/index.js';
+export type { PlayerData, LadderData };
 
 import { withTiming as _withTiming } from '../utils/performance.js';
 // Re-export for use in other modules
@@ -90,12 +74,6 @@ export interface BackupInfo {
   path: string;
   timestamp: string;
   date: string;
-}
-
-export interface LadderData {
-  header: string[];
-  players: PlayerData[];
-  rawLines: string[];
 }
 
 // File lock mechanism - simple mutex for sequential file access

@@ -1,4 +1,4 @@
-import { getTimestamp } from './timestamp.js';
+import { getTimestamp } from '../../../shared/utils/timeUtils.js';
 
 export function log(category: string, message: string, ...args: any[]): void {
   console.log(`[${getTimestamp()}] ${category}`, message, ...args);

@@ -24,6 +24,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { serverVersion } from './services/dataService.js';
+import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
@@ -259,9 +260,10 @@ async function startServer() {
       console.log('');
       
       // Connection instructions for clients
+      const host = process.env.NODE_ENV === 'production' ? os.hostname() : 'localhost';
       console.log('CLIENT CONFIGURATION:');
       console.log(`  Open this URL to configure a client:`);
-      console.log(`  http://your-host:${PORT}/?config=1&server=http://your-host:${PORT}`);
+      console.log(`  http://${host}:${PORT}/?config=1&server=http://${host}:${PORT}`);
       console.log('');
       
       if (!adminKeySet) {
