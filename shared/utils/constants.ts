@@ -16,16 +16,9 @@ export const MINI_GAMES_WITH_BUGHOUSE = [
 ] as const;
 
 /** Fixed keyboard shortcut mapping for ladder switching (Ctrl+1 through Ctrl+8) */
-export const LADDER_SHORTCUTS: Record<string, number> = {
-  "Ladder": 1,
-  "BG_Game": 2,
-  "Bishop_Game": 3,
-  "Pillar_Game": 4,
-  "Kings_Cross": 5,
-  "Pawn_Game": 6,
-  "Queen_Game": 7,
-  "Bughouse": 8,
-};
+export const LADDER_SHORTCUTS: Record<string, number> = Object.fromEntries(
+  ["Ladder", ...MINI_GAMES_WITH_BUGHOUSE].map((title, i) => [title, i + 1])
+);
 
 /** Reverse mapping: shortcut number → title */
 export const SHORTCUT_TO_TITLE: Record<number, string> = Object.fromEntries(

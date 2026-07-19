@@ -16,17 +16,16 @@ export function mergeServerWithLocal(
   localPlayers: PlayerData[],
   pendingDeletes: Set<string> = new Set()
 ): PlayerData[] {
+  const localByRank = new Map(localPlayers.map(lp => [lp.rank, lp]));
   const result = serverPlayers.map((sp) => {
-    const localPlayer = localPlayers.find((lp) => lp.rank === sp.rank);
-    
+    const localPlayer = localByRank.get(sp.rank);
+
     if (!localPlayer || !localPlayer.gameResults) {
       return sp;
     }
-    
-    const mergedGameResults = [
-      ...(sp.gameResults || [...DEFAULT_GAME_RESULTS]),
-    ];
-    
+
+    const mergedGameResults = sp.gameResults ? [...sp.gameResults] : [...DEFAULT_GAME_RESULTS];
+
     for (let r = 0; r < 31; r++) {
       const cellKey = `${localPlayer.rank}:${r}`;
       
@@ -62,12 +61,10 @@ export function mergeServerWithLocal(
   });
 
   // Append players that exist locally but not on server
+  const serverRanks = new Set(serverPlayers.map(sp => sp.rank));
   for (const lp of localPlayers) {
-    const serverHasRank = serverPlayers.find(sp => sp.rank === lp.rank);
-    if (!serverHasRank) {
+    if (!serverRanks.has(lp.rank)) {
       result.push({ ...lp });
-    } else {
-      console.debug(`[DEBUG MERGE] DROPPED local player "${lp.firstName} ${lp.lastName}" rank=${lp.rank} — server already has "${serverHasRank.firstName} ${serverHasRank.lastName}" at that rank`);
     }
   }
 

@@ -7,7 +7,7 @@ import { StatusBanner } from "./components/StatusBanner";
 import { loadSampleData } from "./components/LadderForm";
 
 import { getNextTitle, processNewDayTransformations, isMiniGameTitle } from "../shared/utils/constants";
-import { DEFAULT_GAME_RESULTS } from "../shared/types";
+import { DEFAULT_GAME_RESULTS, MINI_GAME_FILES } from "../shared/types";
 import { detectDuplicateRanks } from "../shared/utils/rankValidation";
 import { validatePlayersNamesOnly } from "../shared/utils/sanityCheck";
 import { downloadBlob } from "./utils/downloadBlob";
@@ -544,15 +544,6 @@ const handleClearAll = async () => {
   };
 
   const handleImportSingleMiniGame = async () => {
-    const MINI_GAME_FILES = [
-      'bg_game.tab',
-      'bishop_game.tab',
-      'pillar_game.tab',
-      'kings_cross.tab',
-      'pawn_game.tab',
-      'queen_game.tab',
-      'bughouse.tab',
-    ];
     const targetGame = prompt(
       `Import .tab file into a mini-game slot.\nSelect one:\n${MINI_GAME_FILES.map((f, i) => `${i + 1}. ${f}`).join('\n')}\n\nEnter number:`
     );

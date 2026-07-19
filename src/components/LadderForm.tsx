@@ -31,7 +31,7 @@ import { gatedFetch } from "../utils/requestGate";
 import { downloadBlob } from "../utils/downloadBlob";
 import { getFontSize, getScaledPadding, getScaledGap } from "../utils/getFontSize";
 import { useIntervalCheck } from "../utils/useIntervalCheck";
-import { mergeServerWithLocal as _mergeServerWithLocal } from "../utils/mergeUtils";
+
 import { deduplicatePlayers, lockAndDeduplicate } from "../../shared/utils/dedupUtils";
 import { detectDuplicateRanks, detectMissingRanks } from "../../shared/utils/rankValidation";
 import { validatePlayersAgainstClubLadder, validatePlayersNamesOnly } from "../../shared/utils/sanityCheck";
@@ -395,6 +395,7 @@ export default function LadderForm({
   const prevLastFileRef = useRef<File | null>(null);
   const debouncedSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const debouncedClearTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debouncedGameSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingPlayerUpdate = useRef<{ rank: number; originalLastName: string; originalFirstName: string; updates: Record<string, unknown> } | null>(null);
   const lastRefreshHash = useRef<string | null>(null);
   const hiddenPlayersToDeleteRef = useRef<PlayerData[]>([]);
@@ -3075,6 +3076,7 @@ const handleWalkthroughNextForReview = () => {
     debouncedClearTimer.current = setTimeout(() => {
       savePlayers(playersRef.current).catch((err: Error) => {
         console.error("Failed to save cleared cell:", err);
+        showToast("Save failed — cleared cell may not persist", 4000);
       });
     }, 300);
 
@@ -3362,6 +3364,7 @@ const handleWalkthroughNextForReview = () => {
 
         dataService.savePlayers(updatedPlayers).catch((err) => {
           console.error("Failed to save game entry:", err);
+          showToast("Save failed — game entry may not persist", 4000);
         });
         if (shouldLog(3)) console.debug('[3]DEBUG-TRACE] handleGameEntrySubmit setPlayers DONE: playerRank=' + entryCell.playerRank + ' round=' + entryCell.round + ' savedValue="' + valueToSave + '"');
         return updatedPlayers;
@@ -3566,6 +3569,7 @@ const handleWalkthroughNextForReview = () => {
     setPlayers([...playersWithResults]);
     savePlayers(playersWithResults).catch((err) => {
       console.error("Failed to save sorted players:", err);
+      showToast("Save failed — sort order may not persist", 4000);
     });
   };
   const handleFileAction = (action: "load" | "export") => {
@@ -3761,6 +3765,18 @@ const handleWalkthroughNextForReview = () => {
     setTimeout(() => setToastMessage(null), duration);
   };
 
+  const scheduleGameCellSave = () => {
+    if (debouncedGameSaveTimer.current) {
+      clearTimeout(debouncedGameSaveTimer.current);
+    }
+    debouncedGameSaveTimer.current = setTimeout(() => {
+      savePlayers(playersRef.current).catch((err: Error) => {
+        console.error("Failed to save game cell:", err);
+        showToast("Save failed — check console for details", 4000);
+      });
+    }, 300);
+  };
+
   const INLINE_FIELD_ORDER = [
     "rank", "group", "lastName", "firstName", "rating", "nRating",
     "trophyEligible", "grade", "num_games", "attendance", "phone", "info", "school", "room"
@@ -3950,13 +3966,19 @@ const handleWalkthroughNextForReview = () => {
       }
       col = startCol;
     }
-    setPlayers(players.map(p => {
+    const updated = players.map(p => {
       const u = updates.get(p.rank);
       return u ? { ...p, ...u } : p;
-    }));
+    });
+    setPlayers(updated);
+    playersRef.current = updated;
+    savePlayers(updated).catch((err: Error) => {
+      console.error("Failed to save pasted data:", err);
+      showToast("Save failed — pasted data may not persist", 4000);
+    });
   };
 
- const handleGameCellPaste = (e: any, playerRank: number, startRound: number) => {
+  const handleGameCellPaste = (e: any, playerRank: number, startRound: number) => {
     const text = e.clipboardData?.getData('text') || '';
     const rows = text.split('\n').filter((r: string) => r.trim());
     if (rows.length <= 1) return;
@@ -3965,9 +3987,15 @@ const handleWalkthroughNextForReview = () => {
     for (let i = 0; i < rows.length && (startRound + i) < 31; i++) {
       newResults[startRound + i] = rows[i].trim() || null;
     }
-    setPlayers(players.map(p =>
+    const updated = players.map(p =>
       p.rank === playerRank ? { ...p, gameResults: newResults } : p
-    ));
+    );
+    setPlayers(updated);
+    playersRef.current = updated;
+    savePlayers(updated).catch((err: Error) => {
+      console.error("Failed to save pasted game results:", err);
+      showToast("Save failed — pasted results may not persist", 4000);
+    });
   };
 
   const handleDeleteHiddenPlayers = () => {
@@ -3998,11 +4026,13 @@ const handleDeleteConfirm = () => {
     setPlayers(remainingPlayers);
     savePlayers(remainingPlayers, true).catch((err) => {
       console.error("Failed to save after deleting player:", err);
+      showToast("Save failed — player delete may not persist", 4000);
     });
 
     // Propagate delete to all mini-game files
     dataService.propagatePlayerDelete(current).catch((err) => {
       console.error("Failed to propagate player delete:", err);
+      showToast("Failed to propagate delete to mini-games", 4000);
     });
 
     setCurrentDeleteIndex(prev => {
@@ -4054,6 +4084,7 @@ const handleDeleteConfirm = () => {
     setPlayers(updatedPlayers);
     savePlayers(updatedPlayers, true).catch((err) => {
       console.error("Failed to save auto-letter:", err);
+      showToast("Save failed — auto-letter may not persist", 4000);
     });
     showToast(`Auto-lettered ${players.length} players`);
   };
@@ -4085,9 +4116,11 @@ const handleDeleteConfirm = () => {
       savePlayers(playersRef.current, true).then(() => {
         dataService.propagatePlayerUpdate(update.rank, update.originalLastName, update.originalFirstName, update.updates).catch((err) => {
           console.error("Failed to propagate player update:", err);
+          showToast("Failed to propagate player update to mini-games", 4000);
         });
       }).catch((err) => {
         console.error("Failed to save player update:", err);
+        showToast("Save failed — player update may not persist", 4000);
       });
     }, 1000);
   };
@@ -4133,11 +4166,13 @@ const handleDeleteConfirm = () => {
 
       savePlayers(updatedPlayers).catch((err) => {
         console.error("Failed to save added player:", err);
+        showToast("Save failed — added player may not persist", 4000);
       });
 
       // Propagate player to all mini-game files or club ladder
       dataService.propagatePlayerAdd(newPlayer).catch((err) => {
         console.error("Failed to propagate player:", err);
+        showToast("Failed to propagate player to mini-games", 4000);
       });
 
       return updatedPlayers;
@@ -6282,24 +6317,27 @@ borderColor:
                                      e.currentTarget.blur();
                                    }
                                  }}
-                                 onBlur={(e) => {
-                                    const value = e.target.textContent || "";
-                                    setPlayers((prevPlayers) =>
-                                      prevPlayers.map(
-                                        (p) =>
-                                          p.rank === player.rank
-                                            ? {
-                                                ...p,
-                                                gameResults: [
-                                                  ...(p.gameResults || [...DEFAULT_GAME_RESULTS]),
-                                                ].map((r, i) =>
-                                                  i === gCol ? value.trim() || null : r,
-                                                ),
-                                              }
-                                            : p,
-                                      ),
-                                    );
-                                  }}
+                                  onBlur={(e) => {
+                                     const value = e.target.textContent || "";
+                                     setPlayers((prevPlayers) => {
+                                       const updated = prevPlayers.map(
+                                         (p) =>
+                                           p.rank === player.rank
+                                             ? {
+                                                 ...p,
+                                                 gameResults: [
+                                                   ...(p.gameResults || [...DEFAULT_GAME_RESULTS]),
+                                                 ].map((r, i) =>
+                                                   i === gCol ? value.trim() || null : r,
+                                                 ),
+                                               }
+                                             : p,
+                                       );
+                                       playersRef.current = updated;
+                                       scheduleGameCellSave();
+                                       return updated;
+                                     });
+                                   }}
                               >
                                    {displayValue}
                                 </span>
@@ -6354,23 +6392,26 @@ if (result.endsWith('_')) {
                                     }
                                   }}
                                 onBlur={(e) => {
-                                   const value = e.target.textContent || "";
-                                   setPlayers((prevPlayers) =>
-                                     prevPlayers.map(
-                                       (p) =>
-                                         p.rank === player.rank
-                                           ? {
-                                               ...p,
-                                               gameResults: [
-                                                 ...(p.gameResults || [...DEFAULT_GAME_RESULTS]),
-                                               ].map((r, i) =>
-                                                 i === gCol ? value.trim() || null : r,
-                                               ),
-                                             }
-                                           : p,
-                                     ),
-                                   );
-                                 }}
+                                    const value = e.target.textContent || "";
+                                    setPlayers((prevPlayers) => {
+                                      const updated = prevPlayers.map(
+                                        (p) =>
+                                          p.rank === player.rank
+                                            ? {
+                                                ...p,
+                                                gameResults: [
+                                                  ...(p.gameResults || [...DEFAULT_GAME_RESULTS]),
+                                                ].map((r, i) =>
+                                                  i === gCol ? value.trim() || null : r,
+                                                ),
+                                              }
+                                            : p,
+                                      );
+                                      playersRef.current = updated;
+                                      scheduleGameCellSave();
+                                      return updated;
+                                    });
+                                  }}
                              >
                                  {displayValue}{tempResult}
                                </span>
@@ -6475,6 +6516,7 @@ if (result.endsWith('_')) {
                               setPlayers(updatedPlayers);
                               savePlayers(updatedPlayers, true).catch((err) => {
                                 console.error("Failed to save added players:", err);
+                                showToast("Save failed — added players may not persist", 4000);
                               });
                               showToast(`${result.createdPlayers.length} player${result.createdPlayers.length > 1 ? 's' : ''} added`);
                               
@@ -6561,6 +6603,7 @@ if (result.endsWith('_')) {
                                     console.debug('[DEBUG CTRL+ENTER] assigned rank=', newRank, 'total players=', updatedResult.length);
                                     savePlayers(updatedResult, true).catch((err) => {
                                       console.error("Failed to save added player:", err);
+                                      showToast("Save failed — added player may not persist", 4000);
                                     });
                                     return updatedResult;
                                   });
@@ -6652,9 +6695,10 @@ if (result.endsWith('_')) {
                                const rankedPlayer = { ...newPlayer, rank: newRank };
                                updatedResult = [...prevPlayers, rankedPlayer];
                                console.debug('[DEBUG ONBLUR] assigned rank=', newRank, 'total players=', updatedResult.length);
-                               savePlayers(updatedResult, true).catch((err) => {
-                                 console.error("Failed to save added player:", err);
-                               });
+                                savePlayers(updatedResult, true).catch((err) => {
+                                  console.error("Failed to save added player:", err);
+                                  showToast("Save failed — added player may not persist", 4000);
+                                });
                                return updatedResult;
                              });
                             

@@ -56,7 +56,7 @@ export default function PrintLabelLayoutEditor({ onClose, onSave, currentLayout,
     const loaded = loadLayouts();
     const match = loaded.findIndex(l => l.labelsPerPage === labelsPerPage);
     const idx = match >= 0 ? match : (loaded.length > 0 ? 0 : -1);
-    return idx >= 0 ? JSON.parse(JSON.stringify(loaded[idx])) : null;
+    return idx >= 0 ? structuredClone(loaded[idx]) : null;
   });
   const [preview, setPreview] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -66,7 +66,7 @@ export default function PrintLabelLayoutEditor({ onClose, onSave, currentLayout,
   const selectedLayout = layouts[selectedIdx] || layouts[0] || null;
 
   const startEdit = useCallback((layout: PrintLabelLayout) => {
-    setEditing(JSON.parse(JSON.stringify(layout)));
+    setEditing(structuredClone(layout));
   }, []);
 
   const newLayout = () => {
@@ -93,7 +93,7 @@ export default function PrintLabelLayoutEditor({ onClose, onSave, currentLayout,
     const dup: PrintLabelLayout = {
       ...src,
       name: `${src.name} (copy)`,
-      fields: JSON.parse(JSON.stringify(src.fields)),
+      fields: structuredClone(src.fields),
     };
     const updated = [...layouts];
     updated.splice(idx + 1, 0, dup);

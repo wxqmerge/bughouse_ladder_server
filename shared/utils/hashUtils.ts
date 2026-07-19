@@ -537,6 +537,9 @@ export function processGameResults(
   // Global deduplication across all rounds to prevent same match appearing multiple times
   const processedMatches = new Set<string>();
 
+  // Pre-build rank→player map for O(1) lookups
+  const playerByRank = new Map(playersList.map(p => [p.rank, p]));
+
   for (let round = 0; round < numRounds; round++) {
     const processedPairs = new Set<string>(); // Use string keys for normalized deduplication within round
 
@@ -658,8 +661,8 @@ export function processGameResults(
         continue;
       }
 
-      const player1 = playersList.find(p => p.rank === player1Rank);
-      const player2 = playersList.find(p => p.rank === player2Rank);
+      const player1 = playerByRank.get(player1Rank);
+      const player2 = playerByRank.get(player2Rank);
 
       if (!player1 || !player2) {
         errorCount++;
@@ -898,9 +901,10 @@ function calculateRatingsSinglePass(
 
   // Process each match inline (VB6: match processing loop)
   const matchTraces: MatchDebugTrace[] = [];
+  const playerByRank = new Map(playersCopy.map(p => [p.rank, p]));
   for (const match of matches) {
-    const p1 = playersCopy.find((p) => p.rank === match.player1);
-    const p2 = playersCopy.find((p) => p.rank === match.player2);
+    const p1 = playerByRank.get(match.player1);
+    const p2 = playerByRank.get(match.player2);
     if (!p1 || !p2) continue;
 
     const p3Rank = match.player3;
@@ -1145,6 +1149,7 @@ export function calculateRatings(
   };
 
   let kFactor = 20;
+  let blendingFactor = 0.99;
 
   if (options?.kFactorOverride !== undefined) {
     kFactor = options.kFactorOverride;
@@ -1155,29 +1160,20 @@ export function calculateRatings(
       if (settingsValue) {
         const parsed = JSON.parse(settingsValue);
         kFactor = parsed.kFactor ?? 20;
+        if (options?.blendingFactorOverride === undefined) {
+          blendingFactor = parsed.performanceBlendingFactor ?? 0.99;
+        }
       }
     } catch (e) {
-      console.error('[hashUtils] Failed to read kFactor from ladder_settings (using default 20). Corrupted localStorage may produce wrong ratings:', e);
+      console.error('[hashUtils] Failed to read settings from ladder_settings (using defaults). Corrupted localStorage may produce wrong ratings:', e);
     }
+  }
+
+  if (options?.blendingFactorOverride !== undefined) {
+    blendingFactor = options.blendingFactorOverride;
   }
 
   trace.kFactor = kFactor;
-
-  let blendingFactor = 0.99;
-  if (options?.blendingFactorOverride !== undefined) {
-    blendingFactor = options.blendingFactorOverride;
-  } else if (typeof (globalThis as Record<string, any>).localStorage !== "undefined") {
-    try {
-      const ls2 = (globalThis as Record<string, any>).localStorage;
-      const settingsValue = ls2 && typeof ls2.getItem === "function" ? ls2.getItem("ladder_settings") : null;
-      if (settingsValue) {
-        const parsed2 = JSON.parse(settingsValue);
-        blendingFactor = parsed2.performanceBlendingFactor ?? 0.99;
-      }
-    } catch (e) {
-      console.error('[hashUtils] Failed to read blendingFactor from ladder_settings (using default 0.99). Corrupted localStorage may produce wrong ratings:', e);
-    }
-  }
 
   let perfMultiplierScale = 0.5;
   if (options?.perfMultiplierScaleOverride !== undefined) {

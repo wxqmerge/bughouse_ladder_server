@@ -1,7 +1,7 @@
 // Performance monitoring utilities
 // Tracks operations that exceed the specified threshold (default: 500ms)
 
-import { getTimestamp } from './timestamp.js';
+import { getTimestamp } from '../../../shared/utils/timeUtils.js';
 
 const SLOW_THRESHOLD_MS = 100;
 

@@ -267,12 +267,23 @@ class DataService {
 
   // Simple hash function for comparing data
   private computeHash(players: PlayerData[]): string {
-    return JSON.stringify(
-      players.map(p => ({
-        gameResults: p.gameResults,
-        rank: p.rank,
-      }))
-    );
+    let hash = 0;
+    for (let i = 0; i < players.length; i++) {
+      const p = players[i];
+      hash = ((hash << 5) - hash + p.rank) | 0;
+      const gr = p.gameResults;
+      if (gr) {
+        for (let j = 0; j < gr.length; j++) {
+          const c = gr[j];
+          if (c) {
+            for (let k = 0; k < c.length; k++) {
+              hash = ((hash << 5) - hash + c.charCodeAt(k)) | 0;
+            }
+          }
+        }
+      }
+    }
+    return hash.toString();
   }
 
   // Initialize hash from current server state (call once on app start)

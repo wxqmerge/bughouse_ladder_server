@@ -3,7 +3,7 @@
  * Single source of truth for admin mode access across all clients
  */
 
-import { getTimestamp } from '../utils/timestamp.js';
+import { getTimestamp } from '../../../shared/utils/timeUtils.js';
 
 const ADMIN_LOCK_TIMEOUT = 60000; // 60 seconds
 
