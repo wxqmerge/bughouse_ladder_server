@@ -120,6 +120,7 @@ export interface MiniGameStore {
   mergeGameResults(oldResults: (string | null)[], currentResults: (string | null)[]): (string | null)[];
   getExistingMiniGameFiles(): Promise<string[]>;
   clearMiniGames(): Promise<{ deletedCount: number }>;
+  clearEmptyMiniGames(): Promise<{ deletedCount: number; deletedFiles: string[] }>;
   hasMiniGameFiles(): Promise<boolean>;
   checkMiniGameFilesWith(): Promise<string[]>;
   addPlayerToAllMiniGames(newPlayer: PlayerData): Promise<void>;

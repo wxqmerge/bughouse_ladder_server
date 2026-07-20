@@ -492,7 +492,7 @@ router.post('/tournament/import', asyncHandler(async (req: Request, res: Respons
 router.post('/tournament/clear-mini-games', asyncHandler(async (_req: Request, res: Response): Promise<void> => {
     const dataDir = path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data'));
     let deletedCount = 0;
-    
+
     for (const fileName of MINI_GAME_FILES) {
       const filePath = path.join(dataDir, fileName);
       try {
@@ -503,12 +503,52 @@ router.post('/tournament/clear-mini-games', asyncHandler(async (_req: Request, r
         // File doesn't exist, skip
       }
     }
-    
+
     broadcastSSEEvent('miniGamesCleared', { deletedCount, type: 'miniGamesClear' });
 
     res.json({
       success: true,
       data: { message: `Cleared ${deletedCount} mini-game files`, deletedCount },
+    });
+  }
+));
+
+// Clear mini-game files without any game results
+router.post('/tournament/clear-empty-mini-games', asyncHandler(async (_req: Request, res: Response): Promise<void> => {
+    const dataDir = path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data'));
+    const deletedFiles: string[] = [];
+
+    for (const fileName of MINI_GAME_FILES) {
+      const filePath = path.join(dataDir, fileName);
+      try {
+        const content = await fs.readFile(filePath, 'utf-8');
+        const lines = content.trim().split('\n');
+        if (lines.length <= 1) {
+          await fs.unlink(filePath);
+          deletedFiles.push(fileName);
+          log('[ADMIN]', `Deleted empty mini-game file: ${fileName}`);
+          continue;
+        }
+        const hasResults = lines.slice(1).some(line => {
+          const fields = line.split('\t');
+          const results = fields.slice(12);
+          return results.some(r => r && r.trim() !== '');
+        });
+        if (!hasResults) {
+          await fs.unlink(filePath);
+          deletedFiles.push(fileName);
+          log('[ADMIN]', `Deleted empty mini-game file: ${fileName}`);
+        }
+      } catch {
+        // File doesn't exist, skip
+      }
+    }
+
+    broadcastSSEEvent('miniGamesCleared', { deletedCount: deletedFiles.length, type: 'miniGamesClear' });
+
+    res.json({
+      success: true,
+      data: { message: `Cleared ${deletedFiles.length} empty mini-game files`, deletedCount: deletedFiles.length, deletedFiles },
     });
   }
 ));

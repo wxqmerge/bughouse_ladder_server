@@ -1050,6 +1050,23 @@ class DataService {
     }
   }
 
+  async clearEmptyMiniGames(): Promise<any> {
+    if (this.config.mode === DataServiceMode.LOCAL) {
+      const store = this.getStore();
+      return store.clearEmptyMiniGames();
+    } else {
+      const response = await gatedFetch(`${this.getApiUrl()}/api/admin/tournament/clear-empty-mini-games`, {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+      });
+
+      await throwIfNotOk(response, 'Failed to clear empty mini-game files');
+
+      const data = await response.json();
+      return data.data;
+    }
+  }
+
   async addPlayerToMiniGames(player: any): Promise<any> {
     if (this.config.mode === DataServiceMode.LOCAL) {
       const store = this.getStore();

@@ -35,6 +35,7 @@ interface SettingsProps {
   onNewDayWithReRank: () => void;
   onWalkThroughReports?: () => void;
   onClearMiniGames?: () => void;
+  onClearEmptyMiniGames?: () => void;
   onExportTournamentFiles?: () => void;
   onImportTournamentFiles?: () => void;
   onImportSingleMiniGame?: () => void;
@@ -56,6 +57,7 @@ export default function Settings({
   onNewDayWithReRank,
   onWalkThroughReports,
   onClearMiniGames,
+  onClearEmptyMiniGames,
   onExportTournamentFiles,
   onImportTournamentFiles,
   onImportSingleMiniGame,
@@ -685,37 +687,69 @@ export default function Settings({
                      </button>
                    )}
 
-                   {onClearMiniGames && (
-                     <button
-                       title={tt("Remove all 7 mini-game .tab files")}
-                       onClick={() => {
-                         console.debug(">>> [SETTINGS ACTION] Clear Mini-Games");
-                         debugClick("Settings:Clear Mini-Games");
-                         if (window.confirm("Clear all mini-game files? This will remove all 7 mini-game .tab files.")) {
-                           saveForAction();
-                           onClearMiniGames();
-                         }
-                       }}
-                       style={{
-                         width: "100%",
-                         display: "flex",
-                         alignItems: "center",
-                         justifyContent: "center",
-                         gap: "0.5rem",
-                         padding: "0.75rem",
-                         backgroundColor: "#dc2626",
-                         color: "white",
-                         border: "none",
-                         borderRadius: "0.25rem",
-                         cursor: "pointer",
-                         fontSize: "0.875rem",
-                         fontWeight: "500",
-                       }}
-                     >
-                       <Trash2 size={16} />
-                       Clear Mini-Games
-                     </button>
-                   )}
+                    {onClearMiniGames && (
+                      <button
+                        title={tt("Remove all 7 mini-game .tab files")}
+                        onClick={() => {
+                          console.debug(">>> [SETTINGS ACTION] Clear Mini-Games");
+                          debugClick("Settings:Clear Mini-Games");
+                          if (window.confirm("Clear all mini-game files? This will remove all 7 mini-game .tab files.")) {
+                            saveForAction();
+                            onClearMiniGames();
+                          }
+                        }}
+                        style={{
+                          width: "100%",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "0.5rem",
+                          padding: "0.75rem",
+                          backgroundColor: "#dc2626",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "0.25rem",
+                          cursor: "pointer",
+                          fontSize: "0.875rem",
+                          fontWeight: "500",
+                        }}
+                      >
+                        <Trash2 size={16} />
+                        Clear Mini-Games
+                      </button>
+                    )}
+
+                    {onClearEmptyMiniGames && (
+                      <button
+                        title={tt("Remove mini-game files that have no game results")}
+                        onClick={() => {
+                          console.debug(">>> [SETTINGS ACTION] Clear Empty Mini-Games");
+                          debugClick("Settings:Clear Empty Mini-Games");
+                          if (window.confirm("Clear mini-games without any game results?")) {
+                            saveForAction();
+                            onClearEmptyMiniGames();
+                          }
+                        }}
+                        style={{
+                          width: "100%",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "0.5rem",
+                          padding: "0.75rem",
+                          backgroundColor: "#ea580c",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "0.25rem",
+                          cursor: "pointer",
+                          fontSize: "0.875rem",
+                          fontWeight: "500",
+                        }}
+                      >
+                        <Trash2 size={16} />
+                        Clear Empty Mini-Games
+                      </button>
+                    )}
 
                    <button
                      title={tt("Clear all game results, keep player data intact")}
