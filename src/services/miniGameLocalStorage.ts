@@ -208,6 +208,22 @@ export const miniGameStore: MiniGameStore = {
     return { deletedCount };
   },
 
+  async clearEmptyMiniGames(): Promise<{ deletedCount: number; deletedFiles: string[] }> {
+    const deletedFiles: string[] = [];
+    for (const fileName of MINI_GAME_FILES) {
+      const data = await readMiniGameFile(fileName);
+      if (!data) continue;
+      const hasResults = data.players.some(p =>
+        p.gameResults && p.gameResults.some(r => r && r.trim() !== '')
+      );
+      if (!hasResults) {
+        localStorage.removeItem(getStorageKey(fileName));
+        deletedFiles.push(fileName);
+      }
+    }
+    return { deletedCount: deletedFiles.length, deletedFiles };
+  },
+
   async hasMiniGameFiles(): Promise<boolean> {
     const existingFiles = await this.getExistingMiniGameFiles();
     return existingFiles.length > 0;

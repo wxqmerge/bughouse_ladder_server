@@ -361,6 +361,25 @@ const handleClearAll = async () => {
     window.location.reload();
   };
 
+  const handleClearEmptyMiniGames = async () => {
+    try {
+      const result = await dataService.clearEmptyMiniGames();
+      if (result.deletedCount > 0) {
+        alert(`Cleared ${result.deletedCount} empty mini-game(s):\n${result.deletedFiles.join('\n')}`);
+      } else {
+        alert('No empty mini-games to clear.');
+      }
+    } catch (error) {
+      console.error('Failed to clear empty mini-games:', error);
+      alert('Failed to clear: ' + (error as Error).message);
+      return;
+    }
+
+    setProjectName('Ladder');
+    setProjectNameStorage('Ladder');
+    window.location.reload();
+  };
+
   const processNewDay = async (reRank: boolean) => {
     try {
       const players = await getPlayers();
@@ -890,6 +909,7 @@ onTitleSwitch={handleTitleSwitch}
           onNewDayWithReRank={handleNewDayWithReRank}
           onWalkThroughReports={handleWalkThroughReports}
           onClearMiniGames={isAdmin ? handleClearMiniGames : undefined}
+          onClearEmptyMiniGames={isAdmin ? handleClearEmptyMiniGames : undefined}
           onExportTournamentFiles={isAdmin ? handleExportTournamentFiles : undefined}
            onImportTournamentFiles={isAdmin ? handleImportTournamentFiles : undefined}
            onImportSingleMiniGame={isAdmin ? handleImportSingleMiniGame : undefined}
