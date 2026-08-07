@@ -403,13 +403,13 @@ export async function savePlayers(players: PlayerData[], waitForServer = false, 
     headers['X-API-Key'] = userSettings.apiKey.trim();
   }
 
-  // Log game results being sent to server
-  if (shouldLog(5)) {
+  // Log game results being sent to server (threshold 4: only when explicitly verbose)
+  if (shouldLog(4)) {
     const affected = players.filter(p => p.gameResults && p.gameResults.some(r => r != null));
     for (const p of affected) {
       for (let r = 0; r < (p.gameResults?.length || 0); r++) {
         const val = p.gameResults?.[r];
-        if (val) console.log(`[SAVE->SERVER] P${p.rank} R${r} = "${val}"`);
+        if (val) console.debug(`[SAVE->SERVER] P${p.rank} R${r} = "${val}"`);
       }
     }
   }

@@ -7,6 +7,7 @@ import { PlayerData, LadderData, MiniGameStore, MINI_GAME_FILES, DEFAULT_GAME_RE
 import { clearRankReferences } from '../../shared/utils/hashUtils';
 import { mergeIdentityFromClubLadder, splitIdentityChanges } from '../../shared/utils/identityMerge';
 import { deduplicatePlayers, normalizeGrades } from '../../shared/utils/dedupUtils';
+import { validateMiniGameAgainstClubLadder } from '../../shared/utils/sanityCheck';
 import { getLocalPlayers, getJson, setJson } from './storageService';
 import {
   copyPlayersToTarget as sharedCopyPlayersToTarget,
@@ -14,7 +15,7 @@ import {
   generateTrophyReport as sharedGenerateTrophyReport,
   parseMiniGameImportContent,
 } from '../../shared/utils/trophyGeneration';
-import { parsePlayerLine, parseTabContent as sharedParseTabContent, playersToTabContent as sharedPlayersToTabContent } from '../../shared/utils/tabUtils';
+import { parsePlayerLine, parseTabContent as sharedParseTabContent, playersToTabContent as sharedPlayersToTabContent, detectTabFormat, EXPECTED_DATA_FIELDS } from '../../shared/utils/tabUtils';
 
 // Re-export for backward compatibility
 export { parseTabContent } from '../../shared/utils/tabUtils';
@@ -86,6 +87,14 @@ export async function importMiniGameFiles(content: string): Promise<{ imported: 
     }
 
     try {
+      // Detect format issues before parsing
+      const rawLines = fileContent.split('\n').filter(l => l.trim());
+      const formatInfo = detectTabFormat(rawLines);
+      if (formatInfo.issues.length > 0) {
+        errors.push(`${fileName}: ${formatInfo.issues.join('; ')}`);
+        console.warn(`[IMPORT] ${normFileName} format issues:`, formatInfo.issues);
+      }
+
       let ladderData = sharedParseTabContent(fileContent);
       // Dedup guard: prevent duplicate ranks from corrupting the import
       const beforeDedup = ladderData.players.length;
@@ -93,6 +102,22 @@ export async function importMiniGameFiles(content: string): Promise<{ imported: 
       if (beforeDedup !== ladderData.players.length) {
         console.warn(`[IMPORT] ${normFileName}: removed ${beforeDedup - ladderData.players.length} duplicate players`);
       }
+
+      // Validate against club ladder (ladder.tab is the source of truth)
+      const clubPlayers = getLocalPlayers();
+      if (clubPlayers.length > 0) {
+        const validation = validateMiniGameAgainstClubLadder(ladderData.players, clubPlayers);
+        if (validation.orphans.length > 0) {
+          errors.push(`${fileName}: ${validation.orphans.length} player(s) not in club ladder: ${validation.orphans.join(', ')}`);
+        }
+        if (validation.diverged.length > 0) {
+          errors.push(`${fileName}: ${validation.diverged.length} player(s) diverged from club ladder: ${validation.diverged.join(', ')}`);
+        }
+        if (validation.missingFromMini.length > 0) {
+          errors.push(`${fileName}: ${validation.missingFromMini.length} club player(s) missing from mini-game: ${validation.missingFromMini.join(', ')}`);
+        }
+      }
+
       localStorage.setItem(getStorageKey(normFileName), preserveRawTabContent(ladderData));
       imported.push(normFileName);
       importedMiniGames.add(normFileName);

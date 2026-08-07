@@ -1,9 +1,104 @@
 import type { PlayerData, LadderData } from '../types/index.js';
 import { NUM_ROUNDS } from './constants.js';
 
+/** Expected data fields: 14 metadata (Group..Room) + NUM_ROUNDS game results. */
+export const EXPECTED_DATA_FIELDS = 14 + NUM_ROUNDS;
+
+/**
+ * Detect the format of a TSV ladder file.
+ * Returns metadata about header/data field counts and any format issues.
+ */
+export interface TabFormatInfo {
+  /** Number of fields in the header row. */
+  headerFields: number;
+  /** Number of fields in the first data row (0 if no data). */
+  dataFields: number;
+  /** True if header has a Version suffix column not present in data rows. */
+  hasVersionColumn: boolean;
+  /** True if data rows are missing the Group column (shifted by 1). */
+  missingGroupColumn: boolean;
+  /** True if the format needs normalization before parsing. */
+  needsNormalization: boolean;
+  /** List of detected format issues. */
+  issues: string[];
+}
+
+export function detectTabFormat(lines: string[]): TabFormatInfo {
+  const issues: string[] = [];
+  if (lines.length === 0) {
+    return { headerFields: 0, dataFields: 0, hasVersionColumn: false, missingGroupColumn: false, needsNormalization: false, issues };
+  }
+
+  const headerCols = lines[0].split('\t');
+  const headerFields = headerCols.length;
+
+  // Find first non-empty data line
+  let firstDataLine: string | null = null;
+  for (let i = 1; i < lines.length; i++) {
+    if (lines[i].trim()) {
+      firstDataLine = lines[i];
+      break;
+    }
+  }
+
+  let dataFields = 0;
+  let hasVersionColumn = false;
+  let missingGroupColumn = false;
+
+  if (firstDataLine) {
+    const dataCols = firstDataLine.split('\t');
+    dataFields = dataCols.length;
+
+    // Check for Version column in header (last field starts with "Version")
+    const lastHeader = headerCols[headerFields - 1]?.trim() || '';
+    if (lastHeader.startsWith('Version')) {
+      hasVersionColumn = true;
+    }
+
+    // Detect field count mismatch
+    // IMPORTANT: Check hasVersionColumn first, because it affects interpretation of field counts
+    if (hasVersionColumn) {
+      // Header has Version column; data should have one fewer field (no Version)
+      if (dataFields === headerFields - 1) {
+        // Normal: header has Version, data doesn't. Data aligns correctly.
+      } else if (dataFields === headerFields) {
+        // Data also has Version column — unusual but OK
+      } else if (dataFields < headerFields - 1) {
+        // Data is missing more than just the Version column
+        missingGroupColumn = true;
+        issues.push(`Data field count (${dataFields}) significantly less than header (${headerFields}) — columns shifted`);
+      }
+    } else if (headerFields === EXPECTED_DATA_FIELDS && dataFields === EXPECTED_DATA_FIELDS - 1) {
+      // No Version in header, but data has one fewer field — missing Group column
+      missingGroupColumn = true;
+      issues.push('Data rows missing Group column — columns shifted by 1');
+    } else if (headerFields === EXPECTED_DATA_FIELDS - 1 && dataFields === EXPECTED_DATA_FIELDS - 2) {
+      // Old-format: both header and data missing Group column
+      missingGroupColumn = true;
+      issues.push('File missing Group column — columns shifted by 1');
+    } else if (dataFields < headerFields) {
+      // Data has fewer fields than header — likely missing leading columns
+      missingGroupColumn = true;
+      issues.push(`Data field count (${dataFields}) less than header (${headerFields}) — columns shifted`);
+    } else if (dataFields !== EXPECTED_DATA_FIELDS && dataFields !== EXPECTED_DATA_FIELDS + 1) {
+      issues.push(`Unexpected data field count: ${dataFields} (expected ${EXPECTED_DATA_FIELDS})`);
+    }
+  }
+
+  return {
+    headerFields,
+    dataFields,
+    hasVersionColumn,
+    missingGroupColumn,
+    needsNormalization: missingGroupColumn,
+    issues,
+  };
+}
+
 /**
  * Parse TSV content into a LadderData object.
- * Handles header detection, duplicate header repair, and metadata line skipping.
+ * Handles header detection, duplicate header repair, metadata line skipping,
+ * and old-format normalization (Version column, missing Group column).
  */
 export function parseTabContent(content: string): LadderData {
   let lines = content.split('\n').filter(line => line.trim());
@@ -30,10 +125,24 @@ export function parseTabContent(content: string): LadderData {
   }
 
   const header = lines[0].split('\t');
+  const formatInfo = detectTabFormat(lines);
   const players: PlayerData[] = [];
 
   for (let i = 1; i < lines.length; i++) {
-    const player = parsePlayerLine(lines[i]);
+    let line = lines[i];
+
+    // Normalize: if data is missing Group column, prepend empty fields to align
+    if (formatInfo.missingGroupColumn) {
+      const cols = line.split('\t');
+      const headerLen = formatInfo.headerFields;
+      if (cols.length < headerLen) {
+        // Prepend empty fields to match header length
+        const padding = headerLen - cols.length;
+        line = '\t'.repeat(padding) + line;
+      }
+    }
+
+    const player = parsePlayerLine(line);
     if (player && player.rank > 0 && (player.lastName || player.firstName || player.nRating !== 0)) {
       players.push(player);
     }

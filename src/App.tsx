@@ -327,20 +327,32 @@ const [miniGamesHaveResults, setMiniGamesHaveResults] = useState(false);
     window.location.reload();
   };
 
-const handleClearAll = async () => {
+ const handleClearAll = async () => {
     console.log('[App] Clear All: starting...');
+
+    // Switch to main ladder so savePlayers([]) clears the main ladder, not a mini-game
+    const wasMiniGame = dataService.getMiniGameFile();
+    if (wasMiniGame) {
+      dataService.setMiniGameFile(null);
+      console.log('[App] Clear All: switched from mini-game to main ladder');
+    }
+
+    try {
+      await dataService.savePlayers([]);
+      console.log('[App] Clear All: main ladder cleared');
+    } catch (error) {
+      console.error('[App] Clear All: failed to clear main ladder:', error);
+      alert('Failed to clear ladder. Check console for details.');
+      // Restore mini-game state so the user isn't unexpectedly switched
+      if (wasMiniGame) dataService.setMiniGameFile(wasMiniGame);
+      return;
+    }
+
     try {
       await dataService.clearMiniGames();
       console.log('[App] Clear All: mini-games cleared');
     } catch (error) {
       console.error('[App] Clear All: failed to clear mini-games:', error);
-    }
-
-    try {
-      await dataService.savePlayers([]);
-      console.log('[App] Clear All: players cleared');
-    } catch (error) {
-      console.error('[App] Clear All: failed to clear players:', error);
     }
 
     clearSettings();

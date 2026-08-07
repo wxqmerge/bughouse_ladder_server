@@ -4,7 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { log as loggerLog } from '../utils/logger.js';
 import { MINI_GAME_FILES } from '../../../shared/types/index.js';
-import { parsePlayerLine, generateTabContent as sharedGenerateTabContent } from '../../../shared/utils/tabUtils.js';
+import { parsePlayerLine, generateTabContent as sharedGenerateTabContent, detectTabFormat, EXPECTED_DATA_FIELDS } from '../../../shared/utils/tabUtils.js';
 export { loggerLog as log };
 
 // Re-export shared types for consumers that import from this module
@@ -162,15 +162,25 @@ export async function readLadderFile(filePath?: string): Promise<LadderData> {
     }
     
     const players: PlayerData[] = [];
-    
+
     const MetadataPrefixes = [
       'Players', 'Max Trophies', 'Mode', 'Mini-games played',
       'Award 2nd place', 'Award grade 1st', 'MINI-GAME PLAYERS',
       'AWARDED TROPHIES', 'DEBUG', 'Trophy Report',
     ];
 
+    // Detect file format issues (old-format: Version column in header, missing Group in data)
+    const allLinesForDetection = [lines[0], ...dataLines];
+    const formatInfo = detectTabFormat(allLinesForDetection);
+    if (formatInfo.issues.length > 0) {
+      loggerLog('[SERVER]', `Format issues in ${targetPath}: ${formatInfo.issues.join(', ')}`);
+    }
+    if (formatInfo.hasVersionColumn) {
+      loggerLog('[SERVER]', `Old-format file (Version column in header): ${targetPath}`);
+    }
+
     for (let i = 0; i < dataLines.length; i++) {
-      const line = dataLines[i];
+      let line = dataLines[i];
       const fields = line.split('\t');
 
       // Skip metadata lines from trophy reports or other non-player sections
@@ -187,6 +197,12 @@ export async function readLadderFile(filePath?: string): Promise<LadderData> {
       // Skip section divider lines (file names only - don't skip empty Group column)
       if (firstField.endsWith('.tab')) {
         continue;
+      }
+
+      // Normalize: if data is missing Group column, prepend empty fields to align
+      if (formatInfo.missingGroupColumn && fields.length < formatInfo.headerFields) {
+        const padding = formatInfo.headerFields - fields.length;
+        line = '\t'.repeat(padding) + line;
       }
 
       // Use shared parser for player data

@@ -380,7 +380,10 @@ export async function generateTrophyReport(
     const miniMinTrophies = Math.ceil(miniActiveCount / 3);
 
     if (debugLevel <= 5) {
-      const headerLines = buildDebugHeader(players, clubMinTrophies, miniMinTrophies, miniGameDataList.length, debugLevel);
+      const miniGamesWithResults = miniGameDataList.filter(mgd =>
+        mgd.players.some(p => p.gameResults?.some(isValidGameResult))
+      ).length;
+      const headerLines = buildDebugHeader(players, clubMinTrophies, miniMinTrophies, miniGamesWithResults, debugLevel);
       debugLines.push(...headerLines);
     }
 

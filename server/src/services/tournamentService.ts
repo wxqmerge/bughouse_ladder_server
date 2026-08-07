@@ -8,7 +8,8 @@ import { clearRankReferences } from '../../../shared/utils/hashUtils.js';
 import { NUM_ROUNDS } from '../../../shared/utils/constants.js';
 import { IDENTITY_FIELDS, IdentityField, mergeIdentityFromClubLadder, mergeIdentityFromClubLadderByName, splitIdentityChanges } from '../../../shared/utils/identityMerge.js';
 import { deduplicatePlayers } from '../../../shared/utils/dedupUtils.js';
-import { parsePlayerLine, generateTabContent } from '../../../shared/utils/tabUtils.js';
+import { parsePlayerLine, generateTabContent, detectTabFormat, EXPECTED_DATA_FIELDS } from '../../../shared/utils/tabUtils.js';
+import { validateMiniGameAgainstClubLadder } from '../../../shared/utils/sanityCheck.js';
 import {
   copyPlayersToTarget as sharedCopyPlayersToTarget,
   mergeGameResults as sharedMergeGameResults,
@@ -634,14 +635,54 @@ export const tournamentStore: MiniGameStore = {
         continue;
       }
 
-      try {
+       try {
         // Parse and dedup before writing to prevent duplicate ranks
-        const lines = fileContent.split('\n').filter(l => l.trim());
+        const rawLines = fileContent.split('\n').filter(l => l.trim());
+        const formatInfo = detectTabFormat(rawLines);
         const players: PlayerData[] = [];
-        for (const line of lines) {
+
+        if (formatInfo.issues.length > 0) {
+          loggerLog('[TOURNAMENT]', `${normFileName} format issues: ${formatInfo.issues.join(', ')}`);
+          errors.push(`${normFileName}: ${formatInfo.issues.join('; ')}`);
+        }
+
+        for (const rawLine of rawLines) {
+          // Skip header line
+          if (rawLine.startsWith('Group')) continue;
+
+          let line = rawLine;
+          const fields = line.split('\t');
+
+          // Normalize: if data is missing Group column, prepend empty fields to align
+          if (formatInfo.missingGroupColumn && fields.length < formatInfo.headerFields) {
+            const padding = formatInfo.headerFields - fields.length;
+            line = '\t'.repeat(padding) + line;
+          }
+
           const p = parsePlayerLine(line);
           if (p) players.push(p);
         }
+
+        // Validate against club ladder (ladder.tab is the source of truth)
+        try {
+          const clubLadder = await readLadderFile();
+          const validation = validateMiniGameAgainstClubLadder(players, clubLadder.players);
+          if (validation.orphans.length > 0) {
+            errors.push(`${normFileName}: ${validation.orphans.length} player(s) not in club ladder: ${validation.orphans.join(', ')}`);
+          }
+          if (validation.diverged.length > 0) {
+            errors.push(`${normFileName}: ${validation.diverged.length} player(s) diverged from club ladder: ${validation.diverged.join(', ')}`);
+          }
+          if (validation.missingFromMini.length > 0) {
+            errors.push(`${normFileName}: ${validation.missingFromMini.length} club player(s) missing from mini-game: ${validation.missingFromMini.join(', ')}`);
+          }
+          if (validation.countMismatch) {
+            loggerLog('[TOURNAMENT]', `${normFileName}: player count mismatch - mini=${validation.miniCount}, club=${validation.clubCount}`);
+          }
+        } catch (e) {
+          loggerLog('[TOURNAMENT]', `${normFileName}: could not validate against club ladder: ${(e as Error).message}`);
+        }
+
         const beforeDedup = players.length;
         const deduped = deduplicatePlayers(players);
         if (beforeDedup !== deduped.length) {
