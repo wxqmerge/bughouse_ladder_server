@@ -764,7 +764,9 @@ export default function LadderForm({
               }
 
               // Initialize hash with fetched players to avoid redundant server request
-              dataService.setHash(serverPlayers);
+              if (typeof dataService.setHash === 'function') {
+                dataService.setHash(serverPlayers);
+              }
 
               if (serverPlayers.length === 0 && hasLocalPlayerData) {
                 console.warn('[INIT]', 'Server returned empty but localStorage has data — clearing stale localStorage');

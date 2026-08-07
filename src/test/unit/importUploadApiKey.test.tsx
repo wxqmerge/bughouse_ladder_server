@@ -81,9 +81,13 @@ vi.mock('../../services/dataService', () => ({
     subscribe: vi.fn().mockReturnValue(vi.fn()),
     notifySubscribers: vi.fn(),
     initializeHash: vi.fn().mockResolvedValue(undefined),
+    setHash: vi.fn(),
     startPolling: vi.fn(),
     stopPolling: vi.fn(),
-    getPlayers: vi.fn().mockResolvedValue([]),
+    getPlayers: vi.fn().mockResolvedValue([
+      { rank: 1, group: 'D', lastName: 'User1', firstName: 'F1', rating: 1200, nRating: 0, trophyEligible: true, grade: 'A', num_games: 0, attendance: 0, info: '', phone: '', school: '', room: '', gameResults: [] },
+      { rank: 2, group: 'D', lastName: 'User2', firstName: 'F2', rating: 800, nRating: 0, trophyEligible: true, grade: 'B', num_games: 0, attendance: 0, info: '', phone: '', school: '', room: '', gameResults: [] },
+    ]),
     savePlayers: vi.fn().mockResolvedValue(undefined),
     getConfigServerUrl: vi.fn().mockReturnValue('http://localhost:3000'),
     getTournamentStatus: vi.fn().mockResolvedValue({ active: false }),
@@ -192,10 +196,20 @@ describe('Import Upload API Key', () => {
     (userSettingsStorage.loadUserSettings as any).mockReturnValue({ server: 'http://localhost:3000', apiKey: 'test-admin-key' });
 
     // Mock global fetch to capture upload requests
-    fetchMock = vi.fn(() =>
+    const mockPlayers = [
+      { rank: 1, group: 'D', lastName: 'User1', firstName: 'F1', rating: 1200, nRating: 0, trophyEligible: true, grade: 'A', num_games: 0, attendance: 0, info: '', phone: '', school: '', room: '', gameResults: [] },
+      { rank: 2, group: 'D', lastName: 'User2', firstName: 'F2', rating: 800, nRating: 0, trophyEligible: true, grade: 'B', num_games: 0, attendance: 0, info: '', phone: '', school: '', room: '', gameResults: [] },
+    ];
+    fetchMock = vi.fn((url: any) =>
       Promise.resolve({
         ok: true,
-        json: () => Promise.resolve({ success: true }),
+        json: () => {
+          const u = typeof url === 'string' ? url : url?.toString?.() || '';
+          if (u.includes('/api/ladder')) {
+            return Promise.resolve({ data: { players: mockPlayers } });
+          }
+          return Promise.resolve({ success: true });
+        },
       })
     );
     vi.stubGlobal('fetch', fetchMock);

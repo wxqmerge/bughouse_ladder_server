@@ -54,8 +54,6 @@ export function broadcastSSEEvent(event: string, data: unknown, filterClientId?:
     const payload = JSON.stringify(data);
     const message = `id: ${id}\nevent: ${event}\ndata: ${payload}\n\n`;
 
-    const activeClients: SSEClient[] = [];
-
     for (const client of clients) {
       if (filterClientId && client.res.locals?.clientId !== filterClientId) {
         // Skip the client that made the change (they already have their data)
@@ -63,20 +61,17 @@ export function broadcastSSEEvent(event: string, data: unknown, filterClientId?:
       }
 
       try {
-        // If client disconnected, remove them
+        // If client disconnected, skip (cleanup happens in 'close' handler)
         if (client.res.writableEnded) {
           continue;
         }
 
         client.res.write(message);
         client.lastEventId = id;
-        activeClients.push(client);
       } catch {
-        // Client disconnected, skip
+        // Client disconnected, skip (cleanup happens in 'close' handler)
       }
     }
-
-    clients = activeClients;
   } catch (error) {
     console.error('[SSE] Error broadcasting event:', error);
   }
