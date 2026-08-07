@@ -674,6 +674,22 @@ export default function MenuBar({
                 ⚠️ SERVER DOWN
               </span>
             )}
+            {!writePermission && (
+              <span
+                title="View-only mode: no write permission. Configure an API key in Settings to enable editing."
+                style={{
+                  marginLeft: getScaledGap(zoomLevel, 0.5),
+                  padding: getScaledPadding(zoomLevel, 0.25, 0.5),
+                  backgroundColor: '#ef4444',
+                  color: 'white',
+                  borderRadius: '0.25rem',
+                  fontSize: getFontSize(zoomLevel),
+                  fontWeight: '600',
+                }}
+              >
+                VIEW-ONLY
+              </span>
+            )}
           </h1>
         )}
         {/* tooltip.md: [Menu Bar] Menu Bar Info */}
