@@ -32,7 +32,7 @@ import {
 } from '../services/tournamentService.js';
 import { buildTrophyReportString } from '../../../shared/utils/trophyDebugReport.js';
 import { buildActivityReportData, formatActivityReportTSV } from '../../../shared/utils/activityReport.js';
-import { normalizeFileName } from '../utils/miniGameUtils.js';
+import { normalizeFileName, handleReadMiniGameFile } from '../utils/miniGameUtils.js';
 
 const router = Router();
 
@@ -269,33 +269,8 @@ router.post('/tournament/save-mini-game', asyncHandler(async (req: Request, res:
 // Read mini-game file (for tournament mode - ladder form reads from mini-game file)
 router.get('/tournament/read-mini-game', asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { fileName } = req.query;
-    const normFileName = normalizeFileName(typeof fileName === 'string' ? fileName : undefined);
-    
-    if (!normFileName) {
-      throw new AppError('Invalid mini-game file name', 400);
-    }
-
-    const miniGameData = await readMiniGameFile(normFileName);
-    if (!miniGameData) {
-      res.json({
-        success: true,
-        data: {
-          header: [],
-          players: [],
-          playerCount: 0,
-        },
-      });
-      return;
-    }
-
-    res.json({
-      success: true,
-      data: {
-        header: miniGameData.header,
-        players: miniGameData.players,
-        playerCount: miniGameData.players.length,
-      },
-    });
+    const data = await handleReadMiniGameFile(typeof fileName === 'string' ? fileName : undefined);
+    res.json({ success: true, data });
   }
 ));
 

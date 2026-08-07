@@ -286,6 +286,22 @@ class DataService {
     return hash.toString();
   }
 
+  // Sync hash from fetched players. Returns true if data changed (or initialized).
+  private syncHashFromServer(serverPlayers: PlayerData[]): boolean {
+    const newHash = this.computeHash(serverPlayers);
+    // Initialize hash on first fetch
+    if (this.lastDataHash === null && serverPlayers.length > 0) {
+      this.lastDataHash = newHash;
+      return false;
+    }
+    // Data changed
+    if (this.lastDataHash !== null && newHash !== this.lastDataHash) {
+      this.lastDataHash = newHash;
+      return true;
+    }
+    return false;
+  }
+
   // Initialize hash from current server state (call once on app start)
   async initializeHash(): Promise<void> {
    if (this.hashInitialized || this.config.mode === DataServiceMode.LOCAL) {
@@ -381,14 +397,10 @@ class DataService {
 
         const data = await response.json();
         serverPlayers = data.data?.players || [];
-        
-     // Compute hash of current server data
-        const newHash = this.computeHash(serverPlayers);
-        
+
         // Check if data actually changed
-        if (newHash !== this.lastDataHash) {
+        if (this.syncHashFromServer(serverPlayers)) {
           console.debug('[DataService] Polling detected data change');
-          this.lastDataHash = newHash;
           // Save fresh server data to localStorage so getPlayers() returns it (caller handles notify)
           if (this.currentMiniGameFile) {
             await this.saveLocalMiniGamePlayers(serverPlayers, false);
@@ -419,15 +431,9 @@ class DataService {
       // SERVER mode with mini-game: always fetch fresh from server to avoid stale ladder cache
       if (this.currentMiniGameFile) {
         try {
-          const serverPlayers = await this.fetchMiniGamePlayers();
-          const newHash = this.computeHash(serverPlayers);
-          if (this.lastDataHash === null && serverPlayers.length > 0) {
-            this.lastDataHash = newHash;
-          }
-          if (this.lastDataHash !== null && newHash !== this.lastDataHash) {
-            this.lastDataHash = newHash;
-          }
-          return serverPlayers;
+           const serverPlayers = await this.fetchMiniGamePlayers();
+           this.syncHashFromServer(serverPlayers);
+           return serverPlayers;
         } catch {
           // Fallback to cached local data if server fetch fails
           return await this.getLocalMiniGamePlayers();
@@ -445,25 +451,20 @@ class DataService {
              let serverPlayers: PlayerData[];
              if (this.currentMiniGameFile) {
                serverPlayers = await this.fetchMiniGamePlayers();
-             } else {
-               serverPlayers = await this.fetchPlayers();
-             }
-           // Initialize hash on first fetch
-              const newHash = this.computeHash(serverPlayers);
-              if (this.lastDataHash === null && serverPlayers.length > 0) {
-                this.lastDataHash = newHash;
+              } else {
+                serverPlayers = await this.fetchPlayers();
               }
+              const dataChanged = this.syncHashFromServer(serverPlayers);
             // Save to localStorage cache so getPlayers() always has fresh data (no notify to avoid loop)
-              if (this.currentMiniGameFile) {
-                 await this.saveLocalMiniGamePlayers(serverPlayers, false);
-               } else {
-                 this.saveLocalPlayers(serverPlayers, false);
-               }
-               // Only notify if data actually changed (prevents infinite loop)
-               if (this.lastDataHash !== null && newHash !== this.lastDataHash) {
-                 this.lastDataHash = newHash;
-                 this.notifySubscribers();
-               }
+               if (this.currentMiniGameFile) {
+                  await this.saveLocalMiniGamePlayers(serverPlayers, false);
+                } else {
+                  this.saveLocalPlayers(serverPlayers, false);
+                }
+                // Only notify if data actually changed (prevents infinite loop)
+                if (dataChanged) {
+                  this.notifySubscribers();
+                }
            } catch (err) {
              // Server fetch failed silently — UI keeps showing cached local data
              console.error(`[DataService] BG refresh: FAILED`, err);

@@ -16,6 +16,7 @@ import type { ProgramMode } from "./utils/mode";
 import {
   updateConnectionState,
   initializeConnectionState,
+  getConnectionState,
   startPeriodicChecks,
   stopPeriodicChecks,
   onModeChange,
@@ -441,14 +442,7 @@ const handleClearAll = async () => {
   const handleExportTournamentFiles = async () => {
     try {
       const blob = await dataService.exportTournamentFiles();
-      const segments = window.location.pathname.split('/').filter(Boolean);
-      let prefix: string;
-      if (segments.length > 0 && segments[0] !== 'dist') {
-        prefix = segments[0];
-      } else {
-        prefix = window.location.hostname;
-      }
-      downloadBlob(blob, `${prefix}_${new Date().toISOString().split('T')[0]}.zip`);
+      downloadBlob(blob, `${getDownloadPrefix()}_${new Date().toISOString().split('T')[0]}.zip`);
     } catch (error) {
       console.error('Failed to export tournament files:', error);
       alert('Failed to export: ' + (error as Error).message);
@@ -509,32 +503,11 @@ const handleClearAll = async () => {
             if (miniGameFiles.length > 0) {
               const settings = loadUserSettings();
               const serverUrl = settings.server?.trim();
-              for (const mgFile of miniGameFiles) {
-                let mgPlayers: any[] = [];
-                let clubPlayers: any[] = [];
-                if (serverUrl) {
-                  try {
-                    const clubResp = await gatedFetch(`${serverUrl}/api/ladder`);
-                    if (clubResp.ok) {
-                      clubPlayers = (await clubResp.json()).data?.players || [];
-                    }
-                  } catch (_e) {}
-                  try {
-                    const mgResp = await gatedFetch(`${serverUrl}/api/admin/tournament/read-mini-game?fileName=${encodeURIComponent(mgFile)}`, {
-                      headers: { ...settings.apiKey ? { 'X-API-Key': settings.apiKey } : {} },
-                    });
-                    if (mgResp.ok) {
-                      mgPlayers = (await mgResp.json()).data?.players || [];
-                    }
-                  } catch (_e) {}
+              if (serverUrl) {
+                for (const mgFile of miniGameFiles) {
+                  const fileIssues = await runPostImportSanityCheck(mgFile, serverUrl, settings.apiKey);
+                  sanityIssues.push(...fileIssues);
                 }
-                if (mgPlayers.length === 0 || clubPlayers.length === 0) continue;
-                const dupRanks = detectDuplicateRanks(mgPlayers);
-                if (dupRanks.length > 0) sanityIssues.push(`${mgFile}: Duplicate ranks: ${dupRanks.join(', ')}`);
-                const check = validatePlayersNamesOnly(mgPlayers, clubPlayers);
-                if (check.orphanRanks.length > 0) sanityIssues.push(`${mgFile}: Orphan ranks: ${check.orphanRanks.join(', ')}`);
-                if (check.countMismatch) sanityIssues.push(`${mgFile}: Count mismatch: mini-game=${check.localCount}, club=${check.clubCount}`);
-                if (check.diverged.length > 0) sanityIssues.push(`${mgFile}: Name mismatch for ${check.diverged.length} player(s): ${check.diverged.slice(0, 10).join(', ')}${check.diverged.length > 10 ? '...' : ''}`);
               }
             }
           }
@@ -586,33 +559,13 @@ const handleClearAll = async () => {
            setProjectName(selectedGame.replace('.tab', ''));
            setProjectNameStorage(selectedGame.replace('.tab', ''));
            
-           // Post-import sanity check
-           const singleSanityIssues: string[] = [];
-           const sSettings = loadUserSettings();
-           const sServerUrl = sSettings.server?.trim();
-           if (sServerUrl) {
-             let mgPlayers: any[] = [];
-             let clubPlayers: any[] = [];
-             try {
-               const clubResp = await gatedFetch(`${sServerUrl}/api/ladder`);
-               if (clubResp.ok) clubPlayers = (await clubResp.json()).data?.players || [];
-             } catch (_e) {}
-             try {
-               const mgResp = await gatedFetch(`${sServerUrl}/api/admin/tournament/read-mini-game?fileName=${encodeURIComponent(selectedGame)}`, {
-                 headers: { ...sSettings.apiKey ? { 'X-API-Key': sSettings.apiKey } : {} },
-               });
-               if (mgResp.ok) mgPlayers = (await mgResp.json()).data?.players || [];
-             } catch (_e) {}
-              if (mgPlayers.length > 0 && clubPlayers.length > 0) {
-                const dupRanks = detectDuplicateRanks(mgPlayers);
-                if (dupRanks.length > 0) singleSanityIssues.push(`Duplicate ranks: ${dupRanks.join(', ')}`);
-                const check = validatePlayersNamesOnly(mgPlayers, clubPlayers);
-                if (check.orphanRanks.length > 0) singleSanityIssues.push(`Orphan ranks: ${check.orphanRanks.join(', ')}`);
-                if (check.countMismatch) singleSanityIssues.push(`Count mismatch: mini-game=${check.localCount}, club=${check.clubCount}`);
-                if (check.diverged.length > 0) singleSanityIssues.push(`Name mismatch for ${check.diverged.length} player(s): ${check.diverged.slice(0, 10).join(', ')}${check.diverged.length > 10 ? '...' : ''}`);
-              }
-           }
-            alert(result.message);
+            // Post-import sanity check
+            const sSettings = loadUserSettings();
+            const sServerUrl = sSettings.server?.trim();
+            const singleSanityIssues = sServerUrl
+              ? await runPostImportSanityCheck(selectedGame, sServerUrl, sSettings.apiKey)
+              : [];
+             alert(result.message);
             if (singleSanityIssues.length > 0) {
               alert(`Imported data has integrity issues:\n\n${singleSanityIssues.join('\n')}\n\nThis mini-game file may be from a different ladder.`);
             }
@@ -636,14 +589,7 @@ const handleClearAll = async () => {
   const handleGenerateTrophies = async () => {
     try {
       const blob = await dataService.generateTrophyReport(getDebugLevel());
-      const segments = window.location.pathname.split('/').filter(Boolean);
-      let prefix: string;
-      if (segments.length > 0 && segments[0] !== 'dist') {
-        prefix = segments[0];
-      } else {
-        prefix = window.location.hostname;
-      }
-      downloadBlob(blob, `${prefix}-trophies_${new Date().toISOString().split('T')[0]}.tab`);
+      downloadBlob(blob, `${getDownloadPrefix()}-trophies_${new Date().toISOString().split('T')[0]}.tab`);
     } catch (error) {
       console.error('Failed to generate trophies:', error);
       alert('Failed to generate trophies: ' + (error as Error).message);
@@ -653,14 +599,7 @@ const handleClearAll = async () => {
   const handleGenerateActivityReport = async () => {
     try {
       const blob = await dataService.generateActivityReport();
-      const segments = window.location.pathname.split('/').filter(Boolean);
-      let prefix: string;
-      if (segments.length > 0 && segments[0] !== 'dist') {
-        prefix = segments[0];
-      } else {
-        prefix = window.location.hostname;
-      }
-      downloadBlob(blob, `${prefix}-activity_${new Date().toISOString().split('T')[0]}.tab`);
+      downloadBlob(blob, `${getDownloadPrefix()}-activity_${new Date().toISOString().split('T')[0]}.tab`);
     } catch (error) {
       console.error('Failed to generate activity report:', error);
       alert('Failed to generate activity report: ' + (error as Error).message);
@@ -927,133 +866,50 @@ onSaveBeforeAction={handleSaveSettingsForAction}
   );
 }
 
-async function determineMode(): Promise<{ mode: DataServiceMode; serverUrl?: string }> {
-  const userSettings = loadUserSettings();
-  if (userSettings.server && userSettings.server.trim()) {
-    const serverUrl = userSettings.server.trim().replace(/\/$/, '');
-    
-    // Validate stored server URL before using it
-    if (!isValidServerUrl(serverUrl)) {
-      console.debug('[App] Stored server URL invalid (missing subdomain prefix), clearing and re-running auto-detection');
-      const settings = loadUserSettings();
-      localStorage.setItem(getUserSettingsKey(), JSON.stringify({ server: '', apiKey: settings.apiKey }));
-    } else {
-      const isValid = await validateServerUrl(serverUrl);
-      if (!isValid) {
-        console.debug('[App] Stored server URL unreachable, clearing and re-running auto-detection');
-        const settings = loadUserSettings();
-        localStorage.setItem(getUserSettingsKey(), JSON.stringify({ server: '', apiKey: settings.apiKey }));
-      } else {
-        // console.log('[App] Using USER SETTINGS server:', serverUrl);
-        if (serverUrl.includes('localhost') || serverUrl.includes('127.0.0.1')) {
-          return { mode: DataServiceMode.DEVELOPMENT, serverUrl };
-        }
-        return { mode: DataServiceMode.SERVER, serverUrl };
-      }
-    }
+function getDownloadPrefix(): string {
+  const segments = window.location.pathname.split('/').filter(Boolean);
+  if (segments.length > 0 && segments[0] !== 'dist') {
+    return segments[0];
   }
+  return window.location.hostname;
+}
 
-  const origin = window.location.origin;
-  const existingSettings = loadUserSettings();
-  const pathname = window.location.pathname;
-  const hostname = window.location.hostname;
-  const subdomainMatch = pathname.match(/^\/([^/]+)\/dist(?:\/.*)?$/);
-  
-  console.debug('[App] Auto-detect: origin=', origin, 'subdomainPath=', !!subdomainMatch);
-  
-  let autoDetectedUrl: string | null = null;
-  
-  // Only run same-origin check if NOT in a subdomain path (skip unnecessary requests)
-  if (!subdomainMatch) {
-    try {
-      const healthController = new AbortController();
-      const healthTimeoutId = setTimeout(() => healthController.abort(), 3000);
-      const healthResponse = await gatedFetch(`${origin}/health`, { method: 'GET', signal: healthController.signal });
-      clearTimeout(healthTimeoutId);
-      console.debug('[App] Auto-detect: /health status=', healthResponse.status, 'ok=', healthResponse.ok);
-      const healthOk = healthResponse.ok || healthResponse.status === 404;
-      
-      const apiController = new AbortController();
-      const apiTimeoutId = setTimeout(() => apiController.abort(), 3000);
-      const apiResponse = await gatedFetch(`${origin}/api/ladder`, { method: 'GET', signal: apiController.signal });
-      clearTimeout(apiTimeoutId);
-      console.debug('[App] Auto-detect: /api/ladder status=', apiResponse.status, 'ok=', apiResponse.ok);
-      // 404 means Express routes aren't registered (invalid server)
-      const apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403;
-      if (apiResponse.status === 401 || apiResponse.status === 403) {
-        console.warn(`[App] Auto-detect: /api/ladder returned ${apiResponse.status} — server reachable but auth failed. Check API key in Settings.`);
-      }
-      
-      if (healthOk && apiOk) {
-        autoDetectedUrl = origin.replace(/\/$/, '');
-        console.debug('[App] Same-origin auto-detected:', autoDetectedUrl);
-      } else {
-        console.debug('[App] Same-origin detection FAILED: healthOk=', healthOk, 'apiOk=', apiOk);
-      }
-    } catch (e) {
-      console.debug('[App] Same-origin detection threw error:', (e as Error).message);
+async function runPostImportSanityCheck(miniGameFile: string, serverUrl: string, apiKey: string | undefined): Promise<string[]> {
+  const issues: string[] = [];
+  let mgPlayers: any[] = [];
+  let clubPlayers: any[] = [];
+  try {
+    const clubResp = await gatedFetch(`${serverUrl}/api/ladder`);
+    if (clubResp.ok) clubPlayers = (await clubResp.json()).data?.players || [];
+  } catch (_e) {}
+  try {
+    const mgResp = await gatedFetch(`${serverUrl}/api/admin/tournament/read-mini-game?fileName=${encodeURIComponent(miniGameFile)}`, {
+      headers: { ...(apiKey ? { 'X-API-Key': apiKey } : {}) },
+    });
+    if (mgResp.ok) mgPlayers = (await mgResp.json()).data?.players || [];
+  } catch (_e) {}
+  if (mgPlayers.length === 0 || clubPlayers.length === 0) return issues;
+  const dupRanks = detectDuplicateRanks(mgPlayers);
+  if (dupRanks.length > 0) issues.push(`${miniGameFile}: Duplicate ranks: ${dupRanks.join(', ')}`);
+  const check = validatePlayersNamesOnly(mgPlayers, clubPlayers);
+  if (check.orphanRanks.length > 0) issues.push(`${miniGameFile}: Orphan ranks: ${check.orphanRanks.join(', ')}`);
+  if (check.countMismatch) issues.push(`${miniGameFile}: Count mismatch: mini-game=${check.localCount}, club=${check.clubCount}`);
+  if (check.diverged.length > 0) issues.push(`${miniGameFile}: Name mismatch for ${check.diverged.length} player(s): ${check.diverged.slice(0, 10).join(', ')}${check.diverged.length > 10 ? '...' : ''}`);
+  return issues;
+}
+
+async function determineMode(): Promise<{ mode: DataServiceMode; serverUrl?: string }> {
+  await initializeConnectionState();
+  const state = getConnectionState();
+
+  if (state.configuredForServer && state.serverUrl) {
+    const serverUrl = state.serverUrl.replace(/\/$/, '');
+    sessionStorage.setItem('autoDetectedServerUrl', serverUrl);
+    saveUserSettings({ server: serverUrl, apiKey: loadUserSettings().apiKey });
+    if (serverUrl.includes('localhost') || serverUrl.includes('127.0.0.1')) {
+      return { mode: DataServiceMode.DEVELOPMENT, serverUrl };
     }
-  }
-  
-  if (!autoDetectedUrl) {
-    try {
-      if (subdomainMatch) {
-        const projectName = subdomainMatch[1];
-        const candidateUrl = `https://${projectName}.${hostname}`;
-        console.debug('[App] Subdomain candidate from path:', projectName, '→', candidateUrl);
-        
-        const healthController = new AbortController();
-        const healthTimeoutId = setTimeout(() => healthController.abort(), 3000);
-        let healthOk = false;
-        try {
-          const healthResponse = await gatedFetch(`${candidateUrl}/health`, { method: 'GET', signal: healthController.signal });
-          clearTimeout(healthTimeoutId);
-          healthOk = healthResponse.ok || healthResponse.status === 404;
-        } catch {
-          clearTimeout(healthTimeoutId);
-        }
-        
-        if (healthOk) {
-          const apiController = new AbortController();
-          const apiTimeoutId = setTimeout(() => apiController.abort(), 3000);
-          let apiOk = false;
-          let apiStatus = 0;
-          try {
-            const apiResponse = await gatedFetch(`${candidateUrl}/api/ladder`, { method: 'GET', signal: apiController.signal });
-            clearTimeout(apiTimeoutId);
-            apiStatus = apiResponse.status;
-            console.debug('[App] Subdomain check: /api/ladder status=', apiStatus);
-            // 404 means Express routes aren't registered (invalid server)
-            apiOk = apiResponse.ok || apiResponse.status === 401 || apiResponse.status === 403;
-            if (apiResponse.status === 401 || apiResponse.status === 403) {
-              console.warn(`[App] Subdomain check: /api/ladder returned ${apiResponse.status} — server reachable but auth failed. Check API key in Settings.`);
-            }
-          } catch (e) {
-            clearTimeout(apiTimeoutId);
-            console.debug('[App] Subdomain check: /api/ladder error:', (e as Error).message);
-          }
-          
-          if (apiOk) {
-            autoDetectedUrl = candidateUrl;
-            console.debug('[App] Subdomain auto-detected:', autoDetectedUrl);
-          } else {
-            console.debug('[App] Subdomain detection FAILED: apiOk=', apiOk, 'apiStatus=', apiStatus);
-          }
-        } else {
-          console.debug('[App] Subdomain /health check failed');
-        }
-      } else {
-        console.debug('[App] No project name found in path:', pathname, '(expected /{project-name}/dist/)');
-      }
-    } catch (e) {
-      console.debug('[App] Subdomain detection threw error:', (e as Error).message);
-    }
-  }
-  
-  if (autoDetectedUrl) {
-    sessionStorage.setItem('autoDetectedServerUrl', autoDetectedUrl);
-    saveUserSettings({ server: autoDetectedUrl, apiKey: existingSettings.apiKey });
-    return { mode: DataServiceMode.SERVER, serverUrl: autoDetectedUrl };
+    return { mode: DataServiceMode.SERVER, serverUrl };
   }
 
   console.debug('[App] Using LOCAL mode (no server configured)');

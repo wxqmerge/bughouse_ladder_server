@@ -13,17 +13,10 @@
 
 import { gatedFetch } from '../utils/requestGate';
 import { DEFAULT_GAME_RESULTS } from '../../shared/types';
+import { derivePrefixFromLocation } from './storageService';
 
 function getLadderPrefix(): string {
-  // Same logic as derivePrefixFromLocation in storageService.ts
-  // Duplicated to avoid circular dependency
-  const host = window.location.hostname.replace(/[.\-:]/g, '_');
-  const path = window.location.pathname
-    .replace(/[^a-zA-Z0-9]/g, '_')
-    .replace(/_+/g, '_')
-    .replace(/^_|_$/g, '');
-  const combined = host + (path ? '_' + path : '');
-  return 'ladder_' + combined + '_';
+  return derivePrefixFromLocation(window.location.hostname, window.location.pathname);
 }
 
 export function getUserSettingsKey(): string {

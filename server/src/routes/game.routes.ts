@@ -26,6 +26,10 @@ function isValidGameResult(obj: unknown): obj is GameResult {
   );
 }
 
+function isValidDelta(obj: unknown): obj is { playerRank: number; round: number; result: string } {
+  return isValidGameResult(obj);
+}
+
 // Submit a single game result (requires user or admin API key)
 router.post('/', requireUserKey, writeLimiter, asyncHandler(async (req: Request, res: Response) => {
   const body = req.body as unknown;
