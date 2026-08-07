@@ -1,8 +1,12 @@
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import fs from 'fs/promises';
 import archiver from 'archiver';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 import { requireAdminKey } from '../middleware/auth.middleware.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { AppError } from '../middleware/errorHandler.js';

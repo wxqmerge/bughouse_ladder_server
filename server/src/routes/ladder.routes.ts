@@ -266,6 +266,10 @@ router.post('/batch', requireUserKey, writeLimiter, asyncHandler(async (req: Req
     if (!player.gameResults) {
       player.gameResults = [...DEFAULT_GAME_RESULTS];
     }
+    if (delta.round < 0 || delta.round >= NUM_ROUNDS) {
+      results.push({ playerRank: delta.playerRank, error: 'Round out of range' });
+      continue;
+    }
     while (player.gameResults.length <= delta.round) {
       player.gameResults.push(null);
     }

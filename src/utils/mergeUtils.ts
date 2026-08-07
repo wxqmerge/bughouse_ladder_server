@@ -31,7 +31,7 @@ export function mergeServerWithLocal(
       
       // Check if this cell was deleted locally but not yet synced
       if (pendingDeletes.has(cellKey)) {
-        mergedGameResults[r] = '';
+        mergedGameResults[r] = null;
         continue;
       }
       

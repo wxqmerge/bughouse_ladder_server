@@ -325,12 +325,11 @@ class DataService {
           const data = await response.json();
           const serverPlayers = data.data?.players || [];
           this.lastDataHash = this.computeHash(serverPlayers);
+          this.hashInitialized = true;
         }
       } catch (error) {
         console.error('[DataService] Failed to initialize hash:', error);
       }
-
-      this.hashInitialized = true;
     }
 
   // Set hash directly from already-fetched players (avoids redundant server request)
