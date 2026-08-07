@@ -44,7 +44,7 @@ interface MiniGameStore {
 export { MINI_GAME_FILES, MINI_GAME_DIFFICULTY_ORDER };
 
 // Server-side tournament state
-export interface TournamentState {
+interface TournamentState {
   active: boolean;
   startedAt: string;
 }

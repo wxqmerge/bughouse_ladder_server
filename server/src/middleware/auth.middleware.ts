@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 
-export interface AuthRequest extends Request {
+interface AuthRequest extends Request {
   user?: {
     id: string;
     username: string;

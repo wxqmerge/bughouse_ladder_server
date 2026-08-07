@@ -8,7 +8,7 @@ export function normalizeFileName(input: string | undefined | null): string | nu
   return MINI_GAME_FILES.includes(lower) ? lower : null;
 }
 
-export interface MiniGameReadResult {
+interface MiniGameReadResult {
   header: string[];
   players: any[];
   playerCount: number;

@@ -40,7 +40,7 @@ export function startHeartbeat(intervalMs: number = 30000): void {
   }, intervalMs);
 }
 
-export function stopHeartbeat(): void {
+function stopHeartbeat(): void {
   if (heartbeatInterval) {
     clearInterval(heartbeatInterval);
     heartbeatInterval = null;
@@ -81,7 +81,7 @@ export function getSSEClientCount(): number {
   return clients.length;
 }
 
-export function stopSSEClient(res: Response): void {
+function stopSSEClient(res: Response): void {
   clients = clients.filter(c => c.res !== res);
   res.end();
 }
