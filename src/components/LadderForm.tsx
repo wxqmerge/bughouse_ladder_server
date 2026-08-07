@@ -30,12 +30,14 @@ import { log } from "../utils/log";
 import { gatedFetch } from "../utils/requestGate";
 import { downloadBlob } from "../utils/downloadBlob";
 import { getFontSize, getScaledPadding, getScaledGap } from "../utils/getFontSize";
+import { startCapture, stopCapture, capture, captureError, saveLogToFile, showErrorWithLog } from "../utils/loadLog";
+import { showConfirmDialog, showAlertDialog } from "../utils/confirmDialog";
 import { useIntervalCheck } from "../utils/useIntervalCheck";
 
 import { deduplicatePlayers, lockAndDeduplicate } from "../../shared/utils/dedupUtils";
 import { detectDuplicateRanks, detectMissingRanks } from "../../shared/utils/rankValidation";
 import { validatePlayersAgainstClubLadder, validatePlayersNamesOnly } from "../../shared/utils/sanityCheck";
-import { parsePlayerLine, parseTabContent } from "../../shared/utils/tabUtils";
+import { parsePlayerLine, parseTabContent, detectTabFormat } from "../../shared/utils/tabUtils";
 import { isTrophyReport, isValidLadderHeader } from "../../shared/utils/trophyFileGuard";
 import { isValidGameResult } from "../../shared/utils/trophyGeneration";
 import { loadUserSettings, saveUserSettings, saveLastWorkingConfig, normalizeServerUrl } from "../services/userSettingsStorage";
@@ -857,6 +859,9 @@ export default function LadderForm({
       return;
     }
 
+    startCapture();
+    capture(`Loading file: ${fileToLoad.name} (${fileToLoad.size} bytes)`);
+
     if (shouldLog(10)) {
       console.debug(`[LadderForm] Loading file: ${fileToLoad.name}`);
     }
@@ -870,16 +875,27 @@ export default function LadderForm({
     setSortBy(null);
 
     const reader = new FileReader();
+    reader.onerror = (err) => {
+      captureError('FileReader', err);
+      showErrorWithLog(`Failed to read file: ${fileToLoad.name}`);
+    };
     reader.onload = async (e) => {
-      const text = e.target?.result as string;
+      try {
+        const text = e.target?.result as string;
+        capture(`File read: ${text.length} chars, ${text.split('\n').length} lines`);
 
       // Guard: reject trophy report files loaded as ladder data
       if (isTrophyReport(text)) {
-        alert('This is a trophy report file, not a ladder file. Trophy reports cannot be loaded as player data.');
+        capture('ERROR: File is a trophy report, not a ladder file');
+        stopCapture();
+        showErrorWithLog('This is a trophy report file, not a ladder file. Trophy reports cannot be loaded as player data.');
         return;
       }
       if (!isValidLadderHeader(text)) {
-        if (!window.confirm('This file does not start with "Group" in the header row. It may not be a valid ladder file. Load it anyway?')) {
+        capture('WARNING: File does not start with "Group" in header row');
+        const ok = await showConfirmDialog('This file does not start with "Group" in the header row. It may not be a valid ladder file. Load it anyway?');
+        if (!ok) {
+          stopCapture();
           return;
         }
       }
@@ -888,6 +904,13 @@ export default function LadderForm({
       let loadedPlayers: PlayerData[] = [];
       const allGameResults: (string | null)[][] = [];
       const numRounds = 31;
+
+      // Detect file format issues (old-format: Version column in header, missing Group in data)
+      const nonEmptyLines = lines.filter(l => l.trim());
+      const formatInfo = detectTabFormat(nonEmptyLines);
+      capture(`Format: headerFields=${formatInfo.headerFields}, dataFields=${formatInfo.dataFields}, missingGroup=${formatInfo.missingGroupColumn}, hasVersion=${formatInfo.hasVersionColumn}`);
+      if (formatInfo.issues.length > 0) capture(`Format issues: ${formatInfo.issues.join('; ')}`);
+      const formatWarnings: string[] = [];
 
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trimEnd();
@@ -898,13 +921,20 @@ export default function LadderForm({
           // Validate header Round 1 column
           const headerCols = line.split("\t");
           if (headerCols[13] && headerCols[13].trim() !== "1") {
-            alert(`Warning: Header Round 1 column contains "${headerCols[13]}" instead of "1". The file may be corrupted, have missing columns, or have been edited incorrectly. Please verify the data carefully.`);
+            formatWarnings.push(`Header Round 1 column contains "${headerCols[13]}" instead of "1" — file may be corrupted.`);
           }
           continue;
         }
 
         let cols = line.split("\t");
-        if (cols[0].length > 2) {
+
+        // Normalize: if data is missing Group column, prepend empty fields to align
+        if (formatInfo.missingGroupColumn && cols.length < formatInfo.headerFields) {
+          const padding = formatInfo.headerFields - cols.length;
+          for (let k = 0; k < padding; k++) cols.unshift("");
+        }
+        // Legacy heuristic: if first field is long, assume Group is missing
+        else if (cols[0].length > 2) {
           cols.unshift(" ");
         }
 
@@ -912,6 +942,14 @@ export default function LadderForm({
         if (player && parseInt(String(player.rank)) > 0 && (player.lastName || player.firstName || player.nRating !== 0)) {
           loadedPlayers.push(player);
         }
+      }
+
+      // Report format issues
+      if (formatInfo.issues.length > 0) {
+        formatWarnings.push(...formatInfo.issues.map(i => `Format: ${i}`));
+      }
+      if (formatInfo.hasVersionColumn) {
+        formatWarnings.push("Old-format file detected (Version column in header). Data normalized automatically.");
       }
 
       // Max 200 players limit
@@ -924,11 +962,10 @@ export default function LadderForm({
         const oldCount = players.length;
         const newCount = loadedPlayers.length;
         if (oldCount !== newCount) {
-          if (!window.confirm(
+          const ok = await showConfirmDialog(
             `Active tournament detected. Loading this file will change player count from ${oldCount} to ${newCount} and could corrupt current results. Continue?`
-          )) {
-            return;
-          }
+          );
+          if (!ok) return;
         }
       }
 
@@ -974,6 +1011,7 @@ export default function LadderForm({
           const { blockingErrors, warnings, fixedPlayers } = checkPlayerRanks(loadedPlayers);
           if (fixedPlayers) {
             log('[LOAD_FILE]', '⚠ Duplicate ranks auto-fixed on import');
+            capture('Duplicate ranks auto-fixed');
             setRankLoadErrors(warnings);
             loadedPlayers.length = 0;
             loadedPlayers.push(...fixedPlayers);
@@ -981,6 +1019,7 @@ export default function LadderForm({
             const allErrors = [...blockingErrors, ...warnings];
             if (allErrors.length > 0) {
               log('[LOAD_FILE]', '⚠ Rank issues found:', allErrors);
+              capture(`Rank issues: ${allErrors.join('; ')}`);
               setRankLoadErrors(allErrors);
             } else {
               setRankLoadErrors([]);
@@ -997,25 +1036,39 @@ export default function LadderForm({
         } else {
           setPlayers(loadedPlayers);
           setSortBy(null);
+          capture(`Loaded ${loadedPlayers.length} players successfully`);
         }
       } else {
+        capture('WARNING: No valid players found in file');
       }
+
+      stopCapture();
+    } catch (error) {
+      captureError('loadPlayers', error);
+      showErrorWithLog(`Failed to load file: ${fileToLoad.name}`);
+      stopCapture();
+    }
     };
 
     reader.readAsText(fileToLoad);
   };
 
   const loadZipFile = async (file: File) => {
+    startCapture();
+    capture(`Loading zip file: ${file.name} (${file.size} bytes)`);
     try {
       const arrayBuffer = await file.arrayBuffer();
+      capture('Reading zip array buffer');
       const JSZip = (await import('jszip')).default;
       const zip = await JSZip.loadAsync(arrayBuffer);
+      capture(`Zip contains ${Object.keys(zip.files).length} entries`);
 
       const imported: string[] = [];
       const errors: string[] = [];
       let ladderContent: string | null = null;
+      const miniGameContents: Array<{ name: string; content: string }> = [];
 
-      // Extract files from zip
+      // First pass: extract ladder.tab and collect mini-game contents
       const sortedFiles = Object.keys(zip.files).sort();
       for (const fileName of sortedFiles) {
         if (fileName.endsWith('/')) continue;
@@ -1023,34 +1076,43 @@ export default function LadderForm({
         if (!fileContent) continue;
 
         if (fileName === 'ladder.tab') {
-          // Club ladder — load as main players
           ladderContent = fileContent;
           imported.push(fileName);
+          capture(`Found ladder.tab (${fileContent.length} chars)`);
         } else if (MINI_GAME_FILES.includes(fileName)) {
-          // Mini-game file — import via dataService
-          const result = await dataService.importMiniGameFiles(`=== ${fileName} ===\n${fileContent}`);
-          imported.push(...result.imported);
-          errors.push(...result.errors);
+          miniGameContents.push({ name: fileName, content: fileContent });
+          imported.push(fileName);
         }
         // Trophy files and unknown files are silently skipped
       }
 
-      // Load club ladder data if found
+      // Load club ladder FIRST so mini-game validation has the correct player list
       if (ladderContent) {
         if (isTrophyReport(ladderContent)) {
-          alert('ladder.tab appears to be a trophy report, not a ladder file.');
+          showErrorWithLog('ladder.tab appears to be a trophy report, not a ladder file.');
           return;
         }
 
         const lines = ladderContent.split('\n');
         const loadedPlayers: PlayerData[] = [];
 
+        // Detect file format issues
+        const nonEmptyLines = lines.filter(l => l.trim());
+        const zipFormatInfo = detectTabFormat(nonEmptyLines);
+
         for (const line of lines) {
           const trimmed = line.trimEnd();
           if (!trimmed || trimmed.startsWith('Group')) continue;
 
-          const cols = trimmed.split('\t');
-          if (cols[0].length > 2) cols.unshift(' ');
+          let cols = trimmed.split('\t');
+
+          // Normalize: if data is missing Group column, prepend empty fields to align
+          if (zipFormatInfo.missingGroupColumn && cols.length < zipFormatInfo.headerFields) {
+            const padding = zipFormatInfo.headerFields - cols.length;
+            for (let k = 0; k < padding; k++) cols.unshift('');
+          }
+          // Legacy heuristic: if first field is long, assume Group is missing
+          else if (cols[0].length > 2) cols.unshift(' ');
 
           const player = parsePlayerLine(cols.join('\t'));
           if (player && parseInt(String(player.rank)) > 0 && (player.lastName || player.firstName || player.nRating !== 0)) {
@@ -1068,11 +1130,10 @@ export default function LadderForm({
             const oldCount = players.length;
             const newCount = loadedPlayers.length;
             if (oldCount !== newCount) {
-              if (!window.confirm(
+              const ok = await showConfirmDialog(
                 `Active tournament detected. Loading this file will change player count from ${oldCount} to ${newCount} and could corrupt current results. Continue?`
-              )) {
-                return;
-              }
+              );
+              if (!ok) return;
             }
           }
 
@@ -1117,6 +1178,20 @@ export default function LadderForm({
         }
       }
 
+      // Import mini-games AFTER club ladder is loaded (validation needs player list)
+      // Batch all mini-games into one import to avoid per-file cleanup deleting previous imports
+      if (miniGameContents.length > 0) {
+        const batchContent = miniGameContents.map(({ name, content }) => `=== ${name} ===\n${content}`).join('\n');
+        capture(`Importing ${miniGameContents.length} mini-game(s): ${miniGameContents.map(({ name }) => name).join(', ')}`);
+        const result = await dataService.importMiniGameFiles(batchContent);
+        if (result.imported.length > 0) capture(`Imported: ${result.imported.join(', ')}`);
+        if (result.errors.length > 0) result.errors.forEach((e: string) => capture(`Mini-game error: ${e}`));
+        errors.push(...result.errors);
+      }
+
+      // Refresh available mini-games list in UI
+      await fetchAvailableMiniGames();
+
       // Show summary
       const uniqueImported = [...new Set(imported)];
       let message = `Imported ${uniqueImported.length} file(s): ${uniqueImported.join(', ')}`;
@@ -1129,11 +1204,19 @@ export default function LadderForm({
       }
       if (errors.length > 0) {
         message += `\nErrors: ${errors.join(', ')}`;
+        errors.forEach(e => capture(`Summary error: ${e}`));
       }
-      alert(message);
+      capture(`Done: ${message}`);
+      stopCapture();
+      if (errors.length > 0) {
+        showErrorWithLog(message);
+      } else {
+        showAlertDialog(message);
+      }
     } catch (error) {
-      console.error('[ZIP] Failed to load zip file:', error);
-      alert('Failed to load zip file: ' + (error as Error).message);
+      captureError('loadZipFile', error);
+      showErrorWithLog(`Failed to load zip file: ${file.name}`);
+      stopCapture();
     }
   };
 
@@ -1435,6 +1518,69 @@ export default function LadderForm({
     setIsRecalculating(true);
 
     return { hasErrors, matches, errors, errorCount, playerResultsByMatch, rankBlockingErrors: blockingErrors.length > 0 ? blockingErrors : undefined, rankWarnings: warnings.length > 0 ? warnings : undefined, fixedPlayers };
+  };
+
+  // Check errors across all ladders (main + mini-games), switch to first ladder with errors
+  const checkAllLaddersErrors = async () => {
+    const { matches, hasErrors, errorCount, errors, playerResultsByMatch } =
+      processGameResults(players, 31);
+
+    // Check main ladder first
+    if (hasErrors && errors.length > 0) {
+      // Already on main ladder, show errors
+      setPendingPlayers(players);
+      setPendingMatches(matches);
+      setPendingPlayerResultsByMatch(playerResultsByMatch);
+      setCurrentError(errors[0]);
+      setEntryCell({
+        playerRank: errors[0].playerRank,
+        round: errors[0].resultIndex,
+      });
+      setWalkthroughErrors(errors);
+      setWalkthroughIndex(0);
+      setIsRecalculating(true);
+      return;
+    }
+
+    // Check each mini-game
+    const miniGameFiles = await dataService.getMiniGameFiles();
+    for (const fileName of miniGameFiles) {
+      const miniGameData = await dataService.readMiniGameFile(fileName);
+      if (!miniGameData || !miniGameData.players || miniGameData.players.length === 0) continue;
+
+      const { blockingErrors, warnings } = checkPlayerRanks(miniGameData.players);
+      const effectivePlayers = blockingErrors.length === 0 ? miniGameData.players : (warnings.length > 0 ? miniGameData.players : miniGameData.players);
+
+      const { matches: mm, hasErrors: mh, errorCount: mc, errors: me, playerResultsByMatch: mp } =
+        processGameResults(effectivePlayers, 31);
+
+      if (mh && me.length > 0) {
+        // Switch to this mini-game and show errors
+        log('[CHECK ALL]', `Errors found in ${fileName} (${mc} errors) — switching`);
+        dataService.setMiniGameFile(fileName);
+        const title = fileName.replace('.tab', '');
+        setProjectName(title);
+        setProjectNameStorage(title);
+
+        const targetPlayers = await dataService.fetchMiniGamePlayers();
+        setPlayers(targetPlayers);
+        setPendingPlayers(targetPlayers);
+        setPendingMatches(mm);
+        setPendingPlayerResultsByMatch(mp);
+        setCurrentError(me[0]);
+        setEntryCell({
+          playerRank: me[0].playerRank,
+          round: me[0].resultIndex,
+        });
+        setWalkthroughErrors(me);
+        setWalkthroughIndex(0);
+        setIsRecalculating(true);
+        return;
+      }
+    }
+
+    // No errors found in any ladder
+    alert('No errors found across all ladders.');
   };
 
   // Enter Games mode handlers
@@ -5391,7 +5537,7 @@ const handleDeleteConfirm = () => {
          onFileAction={handleFileAction}
          onSort={handleSort}
          onRecalculateRatings={recalculateRatings}
-         onCheckErrors={() => checkGameErrors()}
+         onCheckErrors={() => checkAllLaddersErrors()}
          onToggleAdmin={handleToggleAdmin}
          onSetZoom={handleSetZoom}
          onOpenSettings={() => setShowSettings?.(true)}
@@ -5497,7 +5643,7 @@ miniGamesHaveResults={miniGamesHaveResultsFlag}
           onFileAction={handleFileAction}
           onSort={handleSort}
           onRecalculateRatings={recalculateRatings}
-          onCheckErrors={() => checkGameErrors()}
+onCheckErrors={() => checkAllLaddersErrors()}
           onToggleAdmin={handleToggleAdmin}
           onSetZoom={handleSetZoom}
           onOpenSettings={() => setShowSettings?.(true)}
