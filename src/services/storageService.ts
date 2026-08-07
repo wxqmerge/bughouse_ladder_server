@@ -149,7 +149,6 @@ export function clearAllSaveStatus(): void {
 // ==================== LOCAL CHANGES TRACKING ====================
 
 let hasLocalChanges = false;
-let serverDownMode = false;
 
 export function markLocalChanges(): void {
   if (!hasLocalChanges) {
@@ -165,15 +164,6 @@ export function getHasLocalChanges(): boolean {
 export function clearLocalChangesFlag(): void {
   hasLocalChanges = false;
   log('[STORAGE]', 'Local changes synced to server');
-}
-
-function setServerDownMode(isDown: boolean): void {
-  serverDownMode = isDown;
-  log('[STORAGE]', 'Server down mode: ' + (isDown ? 'ON' : 'OFF'));
-}
-
-function getServerDownMode(): boolean {
-  return serverDownMode;
 }
 
 // ==================== PENDING SYNC QUEUE ====================
