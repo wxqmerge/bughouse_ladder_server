@@ -276,7 +276,9 @@ export default function LadderForm({
   const [showVersionWarningDialog, setShowVersionWarningDialog] = useState(false);
   const [serverVersion, setServerVersion] = useState<string>('');
   const [writeErrors, setWriteErrors] = useState<{ count: number; message: string } | null>(null);
-  const [writePermission, setWritePermission] = useState(true);
+  const [writePermission, setWritePermission] = useState(() => {
+    try { const s = loadUserSettings(); return !s.server || !!(s.apiKey && s.apiKey.trim()); } catch { return true; }
+  });
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [availableMiniGames, setAvailableMiniGames] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<
@@ -5408,6 +5410,10 @@ miniGamesHaveResults={miniGamesHaveResultsFlag}
           serverUrl={splashServerUrl}
           hasAdminApiKey={!!splashApiKey}
           writePermission={writePermission}
+          showRoundRobin={showRoundRobin}
+          onToggleRoundRobin={() => setShowRoundRobin(prev => !prev)}
+          hideHiddenPlayers={hideHiddenPlayers}
+          onToggleHideHidden={() => setHideHiddenPlayers(prev => !prev)}
         />
 
       {/* Version mismatch warning banner */}

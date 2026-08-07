@@ -4,9 +4,13 @@ import {
   ListFilter,
   Settings as SettingsIcon,
   Eye,
+  EyeOff,
   Type,
   Check,
   Printer,
+  Minus,
+  Plus,
+  ZoomIn,
 } from "lucide-react";
 import { getVisibleTitles } from "../utils/titleMenu";
 import { titleToFileName, LADDER_COLORS } from "../../shared/utils/constants";
@@ -40,6 +44,10 @@ interface MobileMenuProps {
   writePermission?: boolean;
   serverUrl?: string;
   hasAdminApiKey?: boolean;
+  showRoundRobin?: boolean;
+  onToggleRoundRobin?: () => void;
+  hideHiddenPlayers?: boolean;
+  onToggleHideHidden?: () => void;
 }
 
 interface MenuItem {
@@ -77,6 +85,10 @@ export default function MobileMenu({
   writePermission = true,
   serverUrl,
   hasAdminApiKey = false,
+  showRoundRobin = false,
+  onToggleRoundRobin,
+  hideHiddenPlayers = false,
+  onToggleHideHidden,
 }: MobileMenuProps) {
   const { title: tt } = useTooltips();
 
@@ -293,6 +305,20 @@ export default function MobileMenu({
       dataMenuItem: "Zoom 200%",
       tooltip: tt("Set table zoom to 200%"),
     },
+    {
+      label: "Round Robin",
+      onClick: () => handleItemClick("Round Robin", onToggleRoundRobin || (() => {})),
+      dataMenuItem: "Round Robin",
+      hasCheckmark: showRoundRobin,
+      tooltip: tt("Toggle round-robin view showing matchups (max of 31 players)"),
+    },
+    {
+      label: "Hide Hidden Players",
+      onClick: () => handleItemClick("Hide Hidden Players", onToggleHideHidden || (() => {})),
+      dataMenuItem: "Hide Hidden Players",
+      hasCheckmark: hideHiddenPlayers,
+      tooltip: tt("Hide all players whose group ends in X"),
+    },
   ];
 
   const renderSection = (
@@ -431,7 +457,7 @@ export default function MobileMenu({
             <SettingsIcon size={18} />,
             operationsItems,
           )}
-          {renderSection("View", <Eye size={18} />, viewItems)}
+          {renderSection("View", <Eye size={18} />, viewItems, true)}
 
           <div style={{ marginBottom: "1.5rem" }}>
             <div
