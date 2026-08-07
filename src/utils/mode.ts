@@ -21,6 +21,16 @@ let lastSavedServer: string = '';
 let lastSavedApiKey: string = '';
 
 /**
+ * Get the current connection state (read-only snapshot)
+ */
+export function getConnectionState(): { configuredForServer: boolean; serverUrl: string | null } {
+  return {
+    configuredForServer: connectionState.configuredForServer,
+    serverUrl: connectionState.serverUrl,
+  };
+}
+
+/**
  * Check if a server URL is valid for this deployment pattern.
  * https URLs must have a project subdomain prefix (e.g., dc-dojo-ladder.example.com).
  * http URLs (localhost, IP addresses) don't need a prefix.

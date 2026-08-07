@@ -561,11 +561,15 @@ export async function updatePlayer(player: PlayerData): Promise<void> {
   }
 }
 
+function ensureGameResults(player: PlayerData): void {
+  if (!player.gameResults) player.gameResults = [...DEFAULT_GAME_RESULTS];
+}
+
 export async function clearPlayerCell(playerRank: number, roundIndex: number): Promise<void> {
   const players = isInBatch() ? getCurrentPlayers() : await getPlayers();
   const player = players.find(p => p.rank === playerRank);
   if (player) {
-    if (!player.gameResults) player.gameResults = [...DEFAULT_GAME_RESULTS];
+    ensureGameResults(player);
     player.gameResults[roundIndex] = null;
     if (dataService.getMode() === DataServiceMode.LOCAL) {
       await savePlayers(players);
@@ -582,7 +586,7 @@ export async function submitGameResult(playerRank: number, round: number, result
   const players = isInBatch() ? getCurrentPlayers() : await getPlayers();
   const player = players.find(p => p.rank === playerRank);
   if (player) {
-    if (!player.gameResults) player.gameResults = [...DEFAULT_GAME_RESULTS];
+    ensureGameResults(player);
     player.gameResults[round] = result;
     if (dataService.getMode() === DataServiceMode.LOCAL) {
       await savePlayers(players);

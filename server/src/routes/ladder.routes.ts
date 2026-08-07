@@ -6,11 +6,11 @@ import { AppError } from '../middleware/errorHandler.js';
 import { readLadderFile, writeLadderFile, PlayerData, withTiming } from '../services/dataService.js';
 import { log, logError, shouldLog } from '../utils/logger.js';
 import { broadcastSSEEvent } from '../services/sseService.js';
-import { checkMiniGameFilesWith, readMiniGameFile, writeMiniGameFile, MINI_GAME_FILES } from '../services/tournamentService.js';
+import { checkMiniGameFilesWith, writeMiniGameFile, MINI_GAME_FILES } from '../services/tournamentService.js';
 import { deduplicatePlayers } from '../../../shared/utils/dedupUtils.js';
 import { NUM_ROUNDS } from '../../../shared/utils/constants.js';
 import { DEFAULT_GAME_RESULTS } from '../../../shared/types/index.js';
-import { normalizeFileName } from '../utils/miniGameUtils.js';
+import { normalizeFileName, handleReadMiniGameFile } from '../utils/miniGameUtils.js';
 
 const router = Router();
 
@@ -299,33 +299,8 @@ router.get('/mini-games/check', asyncHandler(async (_req: Request, res: Response
 // Read mini-game file (public read-only endpoint)
 router.get('/mini-games/read', asyncHandler(async (req: Request, res: Response) => {
   const { fileName } = req.query;
-  const normFileName = normalizeFileName(typeof fileName === 'string' ? fileName : undefined);
-
-  if (!normFileName) {
-    throw new AppError('Invalid mini-game file name', 400);
-  }
-
-  const miniGameData = await readMiniGameFile(normFileName);
-  if (!miniGameData) {
-    res.json({
-      success: true,
-      data: {
-        header: [],
-        players: [],
-        playerCount: 0,
-      },
-    });
-    return;
-  }
-
-  res.json({
-    success: true,
-    data: {
-      header: miniGameData.header,
-      players: miniGameData.players,
-      playerCount: miniGameData.players.length,
-    },
-  });
+  const data = await handleReadMiniGameFile(typeof fileName === 'string' ? fileName : undefined);
+  res.json({ success: true, data });
 }));
 
 // Write mini-game file (user+admin can write, admin-only operations like copy-players remain in admin.routes)
