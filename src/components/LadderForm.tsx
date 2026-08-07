@@ -491,7 +491,8 @@ export default function LadderForm({
         const fileName = sessionStorage.getItem('pendingFileName') || 'ladder';
         
         if (encodedContent) {
-          const text = decodeURIComponent(escape(atob(encodedContent)));
+          const bytes = atob(encodedContent).split('').map(c => c.charCodeAt(0));
+          const text = new TextDecoder().decode(new Uint8Array(bytes));
           const blob = new Blob([text], { type: 'text/tab-separated-values' });
           const file = new File([blob], fileName, { type: 'text/tab-separated-values' });
           

@@ -257,6 +257,7 @@ async function flushDeltas(): Promise<void> {
 
 if (typeof window !== 'undefined') {
   flushInterval = setInterval(flushDeltas, 5000);
+  window.addEventListener('beforeunload', stopDeltaFlushing);
 }
 
 export function getPendingDeltaCount(): number {

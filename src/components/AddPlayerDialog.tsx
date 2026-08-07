@@ -78,7 +78,7 @@ export default function AddPlayerDialog({
       school,
       room,
       num_games: 0,
-      attendance: nextRank,
+      attendance: 0,
     };
 
     onAdd(newPlayer, nextRank);

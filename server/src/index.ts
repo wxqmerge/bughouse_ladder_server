@@ -134,7 +134,7 @@ app.use(helmet({
       scriptSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", 'data:', 'blob:'],
-      connectSrc: ["'self'", corsOrigins[0] !== '*' ? new URL(corsOrigins[0]).origin : "'self'"],
+      connectSrc: ["'self'", corsOrigins[0] && corsOrigins[0] !== '*' ? new URL(corsOrigins[0]).origin : "'self'"],
       fontSrc: ["'self'"],
       objectSrc: ["'none'"],
       mediaSrc: ["'none'"],

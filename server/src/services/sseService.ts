@@ -54,7 +54,7 @@ export function broadcastSSEEvent(event: string, data: unknown, filterClientId?:
     const payload = JSON.stringify(data);
     const message = `id: ${id}\nevent: ${event}\ndata: ${payload}\n\n`;
 
-    for (const client of clients) {
+    for (const client of [...clients]) {
       if (filterClientId && client.res.locals?.clientId !== filterClientId) {
         // Skip the client that made the change (they already have their data)
         continue;
