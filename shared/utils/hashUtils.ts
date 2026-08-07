@@ -552,6 +552,7 @@ export function processGameResults(
       // Reset parsed arrays for each result
       parsedPlayersList[0] = 0;
       parsedPlayersList[1] = 0;
+      parsedPlayersList[2] = 0;
       parsedPlayersList[3] = 0;
       parsedPlayersList[4] = 0;
       parsedScoreList[0] = 0;

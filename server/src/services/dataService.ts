@@ -76,8 +76,19 @@ export interface BackupInfo {
   date: string;
 }
 
-// File lock mechanism - simple mutex for sequential file access
-let fileLock: { locked: boolean; waiters: (() => void)[] } | null = null;
+// File lock mechanism - promise-based mutex for sequential file access
+// Uses a chain of promises to guarantee atomic acquisition.
+let fileLock: Promise<void> | null = null;
+
+async function acquireLock(): Promise<() => void> {
+  let release: () => void;
+  const prev = fileLock;
+  fileLock = new Promise((resolve) => {
+    release = () => resolve();
+  });
+  if (prev) await prev;
+  return release!;
+}
 
 // In-memory read cache — avoids re-parsing the .tab file on every GET request.
 // Cache is invalidated on every write. TTL: 5s as fallback safety.
@@ -88,28 +99,6 @@ interface LadderCache {
 }
 const ladderCache: LadderCache = { data: null, mtimeMs: 0, timestamp: 0 };
 const CACHE_TTL_MS = 5000;
-
-async function acquireLock(): Promise<void> {
-  if (!fileLock || !fileLock.locked) {
-    fileLock = { locked: true, waiters: [] };
-    return; // Lock acquired immediately
-  }
-  return new Promise((resolve) => {
-    fileLock!.waiters.push(resolve);
-  });
-}
-
-function releaseLock(): void {
-  if (fileLock && fileLock.locked) {
-    const nextWaiter = fileLock.waiters.shift();
-    if (nextWaiter) {
-      nextWaiter(); // Wake up next waiter
-    } else {
-      fileLock.locked = false;
-      fileLock = null;
-    }
-  }
-}
 
 export async function readLadderFile(filePath?: string): Promise<LadderData> {
   const targetPath = filePath || TAB_FILE_PATH;
@@ -127,7 +116,7 @@ export async function readLadderFile(filePath?: string): Promise<LadderData> {
       }
     }
 
-    await acquireLock();
+    const releaseRead = await acquireLock();
     
     try {
       let content = await fs.readFile(targetPath, 'utf-8');
@@ -233,7 +222,7 @@ export async function readLadderFile(filePath?: string): Promise<LadderData> {
 
     return result;
   } finally {
-    releaseLock();
+    releaseRead();
   }
   });
 }
@@ -245,8 +234,8 @@ export function generateTabContent(ladderData: LadderData): string {
 export async function writeLadderFile(ladderData: LadderData, filePath?: string): Promise<void> {
   const targetPath = filePath || TAB_FILE_PATH;
   return withTiming('writeLadderFile', async () => {
-    await acquireLock();
-    
+    const releaseWrite = await acquireLock();
+
     try {
       loggerLog('[SERVER]', `Writing ${ladderData.players.length} players to ${targetPath}`);
       
@@ -284,7 +273,7 @@ export async function writeLadderFile(ladderData: LadderData, filePath?: string)
       writeHealth.consecutiveFailures++;
       throw err;
     } finally {
-      releaseLock();
+      releaseWrite();
     }
   });
 }
@@ -361,7 +350,6 @@ export async function getBackupList(ladderName?: string): Promise<BackupInfo[]> 
   const files = await fs.readdir(BACKUP_DIR);
   const backups: BackupInfo[] = [];
   const prefix = ladderName ? ladderToPrefix(ladderName) : null;
-  console.log('[BACKUP LIST] ladderName:', ladderName, 'prefix:', prefix, 'all files:', files.filter(f => f.endsWith('.tab') && f.includes('_backup_')));
 
   for (const file of files) {
     if (!file.endsWith('.tab') || !file.includes('_backup_')) continue;
@@ -483,6 +471,14 @@ export async function restoreBackup(filename: string): Promise<boolean> {
     }
     const content = await fs.readFile(backupPath, 'utf-8');
     await fs.writeFile(targetPath, content, 'utf-8');
+
+    // Invalidate read cache after successful restore
+    if (!targetPath || targetPath === TAB_FILE_PATH) {
+      ladderCache.data = null;
+      ladderCache.mtimeMs = 0;
+      ladderCache.timestamp = 0;
+    }
+
     loggerLog('[SERVER]', `Restored from backup: ${filename} → ${path.basename(targetPath)}`);
     return true;
   } catch (error) {
