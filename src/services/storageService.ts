@@ -167,12 +167,12 @@ export function clearLocalChangesFlag(): void {
   log('[STORAGE]', 'Local changes synced to server');
 }
 
-export function setServerDownMode(isDown: boolean): void {
+function setServerDownMode(isDown: boolean): void {
   serverDownMode = isDown;
   log('[STORAGE]', 'Server down mode: ' + (isDown ? 'ON' : 'OFF'));
 }
 
-export function getServerDownMode(): boolean {
+function getServerDownMode(): boolean {
   return serverDownMode;
 }
 
@@ -199,7 +199,7 @@ function savePendingSyncQueue(): void {
   setJson('ladder_pending_sync', pendingSyncQueue);
 }
 
-export function addPendingSync(playerRank: number, round: number, result: string): void {
+function addPendingSync(playerRank: number, round: number, result: string): void {
   const existingIndex = pendingSyncQueue.findIndex(
     e => e.playerRank === playerRank && e.round === round
   );
@@ -216,15 +216,15 @@ export function clearPendingSyncQueue(): void {
   savePendingSyncQueue();
 }
 
-export function getPendingSyncQueue(): PendingSyncEntry[] {
+function getPendingSyncQueue(): PendingSyncEntry[] {
   return [...pendingSyncQueue];
 }
 
-export function hasPendingSync(): boolean {
+function hasPendingSync(): boolean {
   return pendingSyncQueue.length > 0;
 }
 
-export function getPendingSyncCount(): number {
+function getPendingSyncCount(): number {
   return pendingSyncQueue.length;
 }
 
@@ -284,7 +284,7 @@ export function stopDeltaFlushing(): void {
 
 let deleteChain = Promise.resolve();
 
-export function queueDelete(playerRank: number, round: number): void {
+function queueDelete(playerRank: number, round: number): void {
   const key = `${playerRank}:${round}`;
   let deletes = new Set(getJsonArray<string>('ladder_pending_deletes'));
   deletes.add(key);
@@ -392,7 +392,7 @@ export async function getPlayers(): Promise<PlayerData[]> {
   }
 }
 
-export interface SaveResult {
+interface SaveResult {
   success: boolean;
   serverSynced: boolean;
   error?: string;
@@ -610,14 +610,14 @@ export function setZoomLevel(level: number): void { setJson('ladder_zoom', level
 
 // ==================== UTILITY ====================
 
-export async function clearAllData(): Promise<void> {
+async function clearAllData(): Promise<void> {
   removeJson('ladder_players');
   removeJson('ladder_settings');
   removeJson('ladder_project_name');
   removeJson('ladder_zoom');
 }
 
-export async function saveToServer(): Promise<{ success: boolean; error?: string }> {
+async function saveToServer(): Promise<{ success: boolean; error?: string }> {
   const players = await getPlayers();
   if (dataService.getMode() === DataServiceMode.LOCAL) return { success: true };
   try {
@@ -636,7 +636,7 @@ export function getClientId(): string {
   return id;
 }
 
-export function getClientName(clientId: string): string { return `Client ${clientId.substr(-4)}`; }
+function getClientName(clientId: string): string { return `Client ${clientId.substr(-4)}`; }
 
 export function getServerUrl(): string | null {
   try {
@@ -738,7 +738,7 @@ export async function getAdminLockInfo(): Promise<{ locked: boolean; holderId?: 
   } catch { return { locked: false, serverReachable: false }; }
 }
 
-export async function isAdminLocked(): Promise<boolean> {
+async function isAdminLocked(): Promise<boolean> {
   const info = await getAdminLockInfo();
   return info.locked;
 }

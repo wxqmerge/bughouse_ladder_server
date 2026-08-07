@@ -445,7 +445,7 @@ export async function createBackup(): Promise<string | null> {
   }
 }
 
-export async function ensureBackupDirectory(): Promise<void> {
+async function ensureBackupDirectory(): Promise<void> {
   try {
     await fs.access(BACKUP_DIR);
   } catch {
