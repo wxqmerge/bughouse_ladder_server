@@ -557,12 +557,3 @@ export async function rotateBackups(): Promise<void> {
     loggerLog('[SERVER]', `Backup rotation failed: ${(error as Error).message}`);
   }
 }
-
-// Create backup before write and rotate after
-export async function createPreWriteBackup(): Promise<void> {
-  await ensureBackupDirectory();
-  const backupPath = await createBackup();
-  if (backupPath) {
-    await rotateBackups();
-  }
-}

@@ -19,7 +19,8 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export interface MiniGameStore {
+// Re-exported from shared/types; local copy for type annotation only
+interface MiniGameStore {
   getMiniGameFiles(): string[];
   readMiniGameFile(fileName: string): Promise<LadderData | null>;
   writeMiniGameFile(fileName: string, ladderData: LadderData): Promise<{ identityUpdates: PlayerData[]; miniGameWritten: boolean }>;
@@ -74,7 +75,7 @@ const TOURNAMENT_STATE_FILE = path.join(
 );
 
 // Load tournament state from file
-export async function loadTournamentState(): Promise<TournamentState | null> {
+async function loadTournamentState(): Promise<TournamentState | null> {
   try {
     const content = await fs.readFile(TOURNAMENT_STATE_FILE, 'utf-8');
     const parsed = JSON.parse(content);
@@ -90,7 +91,7 @@ export async function loadTournamentState(): Promise<TournamentState | null> {
 }
 
 // Save tournament state to file
-export async function saveTournamentState(): Promise<void> {
+async function saveTournamentState(): Promise<void> {
   try {
     const dataDir = path.dirname(TOURNAMENT_STATE_FILE);
     await fs.mkdir(dataDir, { recursive: true });
@@ -102,12 +103,12 @@ export async function saveTournamentState(): Promise<void> {
 }
 
 // Get current tournament state
-export function getTournamentState(): TournamentState {
+function getTournamentState(): TournamentState {
   return { ...tournamentState };
 }
 
 // Start tournament
-export async function startTournament(): Promise<TournamentState> {
+async function startTournament(): Promise<TournamentState> {
   tournamentState = {
     active: true,
     startedAt: new Date().toISOString(),
@@ -118,7 +119,7 @@ export async function startTournament(): Promise<TournamentState> {
 }
 
 // End tournament
-export async function endTournament(): Promise<void> {
+async function endTournament(): Promise<void> {
   if (!tournamentState.active) {
     loggerLog('[TOURNAMENT]', 'Tournament is not active');
     return;
@@ -129,7 +130,7 @@ export async function endTournament(): Promise<void> {
 }
 
 // Check if tournament is active
-export function isTournamentActive(): boolean {
+function isTournamentActive(): boolean {
   return tournamentState.active;
 }
 
