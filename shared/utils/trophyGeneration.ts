@@ -5,7 +5,7 @@
 
 import { PlayerData, LadderData, MiniGameData, DEFAULT_GAME_RESULTS } from '../types/index.js';
 
-export interface TrophyReportResult {
+interface TrophyReportResult {
   success: boolean;
   message: string;
   trophies?: any[];
@@ -108,7 +108,7 @@ export function getPlayerTotalGames(player: PlayerData, miniGameFiles: MiniGameD
   return total;
 }
 
-export interface MiniGameStoreLike {
+interface MiniGameStoreLike {
   readMiniGameFile(fileName: string): Promise<LadderData | null>;
   writeMiniGameFile(fileName: string, ladderData: LadderData): Promise<{ identityUpdates: PlayerData[]; miniGameWritten: boolean }>;
 }
@@ -318,7 +318,7 @@ export function parseMiniGameImportContent(content: string): { fileName: string;
   return result;
 }
 
-export interface TrophyReportStore {
+interface TrophyReportStore {
   hasMiniGameFiles(): Promise<boolean>;
   getExistingMiniGameFiles(): Promise<string[]>;
   readMiniGameFile(fileName: string): Promise<LadderData | null>;
