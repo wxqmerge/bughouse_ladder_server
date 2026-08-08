@@ -191,8 +191,6 @@ export async function loadConfigFromUrl(): Promise<boolean> {
       server: normalized,
       apiKey: apiKey.trim(),
     });
-
-    console.debug('[Config] Server config loaded from URL:', { server: normalized, hasKey: !!apiKey });
   }
   
   // Remote file load: ?config=3&file=http://host/file.tab

@@ -92,6 +92,12 @@ const [miniGamesHaveResults, setMiniGamesHaveResults] = useState(false);
   const toggleAdminRef = useRef<(() => Promise<void>) | undefined>(undefined);
   const initRef = useRef(false);
 
+  // Load URL config — runs on every render, but idempotent (URL params cleared after first parse)
+  // No ref guard: ensures it works in Strict Mode where ref persists across unmount/remount
+  void loadConfigFromUrl().then((applied) => {
+    if (applied) setUrlConfigApplied(true);
+  }).catch((err) => console.error('[App] loadConfigFromUrl failed:', err));
+
   // Cache bust: reload if build timestamp differs from last visit
   useEffect(() => {
     const metaTag = document.querySelector('meta[name="build-timestamp"]');
@@ -119,13 +125,7 @@ const [miniGamesHaveResults, setMiniGamesHaveResults] = useState(false);
     initRef.current = true;
 
     const init = async () => {
-      // Step 1: Load URL params (saves server+key to localStorage)
-      const configApplied = await loadConfigFromUrl();
-      if (configApplied) {
-        setUrlConfigApplied(true);
-      }
-
-      // Step 2: Determine mode and configure dataService
+      // Step 1: Determine mode and configure dataService
       const config = await determineMode();
       dataService.updateConfig(config);
       // console.log('[App] DataService configured:', config.mode, config.serverUrl || '');
