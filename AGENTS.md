@@ -4,13 +4,17 @@
 - **Frontend (Root):** React/Vite SPA (Port 5173). Single-file build to `dist/`.
 - **Backend (`server/`):** Node.js/Express API (Port 3000). Built to `server/dist/`.
 - **Shared (`shared/`):** TypeScript types + utilities compiled separately. Consumed by both client and server.
-- **Source of truth:** `server/data/ladder.tab` (excluded from git).
+- **Source of truth:** `server/data/ladder.tab` (gitignored).
 
 ## Developer Commands
 
+### Convenience (Root Directory)
+- `npm run dev:all`: Start both frontend and backend with hot-reload.
+- `npm run build:all`: Build both frontend and server in one command.
+
 ### Frontend (Root Directory)
-- `npm run dev`: Start Vite dev server. Proxies `/api` → `localhost:3000`.
-- `npm run build`: `tsc && vite build` — typecheck must pass first.
+- `npm run dev`: Start Vite dev server. Proxies `/api`, `/health`, `/ladder/events` → `localhost:3000`.
+- `npm run build`: 3-step pipeline — `compile-shared.js`, `tsc`, `vite build`. Typecheck must pass first. Also compiles `shared/` before frontend.
 - `npm run typecheck`: `tsc --noEmit` (root tsconfig includes `src` + `shared`).
 - `npm run test`: Vitest watch mode. `npm run test:run` for CI. `npm run test:coverage` for coverage.
 
@@ -33,15 +37,15 @@
 - **Server:** `@shared/*` → `../shared/*` (server tsconfig). At runtime, imports resolve to `shared/dist/*`.
 
 ### Shared Code Compilation
-`shared/` has its own tsconfig. The server build compiles it via `scripts/compile-shared.js` (copies .ts to temp dir, runs `tsc`, copies .js back). Generated `.js`, `.d.ts`, and `.d.ts.map` in `shared/` are gitignored. Do not edit files in `shared/dist/`.
+`shared/` has its own tsconfig. Both frontend and server builds compile it via `scripts/compile-shared.js` (copies .ts to temp dir, runs `tsc`, copies .js back). Generated `.js`, `.d.ts`, and `.d.ts.map` in `shared/` are gitignored. Do not edit files in `shared/dist/`.
 
 ### Dev Server Proxy
-Vite proxies `/api` → `http://localhost:3000`. Backend SSE endpoint is `/api/ladder/events`.
+Vite proxies `/api`, `/health`, and `/ladder/events` → `http://localhost:3000`. Backend SSE endpoint is `/ladder/events` (proxied through Vite).
 
 ### Test Configuration
 - **Framework:** Vitest (v4+), jsdom environment, globals enabled.
-- **Setup file:** `src/test/setup.ts`.
-- **Frontend tests:** `src/test/unit/`, `src/test/shared/`, `src/test/fixtures/`.
+- **Setup file:** `src/test/setup.ts` (extends expect with jest-dom matchers, cleanup after each).
+- **Frontend tests:** `src/test/unit/`, `src/test/shared/`.
 - **Server tests:** `server/test/`.
 - **Test pattern:** `**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}`.
 - **Coverage:** `npm run test:coverage` (v8 provider, text/json/html reporters).
@@ -54,7 +58,7 @@ Vite proxies `/api` → `http://localhost:3000`. Backend SSE endpoint is `/api/l
 4. Server default.
 
 ### Sync Strategy
-- **Primary:** SSE (`EventSource` → `/api/ladder/events`) for instant push (<100ms).
+- **Primary:** SSE (`EventSource` → `/ladder/events`) for instant push (<100ms).
 - **Fallback:** Polling every 5.5s with overlap guard (skips if previous request pending).
 - **Change detection:** Hash of game results compared against `lastDataHash`.
 
@@ -81,21 +85,14 @@ When no manual server config exists, the app auto-detects from `window.location.
 
 ## Gotchas
 - **Server build order matters:** Always use `npm run build` in `server/`, never `tsc` alone.
+- **Frontend build also compiles shared:** `npm run build` runs `compile-shared.js` first. Don't skip it.
 - **`ladder.tab` is gitignored:** You must create or import data to test server-side features.
-- **Frontend `npm run build` requires successful `tsc` first:** If typecheck fails, the build aborts.
 - **SSE events are broadcast to all connected clients** (writer receives their own event but filters it client-side).
 - **"Push to Server" on reconnect does NOT fetch-merge-first** — use "Pull from Server" to avoid data loss.
-- **Deploy script (`deploy/update.sh`)** requires passwordless sudo for `systemctl restart`. It stashes local changes, pulls, cleans artifacts, builds both frontend and server, then restarts.
+- **Deploy script (`deploy/update.sh`)** requires passwordless sudo for `systemctl restart`. Has 7-day package cooldown (bypass with `--force` or `--force-critical` for 2-day). Auto-fixes nginx SSE config and systemd `EnvironmentFile`.
 
 ## Architecture Deep-Dive
 See [ARCHITECTURE.md](./ARCHITECTURE.md) for multi-client sync details, data flow diagrams, SSE event types, merge algorithms, and performance notes.
 
 ## Add Player Flow
 See [ADD_PLAYER_FLOW_TRACE.md](./ADD_PLAYER_FLOW_TRACE.md) for step-by-step console trace and implementation details of the Enter Games → Add Player flow.
-
-## Recent Changes Summary
-- `console.clear()` removed from `ErrorDialog.tsx` and `LadderForm.tsx` to preserve console traces during debugging.
-- `AddPlayerDialog.tsx` now includes a Trophy `+`/`-` toggle button. `trophyEligible` is no longer hardcoded to `true`; user selects before submitting.
-- Duplicate `Ctrl+C` handler removed from `LadderForm.tsx` — only `ErrorDialog.tsx` handles `Ctrl+C` (Clear All Matching Cells in correction mode, Cancel in Enter Games mode).
-- Clear Cell behavior: dialog stays open and advances to next error after clearing, enabling batch clearing of matching cells.
-- Keyboard shortcuts documented: `Ctrl+E` (Enter_Recalculate_Save), `Ctrl+O` (Override mode), `Ctrl+1`-`Ctrl+9` (ladder switching).
