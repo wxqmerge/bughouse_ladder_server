@@ -10,7 +10,7 @@ TOTAL_INSTANCES=0
 TOTAL_PLAYERS=0
 TOTAL_RESULTS=0
 
-declare -A INSTANCE_PLAYERS
+declare -A INSTANCE_CLUB_PLAYERS
 declare -A INSTANCE_RESULTS
 
 echo "========================================"
@@ -39,13 +39,13 @@ for dir in "$BASE"/*/; do
         continue
     fi
 
-    instance_players=0
+    club_players=0
     instance_results=0
 
-    # Club ladder
+    # Club ladder (source of truth for player count)
     if [ -f "$data_dir/ladder.tab" ]; then
         # Count players: data rows with a Last Name (field 2) that is non-empty
-        players=$(awk -F'\t' 'NR>1 && $2!="" {count++} END {print count+0}' "$data_dir/ladder.tab")
+        club_players=$(awk -F'\t' 'NR>1 && $2!="" {count++} END {print count+0}' "$data_dir/ladder.tab")
         # Count results: non-empty cells in columns 13-43 (rounds 1-31)
         results=$(awk -F'\t' 'NR>1 && $2!="" {
             for (i=13; i<=43; i++) {
@@ -53,32 +53,29 @@ for dir in "$BASE"/*/; do
                 if ($i != "") count++
             }
         } END {print count+0}' "$data_dir/ladder.tab")
-        echo "  ladder.tab: $players players, $results results"
-        instance_players=$((instance_players + players))
+        echo "  ladder.tab: $club_players players, $results results"
         instance_results=$((instance_results + results))
     fi
 
-    # Mini-games
+    # Mini-games (same players, only count results)
     for mg in $MINI_GAMES; do
         if [ -f "$data_dir/$mg" ]; then
-            players=$(awk -F'\t' 'NR>1 && $2!="" {count++} END {print count+0}' "$data_dir/$mg")
             results=$(awk -F'\t' 'NR>1 && $2!="" {
                 for (i=13; i<=43; i++) {
                     gsub(/^[[:space:]]+|[[:space:]]+$/, "", $i)
                     if ($i != "") count++
                 }
             } END {print count+0}' "$data_dir/$mg")
-            echo "  $mg: $players players, $results results"
-            instance_players=$((instance_players + players))
+            echo "  $mg: $results results"
             instance_results=$((instance_results + results))
         fi
     done
 
-    INSTANCE_PLAYERS[$name]=$instance_players
+    INSTANCE_CLUB_PLAYERS[$name]=$club_players
     INSTANCE_RESULTS[$name]=$instance_results
 
     echo ""
-    TOTAL_PLAYERS=$((TOTAL_PLAYERS + instance_players))
+    TOTAL_PLAYERS=$((TOTAL_PLAYERS + club_players))
     TOTAL_RESULTS=$((TOTAL_RESULTS + instance_results))
 done
 
@@ -88,8 +85,8 @@ echo "========================================"
 echo ""
 printf "  %-30s %8s %10s\n" "Instance" "Players" "Results"
 printf "  %-30s %8s %10s\n" "------------------------------" "--------" "----------"
-for name in $(echo "${!INSTANCE_PLAYERS[@]}" | tr ' ' '\n' | sort); do
-    printf "  %-30s %8d %10d\n" "$name" "${INSTANCE_PLAYERS[$name]}" "${INSTANCE_RESULTS[$name]}"
+for name in $(echo "${!INSTANCE_CLUB_PLAYERS[@]}" | tr ' ' '\n' | sort); do
+    printf "  %-30s %8d %10d\n" "$name" "${INSTANCE_CLUB_PLAYERS[$name]}" "${INSTANCE_RESULTS[$name]}"
 done
 printf "  %-30s %8s %10s\n" "------------------------------" "--------" "----------"
 printf "  %-30s %8d %10d\n" "TOTAL ($TOTAL_INSTANCES instances)" "$TOTAL_PLAYERS" "$TOTAL_RESULTS"
