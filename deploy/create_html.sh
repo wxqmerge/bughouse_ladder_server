@@ -117,16 +117,16 @@ cat > "$OUTPUT" << HEADER
 HEADER
 
 cat "$ADMIN_TMP" >> "$OUTPUT"
-cat >> "$OUTPUT" << 'MID'
+cat >> "$OUTPUT" << MID
         </DL><p>
-        <DT><H3 ADD_DATE="0">User</H3>
+        <DT><H3 ADD_DATE="$TS">User</H3>
         <DL><p>
 MID
 
 cat "$USER_TMP" >> "$OUTPUT"
-cat >> "$OUTPUT" << 'MID2'
+cat >> "$OUTPUT" << MID2
         </DL><p>
-        <DT><H3 ADD_DATE="0">View</H3>
+        <DT><H3 ADD_DATE="$TS">View</H3>
         <DL><p>
 MID2
 
