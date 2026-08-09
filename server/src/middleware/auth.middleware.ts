@@ -17,6 +17,17 @@ function getUserKey() {
   return process.env.USER_API_KEY || '';
 }
 
+function timingSafeCompare(a: string, b: string): boolean {
+  const aBuf = Buffer.from(a, 'utf-8');
+  const bBuf = Buffer.from(b, 'utf-8');
+  const maxLen = Math.max(aBuf.length, bBuf.length);
+  const paddedA = Buffer.alloc(maxLen);
+  const paddedB = Buffer.alloc(maxLen);
+  aBuf.copy(paddedA);
+  bBuf.copy(paddedB);
+  return crypto.timingSafeEqual(paddedA, paddedB);
+}
+
 /**
  * Middleware to verify user API key for write operations.
  * Allows requests through if EITHER the user key matches OR the admin key matches.
@@ -30,7 +41,7 @@ export function requireUserKey(
   const apiKey = req.headers['x-api-key'] as string;
 
   // Admin key always grants access (admins can do everything)
-  if (getAdminKey() && apiKey === getAdminKey()) {
+  if (getAdminKey() && apiKey && timingSafeCompare(apiKey, getAdminKey())) {
     next();
     return;
   }
@@ -46,7 +57,7 @@ export function requireUserKey(
       return;
     }
 
-    if (apiKey !== getUserKey()) {
+    if (!timingSafeCompare(apiKey, getUserKey())) {
       console.warn(`[USER_AUTH] 401 - Invalid API key | IP: ${req.ip} | Path: ${req.path}`);
       res.status(401).json({
         success: false,
@@ -85,12 +96,6 @@ export function requireAdminKey(
   res: Response,
   next: NextFunction
 ): void {
-  // Read-only mini-game endpoints accept user key too
-  if (req.method === 'GET' && req.path.startsWith('/tournament/')) {
-    requireUserKey(req, res, next);
-    return;
-  }
-
   const adminKey = getAdminKey();
   if (!adminKey) {
     console.warn(`[ADMIN_AUTH] 403 - ADMIN_API_KEY not configured | IP: ${req.ip} | Path: ${req.path}`);
@@ -112,38 +117,8 @@ export function requireAdminKey(
     return;
   }
 
-  // Use timing-safe comparison to prevent timing attacks
-  try {
-    const keyBuffer = Buffer.from(adminKey, 'utf-8');
-    const providedBuffer = Buffer.from(apiKey, 'utf-8');
-
-    // If lengths differ, crypto.timingSafeEqual will throw, so handle gracefully
-    if (keyBuffer.length !== providedBuffer.length) {
-      // Still use timing-safe comparison with padded buffer to avoid length leakage
-      const maxLen = Math.max(keyBuffer.length, providedBuffer.length);
-      const paddedKey = Buffer.alloc(maxLen);
-      const paddedProvided = Buffer.alloc(maxLen);
-      keyBuffer.copy(paddedKey);
-      providedBuffer.copy(paddedProvided);
-
-      if (!crypto.timingSafeEqual(paddedKey, paddedProvided)) {
-        console.warn(`[ADMIN_AUTH] 401 - Invalid API key | IP: ${req.ip} | Path: ${req.path}`);
-        res.status(401).json({
-          success: false,
-          error: { message: 'Invalid admin API key' },
-        });
-        return;
-      }
-    } else if (!crypto.timingSafeEqual(keyBuffer, providedBuffer)) {
-      console.warn(`[ADMIN_AUTH] 401 - Invalid API key | IP: ${req.ip} | Path: ${req.path}`);
-      res.status(401).json({
-        success: false,
-        error: { message: 'Invalid admin API key' },
-      });
-      return;
-    }
-  } catch (error) {
-    console.warn(`[ADMIN_AUTH] 401 - Key validation error | IP: ${req.ip} | Path: ${req.path} | Error: ${(error as Error).message}`);
+  if (!timingSafeCompare(apiKey, adminKey)) {
+    console.warn(`[ADMIN_AUTH] 401 - Invalid API key | IP: ${req.ip} | Path: ${req.path}`);
     res.status(401).json({
       success: false,
       error: { message: 'Invalid admin API key' },

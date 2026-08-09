@@ -164,7 +164,8 @@ describe('requireAdminKey', () => {
     expect(next.called()).toBe(false);
   });
 
-  it('should delegate to requireUserKey for GET /tournament/ endpoints', () => {
+  it('should require admin key for GET /tournament/ endpoints (no user key bypass)', () => {
+    process.env.ADMIN_API_KEY = 'admin-key';
     process.env.USER_API_KEY = 'user-key';
     const req = createMockReq({
       method: 'GET',
@@ -176,7 +177,8 @@ describe('requireAdminKey', () => {
 
     requireAdminKey(req, res, next);
 
-    expect(next.called()).toBe(true);
+    expect(res.statusCode).toBe(401);
+    expect(next.called()).toBe(false);
   });
 
   it('should not delegate non-GET requests to requireUserKey', () => {
