@@ -125,7 +125,7 @@ if [ ${#UPDATED[@]} -gt 0 ]; then
         # Try to find domain from nginx config
         for conf in /etc/nginx/sites-available/${name}.*.conf; do
             if [ -f "$conf" ]; then
-                proj_domain=$(grep 'server_name' "$conf" 2>/dev/null | tr -d '\r\n\t' | sed 's/server_name//;s/;//' | tr -s ' ' | awk '{print $1}')
+                proj_domain=$(grep 'server_name' "$conf" 2>/dev/null | head -1 | tr -d '\r\n\t' | sed 's/server_name//;s/;//' | tr -s ' ' | awk '{print $1}')
                 parent_domain=$(echo "$proj_domain" | tr -d '[:space:]' | sed 's/^[^.]*\.//')
                 break
             fi

@@ -35,7 +35,7 @@ for dir in "$BASE"/*/; do
     proj_domain="$name.$DOMAIN"
     for conf in /etc/nginx/sites-available/${name}.*.conf; do
         if [ -f "$conf" ]; then
-            proj_domain=$(grep 'server_name' "$conf" 2>/dev/null | tr -d '\r\n\t' | sed 's/server_name//;s/;//' | tr -s ' ' | awk '{print $1}')
+            proj_domain=$(grep 'server_name' "$conf" 2>/dev/null | head -1 | tr -d '\r\n\t' | sed 's/server_name//;s/;//' | tr -s ' ' | awk '{print $1}')
             break
         fi
     done
