@@ -110,7 +110,6 @@ echo "========================================"
 echo ""
 
 # Print config URLs for all updated instances
-DOMAIN="chess4.us"
 if [ ${#UPDATED[@]} -gt 0 ]; then
     echo "========================================"
     echo "  Config URLs"
@@ -119,10 +118,8 @@ if [ ${#UPDATED[@]} -gt 0 ]; then
     echo ""
 
     for name in "${UPDATED[@]}"; do
-        proj_domain="$name.$DOMAIN"
-        parent_domain="$DOMAIN"
-
-        # Try to find domain from nginx config
+        proj_domain=""
+        parent_domain=""
         for conf in /etc/nginx/sites-available/${name}.*.conf; do
             if [ -f "$conf" ]; then
                 proj_domain=$(grep 'server_name' "$conf" 2>/dev/null | head -1 | tr -d '\r\n\t' | sed 's/server_name//;s/;//' | tr -s ' ' | awk '{print $1}')
@@ -130,6 +127,10 @@ if [ ${#UPDATED[@]} -gt 0 ]; then
                 break
             fi
         done
+        if [ -z "$proj_domain" ]; then
+            echo "  ⊘ $name — no nginx config found, skipping"
+            continue
+        fi
 
         echo "--- $name ---"
         echo "  Admin:  https://$parent_domain/$name/dist/?key=$NEW_ADMIN_KEY"

@@ -17,7 +17,6 @@
 #               - View (instance2)
 
 BASE="/var/www/html"
-DOMAIN="chess4.us"
 DATE=$(date '+%Y-%m-%d')
 OUTPUT="$HOME/ladder-bookmarks-${DATE}.html"
 TS=$(date +%s)
@@ -79,8 +78,8 @@ for dir in "$BASE"/*/; do
     USER_KEY=$(grep '^USER_API_KEY=' "$ENV_FILE" 2>/dev/null | cut -d= -f2- | tr -d '[:space:]')
 
     # Find domain from nginx config
-    proj_domain="$name.$DOMAIN"
-    parent_domain="$DOMAIN"
+    proj_domain=""
+    parent_domain=""
     for conf in /etc/nginx/sites-available/${name}.*.conf; do
         if [ -f "$conf" ]; then
             proj_domain=$(grep 'server_name' "$conf" 2>/dev/null | head -1 | tr -d '\r\n\t' | sed 's/server_name//;s/;//' | tr -s ' ' | awk '{print $1}')
@@ -88,6 +87,11 @@ for dir in "$BASE"/*/; do
             break
         fi
     done
+    if [ -z "$proj_domain" ]; then
+        echo "  ✗ $name — no nginx config found, skipping"
+        SKIP=$((SKIP + 1))
+        continue
+    fi
 
     # Build URLs (server auto-detected from window.location.origin)
     ADMIN_URL="https://${parent_domain}/${name}/dist/?key=${ADMIN_KEY}"

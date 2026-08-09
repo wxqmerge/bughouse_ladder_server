@@ -4,7 +4,6 @@
 # Usage: ./deploy/admin-urls.sh
 
 BASE="/var/www/html"
-DOMAIN="chess4.us"
 
 echo "========================================"
 echo "  Admin Config URLs"
@@ -32,22 +31,19 @@ for dir in "$BASE"/*/; do
     fi
 
     # Find domain from nginx config
-    proj_domain="$name.$DOMAIN"
+    proj_domain=""
+    parent_domain=""
     for conf in /etc/nginx/sites-available/${name}.*.conf; do
         if [ -f "$conf" ]; then
             proj_domain=$(grep 'server_name' "$conf" 2>/dev/null | head -1 | tr -d '\r\n\t' | sed 's/server_name//;s/;//' | tr -s ' ' | awk '{print $1}')
-            break
-        fi
-    done
-
-    # Find parent domain from nginx config
-    parent_domain="$DOMAIN"
-    for conf in /etc/nginx/sites-available/${name}.*.conf; do
-        if [ -f "$conf" ]; then
             parent_domain=$(echo "$proj_domain" | tr -d '[:space:]' | sed 's/^[^.]*\.//')
             break
         fi
     done
+    if [ -z "$proj_domain" ]; then
+        echo "$name: NO NGINX CONFIG, skipping"
+        continue
+    fi
 
     echo "--- $name ---"
     echo "  Domain: $proj_domain"
