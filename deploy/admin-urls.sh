@@ -53,7 +53,7 @@ for dir in "$BASE"/*/; do
     echo "  Domain: $proj_domain"
     echo ""
     echo "  Admin:"
-    echo "    https://$parent_domain/$name/dist/?config=1&server=https://$proj_domain&key=$admin_key"
+    echo "    https://$parent_domain/$name/dist/?key=$admin_key"
     echo ""
     echo "  View:"
     echo "    https://$parent_domain/$name/dist/"

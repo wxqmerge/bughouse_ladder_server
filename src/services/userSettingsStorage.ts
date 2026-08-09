@@ -171,22 +171,35 @@ export async function loadRemoteFile(fileUrl: string): Promise<{ success: boolea
  */
 export async function loadConfigFromUrl(): Promise<boolean> {
   const url = new URL(window.location.href);
+
+  // Shortcut: ?key=... alone → connect to current origin
+  const apiKeyOnly = url.searchParams.get('key');
+  if (apiKeyOnly && !url.searchParams.get('config')) {
+    saveUserSettings({
+      server: normalizeServerUrl(window.location.origin),
+      apiKey: apiKeyOnly.trim(),
+    });
+    url.searchParams.delete('key');
+    window.history.replaceState({}, '', url.toString());
+    return true;
+  }
+
   if (!url.searchParams.get('config')) return false;
 
   const configType = url.searchParams.get('config');
-  
+
   // Server connection: ?config=1&server=...&key=...
   if (configType === '1') {
     const serverUrl = url.searchParams.get('server') || '';
     const apiKey = url.searchParams.get('key') || '';
-    
+
     if (!serverUrl.trim()) {
       alert('Missing server URL. Use: ?config=1&server=http://host:port&key=yourkey');
       return false;
     }
 
     const normalized = normalizeServerUrl(serverUrl);
-    
+
     saveUserSettings({
       server: normalized,
       apiKey: apiKey.trim(),

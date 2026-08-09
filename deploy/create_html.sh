@@ -89,9 +89,9 @@ for dir in "$BASE"/*/; do
         fi
     done
 
-    # Build URLs
-    ADMIN_URL="https://${parent_domain}/${name}/dist/?config=1&server=https://${proj_domain}&key=${ADMIN_KEY}"
-    USER_URL="https://${parent_domain}/${name}/dist/?config=1&server=https://${proj_domain}&key=${USER_KEY}"
+    # Build URLs (server auto-detected from window.location.origin)
+    ADMIN_URL="https://${parent_domain}/${name}/dist/?key=${ADMIN_KEY}"
+    USER_URL="https://${parent_domain}/${name}/dist/?key=${USER_KEY}"
     VIEW_URL="https://${parent_domain}/${name}/dist/"
 
     # Collect bookmarks by type
