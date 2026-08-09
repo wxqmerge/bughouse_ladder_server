@@ -132,8 +132,8 @@ if [ ${#UPDATED[@]} -gt 0 ]; then
         done
 
         echo "--- $name ---"
-        echo "  Admin:  https://$parent_domain/$name/dist/?config=1&server=https://$proj_domain&key=$NEW_ADMIN_KEY"
-        echo "  User:   https://$parent_domain/$name/dist/?config=1&server=https://$proj_domain&key=$NEW_USER_KEY"
+        echo "  Admin:  https://$parent_domain/$name/dist/?key=$NEW_ADMIN_KEY"
+        echo "  User:   https://$parent_domain/$name/dist/?key=$NEW_USER_KEY"
         echo "  View:   https://$parent_domain/$name/dist/"
         echo ""
     done
