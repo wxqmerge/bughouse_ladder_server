@@ -10,6 +10,8 @@ WorkingDirectory=/var/www/bughouse-ladder/deploy/instances/rel-ladder
 Environment=NODE_ENV=production
 Environment=PORT=3001
 EnvironmentFile=/var/www/bughouse-ladder/server/.env
+# Optional protected key file (created by deploy/secure-env.sh); systemd ignores it when absent
+EnvironmentFile=-/etc/bughouse-ladder/rel-ladder.env
 ExecStart=/usr/bin/node dist/index.js
 Restart=always
 RestartSec=10

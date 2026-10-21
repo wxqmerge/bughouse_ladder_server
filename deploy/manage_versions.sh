@@ -7,9 +7,13 @@ INSTANCES_DIR="./instances"
 NGINX_CONF_DIR="/etc/nginx/sites-available"
 NGINX_ENABLED_DIR="/etc/nginx/sites-enabled"
 TEMPLATE_FILE="./deploy/nginx/subdomain.conf.template"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/ladder-env.sh"
+ENV_FILE="$PWD/server/.env"
 
 # Derive version name from current directory
 VERSION=$(basename "$(pwd)")
+SECRET_FILE="$(ladder_secret_file_for "$VERSION")"
 
 # Validate directory name for URL compatibility
 if echo "$VERSION" | grep -q '[^a-zA-Z0-9-]'; then
@@ -28,26 +32,33 @@ fi
 
 # Check required .env entries
 ERRORS=0
-if [ -f "server/.env" ]; then
-    for VAR in PORT ADMIN_API_KEY USER_API_KEY DOMAIN; do
-        VAL=$(grep "^${VAR}=" server/.env 2>/dev/null | cut -d= -f2 | tr -d '[:space:]')
+if [ -f "$ENV_FILE" ]; then
+    for VAR in PORT DOMAIN; do
+        VAL=$(grep "^${VAR}=" "$ENV_FILE" 2>/dev/null | cut -d= -f2 | tr -d '[:space:]')
         if [ -z "$VAL" ]; then
-            echo "Error: $VAR not set in server/.env"
+            echo "Error: $VAR not set in $ENV_FILE"
             ERRORS=$((ERRORS + 1))
         fi
     done
 else
-    echo "Error: server/.env not found"
+    echo "Error: $ENV_FILE not found"
     exit 1
 fi
+
+for VAR in ADMIN_API_KEY USER_API_KEY; do
+    if ! ladder_has_env_value "$VAR" "$SECRET_FILE" "$ENV_FILE"; then
+        echo "Error: $VAR not found in $SECRET_FILE or $ENV_FILE"
+        ERRORS=$((ERRORS + 1))
+    fi
+done
 
 if [ $ERRORS -gt 0 ]; then
     echo "Fix the errors above and re-run."
     exit 1
 fi
 
-DOMAIN=$(grep '^DOMAIN=' server/.env | cut -d= -f2 | tr -d '[:space:]')
-PORT=$(grep '^PORT=' server/.env | cut -d= -f2 | tr -d '[:space:]')
+DOMAIN=$(grep '^DOMAIN=' "$ENV_FILE" | cut -d= -f2 | tr -d '[:space:]')
+PORT=$(grep '^PORT=' "$ENV_FILE" | cut -d= -f2 | tr -d '[:space:]')
 SUBDOMAIN="${VERSION}.${DOMAIN}"
 
 usage() {
@@ -90,6 +101,8 @@ Group=www-data
 WorkingDirectory=$(pwd)/server
 Environment=NODE_ENV=production
 Environment=PORT=$PORT
+EnvironmentFile=$ENV_FILE
+EnvironmentFile=-$SECRET_FILE
 ExecStart=/usr/bin/node dist/index.js
 Restart=always
 RestartSec=10

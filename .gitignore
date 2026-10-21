@@ -58,3 +58,5 @@ uml-diagram*
 server/output/
 /graphify-out
 /server/datao
+/bughouse-ladder.txt
+/dev-ladder.txt

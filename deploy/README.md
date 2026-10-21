@@ -48,6 +48,8 @@ Set at minimum:
 
 Both `ADMIN_API_KEY` and `USER_API_KEY` are required in production. The server will refuse to start if either is missing.
 
+> Production keys should live in a protected file, not `server/.env`. See [API Key Management](#api-key-management).
+
 ### 3. Create the instance (nginx + systemd)
 
 ```bash
@@ -101,6 +103,70 @@ sudo ./deploy/manage_versions.sh remove
 ```
 
 This stops the service, removes nginx config, and deletes the instance directory.
+
+## API Key Management
+
+Keys are read from the protected file first, then legacy `server/.env` as a migration fallback.
+
+| File | Contents | Permissions |
+|------|----------|-------------|
+| `<instance>/server/.env` | Non-secret config: `PORT`, `NODE_ENV`, `CORS_ORIGINS`, `DOMAIN`, `TAB_FILE_PATH` | `0640` |
+| `/etc/bughouse-ladder/<instance>.env` | Secrets only: `ADMIN_API_KEY`, `USER_API_KEY` | `0640 root:bughouse-ladder` or `0600 root:root` |
+
+Systemd loads both via `EnvironmentFile`; the service user never needs read access to the secret file.
+
+### Migrate an instance (one-time)
+
+```bash
+cd /var/www/html/<instance>
+sudo bash ./deploy/secure-env.sh <admin-user>
+```
+
+Moves the keys to `/etc/bughouse-ladder/<instance>.env`, removes them from `server/.env`, backs it up (mode `0600`), wires both `EnvironmentFile` lines, and restarts the service. Add the admin user to the `bughouse-ladder` group — re-login afterwards.
+
+Migrate **every** instance before rotating keys.
+
+### Rotate keys (all instances)
+
+```bash
+cd /var/www/html/<instance>
+./deploy/rotate-key-all.sh
+```
+
+Keys come from hidden prompts or `ROTATE_ADMIN_KEY`/`ROTATE_USER_KEY` environment variables (never CLI arguments). Generated keys and config URLs go to a mode-`0600` report under `$HOME` — copy them to the password manager, then delete the report. Regenerate browser shortcuts (`create_html.sh`) and refresh PWA keys afterwards.
+
+### Browser shortcuts
+
+```bash
+cd /var/www/html/<instance>
+sudo ./deploy/create_html.sh    # writes ~/ladder-bookmarks-<date>.html, mode 0600
+```
+
+Download, import into the browser, then `shred -u` the file on the server and locally. Regenerate after every rotation.
+
+Shortcut URLs send `?key=...` in the request, which nginx records in `access.log` by default. Fix once for all apps on the server:
+
+```bash
+sudo bash ./deploy/fix-dist-nolog.sh --dry-run   # review diff
+sudo bash ./deploy/fix-dist-nolog.sh             # insert access_log off into all /dist/ locations, nginx -t + reload
+sudo bash ./deploy/fix-dist-nolog.sh --test --purge-logs   # prove fix, erase logged keys
+```
+
+Covers every parent domain found in `/etc/nginx/sites-available` (all ladder instances and other apps). Vhosts without a dedicated `/dist/` location are reported for a manual one-line addition (`deploy/nginx/dist-nolog.conf`). `verify.sh` section 19 warns while `?key=` entries exist in readable logs.
+
+The nginx-served `/dist/` frontend gets no CSP from the Node app — add `deploy/nginx/csp.conf` (CSP + `nosniff`/`frame-ancestors` headers) to the parent vhost as well.
+
+### Local development keys (Windows)
+
+```powershell
+.\deploy\update-env-key.ps1     # hidden prompt, updates gitignored .env files only
+```
+
+Never hardcode keys in `.bat`/`.ps1` scripts, tests, or docs.
+
+### Helpers
+
+`deploy/ladder-env.sh` provides the shared functions (`ladder_read_env_value`, `ladder_has_env_value`, `ladder_write_secret_file`, `ladder_ensure_environment_file`, ...) used by `update.sh`, `verify.sh`, `admin-urls.sh`, `create_html.sh`, `manage_versions.sh`, `secure-env.sh`, and `rotate-key-all.sh`. Override the location with `LADDER_SECRET_DIR` / `LADDER_SECRET_GROUP`.
 
 ## Example URLs
 
@@ -177,7 +243,7 @@ Ensure A records exist for:
 
 `manage_versions.sh add` generates these automatically. No manual file creation needed.
 
-If `EnvironmentFile` is missing from a deployed service file, `update.sh` [8/9] injects it automatically before restarting. This is required for the server to load API keys from `server/.env`.
+If `EnvironmentFile` is missing from a deployed service file, `update.sh` [9/10] injects it automatically before restarting — for both `server/.env` and the protected `/etc/bughouse-ladder/<instance>.env` (when present). This is required for the server to load API keys.
 
 ### my-project.service
 
@@ -193,6 +259,7 @@ Group=www-data
 WorkingDirectory=/var/www/html/my-project/instances/my-project
 Environment=NODE_ENV=production
 EnvironmentFile=/var/www/html/my-project/server/.env
+EnvironmentFile=-/etc/bughouse-ladder/my-project.env
 ExecStart=/usr/bin/node dist/index.js
 Restart=always
 RestartSec=10
@@ -217,6 +284,7 @@ Group=www-data
 WorkingDirectory=/var/www/html/rel-ladder/instances/rel-ladder
 Environment=NODE_ENV=production
 EnvironmentFile=/var/www/html/rel-ladder/server/.env
+EnvironmentFile=-/etc/bughouse-ladder/rel-ladder.env
 ExecStart=/usr/bin/node dist/index.js
 Restart=always
 RestartSec=10
