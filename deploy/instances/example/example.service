@@ -10,6 +10,9 @@ WorkingDirectory=/var/www/html/my-project
 Environment=NODE_ENV=production
 Environment=PORT=3000
 EnvironmentFile=/var/www/bughouse-ladder/server/.env
+# Optional protected key file (created by deploy/secure-env.sh); systemd ignores it when absent.
+# Use the real instance directory name, e.g. /etc/bughouse-ladder/<instance>.env
+EnvironmentFile=-/etc/bughouse-ladder/example.env
 ExecStart=/usr/bin/node dist/index.js
 Restart=always
 RestartSec=10

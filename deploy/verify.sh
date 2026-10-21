@@ -5,6 +5,9 @@
 
 # Derive project name from directory (e.g., /var/www/html/my-project -> my-project)
 PROJECT_NAME=$(basename "$(pwd)")
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/ladder-env.sh"
+SECRET_FILE="$(ladder_secret_file_for "$PROJECT_NAME")"
 
 # Domain: CLI arg > .env > scan for matching config
 DOMAIN="${1:-}"
@@ -445,13 +448,9 @@ echo ""
 # --- Client Config Strings ---
 echo "17. Client Config Strings"
 
-# Read API keys from server/.env
-ADMIN_KEY=""
-USER_KEY=""
-if [ -f "server/.env" ]; then
-    ADMIN_KEY=$(grep '^ADMIN_API_KEY=' server/.env 2>/dev/null | cut -d= -f2 | tr -d '[:space:]')
-    USER_KEY=$(grep '^USER_API_KEY=' server/.env 2>/dev/null | cut -d= -f2 | tr -d '[:space:]')
-fi
+# Read API keys from protected key file or legacy server/.env
+ADMIN_KEY=$(ladder_read_env_value ADMIN_API_KEY "$SECRET_FILE" server/.env || true)
+USER_KEY=$(ladder_read_env_value USER_API_KEY "$SECRET_FILE" server/.env || true)
 
 if [ -f "/etc/nginx/sites-available/${PROJECT_NAME}.${DOMAIN}.conf" ]; then
     echo "  [INFO] Subdomain: ${PROJECT_NAME}.${DOMAIN}"
@@ -486,6 +485,39 @@ else
     echo "  [INFO] Watch logs: sudo journalctl -u $PROJECT_NAME -f"
     echo ""
 fi
+
+# --- Nginx Log Secrets ---
+echo "19. Nginx Log Secrets"
+LOG_LEAKS=0
+LOGS_CHECKED=0
+LOGS_UNREADABLE=0
+for f in /var/log/nginx/access.log /var/log/nginx/access.log.[0-9]*; do
+    [ -f "$f" ] || continue
+    count=""
+    if [ -r "$f" ]; then
+        count=$(grep -c -E '[?&]key=[A-Za-z0-9_-]{8,}' "$f" 2>/dev/null || true)
+    elif sudo -n true >/dev/null 2>&1; then
+        count=$(sudo -n grep -c -E '[?&]key=[A-Za-z0-9_-]{8,}' "$f" 2>/dev/null || true)
+    else
+        LOGS_UNREADABLE=$((LOGS_UNREADABLE + 1))
+        continue
+    fi
+    if [ -n "$count" ]; then
+        LOGS_CHECKED=$((LOGS_CHECKED + 1))
+        if [ "${count:-0}" -gt 0 ]; then
+            warn "$f: $count request line(s) logged with ?key= — config URLs leaked keys. See deploy/nginx/dist-nolog.conf"
+            LOG_LEAKS=1
+        fi
+    fi
+done
+if [ $LOGS_UNREADABLE -gt 0 ]; then
+    warn "$LOGS_UNREADABLE nginx access log file(s) not readable without sudo — check manually: sudo grep -cE '[?&]key=' /var/log/nginx/access.log"
+fi
+if [ $LOG_LEAKS -eq 0 ] && [ $LOGS_CHECKED -gt 0 ]; then
+    echo "  [PASS] No ?key= entries in $LOGS_CHECKED checked nginx access log file(s)"
+    PASS=$((PASS + 1))
+fi
+echo ""
 
 # --- Suggestions ---
 if [ $FAIL -gt 0 ]; then

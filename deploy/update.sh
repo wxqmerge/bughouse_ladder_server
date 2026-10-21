@@ -36,6 +36,11 @@ done
 
 SERVICE="${SERVICE_NAME:-$(basename "$PWD")}"
 DIR="$(pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/ladder-env.sh"
+ENV_FILE="$DIR/server/.env"
+SECRET_FILE="$(ladder_secret_file_for "$SERVICE")"
+SERVICE_FILE="/etc/systemd/system/$SERVICE.service"
 
 # Dependency cooldown configuration
 # Normal cooldown: 7 days between package updates
@@ -210,32 +215,36 @@ fi
 
 # 3. Validate API keys are configured
 echo "[3/10] Validating API keys..."
-ENV_FILE="$DIR/server/.env"
 if [ ! -f "$ENV_FILE" ]; then
     echo "  ERROR: $ENV_FILE not found."
     echo "  API keys (USER_API_KEY and ADMIN_API_KEY) are required for production."
     echo "  Copy server/.env.example to server/.env and set your keys."
     exit 1
 fi
-if grep -q '^USER_API_KEY=' "$ENV_FILE"; then
-    USER_KEY=$(grep '^USER_API_KEY=' "$ENV_FILE" | head -1 | cut -d= -f2- | tr -d '[:space:]')
+
+KEY_SOURCE=""
+if ladder_has_env_value ADMIN_API_KEY "$SECRET_FILE" && ladder_has_env_value USER_API_KEY "$SECRET_FILE"; then
+    KEY_SOURCE="$SECRET_FILE"
+    echo "  USER_API_KEY:    (set)"
+    echo "  ADMIN_API_KEY:   (set)"
+    echo "  Key source:      $SECRET_FILE"
+elif ladder_has_env_value ADMIN_API_KEY "$ENV_FILE" && ladder_has_env_value USER_API_KEY "$ENV_FILE"; then
+    KEY_SOURCE="$ENV_FILE"
+    echo "  USER_API_KEY:    (set)"
+    echo "  ADMIN_API_KEY:   (set)"
+    echo "  WARNING: legacy key location: $ENV_FILE"
+    echo "  Consider running: sudo bash ./deploy/secure-env.sh"
 else
-    USER_KEY=""
-fi
-if grep -q '^ADMIN_API_KEY=' "$ENV_FILE"; then
-    ADMIN_KEY=$(grep '^ADMIN_API_KEY=' "$ENV_FILE" | head -1 | cut -d= -f2- | tr -d '[:space:]')
-else
-    ADMIN_KEY=""
-fi
-if [ -z "$USER_KEY" ] || [ -z "$ADMIN_KEY" ]; then
-    echo "  ERROR: API keys must be set in server/.env."
-    if [ -z "$USER_KEY" ]; then echo "    - USER_API_KEY is not set"; fi
-    if [ -z "$ADMIN_KEY" ]; then echo "    - ADMIN_API_KEY is not set"; fi
+    echo "  ERROR: API keys are missing or unreadable."
+    if ! ladder_has_env_value USER_API_KEY "$SECRET_FILE" "$ENV_FILE"; then
+        echo "    - USER_API_KEY is not set"
+    fi
+    if ! ladder_has_env_value ADMIN_API_KEY "$SECRET_FILE" "$ENV_FILE"; then
+        echo "    - ADMIN_API_KEY is not set"
+    fi
     echo "  Deploy aborted. Set both keys and try again."
     exit 1
 fi
-echo "  USER_API_KEY:    (set)"
-echo "  ADMIN_API_KEY:   (set)"
 
 # 3.5. Scan lockfile for newly published packages (supply chain protection)
 echo "[3.5/10] Scanning lockfile for newly published packages..."
@@ -368,60 +377,56 @@ fi
 
 # 9. Fix systemd service file if needed (add EnvironmentFile inside [Service])
 echo "[9/10] Fixing systemd service file if needed..."
-SERVICE_FILE="/etc/systemd/system/$SERVICE.service"
 if [ -f "$SERVICE_FILE" ]; then
-    # Check if EnvironmentFile exists and is in the correct section ([Service])
-    HAS_ENV_FILE=$(grep -c '^EnvironmentFile=' "$SERVICE_FILE" || true)
-    if [ "$HAS_ENV_FILE" -gt 0 ]; then
-        # Check if it's inside [Service] section (between [Service] and [Install])
-        SERVICE_SECTION=$(sed -n '/^\[Service\]/,/^$/p' "$SERVICE_FILE")
-        if echo "$SERVICE_SECTION" | grep -q '^EnvironmentFile='; then
-            echo "  EnvironmentFile is correctly placed in [Service] section."
-            grep '^EnvironmentFile=' "$SERVICE_FILE" | while read -r line; do echo "    $line"; done
+    SERVICE_SECTION=$(sed -n '/^\[Service\]/,/^\[/p' "$SERVICE_FILE")
+    if ! echo "$SERVICE_SECTION" | grep -q '^EnvironmentFile='; then
+        if grep -q '^EnvironmentFile=' "$SERVICE_FILE" 2>/dev/null; then
+            echo "  WARNING: EnvironmentFile found outside [Service] — replacing it."
+            ladder_run_as_root sed -i '/^EnvironmentFile=/d' "$SERVICE_FILE"
         else
-            echo "  WARNING: EnvironmentFile found but NOT in [Service] section — fixing..."
-            sudo sh -c "sed -i '/^EnvironmentFile=/d' $SERVICE_FILE"
-            echo "  Removed misplaced EnvironmentFile line(s)"
-            ENV_FILE="$DIR/server/.env"
-            if [ -f "$ENV_FILE" ]; then
-                EXEC_LINE=$(grep -n '^ExecStart=' "$SERVICE_FILE" | head -1 | cut -d: -f1)
-                if [ -n "$EXEC_LINE" ] && [ "$EXEC_LINE" -gt 1 ]; then
-                    INSERT_LINE=$((EXEC_LINE - 1))
-                    echo "  Inserting EnvironmentFile at line $INSERT_LINE (before ExecStart)"
-                    sudo sh -c "sed -i '${INSERT_LINE}a EnvironmentFile=$ENV_FILE' $SERVICE_FILE"
-                    echo "  Injected EnvironmentFile into [Service] section"
-                else
-                    echo "  ERROR: Could not find ExecStart line in $SERVICE_FILE"
-                fi
-            fi
-        fi
-    else
-        echo "  No EnvironmentFile found — adding it."
-        ENV_FILE="$DIR/server/.env"
-        if [ -f "$ENV_FILE" ]; then
-            echo "  EnvironmentFile=$ENV_FILE"
-            EXEC_LINE=$(grep -n '^ExecStart=' "$SERVICE_FILE" | head -1 | cut -d: -f1)
-            if [ -n "$EXEC_LINE" ] && [ "$EXEC_LINE" -gt 1 ]; then
-                INSERT_LINE=$((EXEC_LINE - 1))
-                echo "  Inserting at line $INSERT_LINE (before ExecStart at line $EXEC_LINE)"
-                if ! sudo sh -c "sed -i '${INSERT_LINE}a EnvironmentFile=$ENV_FILE' $SERVICE_FILE" 2>&1; then
-                    echo "  ERROR: Failed to modify $SERVICE_FILE"
-                else
-                    echo "  Injected EnvironmentFile into [Service] section"
-                fi
-            else
-                echo "  ERROR: Could not find ExecStart line in $SERVICE_FILE"
-            fi
-        else
-            echo "  WARNING: $ENV_FILE not found"
+            echo "  No EnvironmentFile found — adding it."
         fi
     fi
-    echo "  Reloading systemd daemon..."
-    if ! sudo -n systemctl daemon-reload 2>&1; then
-        echo "  WARNING: systemctl daemon-reload failed."
+
+    if ladder_ensure_environment_file "$SERVICE_FILE" "$ENV_FILE"; then
+        echo "  EnvironmentFile: $ENV_FILE"
+    else
+        echo "  WARNING: Could not configure EnvironmentFile for $ENV_FILE"
+    fi
+
+    if [ -f "$SECRET_FILE" ]; then
+        if ladder_ensure_environment_file "$SERVICE_FILE" "$SECRET_FILE"; then
+            echo "  ProtectedKeyFile: $SECRET_FILE"
+        else
+            echo "  WARNING: Could not configure EnvironmentFile for $SECRET_FILE"
+        fi
     fi
 else
     echo "  WARNING: $SERVICE_FILE not found"
+fi
+
+# 9b. Tighten environment file permissions when permitted
+echo "[9b/10] Tightening environment file permissions..."
+tighten_env_permissions() {
+    local file="$1"
+    local mode="$2"
+
+    if [ ! -f "$file" ]; then
+        return 0
+    fi
+
+    if [ -w "$file" ]; then
+        chmod "$mode" "$file" 2>/dev/null || true
+    elif sudo -n true >/dev/null 2>&1; then
+        sudo -n chmod "$mode" "$file" 2>/dev/null || true
+    else
+        echo "  WARNING: cannot update permissions for $file without write access or passwordless sudo."
+    fi
+}
+
+tighten_env_permissions "$ENV_FILE" 640
+if [ -f "$SECRET_FILE" ]; then
+    tighten_env_permissions "$SECRET_FILE" 600
 fi
 
 # 10. Restart service

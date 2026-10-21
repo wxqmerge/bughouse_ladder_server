@@ -1,21 +1,28 @@
 #!/bin/bash
 # Rotate API keys across ALL ladder instances on the server
 # Run from: /var/www/html/
-# Usage: ./deploy/rotate-key-all.sh [new-admin-key] [new-user-key]
+# Usage:
+#   ROTATE_ADMIN_KEY=... ROTATE_USER_KEY=... ./deploy/rotate-key-all.sh
+#   ./deploy/rotate-key-all.sh [new-admin-key] [new-user-key]
 #
-# Detects all matching instances by git remote origin, then
-# rotates both ADMIN_API_KEY and USER_API_KEY in each server/.env
-# and restarts. Works for any project that has a git repo and server/.env.
+# If a protected /etc/bughouse-ladder/<instance>.env exists, keys are written
+# there (root-only, mode 0600). Otherwise the legacy server/.env is updated.
+# Generated keys are written to a private report file; set
+# ROTATE_REPORT_TO_STDOUT=1 to also print them.
 
 BASE="/var/www/html"
-FLAGS="$@"
 OK=0
 FAIL=0
 SKIP=0
 UPDATED=()
 
+umask 077
+REPORT_FILE="$HOME/bughouse-ladder-rotated-keys-$(date +%Y%m%d%H%M%S).txt"
+: > "$REPORT_FILE"
+
 # Detect the project repo from the directory where the script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/ladder-env.sh"
 CALLER_REMOTE=$(git -C "$SCRIPT_DIR" remote get-url origin 2>/dev/null)
 CALLER_REPO=$(basename "$CALLER_REMOTE" .git)
 
@@ -25,24 +32,30 @@ if [ -z "$CALLER_REPO" ]; then
     exit 1
 fi
 
-# Generate or use provided keys
-if [ -n "$1" ]; then
-    NEW_ADMIN_KEY="$1"
-else
+NEW_ADMIN_KEY="${ROTATE_ADMIN_KEY:-${1:-}}"
+NEW_USER_KEY="${ROTATE_USER_KEY:-${2:-}}"
+
+if [ -z "$NEW_ADMIN_KEY" ] && [ -t 0 ]; then
+    read -rsp "New admin key (Enter to generate): " NEW_ADMIN_KEY
+    echo ""
+fi
+if [ -z "$NEW_USER_KEY" ] && [ -t 0 ]; then
+    read -rsp "New user key (Enter to generate): " NEW_USER_KEY
+    echo ""
+fi
+
+if [ -z "$NEW_ADMIN_KEY" ]; then
     NEW_ADMIN_KEY=$(openssl rand -hex 48)
 fi
 
-if [ -n "$2" ]; then
-    NEW_USER_KEY="$2"
-else
+if [ -z "$NEW_USER_KEY" ]; then
     NEW_USER_KEY=$(openssl rand -hex 48)
 fi
 
 echo "========================================"
 echo "  Rotate API Keys — ALL $CALLER_REPO Instances"
 echo "  Base: $BASE"
-echo "  Admin: $NEW_ADMIN_KEY"
-echo "  User:  $NEW_USER_KEY"
+echo "  Report: $REPORT_FILE"
 echo "========================================"
 echo ""
 
@@ -70,6 +83,8 @@ for dir in "$BASE"/*/; do
     fi
 
     ENV_FILE="$dir/server/.env"
+    SECRET_FILE="$(ladder_secret_file_for "$name")"
+
     if [ ! -f "$ENV_FILE" ]; then
         echo "  ✗ $name — $ENV_FILE not found, skipping"
         FAIL=$((FAIL + 1))
@@ -77,24 +92,37 @@ for dir in "$BASE"/*/; do
         continue
     fi
 
-    # Update admin key
-    if grep -q '^ADMIN_API_KEY=' "$ENV_FILE"; then
-        sed -i "s/^ADMIN_API_KEY=.*/ADMIN_API_KEY=$NEW_ADMIN_KEY/" "$ENV_FILE"
+    if [ -f "$SECRET_FILE" ]; then
+        if ladder_write_secret_file "$SECRET_FILE" "$NEW_ADMIN_KEY" "$NEW_USER_KEY" &&
+           ladder_remove_legacy_keys "$ENV_FILE"; then
+            echo "  ✓ $name — protected keys updated"
+        else
+            echo "  ✗ $name — protected key update failed"
+            FAIL=$((FAIL + 1))
+            echo ""
+            continue
+        fi
     else
-        echo "ADMIN_API_KEY=$NEW_ADMIN_KEY" >> "$ENV_FILE"
-    fi
+        if grep -q '^ADMIN_API_KEY=' "$ENV_FILE"; then
+            sed -i "s/^ADMIN_API_KEY=.*/ADMIN_API_KEY=$NEW_ADMIN_KEY/" "$ENV_FILE"
+        else
+            echo "ADMIN_API_KEY=$NEW_ADMIN_KEY" >> "$ENV_FILE"
+        fi
 
-    # Update user key
-    if grep -q '^USER_API_KEY=' "$ENV_FILE"; then
-        sed -i "s/^USER_API_KEY=.*/USER_API_KEY=$NEW_USER_KEY/" "$ENV_FILE"
-    else
-        echo "USER_API_KEY=$NEW_USER_KEY" >> "$ENV_FILE"
+        if grep -q '^USER_API_KEY=' "$ENV_FILE"; then
+            sed -i "s/^USER_API_KEY=.*/USER_API_KEY=$NEW_USER_KEY/" "$ENV_FILE"
+        else
+            echo "USER_API_KEY=$NEW_USER_KEY" >> "$ENV_FILE"
+        fi
+
+        chmod 600 "$ENV_FILE" 2>/dev/null || true
+        echo "  ✓ $name — legacy keys updated"
     fi
 
     # Restart the service
     SERVICE="$name"
     if sudo systemctl restart "$SERVICE" 2>/dev/null; then
-        echo "  ✓ $name — keys updated, service restarted"
+        echo "  ✓ $name — service restarted"
     else
         echo "  ⚠ $name — keys updated, but service restart failed"
         echo "    Fix: sudo systemctl restart $SERVICE"
@@ -111,33 +139,46 @@ echo ""
 
 # Print config URLs for all updated instances
 if [ ${#UPDATED[@]} -gt 0 ]; then
-    echo "========================================"
-    echo "  Config URLs"
-    echo "  Generated: $(date '+%Y-%m-%d %H:%M')"
-    echo "========================================"
-    echo ""
-
-    for name in "${UPDATED[@]}"; do
-        proj_domain=""
-        parent_domain=""
-        for conf in /etc/nginx/sites-available/${name}.*.conf; do
-            if [ -f "$conf" ]; then
-                proj_domain=$(grep 'server_name' "$conf" 2>/dev/null | head -1 | tr -d '\r\n\t' | sed 's/server_name//;s/;//' | tr -s ' ' | awk '{print $1}')
-                parent_domain=$(echo "$proj_domain" | tr -d '[:space:]' | sed 's/^[^.]*\.//')
-                break
-            fi
-        done
-        if [ -z "$proj_domain" ]; then
-            echo "  ⊘ $name — no nginx config found, skipping"
-            continue
-        fi
-
-        echo "--- $name ---"
-        echo "  Admin:  https://$parent_domain/$name/dist/?key=$NEW_ADMIN_KEY"
-        echo "  User:   https://$parent_domain/$name/dist/?key=$NEW_USER_KEY"
-        echo "  View:   https://$parent_domain/$name/dist/"
+    {
+        echo "========================================"
+        echo "  Config URLs"
+        echo "  Generated: $(date '+%Y-%m-%d %H:%M')"
+        echo "========================================"
         echo ""
-    done
+        echo "ADMIN_API_KEY=$NEW_ADMIN_KEY"
+        echo "USER_API_KEY=$NEW_USER_KEY"
+        echo ""
+
+        for name in "${UPDATED[@]}"; do
+            proj_domain=""
+            parent_domain=""
+            for conf in /etc/nginx/sites-available/${name}.*.conf; do
+                if [ -f "$conf" ]; then
+                    proj_domain=$(grep 'server_name' "$conf" 2>/dev/null | head -1 | tr -d '\r\n\t' | sed 's/server_name//;s/;//' | tr -s ' ' | awk '{print $1}')
+                    parent_domain=$(echo "$proj_domain" | tr -d '[:space:]' | sed 's/^[^.]*\.//')
+                    break
+                fi
+            done
+            if [ -z "$proj_domain" ]; then
+                echo "  ⊘ $name — no nginx config found, skipping"
+                continue
+            fi
+
+            echo "--- $name ---"
+            echo "  Admin:  https://$parent_domain/$name/dist/?key=$NEW_ADMIN_KEY"
+            echo "  User:   https://$parent_domain/$name/dist/?key=$NEW_USER_KEY"
+            echo "  View:   https://$parent_domain/$name/dist/"
+            echo ""
+        done
+    } > "$REPORT_FILE"
+
+    echo "Config URLs and new keys were written to:"
+    echo "  $REPORT_FILE"
+    echo "Delete it after copying the keys."
+
+    if [ "${ROTATE_REPORT_TO_STDOUT:-0}" = "1" ]; then
+        cat "$REPORT_FILE"
+    fi
 fi
 
 if [ "$FAIL" -gt 0 ]; then

@@ -4,6 +4,8 @@
 # Usage: ./deploy/admin-urls.sh
 
 BASE="/var/www/html"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/ladder-env.sh"
 
 echo "========================================"
 echo "  Admin Config URLs"
@@ -18,12 +20,10 @@ for dir in "$BASE"/*/; do
     # Skip non-ladder directories (ladders always have "ladder" in name)
     echo "$name" | grep -qi "ladder" || continue
 
-    # Read admin key from .env
+    # Read admin key from protected key file or legacy .env
     env_file="$dir/server/.env"
-    admin_key=""
-    if [ -f "$env_file" ]; then
-        admin_key=$(grep '^ADMIN_API_KEY=' "$env_file" 2>/dev/null | cut -d= -f2- | tr -d '[:space:]')
-    fi
+    secret_file="$(ladder_secret_file_for "$name")"
+    admin_key=$(ladder_read_env_value ADMIN_API_KEY "$secret_file" "$env_file" || true)
 
     if [ -z "$admin_key" ]; then
         echo "$name: NO ADMIN KEY SET"

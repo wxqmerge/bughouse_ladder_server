@@ -3,8 +3,10 @@
 # Run from: /var/www/html/
 # Usage: ./deploy/create_html.sh
 #
-# Reads API keys from each matching instance's server/.env and
-# generates a Netscape bookmarks HTML file in $HOME/
+# Reads API keys from each matching instance's protected key file
+# (/etc/bughouse-ladder/<instance>.env) or legacy server/.env and
+# generates a Netscape bookmarks HTML file in $HOME/ with mode 0600.
+# Delete it with `shred -u` after importing into the browser.
 # Structure: app-name/
 #             Admin/
 #               - Admin (instance1)
@@ -20,9 +22,12 @@ BASE="/var/www/html"
 DATE=$(date '+%Y-%m-%d')
 OUTPUT="$HOME/ladder-bookmarks-${DATE}.html"
 TS=$(date +%s)
+umask 077
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/ladder-env.sh"
 
 # Detect the project repo from the directory where the script is located
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CALLER_REMOTE=$(git -C "$SCRIPT_DIR" remote get-url origin 2>/dev/null)
 CALLER_REPO=$(basename "$CALLER_REMOTE" .git)
 
@@ -67,6 +72,7 @@ for dir in "$BASE"/*/; do
     fi
 
     ENV_FILE="$dir/server/.env"
+    SECRET_FILE="$(ladder_secret_file_for "$name")"
     if [ ! -f "$ENV_FILE" ]; then
         echo "  ✗ $name — $ENV_FILE not found, skipping"
         SKIP=$((SKIP + 1))
@@ -74,8 +80,8 @@ for dir in "$BASE"/*/; do
     fi
 
     # Read keys
-    ADMIN_KEY=$(grep '^ADMIN_API_KEY=' "$ENV_FILE" 2>/dev/null | cut -d= -f2- | tr -d '[:space:]')
-    USER_KEY=$(grep '^USER_API_KEY=' "$ENV_FILE" 2>/dev/null | cut -d= -f2- | tr -d '[:space:]')
+    ADMIN_KEY=$(ladder_read_env_value ADMIN_API_KEY "$SECRET_FILE" "$ENV_FILE" || true)
+    USER_KEY=$(ladder_read_env_value USER_API_KEY "$SECRET_FILE" "$ENV_FILE" || true)
 
     # Find domain from nginx config
     proj_domain=""
@@ -153,4 +159,4 @@ echo ""
 echo "Import into browser:"
 echo "  1. Download: scp user@server:$OUTPUT ~/Downloads/"
 echo "  2. Browser → Bookmarks Manager → Import → $OUTPUT"
-echo "  3. Delete from server: rm $OUTPUT"
+echo "  3. Delete from server: shred -u $OUTPUT"

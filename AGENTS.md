@@ -81,6 +81,7 @@ When no manual server config exists, the app auto-detects from `window.location.
 - Copy `server/.env.example` → `server/.env`.
 - Required keys: `PORT`, `NODE_ENV`, `CORS_ORIGINS`, `ADMIN_API_KEY`, `USER_API_KEY`, `TAB_FILE_PATH`.
 - `.env` is gitignored. Never commit.
+- For production, `deploy/secure-env.sh` moves API keys to `/etc/bughouse-ladder/<instance>.env` and configures them through systemd `EnvironmentFile`; `server/.env` then contains only nonsecret config.
 - `ADMIN_API_KEY` protects `/api/admin/*`. `USER_API_KEY` protects write operations (PUT/DELETE on ladder, POST on games).
 
 ## Gotchas
