@@ -16,6 +16,7 @@
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `PORT` | Server port | `3000` |
+| `ANON_HIDE_PII` | Set to `true` to strip `phone`, `school`, `room`, and `info` from `GET /api/ladder`, `GET /api/ladder/:rank`, and `GET /api/ladder/mini-games/read` when no valid API key is sent (view-only visitors) | off |
 
 ### Example Production `.env`
 
@@ -28,6 +29,26 @@ USER_API_KEY=f6e5d4c3b2a1...
 ```
 
 **Both `ADMIN_API_KEY` and `USER_API_KEY` are required in production. The server will refuse to start if either is missing.**
+
+### Protected Server Key File
+
+Prefer moving server API keys out of `server/.env` into a protected systemd environment file:
+
+```bash
+cd /var/www/html/bughouse-ladder-app
+sudo bash ./deploy/secure-env.sh your-admin-user
+sudo bash ./deploy/rotate-key-all.sh
+```
+
+Keys are stored under `/etc/bughouse-ladder/<instance>.env` and passed to the service with systemd `EnvironmentFile`. The admin deployment group can read the protected file; the service user does not need filesystem access. Re-login after group membership changes.
+
+Use `ROTATE_ADMIN_KEY` and `ROTATE_USER_KEY`, or Enter at the hidden prompts, to avoid passing secrets as command-line arguments. The rotation report is written to a mode-`0600` file under `$HOME`.
+
+**Rotation checklist:** migrate every instance before rotating → restart + verify services → regenerate browser shortcuts with `deploy/create_html.sh` and `shred -u` the file after import → refresh PWA/localStorage keys → confirm old keys get `401` → delete backups and reports.
+
+Local development keys: use `deploy/update-env-key.ps1` (hidden prompt, writes gitignored `.env` files only). Never hardcode keys in scripts, tests, or docs.
+
+> History note: a partial config-URL key fragment existed in `USER_MANUAL.md` (commits `edbc435`..`7e23fce`). Removed from the current tree; treat that key as exposed and rotate it.
 
 ### Single-Key Mode
 
@@ -74,11 +95,11 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 ### 3. Rate Limiting
 
-| Scope | Production | Development |
-|-------|-----------|-------------|
-| Write endpoints (ladder/games/admin) | 30 req / 15 min | 100 req / 15 min |
-| General API | 100 req / 15 min | 1000 req / 15 min |
-| Admin lock (status checks) | 600 req / 1 min | 600 req / 1 min |
+| Scope | Limit |
+|-------|-------|
+| Write endpoints (ladder/games mini-game writes) | 500 req / 15 min |
+| General API | 5000 req / 15 min |
+| Admin lock polling | 1200 req / min |
 
 ### 4. Helmet.js Security Headers
 
@@ -88,12 +109,25 @@ Applied in production: `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Prote
 
 Prevents XSS attacks by restricting script sources to `'self'`. Configured `connectSrc` uses the first entry from `CORS_ORIGINS`.
 
+> Note: this CSP only covers responses served by the Node server. In production nginx serves the `/dist/` frontend directly — add the same headers there (see `deploy/nginx/csp.conf`).
+
+## Known Limitations / Accepted Risks
+
+- **SSE endpoint (`/api/ladder/events`) is unauthenticated** and answers with `Access-Control-Allow-Origin: *`. `EventSource` cannot send custom headers, so keying it would mean `?key=` in the URL — which reintroduces the nginx access-log leak. The event stream is therefore intentionally metadata-only (ranks, counts, file names): never add PII, keys, or player data to SSE payloads.
+- **The API key is a shared club secret**, not a per-user credential. All write-key holders are mutually trusted (bulk writes replace the player list).
+- **Config shortcut URLs** (`?key=`) put the live key in bookmarks, browser history, and (until `access_log off` is applied — see `deploy/fix-dist-nolog.sh`) nginx access logs.
+- **Unauthenticated reads include PII by default** for view-only mode; set `ANON_HIDE_PII=true` to strip `phone`/`school`/`room`/`info` from keyless requests.
+
 ## Production Checklist
 
 - [ ] Set `NODE_ENV=production`
 - [ ] Set `CORS_ORIGINS` to your domain(s) (required)
 - [ ] Generate `ADMIN_API_KEY` (required in production)
 - [ ] Generate `USER_API_KEY` (required in production)
+- [ ] Migrate keys to protected storage: `sudo bash ./deploy/secure-env.sh <admin-user>`
+- [ ] Apply log-leak fix: `sudo bash ./deploy/fix-dist-nolog.sh` (then `--test --purge-logs`)
+- [ ] Apply CSP headers in the parent nginx vhost (`deploy/nginx/csp.conf`)
+- [ ] Set `ANON_HIDE_PII=true` (view-only deployments)
 - [ ] Configure SSL/TLS via nginx or reverse proxy (see [README_INSTALL.md](./README_INSTALL.md))
 - [ ] Enable firewall rules
 

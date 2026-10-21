@@ -90,6 +90,22 @@ export function requireUserKey(
   });
 }
 
+/**
+ * True when the request carries a key matching a configured admin or user key.
+ * With no keys configured (dev mode) every request counts as valid.
+ */
+export function hasValidKey(req: Request): boolean {
+  const admin = getAdminKey();
+  const user = getUserKey();
+  if (!admin && !user) return true;
+
+  const apiKey = req.headers['x-api-key'] as string | undefined;
+  if (!apiKey) return false;
+  if (admin && timingSafeCompare(apiKey, admin)) return true;
+  if (user && timingSafeCompare(apiKey, user)) return true;
+  return false;
+}
+
 // Middleware to verify admin API key using timing-safe comparison
 export function requireAdminKey(
   req: Request,

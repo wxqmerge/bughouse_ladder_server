@@ -345,6 +345,15 @@ function getTargetPathForBackup(filename: string): string | null {
   return path.join(dataDir, `${prefix}.tab`);
 }
 
+/**
+ * Strict backup filename validation. Backup names are generated as
+ * `<prefix>_backup_YYYYMMDD_HHMMSS.tab` with prefix [a-z0-9_]+, so anything
+ * else (path separators, "..", wildcards) is rejected before path.join().
+ */
+export function isValidBackupName(filename: string): boolean {
+  return /^[a-z0-9_]+_backup_\d{8}_\d{6}\.tab$/.test(filename);
+}
+
 function getBackupFileName(ladderPrefix: string, date: Date): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -470,6 +479,11 @@ async function ensureBackupDirectory(): Promise<void> {
 }
 
 export async function restoreBackup(filename: string): Promise<boolean> {
+  if (!isValidBackupName(filename)) {
+    loggerLog('[SERVER]', `Rejected invalid backup filename: ${filename}`);
+    return false;
+  }
+
   const backupPath = path.join(BACKUP_DIR, filename);
 
   try {
@@ -504,6 +518,11 @@ export async function restoreBackup(filename: string): Promise<boolean> {
 }
 
 export async function previewBackup(filename: string): Promise<string | null> {
+  if (!isValidBackupName(filename)) {
+    loggerLog('[SERVER]', `Rejected invalid backup filename: ${filename}`);
+    return null;
+  }
+
   const backupPath = path.join(BACKUP_DIR, filename);
 
   try {
@@ -523,6 +542,11 @@ export async function previewBackup(filename: string): Promise<string | null> {
 }
 
 export async function deleteBackup(filename: string): Promise<boolean> {
+  if (!isValidBackupName(filename)) {
+    loggerLog('[SERVER]', `Rejected invalid backup filename: ${filename}`);
+    return false;
+  }
+
   const backupPath = path.join(BACKUP_DIR, filename);
 
   try {

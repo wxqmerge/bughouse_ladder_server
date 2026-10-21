@@ -38,7 +38,7 @@ router.post('/', requireUserKey, writeLimiter, asyncHandler(async (req: Request,
   }
   const { playerRank, round, result } = body;
 
-  if (playerRank <= 0 || round < 0) {
+  if (playerRank <= 0 || round < 0 || round >= NUM_ROUNDS) {
     throw new AppError('Invalid playerRank or round', 400);
   }
 
@@ -95,6 +95,11 @@ router.post('/batch', requireUserKey, writeLimiter, asyncHandler(async (req: Req
   const results: Array<{ playerRank: number; round: number; success: boolean } | { playerRank: number; error: string }> = [];
 
   for (const game of games as GameResult[]) {
+    if (game.playerRank <= 0 || game.round < 0 || game.round >= NUM_ROUNDS) {
+      results.push({ playerRank: game.playerRank, error: 'Invalid playerRank or round' });
+      continue;
+    }
+
     const playerIndex = ladderData.players.findIndex((p: PlayerData) => p.rank === game.playerRank);
 
     if (playerIndex === -1) {
