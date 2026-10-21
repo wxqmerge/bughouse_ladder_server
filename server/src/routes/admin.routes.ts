@@ -10,7 +10,7 @@ const __dirname = path.dirname(__filename);
 import { requireAdminKey } from '../middleware/auth.middleware.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { AppError } from '../middleware/errorHandler.js';
-import { readLadderFile, writeLadderFile, ensureDataDirectory, generateTabContent, createBackup, rotateBackups, withTiming, getBackupList, restoreBackup, previewBackup, deleteBackup } from '../services/dataService.js';
+import { readLadderFile, writeLadderFile, ensureDataDirectory, generateTabContent, createBackup, rotateBackups, withTiming, getBackupList, restoreBackup, previewBackup, deleteBackup, isValidBackupName } from '../services/dataService.js';
 import { DEFAULT_GAME_RESULTS } from '../../../shared/types/index.js';
 import { log, logError } from '../utils/logger.js';
 import { broadcastSSEEvent } from '../services/sseService.js';
@@ -65,58 +65,57 @@ router.post('/upload', upload.single('file'), asyncHandler(async (req: Request, 
       throw new AppError('No file uploaded', 400);
     }
 
-    await withTiming('ensureDataDirectory', ensureDataDirectory);
-    
-    // Read uploaded file
-    const content = await withTiming(`readFile(${req.file!.filename})`, () => fs.readFile(req.file!.path, 'utf-8'));
-    
-    // Parse and validate
-    const lines = content.split('\n').filter(line => line.trim());
-    if (lines.length === 0) {
-      await withTiming('unlink(empty)', () => fs.unlink(req.file!.path));
-      throw new AppError('Empty file', 400);
-    }
+    const tmpPath = req.file.path;
+    try {
+      await withTiming('ensureDataDirectory', ensureDataDirectory);
 
-    // Guard: reject trophy report files uploaded as ladder data
-    if (isTrophyReport(content)) {
-      await withTiming('unlink(trophy)', () => fs.unlink(req.file!.path));
-      throw new AppError('Trophy report file detected. Trophy reports cannot be uploaded as ladder data.', 400);
-    }
+      // Read uploaded file
+      const content = await withTiming(`readFile(${req.file!.filename})`, () => fs.readFile(req.file!.path, 'utf-8'));
 
-    if (!isValidLadderHeader(content)) {
-      const allowOverride = req.body?.override === 'true' || req.query?.override === 'true';
-      if (!allowOverride) {
-        await withTiming('unlink(header)', () => fs.unlink(req.file!.path));
-        res.status(400).json({
-          success: false,
-          error: { message: 'File does not start with "Group" header. Not a valid ladder file. Retry with ?override=true to force.' },
-          needsOverride: true,
-        });
-        return;
+      // Parse and validate
+      const lines = content.split('\n').filter(line => line.trim());
+      if (lines.length === 0) {
+        throw new AppError('Empty file', 400);
       }
-    }
 
-    // Create backup before overwriting (skip during tests)
-    if (!process.env.VITEST) {
-      const backupPath = await createBackup();
-      if (backupPath) {
-        await rotateBackups();
+      // Guard: reject trophy report files uploaded as ladder data
+      if (isTrophyReport(content)) {
+        throw new AppError('Trophy report file detected. Trophy reports cannot be uploaded as ladder data.', 400);
       }
+
+      if (!isValidLadderHeader(content)) {
+        const allowOverride = req.body?.override === 'true' || req.query?.override === 'true';
+        if (!allowOverride) {
+          res.status(400).json({
+            success: false,
+            error: { message: 'File does not start with "Group" header. Not a valid ladder file. Retry with ?override=true to force.' },
+            needsOverride: true,
+          });
+          return;
+        }
+      }
+
+      // Create backup before overwriting (skip during tests)
+      if (!process.env.VITEST) {
+        const backupPath = await createBackup();
+        if (backupPath) {
+          await rotateBackups();
+        }
+      }
+
+      // Write to ladder file
+      const ladderPath = process.env.TAB_FILE_PATH || path.join(__dirname, '../../data/ladder.tab');
+      await withTiming(`writeFile(${ladderPath})`, () => fs.writeFile(ladderPath, content, 'utf-8'));
+
+      broadcastSSEEvent('fileUploaded', { lines: lines.length, type: 'fileUpload' });
+
+      res.json({
+        success: true,
+        data: { message: 'File uploaded successfully', lines: lines.length },
+      });
+    } finally {
+      await fs.unlink(tmpPath).catch(() => undefined);
     }
-
-    // Write to ladder file
-    const ladderPath = process.env.TAB_FILE_PATH || path.join(__dirname, '../../data/ladder.tab');
-    await withTiming(`writeFile(${ladderPath})`, () => fs.writeFile(ladderPath, content, 'utf-8'));
-    
-    // Clean up uploaded file
-    await withTiming('unlink(upload)', () => fs.unlink(req.file!.path));
-
-    broadcastSSEEvent('fileUploaded', { lines: lines.length, type: 'fileUpload' });
-
-    res.json({
-      success: true,
-      data: { message: 'File uploaded successfully', lines: lines.length },
-    });
   }
 ));
 
@@ -151,7 +150,7 @@ router.get('/backups', asyncHandler(async (req: Request, res: Response): Promise
 router.post('/backups/restore/:filename', asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const filename = req.params.filename;
     
-    if (!filename || !filename.endsWith('.tab')) {
+    if (!isValidBackupName(filename)) {
       throw new AppError('Invalid backup filename', 400);
     }
 
@@ -176,7 +175,7 @@ router.post('/backups/restore/:filename', asyncHandler(async (req: Request, res:
 router.get('/backups/preview/:filename', asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const filename = req.params.filename;
 
-    if (!filename || !filename.endsWith('.tab')) {
+    if (!isValidBackupName(filename)) {
       throw new AppError('Invalid backup filename', 400);
     }
 
@@ -197,7 +196,7 @@ router.get('/backups/preview/:filename', asyncHandler(async (req: Request, res: 
 router.delete('/backups/:filename', asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const filename = req.params.filename;
     
-    if (!filename || !filename.endsWith('.tab')) {
+    if (!isValidBackupName(filename)) {
       throw new AppError('Invalid backup filename', 400);
     }
 
@@ -404,45 +403,44 @@ router.post('/tournament/import-single', upload.single('file'), asyncHandler(asy
     const { targetGame } = req.body;
     const normTargetGame = normalizeFileName(targetGame);
     if (!normTargetGame) {
-      await withTiming('unlink(bad-target)', () => fs.unlink(req.file!.path));
       throw new AppError(`Invalid target mini-game. Must be one of: ${MINI_GAME_FILES.join(', ')}`, 400);
     }
 
-    await withTiming('ensureDataDirectory', ensureDataDirectory);
+    const tmpPath = req.file.path;
+    try {
+      await withTiming('ensureDataDirectory', ensureDataDirectory);
 
-    const content = await withTiming(`readFile(${req.file!.filename})`, () => fs.readFile(req.file!.path, 'utf-8'));
+      const content = await withTiming(`readFile(${req.file!.filename})`, () => fs.readFile(req.file!.path, 'utf-8'));
 
-    // Guard: reject trophy report files
-    if (isTrophyReport(content)) {
-      await withTiming('unlink(trophy)', () => fs.unlink(req.file!.path));
-      throw new AppError('Trophy report file detected. Trophy reports cannot be imported as mini-game data.', 400);
-    }
-
-    if (!isValidLadderHeader(content)) {
-      const allowOverride = req.body?.override === 'true';
-      if (!allowOverride) {
-        await withTiming('unlink(header)', () => fs.unlink(req.file!.path));
-        throw new AppError('File does not start with "Group" header. Not a valid ladder file. Retry with override=true to force.', 400);
+      // Guard: reject trophy report files
+      if (isTrophyReport(content)) {
+        throw new AppError('Trophy report file detected. Trophy reports cannot be imported as mini-game data.', 400);
       }
+
+      if (!isValidLadderHeader(content)) {
+        const allowOverride = req.body?.override === 'true';
+        if (!allowOverride) {
+          throw new AppError('File does not start with "Group" header. Not a valid ladder file. Retry with override=true to force.', 400);
+        }
+      }
+
+      const dataDir = path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data/ladder.tab'));
+      const filePath = path.join(dataDir, normTargetGame);
+      await withTiming(`writeFile(${filePath})`, () => fs.writeFile(filePath, content + '\n', 'utf-8'));
+
+      // Post-import reconciliation: align player identity with ladder.tab
+      clearMiniGameCache();
+      await reconcileMiniGameWithClubLadder(normTargetGame);
+
+      broadcastSSEEvent('miniGameImported', { fileName: normTargetGame, type: 'miniGameImport' });
+
+      res.json({
+        success: true,
+        data: { message: `Imported to ${normTargetGame}`, fileName: normTargetGame },
+      });
+    } finally {
+      await fs.unlink(tmpPath).catch(() => undefined);
     }
-
-    const dataDir = path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data/ladder.tab'));
-    const filePath = path.join(dataDir, normTargetGame);
-    await withTiming(`writeFile(${filePath})`, () => fs.writeFile(filePath, content + '\n', 'utf-8'));
-
-    // Post-import reconciliation: align player identity with ladder.tab
-    clearMiniGameCache();
-    await reconcileMiniGameWithClubLadder(normTargetGame);
-
-    // Clean up uploaded file
-    await withTiming('unlink(upload)', () => fs.unlink(req.file!.path));
-
-    broadcastSSEEvent('miniGameImported', { fileName: normTargetGame, type: 'miniGameImport' });
-
-    res.json({
-      success: true,
-      data: { message: `Imported to ${normTargetGame}`, fileName: normTargetGame },
-    });
   }
 ));
 

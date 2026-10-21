@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { requireUserKey } from '../middleware/auth.middleware.js';
+import { requireUserKey, hasValidKey } from '../middleware/auth.middleware.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { writeLimiter } from '../middleware/rateLimit.middleware.js';
 import { AppError } from '../middleware/errorHandler.js';
@@ -14,15 +14,48 @@ import { normalizeFileName, handleReadMiniGameFile } from '../utils/miniGameUtil
 
 const router = Router();
 
-// Get all ladder data (public read access)
-router.get('/', asyncHandler(async (_req: Request, res: Response) => {
+// Fields a user-key holder may update via PUT /:rank (rank is immutable;
+// gameResults validated separately). Anything else in the body is ignored.
+const PLAYER_UPDATE_FIELDS: Record<string, 'string' | 'number' | 'boolean'> = {
+  group: 'string',
+  lastName: 'string',
+  firstName: 'string',
+  rating: 'number',
+  nRating: 'number',
+  trophyEligible: 'boolean',
+  grade: 'string',
+  num_games: 'number',
+  attendance: 'number',
+  info: 'string',
+  phone: 'string',
+  school: 'string',
+  room: 'string',
+};
+
+function anonHidePII(): boolean {
+  return process.env.ANON_HIDE_PII === 'true';
+}
+
+type PiiFields = { phone?: string; school?: string; room?: string; info?: string };
+
+function stripPII<T extends PiiFields>(p: T): T {
+  return { ...p, phone: '', school: '', room: '', info: '' };
+}
+
+function publicView<T extends PiiFields>(req: Request, items: T[]): T[] {
+  return anonHidePII() && !hasValidKey(req) ? items.map(stripPII) : items;
+}
+
+// Get all ladder data (public read access; ANON_HIDE_PII can strip PII)
+router.get('/', asyncHandler(async (req: Request, res: Response) => {
   const ladderData = await readLadderFile();
+  const players = publicView(req, ladderData.players);
   res.json({
     success: true,
     data: {
       header: ladderData.header,
-      players: ladderData.players,
-      playerCount: ladderData.players.length,
+      players,
+      playerCount: players.length,
     },
   });
 }));
@@ -43,7 +76,7 @@ router.get('/:rank', asyncHandler(async (req: Request, res: Response) => {
 
   res.json({
     success: true,
-    data: player,
+    data: publicView(req, [player])[0],
   });
 }));
 
@@ -61,14 +94,18 @@ router.put('/:rank', requireUserKey, writeLimiter, asyncHandler(async (req: Requ
     throw new AppError('Player not found', 404);
   }
 
-  // Update player fields (whitelist-safe)
+  // Update player fields (whitelist + type-checked)
   const updatedPlayer = { ...ladderData.players[playerIndex] };
   const body = req.body as Record<string, unknown>;
   for (const [key, value] of Object.entries(body)) {
-    if (key === 'rank') continue;
-    if (key === 'gameResults' && (!Array.isArray(value) || !value.every((v: unknown) => v === null || typeof v === 'string'))) {
+    if (key === 'gameResults') {
+      if (Array.isArray(value) && value.every((v: unknown) => v === null || typeof v === 'string')) {
+        updatedPlayer.gameResults = value as (string | null)[];
+      }
       continue;
     }
+    const expectedType = PLAYER_UPDATE_FIELDS[key];
+    if (!expectedType || typeof value !== expectedType) continue;
     (updatedPlayer as Record<string, unknown>)[key] = value;
   }
 
@@ -304,7 +341,7 @@ router.get('/mini-games/check', asyncHandler(async (_req: Request, res: Response
 router.get('/mini-games/read', asyncHandler(async (req: Request, res: Response) => {
   const { fileName } = req.query;
   const data = await handleReadMiniGameFile(typeof fileName === 'string' ? fileName : undefined);
-  res.json({ success: true, data });
+  res.json({ success: true, data: { ...data, players: publicView(req, data.players) } });
 }));
 
 // Write mini-game file (user+admin can write, admin-only operations like copy-players remain in admin.routes)

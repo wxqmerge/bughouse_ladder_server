@@ -199,6 +199,15 @@ export function parsePlayerLine(line: string): PlayerData | null {
 }
 
 /**
+ * Neutralize TSV structural characters inside field values.
+ * Tabs would shift columns and newlines would forge whole player rows
+ * when the value is written into a .tab file.
+ */
+export function sanitizeTabField(value: unknown): string {
+  return String(value ?? '').replace(/[\t\r\n]+/g, ' ');
+}
+
+/**
  * Generate TSV content from players array.
  * Shared between server (generateTabContent) and frontend (playersToTabContent).
  */
@@ -223,7 +232,7 @@ export function playersToTabContent(players: PlayerData[]): string {
       p.school || '',
       p.room || '',
       ...(p.gameResults || []).map(r => r || ''),
-    ];
+    ].map(sanitizeTabField);
     lines.push(cols.join('\t'));
   }
 
@@ -239,24 +248,24 @@ export function generateTabContent(players: PlayerData[], version?: string): str
 
   const playerLines = players.map(player => {
     const baseFields = [
-      player.group || '',
-      player.lastName || '',
-      player.firstName || '',
-      (player.trophyEligible !== false ? player.rating : '-' + player.rating).toString() || '0',
-      player.rank?.toString() || '0',
-      (player.trophyEligible !== false ? player.nRating : '-' + player.nRating).toString() || '0',
-      player.grade === 'N/A' ? ' ' : (player.grade || ''),
-      (player.num_games ?? 0).toString(),
-      player.attendance?.toString() || '',
-      player.phone || '',
-      player.info || '',
-      player.school || '',
-      player.room || '',
+      sanitizeTabField(player.group || ''),
+      sanitizeTabField(player.lastName || ''),
+      sanitizeTabField(player.firstName || ''),
+      sanitizeTabField((player.trophyEligible !== false ? player.rating : '-' + player.rating).toString() || '0'),
+      sanitizeTabField(player.rank?.toString() || '0'),
+      sanitizeTabField((player.trophyEligible !== false ? player.nRating : '-' + player.nRating).toString() || '0'),
+      sanitizeTabField(player.grade === 'N/A' ? ' ' : (player.grade || '')),
+      sanitizeTabField((player.num_games ?? 0).toString()),
+      sanitizeTabField(player.attendance?.toString() || ''),
+      sanitizeTabField(player.phone || ''),
+      sanitizeTabField(player.info || ''),
+      sanitizeTabField(player.school || ''),
+      sanitizeTabField(player.room || ''),
     ];
 
     const gameResults = player.gameResults || [];
     for (let i = 0; i < NUM_ROUNDS; i++) {
-      baseFields.push(gameResults[i] || '');
+      baseFields.push(sanitizeTabField(gameResults[i] || ''));
     }
 
     return baseFields.join('\t');
