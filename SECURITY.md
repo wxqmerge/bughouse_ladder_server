@@ -118,6 +118,9 @@ Prevents XSS attacks by restricting script sources to `'self'`. Configured `conn
 - **Config shortcut URLs** (`?key=`) put the live key in bookmarks, browser history, and (until `access_log off` is applied — see `deploy/fix-dist-nolog.sh`) nginx access logs.
 - **Unauthenticated reads include PII by default** for view-only mode; set `ANON_HIDE_PII=true` to strip `phone`/`school`/`room`/`info` from keyless requests.
 - **Nginx log protection is deployed** (`access_log off` on dist paths via the parent-domain regex location, plus `/etc/nginx/conf.d/nolog-key.conf` map so subdomain vhosts can log with `if=$log_without_key`). Verified by `deploy/verify.sh` section 19; audit other apps with `deploy/fix-dist-nolog.sh --dry-run`.
+- **No rate limiting** on authenticated endpoints or `/api/auth/verify`. Keys are
+  32-hex (128-bit), making brute force infeasible; add `express-rate-limit` if that
+  assumption ever changes (e.g., short keys for kids' devices).
 - **Build-time-only dev advisories:** the frontend dev toolchain (vite/vitest/esbuild) carries moderate/high advisories fixable only by major upgrades (`vite@8`). They never run in production (systemd serves `node dist/index.js`; nginx serves static `dist/`), so they are accepted risk until the major is scheduled.
 
 ## Production Checklist

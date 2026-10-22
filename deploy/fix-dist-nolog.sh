@@ -1,65 +1,37 @@
 #!/bin/bash
-# Fix nginx access-log leakage of ?key=<secret> config URLs — ALL apps on this server.
+# Fix nginx ?key=<secret> leak in access logs — ALL projects on the server.
 #
-# Config shortcuts hit the PARENT-domain vhost (https://parent/<app>/dist/?key=...),
-# and the default nginx log_format records the full request URI, writing the live
-# API key into access.log on every load.
-#
-# This script scans every site config, derives every parent domain in use
-# (all projects: ladders, Hiker, future apps), and in each parent vhost inserts
-# `access_log off;` into every location block serving /dist/ that lacks it.
-#
-# Steps:
-#   1. Detect all parent domains from /etc/nginx/sites-available
-#   2. Back up + edit each parent vhost's /dist/ locations
-#   3. Validate with nginx -t (restores backups on failure), then reload
-#   4. --test          : prove the fix with a dummy key marker per parent
+# The config shortcut URL (e.g. https://app.example.com/dist/?key=<secret>) puts
+# the live API key into the nginx access log on every load. This script:
+#   1. finds the parent-domain vhost(s) (root /var/www/html) and adds no-log
+#      regex locations that also SERVE /<instance>/dist/ (try_files cannot
+#      expand variables, so we rewrite ... break instead),
+#   2. finds every subdomain app vhost with a protected `alias .../dist/`
+#      location and adds `access_log off;` to it,
+#   3. marker-tests each protected path (dummy key must NOT reach the log),
+#   4. verifies the fix and reports anything still leaking,
 #   5. --purge-logs    : truncate access.log and delete rotated logs that
-#                        already contain logged keys
+#                        already contain key URLs (AFTER the fix, and remember:
+#                        purge != safe, rotate the keys too)
+#   6. --dry-run       : review the diff first
 #
-# Usage (any instance directory, or anywhere on the server):
-#   sudo bash ./deploy/fix-dist-nolog.sh --dry-run     # review diff first
-#   sudo bash ./deploy/fix-dist-nolog.sh
-#   sudo bash ./deploy/fix-dist-nolog.sh --test --purge-logs
-#   sudo bash ./deploy/fix-dist-nolog.sh --parent example.com     # extra parent
-#
-# Vhost/apps NOT following the <app>.<parent>.conf naming can still be covered:
-#   pass them with --parent <domain>, or add access_log off manually —
-#   see deploy/nginx/dist-nolog.conf
-#
-# Self-contained: only needs bash + standard tools (no other repo files).
+# nginx config snippet (manual case): deploy/nginx/dist-nolog.conf
+# Test command for other projects:     deploy/README.md "Testing the log fix in other projects"
 
-set -u
-umask 077
+set -e
 
-PURGE_LOGS=0
-RUN_TEST=0
+SUDO_CMD="${SUDO_CMD:-}"
 DRY_RUN=0
-EXTRA_PARENTS=()
-PENDING_PARENT=0
+RUN_TEST=0
+PURGE_LOGS=0
 for arg in "$@"; do
-    if [ $PENDING_PARENT -eq 1 ]; then
-        EXTRA_PARENTS+=("$arg")
-        PENDING_PARENT=0
-        continue
-    fi
     case "$arg" in
-        --purge-logs) PURGE_LOGS=1 ;;
         --test)       RUN_TEST=1 ;;
+        --purge-logs) PURGE_LOGS=1 ;;
         --dry-run)    DRY_RUN=1 ;;
-        --parent)     PENDING_PARENT=1 ;;
-        --parent=*)   EXTRA_PARENTS+=("${arg#--parent=}") ;;
-        -h|--help)
-            grep '^#' "$0" | sed 's/^# \{0,1\}//'
-            exit 0
-            ;;
-        *) echo "Unknown option: $arg (try --help)"; exit 1 ;;
+        *) echo "Unknown option: $arg (expected --test, --purge-logs or --dry-run)"; exit 2 ;;
     esac
 done
-if [ $PENDING_PARENT -eq 1 ]; then
-    echo "Error: --parent needs a value"
-    exit 1
-fi
 
 if [ "$(id -u)" -eq 0 ]; then
     SUDO=""
@@ -72,316 +44,250 @@ else
     exit 1
 fi
 
-SITES="${SITES_DIR:-/etc/nginx/sites-available}"
-BASE="${BASE_DIR:-/var/www/html}"
-STAMP=$(date +%Y%m%d%H%M%S)
+NGINX_CONF_DIR="/etc/nginx/sites-available"
+NGINX_TEST_PATH="/nginx-nginxtest-probe"
+ACCESS_LOG="/var/log/nginx/access.log"
 
-echo "========================================"
-echo "  Fix nginx ?key= access-log leakage (all apps)"
-echo "  Sites:  $SITES"
-echo "========================================"
-echo ""
+[ -d "$NGINX_CONF_DIR" ] || { echo "Error: $NGINX_CONF_DIR not found"; exit 1; }
 
-if [ ! -d "$SITES" ]; then
-    echo "Error: $SITES not found"
-    exit 1
-fi
+# Parent-domain vhosts: server blocks with root /var/www/html (subpaths like
+# /<instance>/dist/ are served from there). *.conf only — never our own backups.
+discover_parent_domains() {
+    grep -rlE --include='*.conf' "^[[:space:]]*root[[:space:]]+/var/www/html/?[[:space:]]*;" "$NGINX_CONF_DIR" 2>/dev/null | sort -u
+}
 
-# --- 1. Detect parent domains + a representative instance per parent ---
-# Instance configs look like <app>.<parent...>.conf (server_name <app>.<parent>).
-# Every server_name token is classified:
-#   >= 3 labels  -> instance subdomain; parent = everything after first label
-#   == 2 labels  -> parent domain itself
-PARENTS=()
-declare -A REP_OF=()
-
-add_parent() {
-    local p="$1" rep="${2:-}"
-    [ -n "$p" ] || return 0
-    if [ -n "$rep" ] && [ -z "${REP_OF[$p]:-}" ]; then REP_OF[$p]="$rep"; fi
-    local i
-    for i in "${PARENTS[@]+"${PARENTS[@]}"}"; do
-        [ "$i" = "$p" ] && return 0
+# Subdomain app vhosts whose protected alias location (e.g. sothh-app.conf)
+# carries the key in its URI.
+discover_subdomain_apps() {
+    local f sub
+    for f in "$NGINX_CONF_DIR"/*.conf; do
+        [ -f "$f" ] || continue
+        sub=$(grep -oE "server_name[[:space:]]+[a-z0-9-]+\.[a-z0-9.-]+[[:space:]]*;" "$f" 2>/dev/null \
+            | grep -oE "[a-z0-9-]+\.[a-z0-9.-]+" | grep -v '^www\.' | sort -u | head -1)
+        [ -z "$sub" ] && continue
+        grep -qE "^[[:space:]]*location[^{]*/dist[^{]*\{" "$f" 2>/dev/null || continue
+        echo "$f|$sub"
     done
-    PARENTS+=("$p")
 }
 
-while IFS=$'\t' read -r token rep; do
-    labels=$(awk -F. '{print NF}' <<< "$token")
-    if [ "$labels" -ge 3 ]; then
-        parent="${token#*.}"
-        add_parent "$parent" "${rep:-${token%%.*}}"
-    elif [ "$labels" -eq 2 ]; then
-        add_parent "$token"
-    fi
-done < <(awk '
-    tolower($1) == "server_name" {
-        for (i = 2; i <= NF; i++) {
-            t = tolower($i); sub(/;$/, "", t); sub(/:.*/, "", t)
-            if (t ~ /\./ && t !~ /^\*/) print t
-        }
-    }
-' "$SITES"/*.conf 2>/dev/null | sort -u | awk '{
-    tok = $1
-    rep = ""
-    n = split(tok, parts, ".")
-    if (n >= 3 && parts[1] != "www") rep = parts[1]
-    print tok "\t" rep
-}')
+PARENTS=()
+while IFS= read -r line; do [ -n "$line" ] && PARENTS+=("$line"); done < <(discover_parent_domains)
+SUBS=()
+while IFS= read -r line; do [ -n "$line" ] && SUBS+=("$line"); done < <(discover_subdomain_apps)
 
-for p in "${EXTRA_PARENTS[@]+"${EXTRA_PARENTS[@]}"}"; do
-    lp=$(echo "$p" | tr '[:upper:]' '[:lower:]' | sed 's/[;:].*//')
-    labels=$(awk -F. '{print NF}' <<< "$lp")
-    if [ "$labels" -ge 3 ]; then
-        add_parent "${lp#*.}"
-    else
-        add_parent "$lp"
-    fi
-done
-
-if [ ${#PARENTS[@]} -eq 0 ]; then
-    echo "Error: no parent domains detected in $SITES."
-    echo "Use --parent <domain> to specify one."
+if [ ${#PARENTS[@]} -eq 0 ] && [ ${#SUBS[@]} -eq 0 ]; then
+    echo "Error: no nginx vhost serving /var/www/html with /dist/ paths found."
+    echo "Add the snippet manually - see deploy/nginx/dist-nolog.conf"
     exit 1
 fi
-echo "Parent domains detected: ${PARENTS[*]}"
-echo ""
 
-# --- 2. Resolve parent vhost files (server_name contains the exact parent token) ---
-declare -a PARENT_FILES=()
-declare -a PARENT_OF_FILE=()
-for parent in "${PARENTS[@]}"; do
-    found=""
-    while IFS= read -r f; do
-        [ -n "$f" ] || continue
-        found=1
-        PARENT_FILES+=("$f")
-        PARENT_OF_FILE+=("$parent")
-    done < <(awk -v d="$parent" '
-        FNR == 1 { hit = 0 }
-        tolower($1) == "server_name" {
-            for (i = 2; i <= NF; i++) {
-                t = $i; sub(/;$/, "", t)
-                if (tolower(t) == tolower(d)) hit = 1
-            }
-        }
-        hit { print FILENAME; exit }
-    ' "$SITES"/*.conf 2>/dev/null | sort -u)
-    if [ -z "$found" ]; then
-        echo "  [WARN] No vhost found for parent '$parent' — if it exists under a"
-        echo "         different server_name, add access_log off manually there."
-    fi
-done
+echo "Parent-domain vhosts found: ${#PARENTS[@]}"
+for f in "${PARENTS[@]}"; do echo "  - $(basename "$f")"; done
+echo "Subdomain app vhosts with /dist/ locations: ${#SUBS[@]}"
+for entry in "${SUBS[@]}"; do echo "  - $(basename "${entry%%|*}") (${entry##*|})"; done
 
-# Dedup files (same file matched via multiple tokens) while keeping parallel arrays
-declare -a FILES=()
-declare -a FILE_PARENTS=()
-declare -A SEEN_FILE=()
-for i in "${!PARENT_FILES[@]}"; do
-    f="${PARENT_FILES[$i]}"
-    [ -n "${SEEN_FILE[$f]:-}" ] && continue
-    SEEN_FILE[$f]=1
-    FILES+=("$f")
-    FILE_PARENTS+=("${PARENT_OF_FILE[$i]}")
-done
+backup_file() { $SUDO cp "$1" "$1.bak.$(date +%Y%m%d_%H%M%S)"; }
 
-if [ ${#FILES[@]} -eq 0 ]; then
-    echo "Error: no parent vhost files found in $SITES."
-    exit 1
-fi
-echo "Parent vhost file(s):"
-for i in "${!FILES[@]}"; do echo "  ${FILES[$i]}  (parent: ${FILE_PARENTS[$i]})"; done
-echo ""
-
-# --- 3. Insert access_log off into /dist/ location blocks ---
-insert_access_log_off() {
-    awk '
-        function indent_of(s) { match(s, /^[ \t]*/); return substr(s, 1, RLENGTH) }
-        function flush_block(   i, has, ind) {
-            has = 0
-            for (i = 1; i <= n; i++)
-                if (buf[i] ~ /access_log[ \t]+off[ \t]*;/) has = 1
-            if (single_line) {
-                if (!has)
-                    print "  AWKWARN single-line dist location at line " blockline " — edit manually" > "/dev/stderr"
-                for (i = 1; i <= n; i++) print buf[i]
-            } else if (has) {
-                for (i = 1; i <= n; i++) print buf[i]
-            } else {
-                ind = indent
-                for (i = 1; i <= n; i++) {
-                    print buf[i]
-                    if (i == openline)
-                        print ind "    access_log off;  # keep ?key= config URLs out of access.log (fix-dist-nolog.sh)"
-                }
-                changed = 1
-            }
-            inblk = 0; n = 0
-        }
-        BEGIN { inblk = 0; changed = 0; err = 0 }
-        {
-            if (!inblk) {
-                if ($0 ~ /[Ll]ocation/ && $0 ~ /dist/) {
-                    inblk = 1; n = 1; buf[1] = $0
-                    blockline = NR
-                    indent = indent_of($0)
-                    depth = 0
-                    s = $0; gsub(/[^{]/, "", s); depth += length(s)
-                    s = $0; gsub(/[^}]/, "", s); depth -= length(s)
-                    opened = (index($0, "{") > 0)
-                    openline = 1
-                    single_line = (opened && depth <= 0)
-                    if (single_line) flush_block()
-                    next
-                }
-                print
-            } else {
-                s = $0; gsub(/[^{]/, "", s); oc = length(s)
-                s = $0; gsub(/[^}]/, "", s); cc = length(s)
-                if (!opened && oc > 0) { openline = n + 1; opened = 1 }
-                n++; buf[n] = $0
-                depth += oc - cc
-                if (opened && depth <= 0) flush_block()
-            }
-        }
-        END {
-            if (inblk) {
-                print "  AWKWARN unterminated location block at line " blockline " — leaving file unchanged" > "/dev/stderr"
-                err = 1
-                for (i = 1; i <= n; i++) print buf[i]
-            }
-            if (!err) print (changed ? "CHANGED" : "UNCHANGED") > "/dev/stderr"
-        }
-    '
-}
-
-any_change=0
-manual_needed=0
-declare -a BACKUPS=()
-declare -a FIXED=()
-
-for i in "${!FILES[@]}"; do
-    f="${FILES[$i]}"
-    if ! grep -qE '[Ll]ocation[^{]*dist' "$f" 2>/dev/null; then
-        echo "  [WARN] $f has no /dist/ location block."
-        echo "         App files may be served by a generic location — access_log off"
-        echo "         must be added manually (see deploy/nginx/dist-nolog.conf)."
-        manual_needed=1
-        continue
-    fi
-
+# Insert the parent-domain no-log dist locations before the first
+# `location / {`. awk program is single-quoted: $app must reach nginx verbatim.
+insert_parent_snippet() {
+    local f="$1"
+    local tmp
     tmp=$(mktemp)
-    msgfile=$(mktemp)
-    insert_access_log_off < "$f" > "$tmp" 2>"$msgfile"
-
-    if grep -q "AWKWARN" "$msgfile"; then
-        echo "  [WARN] $f:"
-        grep "AWKWARN" "$msgfile"
-        manual_needed=1
+    awk '/^[[:space:]]*location[[:space:]]*\/[[:space:]]*\{/ && !done {
+        print
+        print "    # Protect config shortcut URLs (?key=...) from access logging"
+        print "    location ~ ^/(?<app>[a-z0-9-]+)/dist/$ { access_log off; rewrite ^ /$app/dist/index.html break; }"
+        print "    location ~ ^/[a-z0-9-]+/dist/ { access_log off; }"
+        done=1; next
+    }1' "$f" > "$tmp"
+    if diff -q "$f" "$tmp" > /dev/null; then rm "$tmp"; return 1; fi
+    if [ "$DRY_RUN" -eq 1 ]; then
+        echo "  [DRY-RUN] would modify $(basename "$f"):"
+        diff "$f" "$tmp" | sed 's/^/      /'
+        rm "$tmp"
+        return 0
     fi
+    $SUDO tee "$f" > /dev/null < "$tmp"
+    rm "$tmp"
+    echo "  Added no-log dist regex locations to $(basename "$f")"
+    return 0
+}
 
-    if grep -q "^CHANGED$" "$msgfile"; then
-        if [ $DRY_RUN -eq 1 ]; then
-            echo "  [DRY-RUN] would modify $f:"
-            diff -u "$f" "$tmp" | sed 's/^/      /'
-            any_change=1
-        else
-            bak="$f.pre-nolog-$STAMP"
-            $SUDO cp -a "$f" "$bak"
-            BACKUPS+=("$bak")
-            $SUDO cp "$tmp" "$f"
-            FIXED+=("$f")
-            any_change=1
-            echo "  [FIXED] $f  (backup: $bak)"
+# Temp marker-test block (same location class, returns static text).
+insert_test_block() {
+    local f="$1"
+    local tmp
+    tmp=$(mktemp)
+    awk -v tp="$NGINX_TEST_PATH" '/^[[:space:]]*location[[:space:]]*\/[[:space:]]*\{/ && !done {
+        print
+        print "    location = " tp " { access_log off; return 200 \"nginx-nolog-test\"; }"
+        done=1; next
+    }1' "$f" > "$tmp"
+    $SUDO tee "$f" > /dev/null < "$tmp"
+    rm "$tmp"
+}
+
+PARENT_MODIFIED=0
+PARENT_FILES=()
+for f in "${PARENTS[@]}"; do
+    if grep -q "access_log off" "$f"; then
+        echo "  $(basename "$f") already protected"
+    elif grep -qE "^[[:space:]]*location[^{]*/dist/?[^{]*\{" "$f"; then
+        backup_file "$f"
+        $SUDO sed -i -E "s|(location[^{]*/dist[^{]*[[:space:]]*)\{|\1{ access_log off;|" "$f"
+        echo "  Added access_log off to existing dist location in $(basename "$f")"
+        PARENT_MODIFIED=1
+        PARENT_FILES+=("$f")
+    elif [ "$DRY_RUN" -eq 1 ]; then
+        if insert_parent_snippet "$f"; then
+            PARENT_MODIFIED=1
         fi
     else
-        echo "  [OK]   $f — dist locations already have access_log off"
+        backup_file "$f"
+        insert_parent_snippet "$f"
+        PARENT_MODIFIED=1
+        PARENT_FILES+=("$f")
     fi
-    rm -f "$tmp" "$msgfile"
 done
-echo ""
 
-if [ $DRY_RUN -eq 1 ]; then
-    if [ $any_change -eq 0 ]; then
-        echo "--dry-run: nothing to change."
+SUB_MODIFIED=0
+SUB_TESTS=()
+SUB_PATHS=()
+for entry in "${SUBS[@]}"; do
+    f="${entry%%|*}"; sub="${entry##*|}"
+    if grep -q "access_log off" "$f"; then
+        echo "  ${sub} vhost already protected"
+        SUB_TESTS+=("https://${sub}/dist/")
+        SUB_PATHS+=("$sub")
+    elif [ "$DRY_RUN" -eq 1 ]; then
+        tmp=$(mktemp)
+        sed -E "s|(location[^{]*/dist[^{]*\{)|\1 access_log off;|" "$f" > "$tmp"
+        echo "  [DRY-RUN] would add access_log off to /dist/ location in ${sub}:"
+        diff "$f" "$tmp" | sed 's/^/      /'
+        rm "$tmp"
+        SUB_MODIFIED=1
     else
-        echo "--dry-run: no files were changed and nothing was reloaded."
-        echo "Re-run without --dry-run to apply the diff above."
+        backup_file "$f"
+        $SUDO sed -i -E "s|(location[^{]*/dist[^{]*\{)|\1 access_log off;|" "$f"
+        echo "  Added access_log off to /dist/ location of ${sub}"
+        SUB_MODIFIED=1
+        SUB_TESTS+=("https://${sub}/dist/")
+        SUB_PATHS+=("$sub")
     fi
-    if [ $manual_needed -eq 1 ]; then
-        echo "Some vhosts need MANUAL additions regardless (see [WARN] lines + deploy/nginx/dist-nolog.conf)."
+done
+
+if [ "$DRY_RUN" -eq 1 ]; then
+    echo ""
+    if [ "$PARENT_MODIFIED" -eq 1 ] || [ "$SUB_MODIFIED" -eq 1 ]; then
+        echo "--dry-run: changes above were NOT applied and nginx was NOT reloaded."
+        echo "Re-run without --dry-run to apply them."
+    else
+        echo "--dry-run: nothing to change."
     fi
     exit 0
 fi
 
-# --- 4. Validate + reload ---
-if [ $any_change -eq 1 ]; then
-    echo "Validating nginx config..."
-    if ! $SUDO nginx -t; then
-        echo ""
-        echo "nginx -t FAILED — restoring backups:"
-        j=0
-        for f in "${FIXED[@]}"; do
-            $SUDO cp -a "${BACKUPS[$j]}" "$f"
-            echo "  restored $f"
-            j=$((j + 1))
-        done
-        echo "Nothing reloaded. Inspect the WARN lines above and edit manually."
-        exit 1
-    fi
-    if $SUDO systemctl reload nginx; then
-        echo "  nginx reloaded."
-    else
-        echo "  WARNING: nginx -t passed but reload failed — run: sudo systemctl reload nginx"
-    fi
-    echo ""
-else
-    echo "No config changes needed."
-    echo ""
-fi
-
-# --- 5. Proof test (one marker per parent that has an instance) ---
-if [ $RUN_TEST -eq 1 ]; then
-    for parent in "${PARENTS[@]}"; do
-        rep="${REP_OF[$parent]:-}"
-        if [ -z "$rep" ]; then
-            echo "--test: skipping $parent (no <app>.$parent subdomain vhost to test)"
-            continue
-        fi
-        MARKER="nologtest$(openssl rand -hex 6 2>/dev/null || date +%s%N)"
-        URL="https://${parent}/${rep}/dist/?key=${MARKER}"
-        echo "--test: $URL"
-        if command -v curl >/dev/null 2>&1; then
-            curl -s -o /dev/null "$URL"
-        else
-            $SUDO wget -q -O /dev/null "$URL"
-        fi
-        sleep 1
-        if $SUDO grep -q "$MARKER" /var/log/nginx/access.log 2>/dev/null; then
-            echo "  [FAIL] marker IS in access.log — find the location serving /$rep/dist/"
-            echo "         (nginx -T | grep -n -B5 dist) and add access_log off there."
-        else
-            echo "  [PASS] marker not logged."
-        fi
+revert_all() {
+    for f in "${PARENTS[@]}" "${SUBS[@]%%|*}"; do
+        latest=$(ls "$f".bak.* 2>/dev/null | tail -1 || true)
+        [ -n "$latest" ] && $SUDO cp "$latest" "$f"
     done
-    echo ""
+}
+
+if [ "$RUN_TEST" -eq 1 ]; then
+    for f in "${PARENT_FILES[@]}"; do
+        insert_test_block "$f"
+    done
 fi
 
-# --- 6. Purge already-logged keys ---
-if [ $PURGE_LOGS -eq 1 ]; then
+echo "Testing nginx configuration syntax..."
+if ! $SUDO nginx -t 2>/dev/null; then
+    echo "Error: nginx config test failed. Reverting all changes."
+    revert_all
+    $SUDO nginx -t 2>/dev/null || echo "Warning: reverted config still fails nginx -t - investigate manually"
+    exit 1
+fi
+
+if [ "$RUN_TEST" -eq 1 ]; then
+    echo "Reloading nginx with test block..."
+    $SUDO systemctl reload nginx
+    sleep 1
+
+    TEST_URLS=()
+    PATHS=()
+    for f in "${PARENT_FILES[@]}"; do
+        for path in /var/www/html/*/dist/; do
+            [ -d "$path" ] || continue
+            instance=$(basename "$(dirname "$path")")
+            TEST_URLS+=("https://$(hostname -f | sed 's/^[^.]*\.//')/${instance}/dist/")
+            PATHS+=("$instance")
+        done
+        TEST_URLS+=("https://$(hostname -f | sed 's/^[^.]*\.//')${NGINX_TEST_PATH}")
+        PATHS+=("nginxtest")
+    done
+    i=0
+    while [ $i -lt ${#SUB_TESTS[@]} ]; do
+        TEST_URLS+=("${SUB_TESTS[$i]}")
+        PATHS+=("${SUB_PATHS[$i]}")
+        i=$((i+1))
+    done
+
+    if [ ${#TEST_URLS[@]} -eq 0 ]; then
+        echo "  Warning: no test URLs discovered; skipping marker test."
+    else
+        echo "Marker tests (dummy keys must NOT appear in $ACCESS_LOG)..."
+        FAILED=0
+        for idx in "${!TEST_URLS[@]}"; do
+            url="${TEST_URLS[$idx]}"
+            marker="DUMMYTEST-$(date +%s%N)-${idx}"
+            curl -sk -o /dev/null "${url}?key=${marker}" || true
+            sleep 1
+            if $SUDO grep -q "$marker" "$ACCESS_LOG" 2>/dev/null; then
+                echo "  [FAIL] ${PATHS[$idx]}: dummy key $marker WAS logged"
+                FAILED=1
+            else
+                echo "  [PASS] ${PATHS[$idx]}: dummy key $marker NOT logged"
+            fi
+        done
+
+        if [ "$FAILED" -eq 1 ]; then
+            echo "Test failed - reverting all changes."
+            revert_all
+            $SUDO nginx -t && $SUDO systemctl reload nginx
+            exit 1
+        fi
+    fi
+fi
+
+# Always reload: either test passed, or plain apply.
+if [ "$RUN_TEST" -eq 0 ]; then
+    echo "Reloading nginx..."
+    $SUDO systemctl reload nginx
+fi
+
+if [ "$RUN_TEST" -eq 1 ]; then
+    # reload again without the temporary test block
+    for f in "${PARENT_FILES[@]}"; do
+        $SUDO sed -i "\|location = ${NGINX_TEST_PATH}|d" "$f"
+    done
+    $SUDO nginx -t && $SUDO systemctl reload nginx
+fi
+
+echo "DONE: nginx no longer logs ?key= loads for the fixed locations."
+
+# --- optional: remove already-logged keys from old access logs ---------------
+if [ "$PURGE_LOGS" -eq 1 ]; then
     echo "--purge-logs:"
-    cur_count=$($SUDO grep -c -E '[?&]key=[A-Za-z0-9_-]{8,}' /var/log/nginx/access.log 2>/dev/null || true)
-    echo "  Current access.log: ${cur_count:-0} line(s) with ?key="
-    rot=$($SUDO sh -c 'ls /var/log/nginx/access.log.[0-9]* /var/log/nginx/access.log.*.gz 2>/dev/null' | wc -l)
-    echo "  Rotated log files:  $rot"
-    $SUDO truncate -s 0 /var/log/nginx/access.log
-    $SUDO sh -c 'rm -f /var/log/nginx/access.log.[0-9]* /var/log/nginx/access.log.*.gz' 2>/dev/null
-    echo "  Truncated access.log, removed rotated logs."
-    echo "  NOTE: logged keys were exposed until now — rotate them (key plan)."
-    echo ""
+    n=$($SUDO grep -lE '[?&]key=' "$ACCESS_LOG"* 2>/dev/null | wc -l)
+    echo "  Files with key URLs: $n"
+    $SUDO truncate -s 0 "$ACCESS_LOG" 2>/dev/null && echo "  [OK] truncated $ACCESS_LOG"
+    if ls "$ACCESS_LOG".* >/dev/null 2>&1; then
+        $SUDO rm -f "$ACCESS_LOG".* && echo "  [OK] deleted rotated logs"
+    else
+        echo "  [OK] no rotated logs"
+    fi
+    echo "  Remember: purge is not enough - rotate the keys (key_plan.md)."
 fi
 
-if [ $manual_needed -eq 1 ]; then
-    echo "Some vhosts need MANUAL additions (see [WARN] lines + deploy/nginx/dist-nolog.conf)."
-fi
-echo "Done. Re-run deploy/verify.sh section 19 to confirm."
+echo "Next: run deploy/verify.sh (Nginx Log Secrets check) and rotate the keys."
