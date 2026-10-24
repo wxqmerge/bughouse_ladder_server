@@ -659,7 +659,10 @@ const [miniGamesHaveResults, setMiniGamesHaveResults] = useState(false);
       const userSettings = loadUserSettings();
       const serverUrl = userSettings.server;
       if (serverUrl) {
-        const response = await gatedFetch(`${serverUrl}/api/ladder`);
+        // Send the key so PII-stripped anonymous views never become the merge base
+        const response = await gatedFetch(`${serverUrl}/api/ladder`, {
+          headers: userSettings.apiKey ? { 'X-API-Key': userSettings.apiKey.trim() } : undefined,
+        });
         if (response.ok) {
           const data = await response.json();
           const serverPlayers = data.data?.players || [];
@@ -723,7 +726,11 @@ const [miniGamesHaveResults, setMiniGamesHaveResults] = useState(false);
         return;
       }
       
-      const serverResponse = await gatedFetch(`${serverUrl}/api/ladder`);
+      const authHeaders: Record<string, string> = userSettings.apiKey
+        ? { 'X-API-Key': userSettings.apiKey.trim() }
+        : {};
+
+      const serverResponse = await gatedFetch(`${serverUrl}/api/ladder`, { headers: authHeaders });
       if (!serverResponse.ok) {
         console.error("[Reconnect] Failed to fetch server state:", serverResponse.status);
         alert("Failed to fetch server state. Please try again.");
@@ -731,17 +738,19 @@ const [miniGamesHaveResults, setMiniGamesHaveResults] = useState(false);
       }
       
       const serverData = await serverResponse.json();
-      const serverPlayers = serverData?.players || [];
+      // Server envelope is { success, data: { players } } — reading the raw
+      // body would leave the merge base empty and wipe server rows on push
+      const serverPlayers = serverData?.data?.players || [];
       
       // Get local players and merge with server state
       const localPlayers = await getPlayers();
       const pendingDeletes = getPendingDeletes();
       const mergedPlayers = mergeServerWithLocal(serverPlayers, localPlayers, pendingDeletes);
       
-      // Save merged data to server
+      // Save merged data to server (PUT requires the user/admin API key)
       const response = await gatedFetch(`${serverUrl}/api/ladder`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
         body: JSON.stringify({ players: mergedPlayers }),
       });
       

@@ -10,7 +10,7 @@ const __dirname = path.dirname(__filename);
 import { requireAdminKey } from '../middleware/auth.middleware.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { AppError } from '../middleware/errorHandler.js';
-import { readLadderFile, writeLadderFile, ensureDataDirectory, generateTabContent, createBackup, rotateBackups, withTiming, getBackupList, restoreBackup, previewBackup, deleteBackup, isValidBackupName } from '../services/dataService.js';
+import { readLadderFile, writeLadderFile, writeLadderFileRaw, ensureDataDirectory, generateTabContent, withFileLock, withTiming, getBackupList, restoreBackup, previewBackup, deleteBackup, isValidBackupName } from '../services/dataService.js';
 import { DEFAULT_GAME_RESULTS } from '../../../shared/types/index.js';
 import { log, logError } from '../utils/logger.js';
 import { broadcastSSEEvent } from '../services/sseService.js';
@@ -95,17 +95,9 @@ router.post('/upload', upload.single('file'), asyncHandler(async (req: Request, 
         }
       }
 
-      // Create backup before overwriting (skip during tests)
-      if (!process.env.VITEST) {
-        const backupPath = await createBackup();
-        if (backupPath) {
-          await rotateBackups();
-        }
-      }
-
-      // Write to ladder file
+      // Atomic write under the file lock, with forced backup before overwrite
       const ladderPath = process.env.TAB_FILE_PATH || path.join(__dirname, '../../data/ladder.tab');
-      await withTiming(`writeFile(${ladderPath})`, () => fs.writeFile(ladderPath, content, 'utf-8'));
+      await withTiming(`writeFile(${ladderPath})`, () => writeLadderFileRaw(ladderPath, content));
 
       broadcastSSEEvent('fileUploaded', { lines: lines.length, type: 'fileUpload' });
 
@@ -224,41 +216,44 @@ router.post('/tournament/save-mini-game', asyncHandler(async (req: Request, res:
       throw new AppError('Invalid mini-game file name', 400);
     }
 
-    // Read current ladder data
-    const ladderData = await readLadderFile();
-    
-    // Check if file already exists
-    const existingFile = await readMiniGameFileRaw(normFileName);
-    
-    if (existingFile) {
-      // Merge game results
-      const mergedPlayers = ladderData.players.map(player => {
-        const existingPlayer = existingFile.players.find(
-          p => p.lastName.toLowerCase() === player.lastName.toLowerCase() &&
-               p.firstName.toLowerCase() === player.firstName.toLowerCase()
-        );
-        
-        if (existingPlayer) {
-          // Merge game results
-          const mergedResults = mergeGameResults(
-            existingPlayer.gameResults,
-            player.gameResults
+    // Read ladder + mini-game, merge, and write as one transaction
+    await withFileLock(async () => {
+      // Read current ladder data
+      const ladderData = await readLadderFile();
+      
+      // Check if file already exists
+      const existingFile = await readMiniGameFileRaw(normFileName);
+      
+      if (existingFile) {
+        // Merge game results
+        const mergedPlayers = ladderData.players.map(player => {
+          const existingPlayer = existingFile.players.find(
+            p => p.lastName.toLowerCase() === player.lastName.toLowerCase() &&
+                 p.firstName.toLowerCase() === player.firstName.toLowerCase()
           );
           
-          return {
-            ...player,
-            gameResults: mergedResults,
-          };
-        }
+          if (existingPlayer) {
+            // Merge game results
+            const mergedResults = mergeGameResults(
+              existingPlayer.gameResults,
+              player.gameResults
+            );
+            
+            return {
+              ...player,
+              gameResults: mergedResults,
+            };
+          }
+          
+          return player;
+        });
         
-        return player;
-      });
+        ladderData.players = mergedPlayers;
+      }
       
-      ladderData.players = mergedPlayers;
-    }
-    
-    // Write mini-game file
-    await writeMiniGameFile(normFileName, ladderData);
+      // Write mini-game file
+      await writeMiniGameFile(normFileName, ladderData);
+    });
     
     broadcastSSEEvent('miniGameSaved', { fileName: normFileName, type: 'miniGameSave' });
     
@@ -290,11 +285,12 @@ router.post('/tournament/write-mini-game', asyncHandler(async (req: Request, res
       throw new AppError('Invalid players data', 400);
     }
 
-    await writeMiniGameFile(normFileName, {
+    // Transaction: writeMiniGameFile may also update the club ladder file
+    await withFileLock(() => writeMiniGameFile(normFileName, {
       header: [],
       players,
       rawLines: [],
-    });
+    }));
 
     broadcastSSEEvent('miniGameWritten', { fileName: normFileName, type: 'miniGameWrite' });
 
@@ -314,21 +310,24 @@ router.post('/tournament/copy-players', asyncHandler(async (req: Request, res: R
       throw new AppError('Invalid mini-game file name', 400);
     }
 
-    // Read current ladder data
-    const ladderData = await readLadderFile();
-    
-    // Always copy players with fresh results (mini-games are separate ladders)
-    const targetPlayers = ladderData.players.map(player => ({
-      ...player,
-      gameResults: [...DEFAULT_GAME_RESULTS],
-      num_games: 0,
-    }));
-    
-    // Write mini-game file
-    await writeMiniGameFile(normFileName, {
-      header: [],
-      players: targetPlayers,
-      rawLines: [],
+    // Read ladder and write mini-game copy as one transaction
+    await withFileLock(async () => {
+      // Read current ladder data
+      const ladderData = await readLadderFile();
+      
+      // Always copy players with fresh results (mini-games are separate ladders)
+      const targetPlayers = ladderData.players.map(player => ({
+        ...player,
+        gameResults: [...DEFAULT_GAME_RESULTS],
+        num_games: 0,
+      }));
+      
+      // Write mini-game file
+      await writeMiniGameFile(normFileName, {
+        header: [],
+        players: targetPlayers,
+        rawLines: [],
+      });
     });
     
     broadcastSSEEvent('playersCopied', { fileName, type: 'playersCopy' });
@@ -424,13 +423,16 @@ router.post('/tournament/import-single', upload.single('file'), asyncHandler(asy
         }
       }
 
-      const dataDir = path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data/ladder.tab'));
-      const filePath = path.join(dataDir, normTargetGame);
-      await withTiming(`writeFile(${filePath})`, () => fs.writeFile(filePath, content + '\n', 'utf-8'));
+      // Atomic write under the file lock; reconciliation reads/writes both files
+      await withFileLock(async () => {
+        const dataDir = path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data/ladder.tab'));
+        const filePath = path.join(dataDir, normTargetGame);
+        await withTiming(`writeFile(${filePath})`, () => writeLadderFileRaw(filePath, content + '\n', { backup: false }));
 
-      // Post-import reconciliation: align player identity with ladder.tab
-      clearMiniGameCache();
-      await reconcileMiniGameWithClubLadder(normTargetGame);
+        // Post-import reconciliation: align player identity with ladder.tab
+        clearMiniGameCache();
+        await reconcileMiniGameWithClubLadder(normTargetGame);
+      });
 
       broadcastSSEEvent('miniGameImported', { fileName: normTargetGame, type: 'miniGameImport' });
 
@@ -452,7 +454,8 @@ router.post('/tournament/import', asyncHandler(async (req: Request, res: Respons
       throw new AppError('Missing content', 400);
     }
     
-    const result = await tournamentStore.importMiniGameFiles(content);
+    // Import rewrites ladder.tab + mini-game files: do it as one transaction
+    const result = await withFileLock(() => tournamentStore.importMiniGameFiles(content));
     
     broadcastSSEEvent('miniGamesImported', { imported: result.imported, type: 'miniGamesImport' });
     
@@ -466,18 +469,20 @@ router.post('/tournament/import', asyncHandler(async (req: Request, res: Respons
 // Clear all mini-game files
 router.post('/tournament/clear-mini-games', asyncHandler(async (_req: Request, res: Response): Promise<void> => {
     const dataDir = path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data'));
-    let deletedCount = 0;
-
-    for (const fileName of MINI_GAME_FILES) {
-      const filePath = path.join(dataDir, fileName);
-      try {
-        await fs.unlink(filePath);
-        deletedCount++;
-        log('[ADMIN]', `Deleted mini-game file: ${fileName}`);
-      } catch {
-        // File doesn't exist, skip
+    const deletedCount = await withFileLock(async () => {
+      let deletedCount = 0;
+      for (const fileName of MINI_GAME_FILES) {
+        const filePath = path.join(dataDir, fileName);
+        try {
+          await fs.unlink(filePath);
+          deletedCount++;
+          log('[ADMIN]', `Deleted mini-game file: ${fileName}`);
+        } catch {
+          // File doesn't exist, skip
+        }
       }
-    }
+      return deletedCount;
+    });
 
     broadcastSSEEvent('miniGamesCleared', { deletedCount, type: 'miniGamesClear' });
 
@@ -493,31 +498,33 @@ router.post('/tournament/clear-empty-mini-games', asyncHandler(async (_req: Requ
     const dataDir = path.dirname(process.env.TAB_FILE_PATH || path.join(__dirname, '../../data'));
     const deletedFiles: string[] = [];
 
-    for (const fileName of MINI_GAME_FILES) {
-      const filePath = path.join(dataDir, fileName);
-      try {
-        const content = await fs.readFile(filePath, 'utf-8');
-        const lines = content.trim().split('\n');
-        if (lines.length <= 1) {
-          await fs.unlink(filePath);
-          deletedFiles.push(fileName);
-          log('[ADMIN]', `Deleted empty mini-game file: ${fileName}`);
-          continue;
+    await withFileLock(async () => {
+      for (const fileName of MINI_GAME_FILES) {
+        const filePath = path.join(dataDir, fileName);
+        try {
+          const content = await fs.readFile(filePath, 'utf-8');
+          const lines = content.trim().split('\n');
+          if (lines.length <= 1) {
+            await fs.unlink(filePath);
+            deletedFiles.push(fileName);
+            log('[ADMIN]', `Deleted empty mini-game file: ${fileName}`);
+            continue;
+          }
+          const hasResults = lines.slice(1).some(line => {
+            const fields = line.split('\t');
+            const results = fields.slice(12);
+            return results.some(r => r && r.trim() !== '');
+          });
+          if (!hasResults) {
+            await fs.unlink(filePath);
+            deletedFiles.push(fileName);
+            log('[ADMIN]', `Deleted empty mini-game file: ${fileName}`);
+          }
+        } catch {
+          // File doesn't exist, skip
         }
-        const hasResults = lines.slice(1).some(line => {
-          const fields = line.split('\t');
-          const results = fields.slice(12);
-          return results.some(r => r && r.trim() !== '');
-        });
-        if (!hasResults) {
-          await fs.unlink(filePath);
-          deletedFiles.push(fileName);
-          log('[ADMIN]', `Deleted empty mini-game file: ${fileName}`);
-        }
-      } catch {
-        // File doesn't exist, skip
       }
-    }
+    });
 
     broadcastSSEEvent('miniGamesCleared', { deletedCount: deletedFiles.length, type: 'miniGamesClear' });
 
@@ -536,7 +543,7 @@ router.post('/tournament/add-player-to-mini-games', asyncHandler(async (req: Req
       throw new AppError('Player data required', 400);
     }
     
-    await addPlayerToAllMiniGames(player);
+    await withFileLock(() => addPlayerToAllMiniGames(player));
     
     broadcastSSEEvent('playerAdded', { type: 'playerAddToMiniGames' });
     
@@ -555,7 +562,7 @@ router.post('/tournament/remove-player-from-all', asyncHandler(async (req: Reque
       throw new AppError('lastName and firstName required', 400);
     }
 
-    await removePlayerFromAll(lastName, firstName);
+    await withFileLock(() => removePlayerFromAll(lastName, firstName));
 
     broadcastSSEEvent('playerRemoved', { type: 'playerRemovedFromAll', lastName, firstName });
 
@@ -574,7 +581,7 @@ router.put('/tournament/update-player-in-all', asyncHandler(async (req: Request,
       throw new AppError('rank, originalLastName, originalFirstName, and updates required', 400);
     }
 
-    await updatePlayerInAll(rank, originalLastName, originalFirstName, updates);
+    await withFileLock(() => updatePlayerInAll(rank, originalLastName, originalFirstName, updates));
 
     broadcastSSEEvent('playerUpdated', { type: 'playerUpdatedInAll', rank, originalLastName, originalFirstName, updates });
 
@@ -649,12 +656,14 @@ router.get('/activity-report', asyncHandler(async (_req: Request, res: Response)
 
 // Clear all game results, keep player data intact
 router.post('/clear-results', asyncHandler(async (_req: Request, res: Response): Promise<void> => {
-    const ladderData = await readLadderFile();
-    const cleared = ladderData.players.length;
-    for (const player of ladderData.players) {
-      player.gameResults = [...DEFAULT_GAME_RESULTS];
-    }
-    await writeLadderFile(ladderData);
+    const cleared = await withFileLock(async () => {
+      const ladderData = await readLadderFile();
+      for (const player of ladderData.players) {
+        player.gameResults = [...DEFAULT_GAME_RESULTS];
+      }
+      await writeLadderFile(ladderData);
+      return ladderData.players.length;
+    });
     broadcastSSEEvent('resultsCleared', { type: 'clearResults', count: cleared });
     res.json({
       success: true,

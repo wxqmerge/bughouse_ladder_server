@@ -69,11 +69,13 @@ app.use((req, res, next) => {
     const method = req.method;
     const path = req.path;
     
-    // Build query string if present
+    // Build query string if present (redact credential-like params so keys
+    // never end up in journald/console logs)
     let queryString = '';
     if (Object.keys(req.query).length > 0) {
+      const SENSITIVE_PARAM = /key|token|secret|password|auth/i;
       const qstr = Object.entries(req.query)
-        .map(([k, v]) => `${k}=${v}`)
+        .map(([k, v]) => `${k}=${SENSITIVE_PARAM.test(k) ? '***' : v}`)
         .join('&');
       queryString = ` ?${qstr}`;
     }

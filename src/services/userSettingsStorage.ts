@@ -169,24 +169,37 @@ export async function loadRemoteFile(fileUrl: string): Promise<{ success: boolea
  *   ?config=3&file=http://host/file.tab            → remote file load (.tab or .xls)
  *   ?config=4                                     → clear all game results, keep players
  */
+let configHandled = false;
+
 export async function loadConfigFromUrl(): Promise<boolean> {
   const url = new URL(window.location.href);
+  const configType = url.searchParams.get('config');
+  const keyOnly = url.searchParams.get('key') && !configType;
+
+  // Apply exactly once per page load. App re-renders used to re-run this on
+  // every render, re-firing alerts and duplicating remote fetches.
+  if (configHandled || (!configType && !keyOnly)) return false;
+  configHandled = true;
+
+  // Always strip config params (incl. key) so they don't linger in the URL,
+  // get logged by proxies, or re-apply on the next render/reload.
+  const clearConfigParams = () => {
+    url.searchParams.delete('config');
+    url.searchParams.delete('server');
+    url.searchParams.delete('key');
+    url.searchParams.delete('file');
+    window.history.replaceState({}, '', url.toString());
+  };
 
   // Shortcut: ?key=... alone → connect to current origin
-  const apiKeyOnly = url.searchParams.get('key');
-  if (apiKeyOnly && !url.searchParams.get('config')) {
+  if (keyOnly) {
     saveUserSettings({
       server: normalizeServerUrl(window.location.origin),
-      apiKey: apiKeyOnly.trim(),
+      apiKey: (url.searchParams.get('key') || '').trim(),
     });
-    url.searchParams.delete('key');
-    window.history.replaceState({}, '', url.toString());
+    clearConfigParams();
     return true;
   }
-
-  if (!url.searchParams.get('config')) return false;
-
-  const configType = url.searchParams.get('config');
 
   // Server connection: ?config=1&server=...&key=...
   if (configType === '1') {
@@ -195,10 +208,36 @@ export async function loadConfigFromUrl(): Promise<boolean> {
 
     if (!serverUrl.trim()) {
       alert('Missing server URL. Use: ?config=1&server=http://host:port&key=yourkey');
+      clearConfigParams();
       return false;
     }
 
     const normalized = normalizeServerUrl(serverUrl);
+
+    // Validate the target before persisting the API key against it:
+    // http(s) only, no embedded credentials, and an explicit confirmation
+    // for foreign origins — otherwise a decoy link could exfiltrate the
+    // stored key to an attacker-controlled host on every request.
+    let parsed: URL | null = null;
+    try {
+      parsed = new URL(normalized);
+    } catch {
+      parsed = null;
+    }
+    if (!parsed || (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') || parsed.username || parsed.password) {
+      alert(`Invalid server URL: ${serverUrl}\n\nUse an http(s) URL without credentials.`);
+      clearConfigParams();
+      return false;
+    }
+    if (parsed.origin !== window.location.origin) {
+      const trusted = window.confirm(
+        `Connect this ladder to:\n\n${normalized}\n\nYour API key will be stored for that server. Continue only if you trust it.`
+      );
+      if (!trusted) {
+        clearConfigParams();
+        return false;
+      }
+    }
 
     saveUserSettings({
       server: normalized,
@@ -212,7 +251,7 @@ export async function loadConfigFromUrl(): Promise<boolean> {
     
     if (!fileUrl) {
       alert('Missing file URL. Use: ?config=3&file=http://host/file.tab');
-      
+      clearConfigParams();
       return false;
     }
 
@@ -239,6 +278,7 @@ export async function loadConfigFromUrl(): Promise<boolean> {
   // Clear all game results, keep players: ?config=4
   else if (configType === '4') {
     if (!window.confirm('This will clear ALL game results for every player.\nPlayer names and ratings will be kept.\n\nContinue?')) {
+      clearConfigParams();
       return false;
     }
 
@@ -301,15 +341,13 @@ export async function loadConfigFromUrl(): Promise<boolean> {
   
   else {
     console.warn(`[USER_SETTINGS] Unknown config type: ${configType}. Use ?config=1 (server), ?config=2 (local), ?config=3 (file), or ?config=4 (clear results).`);
+    clearConfigParams();
     return false;
   }
 
-  // Clear the query params from URL (so reload doesn't re-apply)
-  url.searchParams.delete('config');
-  url.searchParams.delete('server');
-  url.searchParams.delete('key');
-  url.searchParams.delete('file');
-  window.history.replaceState({}, '', url.toString());
+  // Clear the config params from the URL (so reload doesn't re-apply, and
+  // the API key stops being present in access logs)
+  clearConfigParams();
 
   return true;
 }

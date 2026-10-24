@@ -3,7 +3,7 @@ import { requireUserKey, hasValidKey } from '../middleware/auth.middleware.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { writeLimiter } from '../middleware/rateLimit.middleware.js';
 import { AppError } from '../middleware/errorHandler.js';
-import { readLadderFile, writeLadderFile, PlayerData, withTiming } from '../services/dataService.js';
+import { readLadderFile, writeLadderFile, withFileLock, PlayerData, withTiming } from '../services/dataService.js';
 import { log, logError, shouldLog } from '../utils/logger.js';
 import { broadcastSSEEvent } from '../services/sseService.js';
 import { checkMiniGameFilesWith, writeMiniGameFile, MINI_GAME_FILES } from '../services/tournamentService.js';
@@ -33,7 +33,9 @@ const PLAYER_UPDATE_FIELDS: Record<string, 'string' | 'number' | 'boolean'> = {
 };
 
 function anonHidePII(): boolean {
-  return process.env.ANON_HIDE_PII === 'true';
+  // Hide by default: unauthenticated reads of a kids' ladder must not expose
+  // phone/school/room/info unless the operator explicitly opts out.
+  return process.env.ANON_HIDE_PII !== 'false';
 }
 
 type PiiFields = { phone?: string; school?: string; room?: string; info?: string };
@@ -87,30 +89,34 @@ router.put('/:rank', requireUserKey, writeLimiter, asyncHandler(async (req: Requ
     throw new AppError('Invalid rank', 400);
   }
 
-  const ladderData = await readLadderFile();
-  const playerIndex = ladderData.players.findIndex((p: PlayerData) => p.rank === rank);
+  // Read-modify-write as one transaction so concurrent writers can't lose updates
+  const updatedPlayer = await withFileLock(async () => {
+    const ladderData = await readLadderFile();
+    const playerIndex = ladderData.players.findIndex((p: PlayerData) => p.rank === rank);
 
-  if (playerIndex === -1) {
-    throw new AppError('Player not found', 404);
-  }
-
-  // Update player fields (whitelist + type-checked)
-  const updatedPlayer = { ...ladderData.players[playerIndex] };
-  const body = req.body as Record<string, unknown>;
-  for (const [key, value] of Object.entries(body)) {
-    if (key === 'gameResults') {
-      if (Array.isArray(value) && value.every((v: unknown) => v === null || typeof v === 'string')) {
-        updatedPlayer.gameResults = value as (string | null)[];
-      }
-      continue;
+    if (playerIndex === -1) {
+      throw new AppError('Player not found', 404);
     }
-    const expectedType = PLAYER_UPDATE_FIELDS[key];
-    if (!expectedType || typeof value !== expectedType) continue;
-    (updatedPlayer as Record<string, unknown>)[key] = value;
-  }
 
-  ladderData.players[playerIndex] = updatedPlayer;
-  await writeLadderFile(ladderData);
+    // Update player fields (whitelist + type-checked)
+    const updatedPlayer = { ...ladderData.players[playerIndex] };
+    const body = req.body as Record<string, unknown>;
+    for (const [key, value] of Object.entries(body)) {
+      if (key === 'gameResults') {
+        if (Array.isArray(value) && value.every((v: unknown) => v === null || typeof v === 'string')) {
+          updatedPlayer.gameResults = value as (string | null)[];
+        }
+        continue;
+      }
+      const expectedType = PLAYER_UPDATE_FIELDS[key];
+      if (!expectedType || typeof value !== expectedType) continue;
+      (updatedPlayer as Record<string, unknown>)[key] = value;
+    }
+
+    ladderData.players[playerIndex] = updatedPlayer;
+    await writeLadderFile(ladderData);
+    return updatedPlayer;
+  });
 
   broadcastSSEEvent('playerUpdated', { rank: updatedPlayer.rank, type: 'playerUpdate' });
 
@@ -129,22 +135,24 @@ router.delete('/:rank/round/:roundIndex', requireUserKey, writeLimiter, asyncHan
     throw new AppError('Invalid rank or round index', 400);
   }
 
-  const ladderData = await readLadderFile();
-  const playerIndex = ladderData.players.findIndex((p: PlayerData) => p.rank === rank);
+  await withFileLock(async () => {
+    const ladderData = await readLadderFile();
+    const playerIndex = ladderData.players.findIndex((p: PlayerData) => p.rank === rank);
 
-  if (playerIndex === -1) {
-    throw new AppError('Player not found', 404);
-  }
+    if (playerIndex === -1) {
+      throw new AppError('Player not found', 404);
+    }
 
-  const player = ladderData.players[playerIndex];
+    const player = ladderData.players[playerIndex];
 
-  // Clear the cell
-  if (!player.gameResults) {
-    player.gameResults = [...DEFAULT_GAME_RESULTS];
-  }
-  player.gameResults[roundIndex] = null;
+    // Clear the cell
+    if (!player.gameResults) {
+      player.gameResults = [...DEFAULT_GAME_RESULTS];
+    }
+    player.gameResults[roundIndex] = null;
 
-  await writeLadderFile(ladderData);
+    await writeLadderFile(ladderData);
+  });
 
   broadcastSSEEvent('cellCleared', { rank, round: roundIndex, type: 'cellClear' });
 
@@ -222,24 +230,6 @@ router.put('/', requireUserKey, writeLimiter, asyncHandler(async (req: Request, 
     }
   }
 
-  const ladderData: any = await withTiming(`readLadderFile(bulk)`, readLadderFile);
-
-  // Debug: compare incoming data with file data
-  if (shouldLog(5, isNaN(clientDebugLevel) ? undefined : clientDebugLevel)) {
-    for (const ip of typedPlayers) {
-      const fp = ladderData.players?.find((p: PlayerData) => p.rank === ip.rank);
-      if (fp && fp.gameResults && ip.gameResults) {
-        for (let r = 0; r < 31; r++) {
-          const inv = ip.gameResults[r];
-          const fvl = fp.gameResults[r];
-          if (inv !== fvl) {
-            console.log(`[SERVER_PUT] DIFF P${ip.rank} R${r}: incoming="${inv}" file="${fvl}"`);
-          }
-        }
-      }
-    }
-  }
-
   // Log game results that contain W/L for bulk save
   for (const p of typedPlayers) {
     if (p.gameResults) {
@@ -252,15 +242,36 @@ router.put('/', requireUserKey, writeLimiter, asyncHandler(async (req: Request, 
     }
   }
 
-  // Deduplicate players before saving to prevent duplicate entries
-  const beforeCount = typedPlayers.length;
-  ladderData.players = deduplicatePlayers(typedPlayers);
-  const afterCount = ladderData.players.length;
-  if (beforeCount !== afterCount) {
-    log('[SERVER_BULK]', `Deduplicated ${beforeCount} -> ${afterCount} players (${beforeCount - afterCount} duplicates removed)`);
-  }
+  // Read-dedup-write as one transaction so concurrent writers can't lose updates
+  await withFileLock(async () => {
+    const ladderData: any = await withTiming(`readLadderFile(bulk)`, readLadderFile);
 
-  await withTiming(`writeLadderFile(bulk-${afterCount})`, () => writeLadderFile(ladderData));
+    // Debug: compare incoming data with file data
+    if (shouldLog(5, isNaN(clientDebugLevel) ? undefined : clientDebugLevel)) {
+      for (const ip of typedPlayers) {
+        const fp = ladderData.players?.find((p: PlayerData) => p.rank === ip.rank);
+        if (fp && fp.gameResults && ip.gameResults) {
+          for (let r = 0; r < NUM_ROUNDS; r++) {
+            const inv = ip.gameResults[r];
+            const fvl = fp.gameResults[r];
+            if (inv !== fvl) {
+              console.log(`[SERVER_PUT] DIFF P${ip.rank} R${r}: incoming="${inv}" file="${fvl}"`);
+            }
+          }
+        }
+      }
+    }
+
+    // Deduplicate players before saving to prevent duplicate entries
+    const beforeCount = typedPlayers.length;
+    ladderData.players = deduplicatePlayers(typedPlayers);
+    const afterCount = ladderData.players.length;
+    if (beforeCount !== afterCount) {
+      log('[SERVER_BULK]', `Deduplicated ${beforeCount} -> ${afterCount} players (${beforeCount - afterCount} duplicates removed)`);
+    }
+
+    await withTiming(`writeLadderFile(bulk-${afterCount})`, () => writeLadderFile(ladderData));
+  });
 
   broadcastSSEEvent('ladderUpdated', { type: 'bulkUpdate', count: typedPlayers.length });
 
@@ -286,39 +297,43 @@ router.post('/batch', requireUserKey, writeLimiter, asyncHandler(async (req: Req
 
   const typedDeltas = deltas as Array<{ playerRank: number; round: number; result: string }>;
 
-  const ladderData = await withTiming(`readLadderFile(batch)`, readLadderFile);
-  const results: any[] = [];
-
   console.log('[SERVER_BATCH] Received deltas:', JSON.stringify(typedDeltas));
 
-  for (const delta of typedDeltas) {
-    const playerIndex = ladderData.players.findIndex((p: PlayerData) => p.rank === delta.playerRank);
+  // Read-apply-write as one transaction so concurrent writers can't lose updates
+  const results: any[] = await withFileLock(async () => {
+    const ladderData = await withTiming(`readLadderFile(batch)`, readLadderFile);
+    const results: any[] = [];
 
-    if (playerIndex === -1) {
-      results.push({ playerRank: delta.playerRank, error: 'Player not found' });
-      continue;
+    for (const delta of typedDeltas) {
+      const playerIndex = ladderData.players.findIndex((p: PlayerData) => p.rank === delta.playerRank);
+
+      if (playerIndex === -1) {
+        results.push({ playerRank: delta.playerRank, error: 'Player not found' });
+        continue;
+      }
+
+      const player = ladderData.players[playerIndex];
+      if (!player.gameResults) {
+        player.gameResults = [...DEFAULT_GAME_RESULTS];
+      }
+      if (delta.round < 0 || delta.round >= NUM_ROUNDS) {
+        results.push({ playerRank: delta.playerRank, error: 'Round out of range' });
+        continue;
+      }
+      while (player.gameResults.length <= delta.round) {
+        player.gameResults.push(null);
+      }
+
+      const oldResult = player.gameResults[delta.round];
+      player.gameResults[delta.round] = delta.result;
+      console.log('[SERVER_BATCH] Stored P' + delta.playerRank + ' R' + delta.round + ': "' + oldResult + '" -> "' + delta.result + '"');
+      ladderData.players[playerIndex] = player;
+      results.push({ playerRank: delta.playerRank, round: delta.round, success: true });
     }
 
-    const player = ladderData.players[playerIndex];
-    if (!player.gameResults) {
-      player.gameResults = [...DEFAULT_GAME_RESULTS];
-    }
-    if (delta.round < 0 || delta.round >= NUM_ROUNDS) {
-      results.push({ playerRank: delta.playerRank, error: 'Round out of range' });
-      continue;
-    }
-    while (player.gameResults.length <= delta.round) {
-      player.gameResults.push(null);
-    }
-
-    const oldResult = player.gameResults[delta.round];
-    player.gameResults[delta.round] = delta.result;
-    console.log('[SERVER_BATCH] Stored P' + delta.playerRank + ' R' + delta.round + ': "' + oldResult + '" -> "' + delta.result + '"');
-    ladderData.players[playerIndex] = player;
-    results.push({ playerRank: delta.playerRank, round: delta.round, success: true });
-  }
-
-  await withTiming(`writeLadderFile(batch-${deltas.length})`, () => writeLadderFile(ladderData));
+    await withTiming(`writeLadderFile(batch-${deltas.length})`, () => writeLadderFile(ladderData));
+    return results;
+  });
 
   broadcastSSEEvent('deltasSubmitted', { type: 'batchUpdate', count: deltas.length });
 
@@ -357,11 +372,12 @@ router.post('/mini-games/write', requireUserKey, writeLimiter, asyncHandler(asyn
     throw new AppError('Invalid players data', 400);
   }
 
-  const result = await writeMiniGameFile(normFileName, {
+  // Transaction: writeMiniGameFile may also update the club ladder file
+  const result = await withFileLock(() => writeMiniGameFile(normFileName, {
     header: [],
     players,
     rawLines: [],
-  });
+  }));
 
   if (result.identityUpdates.length > 0) {
     broadcastSSEEvent('ladderUpdated', { type: 'bulkUpdate', count: result.identityUpdates.length, identityMerge: true });

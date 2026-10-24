@@ -236,21 +236,30 @@ export function addDelta(op: DeltaOperation): void {
   deltaQueue.push(op);
 }
 
+let lastFlushFailureAt = 0;
+const FAILURE_RETRY_MS = 60000;
+
 async function flushDeltas(): Promise<void> {
   if (deltaQueue.length === 0) return;
   if (deltaFlushFailures >= MAX_DELTA_FAILURES) {
-    console.error('[STORAGE] Delta flush disabled after ' + MAX_DELTA_FAILURES + ' consecutive failures. ' + deltaQueue.length + ' pending deltas may be lost. Fix server connection to resume.');
-    return;
+    // Back off instead of disabling forever: retry once a minute so a
+    // recovered server resumes flushing without a page reload
+    if (Date.now() - lastFlushFailureAt < FAILURE_RETRY_MS) return;
+    deltaFlushFailures = 0;
   }
   const batch = [...deltaQueue];
   try {
     if (dataService.getMode() !== DataServiceMode.LOCAL) {
       await dataService.submitDeltaBatch(batch);
     }
-    deltaQueue = [];
+    // Only drop the ops that were actually sent. A blanket `deltaQueue = []`
+    // here would discard deltas typed during the network round-trip.
+    const sent = new Set(batch);
+    deltaQueue = deltaQueue.filter(op => !sent.has(op));
     deltaFlushFailures = 0;
   } catch (error: any) {
     deltaFlushFailures++;
+    lastFlushFailureAt = Date.now();
     console.error(`[STORAGE] Failed to flush deltas (attempt ${deltaFlushFailures}/${MAX_DELTA_FAILURES}), re-queueing:`, error);
   }
 }
@@ -285,10 +294,17 @@ function queueDelete(playerRank: number, round: number): void {
       const userSettings = loadUserSettings();
       const serverUrl = userSettings.server?.trim();
       if (serverUrl) {
-        await gatedFetch(`${serverUrl}/api/ladder/${playerRank}/round/${round}`, { method: 'DELETE' });
-        const freshDeletes = new Set(getJsonArray<string>('ladder_pending_deletes'));
-        freshDeletes.delete(key);
-        setJson('ladder_pending_deletes', [...freshDeletes]);
+        const res = await gatedFetch(`${serverUrl}/api/ladder/${playerRank}/round/${round}`, {
+          method: 'DELETE',
+          headers: userSettings.apiKey ? { 'X-API-Key': userSettings.apiKey.trim() } : undefined,
+        });
+        // Only drop the queued delete once the server confirmed it — a 401
+        // would otherwise silently resurrect the cleared cell on next sync
+        if (res.ok) {
+          const freshDeletes = new Set(getJsonArray<string>('ladder_pending_deletes'));
+          freshDeletes.delete(key);
+          setJson('ladder_pending_deletes', [...freshDeletes]);
+        }
       }
     } catch (err) {
       log('[STORAGE]', 'Delete queued for retry:', key);
@@ -310,15 +326,24 @@ export async function replayPendingDeletes(): Promise<void> {
   const userSettings = loadUserSettings();
   const serverUrl = userSettings.server?.trim();
   if (!serverUrl) return;
+  const headers = userSettings.apiKey ? { 'X-API-Key': userSettings.apiKey.trim() } : undefined;
+  const remaining = new Set(deletes);
   for (const key of deletes) {
     const [rankStr, roundStr] = key.split(':');
     try {
-      await gatedFetch(`${serverUrl}/api/ladder/${parseInt(rankStr)}/round/${parseInt(roundStr)}`, { method: 'DELETE' });
+      const res = await gatedFetch(`${serverUrl}/api/ladder/${parseInt(rankStr)}/round/${parseInt(roundStr)}`, { method: 'DELETE', headers });
+      if (res.ok) remaining.delete(key);
     } catch (err) {
       log('[STORAGE]', `Failed to replay delete ${key}:`, err);
     }
   }
-  clearPendingDeletes();
+  // Keep failed deletes queued so a later sync retries them instead of
+  // letting the cleared cells resurrect from the server
+  if (remaining.size === 0) {
+    clearPendingDeletes();
+  } else {
+    setJson('ladder_pending_deletes', [...remaining]);
+  }
 }
 
 // ==================== BATCH SYNC MANAGEMENT ====================

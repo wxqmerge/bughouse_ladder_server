@@ -20,12 +20,10 @@ function getUserKey() {
 function timingSafeCompare(a: string, b: string): boolean {
   const aBuf = Buffer.from(a, 'utf-8');
   const bBuf = Buffer.from(b, 'utf-8');
-  const maxLen = Math.max(aBuf.length, bBuf.length);
-  const paddedA = Buffer.alloc(maxLen);
-  const paddedB = Buffer.alloc(maxLen);
-  aBuf.copy(paddedA);
-  bBuf.copy(paddedB);
-  return crypto.timingSafeEqual(paddedA, paddedB);
+  // Lengths are not secret; without this check, zero-padding would let a key
+  // with trailing NUL bytes (e.g. "realkey\0\0") compare equal to the real one.
+  if (aBuf.length !== bBuf.length) return false;
+  return crypto.timingSafeEqual(aBuf, bBuf);
 }
 
 /**

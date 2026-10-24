@@ -27,7 +27,9 @@ import {
   setPendingNewDay,
   clearPendingNewDay,
   clearSettings,
+  getPendingDeletes,
 } from './storageService';
+import { mergeServerSnapshot } from '../utils/mergeUtils';
 import { playersToTabContent } from './miniGameLocalStorage';
 import { loadUserSettings } from './userSettingsStorage';
 import { gatedFetch } from '../utils/requestGate';
@@ -367,6 +369,33 @@ class DataService {
     return this.resetHash();
   }
 
+  /**
+   * Cache a fresh server snapshot in localStorage while preserving locally
+   * typed but unconfirmed cells and queued deletes (AGENTS merge priority:
+   * pending deletes > local unconfirmed > server). Without this, polling or
+   * background refreshes silently overwrite edits that have not synced yet.
+   */
+  private async cacheServerSnapshot(serverPlayers: PlayerData[]): Promise<void> {
+    try {
+      const localPlayers = this.currentMiniGameFile
+        ? await this.getLocalMiniGamePlayers()
+        : await this.getLocalPlayers();
+      const merged = mergeServerSnapshot(serverPlayers, localPlayers, getPendingDeletes());
+      if (this.currentMiniGameFile) {
+        await this.saveLocalMiniGamePlayers(merged, false);
+      } else {
+        storageSavePlayers(merged, false, true);
+      }
+    } catch (err) {
+      console.error('[DataService] Snapshot merge failed, caching raw server data:', err);
+      if (this.currentMiniGameFile) {
+        await this.saveLocalMiniGamePlayers(serverPlayers, false);
+      } else {
+        storageSavePlayers(serverPlayers, false, true);
+      }
+    }
+  }
+
   // Refresh data from source - returns true if data changed
   async refreshData(): Promise<boolean> {
     if (this.config.mode === DataServiceMode.LOCAL) {
@@ -400,12 +429,8 @@ class DataService {
         // Check if data actually changed
         if (this.syncHashFromServer(serverPlayers)) {
           console.debug('[DataService] Polling detected data change');
-          // Save fresh server data to localStorage so getPlayers() returns it (caller handles notify)
-          if (this.currentMiniGameFile) {
-            await this.saveLocalMiniGamePlayers(serverPlayers, false);
-          } else {
-            this.saveLocalPlayers(serverPlayers, false);
-          }
+          // Merge into the local cache so unconfirmed local cells survive (caller handles notify)
+          await this.cacheServerSnapshot(serverPlayers);
           return true; // Data changed
         }
         
@@ -454,12 +479,9 @@ class DataService {
                 serverPlayers = await this.fetchPlayers();
               }
               const dataChanged = this.syncHashFromServer(serverPlayers);
-            // Save to localStorage cache so getPlayers() always has fresh data (no notify to avoid loop)
-               if (this.currentMiniGameFile) {
-                  await this.saveLocalMiniGamePlayers(serverPlayers, false);
-                } else {
-                  this.saveLocalPlayers(serverPlayers, false);
-                }
+              // Merge into the localStorage cache so unconfirmed local cells
+              // survive the refresh (no notify to avoid loop)
+              await this.cacheServerSnapshot(serverPlayers);
                 // Only notify if data actually changed (prevents infinite loop)
                 if (dataChanged) {
                   this.notifySubscribers();
@@ -618,8 +640,9 @@ class DataService {
       throw new Error('Invalid server response: missing data.players array');
     }
     const players = normalizeGrades(data.data.players);
-    // Cache in localStorage via storageService (skip server sync - we're fetching FROM server)
-    storageSavePlayers(players, false, true);
+    // Merge into the localStorage cache (skip server sync - we're fetching
+    // FROM the server; local unconfirmed cells must survive)
+    await this.cacheServerSnapshot(players);
     return players;
   }
 

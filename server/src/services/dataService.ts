@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import fsSync from 'fs';
 import path from 'path';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { fileURLToPath } from 'url';
 import { log as loggerLog } from '../utils/logger.js';
 import { MINI_GAME_FILES } from '../../../shared/types/index.js';
@@ -80,7 +81,13 @@ export interface BackupInfo {
 // Uses a chain of promises to guarantee atomic acquisition.
 let fileLock: Promise<void> | null = null;
 
+// AsyncLocalStorage marks the dynamic scope of a transaction that already
+// holds the lock, so readLadderFile/writeLadderFile nested inside
+// withFileLock() don't re-acquire the non-reentrant mutex and deadlock.
+const lockScope = new AsyncLocalStorage<{ held: true }>();
+
 async function acquireLock(): Promise<() => void> {
+  if (lockScope.getStore()) return () => {}; // already held by this transaction
   let release: () => void;
   const prev = fileLock;
   fileLock = new Promise((resolve) => {
@@ -88,6 +95,22 @@ async function acquireLock(): Promise<() => void> {
   });
   if (prev) await prev;
   return release!;
+}
+
+/**
+ * Serialize a read-modify-write sequence against the ladder / mini-game
+ * files. Without this, two concurrent requests could both read the same
+ * snapshot and the later write would silently revert the earlier change.
+ * Calls to readLadderFile/writeLadderFile inside fn skip re-acquisition.
+ */
+export async function withFileLock<T>(fn: () => Promise<T>): Promise<T> {
+  if (lockScope.getStore()) return fn();
+  const release = await acquireLock();
+  try {
+    return await lockScope.run({ held: true }, fn);
+  } finally {
+    release();
+  }
 }
 
 // In-memory read cache — avoids re-parsing the .tab file on every GET request.
@@ -100,6 +123,21 @@ interface LadderCache {
 const ladderCache: LadderCache = { data: null, mtimeMs: 0, timestamp: 0 };
 const CACHE_TTL_MS = 5000;
 
+// Copy players (and their gameResults) on every cache hit so route handlers
+// that mutate players in place cannot dirty the shared cached snapshot.
+function clonePlayers(players: PlayerData[]): PlayerData[] {
+  return players.map(p => ({
+    ...p,
+    gameResults: p.gameResults ? [...p.gameResults] : p.gameResults,
+  }));
+}
+
+function invalidateLadderCache(): void {
+  ladderCache.data = null;
+  ladderCache.mtimeMs = 0;
+  ladderCache.timestamp = 0;
+}
+
 export async function readLadderFile(filePath?: string): Promise<LadderData> {
   const targetPath = filePath || TAB_FILE_PATH;
   return withTiming('readLadderFile', async () => {
@@ -109,7 +147,7 @@ export async function readLadderFile(filePath?: string): Promise<LadderData> {
         const stat = await fs.stat(targetPath);
         const now = Date.now();
         if (ladderCache.data && stat.mtimeMs === ladderCache.mtimeMs && (now - ladderCache.timestamp) < CACHE_TTL_MS) {
-          return { ...ladderCache.data, players: [...ladderCache.data.players] };
+          return { ...ladderCache.data, players: clonePlayers(ladderCache.data.players) };
         }
       } catch {
         // File doesn't exist — fall through to read
@@ -236,7 +274,8 @@ export async function readLadderFile(filePath?: string): Promise<LadderData> {
       }
     }
 
-    return result;
+    // Return a copy so mutations by the caller never touch the cached object
+    return { ...result, players: clonePlayers(players) };
   } finally {
     releaseRead();
   }
@@ -268,13 +307,14 @@ export async function writeLadderFile(ladderData: LadderData, filePath?: string)
       }
       
       const content = generateTabContent(ladderData);
-      await fs.writeFile(targetPath, content, 'utf-8');
+      // Atomic: temp file + rename so readers/repaired paths never see a partial file
+      const tmpPath = `${targetPath}.tmp`;
+      await fs.writeFile(tmpPath, content, 'utf-8');
+      await fs.rename(tmpPath, targetPath);
 
       // Invalidate read cache after successful write
       if (!filePath) {
-        ladderCache.data = null;
-        ladderCache.mtimeMs = 0;
-        ladderCache.timestamp = 0;
+        invalidateLadderCache();
       }
       
       writeHealth.lastWriteTime = new Date().toISOString();
@@ -290,6 +330,35 @@ export async function writeLadderFile(ladderData: LadderData, filePath?: string)
       throw err;
     } finally {
       releaseWrite();
+    }
+  });
+}
+
+/**
+ * Atomically write raw .tab content (admin upload / tournament import) under
+ * the file lock. Previously these paths called fs.writeFile directly, which
+ * could interleave with route writes and corrupt the file. When the target is
+ * the main ladder, a forced backup runs first and the read cache is invalidated.
+ */
+export async function writeLadderFileRaw(
+  targetPath: string,
+  content: string,
+  options: { backup?: boolean } = {}
+): Promise<void> {
+  return withFileLock(async () => {
+    if (options.backup !== false && !process.env.VITEST && targetPath === TAB_FILE_PATH) {
+      try {
+        const backupPath = await createBackup(true);
+        if (backupPath) await rotateBackups();
+      } catch (backupErr) {
+        loggerLog('[SERVER]', `Backup failed (continuing write): ${(backupErr as Error).message}`);
+      }
+    }
+    const tmpPath = `${targetPath}.tmp`;
+    await fs.writeFile(tmpPath, content, 'utf-8');
+    await fs.rename(tmpPath, targetPath);
+    if (targetPath === TAB_FILE_PATH) {
+      invalidateLadderCache();
     }
   });
 }
@@ -432,8 +501,18 @@ async function getExistingMiniGamePaths(): Promise<string[]> {
   return result;
 }
 
-export async function createBackup(): Promise<string | null> {
+// Throttle backups: full ladder+mini-game copies on every cell edit amplify
+// I/O. force=true (uploads/imports) always backs up. Configurable via
+// BACKUP_MIN_INTERVAL_MS (default 60s).
+let lastBackupAt = 0;
+
+export async function createBackup(force: boolean = false): Promise<string | null> {
   try {
+    const minIntervalMs = parseInt(process.env.BACKUP_MIN_INTERVAL_MS || '', 10) || 60000;
+    if (!force && !process.env.VITEST && Date.now() - lastBackupAt < minIntervalMs) {
+      return null;
+    }
+
     await ensureBackupDirectory();
 
     // Only backup if ladder.tab exists and has content
@@ -450,6 +529,7 @@ export async function createBackup(): Promise<string | null> {
     const mainFileName = getBackupFileName('ladder', timestamp);
     const mainBackupPath = path.join(BACKUP_DIR, mainFileName);
     await fs.copyFile(TAB_FILE_PATH, mainBackupPath);
+    lastBackupAt = Date.now();
     loggerLog('[SERVER]', `Created backup: ${mainFileName}`);
 
     // Back up all existing mini-game files
@@ -500,14 +580,13 @@ export async function restoreBackup(filename: string): Promise<boolean> {
       return false;
     }
     const content = await fs.readFile(backupPath, 'utf-8');
-    await fs.writeFile(targetPath, content, 'utf-8');
-
-    // Invalidate read cache after successful restore
-    if (!targetPath || targetPath === TAB_FILE_PATH) {
-      ladderCache.data = null;
-      ladderCache.mtimeMs = 0;
-      ladderCache.timestamp = 0;
-    }
+    // Atomic + under the file lock so a restore can't interleave with route writes
+    await withFileLock(async () => {
+      const tmpPath = `${targetPath}.tmp`;
+      await fs.writeFile(tmpPath, content, 'utf-8');
+      await fs.rename(tmpPath, targetPath);
+      invalidateLadderCache();
+    });
 
     loggerLog('[SERVER]', `Restored from backup: ${filename} → ${path.basename(targetPath)}`);
     return true;

@@ -71,3 +71,56 @@ export function mergeServerWithLocal(
   // Deduplicate by name to prevent duplicate entries
   return deduplicatePlayers(result);
 }
+
+/**
+ * Conservative merge used when caching a fresh server snapshot locally
+ * (polling / background refresh / fetchPlayers). The server is the base,
+ * but pending-deleted cells become null and locally typed cells survive
+ * unless the server has already confirmed that cell. Unlike
+ * mergeServerWithLocal this never dedupes and never rewrites identity
+ * fields — it must not destroy local-only rows.
+ */
+export function mergeServerSnapshot(
+  serverPlayers: PlayerData[],
+  localPlayers: PlayerData[],
+  pendingDeletes: Set<string> = new Set()
+): PlayerData[] {
+  const localByRank = new Map(localPlayers.map(lp => [lp.rank, lp]));
+
+  const result = serverPlayers.map(sp => {
+    const localPlayer = localByRank.get(sp.rank);
+    if (!localPlayer?.gameResults) {
+      return { ...sp };
+    }
+
+    const serverResults = sp.gameResults ? [...sp.gameResults] : [...DEFAULT_GAME_RESULTS];
+    const mergedGameResults = [...serverResults];
+
+    for (let r = 0; r < mergedGameResults.length; r++) {
+      const localResult = localPlayer.gameResults[r];
+      const serverResult = serverResults[r];
+      const serverConfirmed = typeof serverResult === 'string' && serverResult.endsWith('_');
+
+      if (pendingDeletes.has(`${sp.rank}:${r}`)) {
+        mergedGameResults[r] = null;
+      } else if (localResult && localResult.trim() && !serverConfirmed) {
+        mergedGameResults[r] = localResult;
+      } else {
+        mergedGameResults[r] = serverResult ?? null;
+      }
+    }
+
+    return { ...sp, gameResults: mergedGameResults };
+  });
+
+  // Keep players that only exist locally (e.g. an add that has not been
+  // confirmed by the server yet) so auto-sync cannot delete them.
+  const serverRanks = new Set(serverPlayers.map(sp => sp.rank));
+  for (const lp of localPlayers) {
+    if (!serverRanks.has(lp.rank)) {
+      result.push({ ...lp });
+    }
+  }
+
+  return result;
+}

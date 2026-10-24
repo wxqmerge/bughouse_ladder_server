@@ -3,6 +3,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { requireUserKey } from '../middleware/auth.middleware.js';
+import { withFileLock } from '../services/dataService.js';
 import { logError } from '../utils/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -59,14 +60,17 @@ router.post('/', requireUserKey, async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    const layouts = await readLayouts();
-    const idx = layouts.findIndex(l => l.name === layout.name && l.labelsPerPage === layout.labelsPerPage);
-    if (idx >= 0) {
-      layouts[idx] = layout;
-    } else {
-      layouts.push(layout);
-    }
-    await writeLayouts(layouts);
+    // Read-modify-write as one transaction so concurrent saves can't lose layouts
+    await withFileLock(async () => {
+      const layouts = await readLayouts();
+      const idx = layouts.findIndex(l => l.name === layout.name && l.labelsPerPage === layout.labelsPerPage);
+      if (idx >= 0) {
+        layouts[idx] = layout;
+      } else {
+        layouts.push(layout);
+      }
+      await writeLayouts(layouts);
+    });
     res.json({ success: true, layout });
   } catch (err) {
     logError('Failed to save print layout:', String(err));
@@ -77,14 +81,16 @@ router.post('/', requireUserKey, async (req: Request, res: Response): Promise<vo
 // Delete layout
 router.delete('/:name', requireUserKey, async (req: Request, res: Response): Promise<void> => {
   try {
-    const layouts = await readLayouts();
-    const filtered = layouts.filter(l => l.name !== req.params.name);
-    if (filtered.length === layouts.length) {
-      res.status(404).json({ success: false, error: { message: 'Layout not found' } });
-      return;
-    }
-    await writeLayouts(filtered);
-    res.json({ success: true });
+    await withFileLock(async () => {
+      const layouts = await readLayouts();
+      const filtered = layouts.filter(l => l.name !== req.params.name);
+      if (filtered.length === layouts.length) {
+        res.status(404).json({ success: false, error: { message: 'Layout not found' } });
+        return;
+      }
+      await writeLayouts(filtered);
+      res.json({ success: true });
+    });
   } catch (err) {
     logError('Failed to delete print layout:', String(err));
     res.status(500).json({ success: false, error: { message: 'Failed to delete layout' } });

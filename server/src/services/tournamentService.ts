@@ -2,7 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { log as loggerLog } from '../utils/logger.js';
-import { readLadderFile, writeLadderFile, PlayerData, LadderData, ensureDataDirectory } from './dataService.js';
+import { readLadderFile, writeLadderFile, writeLadderFileRaw, withFileLock, PlayerData, LadderData, ensureDataDirectory } from './dataService.js';
 import { MINI_GAME_FILES, MINI_GAME_DIFFICULTY_ORDER, DEFAULT_GAME_RESULTS } from '../../../shared/types/index.js';
 import { clearRankReferences } from '../../../shared/utils/hashUtils.js';
 import { NUM_ROUNDS } from '../../../shared/utils/constants.js';
@@ -58,6 +58,15 @@ interface MiniGameCache {
 }
 const miniGameCache = new Map<string, MiniGameCache>();
 const MINI_GAME_CACHE_TTL_MS = 5000;
+
+// Copy players (and gameResults) on every cache return so callers that mutate
+// players in place can't dirty the shared cached snapshot.
+function cloneMiniPlayers(players: PlayerData[]): PlayerData[] {
+  return players.map(p => ({
+    ...p,
+    gameResults: p.gameResults ? [...p.gameResults] : p.gameResults,
+  }));
+}
 
 // For testing: clear the mini-game read cache
 export function clearMiniGameCache(): void {
@@ -152,7 +161,7 @@ export async function readMiniGameFileRaw(fileName: string): Promise<LadderData 
     const stat = await fs.stat(filePath);
     const now = Date.now();
     if (cached && cached.data && stat.mtimeMs === cached.mtimeMs && (now - cached.timestamp) < MINI_GAME_CACHE_TTL_MS) {
-      return { ...cached.data, players: [...cached.data.players] };
+      return { ...cached.data, players: cloneMiniPlayers(cached.data.players) };
     }
 
     const result = await readLadderFile(filePath);
@@ -160,7 +169,8 @@ export async function readMiniGameFileRaw(fileName: string): Promise<LadderData 
     // Update cache
     miniGameCache.set(filePath, { data: result, mtimeMs: stat.mtimeMs, timestamp: now });
 
-    return result;
+    // Return a copy so caller mutations never touch the cached object
+    return { ...result, players: cloneMiniPlayers(result.players) };
   } catch {
     return null;
   }
@@ -190,8 +200,17 @@ export async function readMiniGameFile(fileName: string): Promise<LadderData | n
   return raw;
 }
 
-// Write a mini-game file with identity split to club ladder
+// Runs under the file lock: the club-ladder identity update and the mini-game
+// write must be atomic together. withFileLock is reentrant, so callers that
+// already hold the lock (route transactions) are unaffected.
 export async function writeMiniGameFile(
+  fileName: string,
+  ladderData: LadderData
+): Promise<{ identityUpdates: PlayerData[]; miniGameWritten: boolean }> {
+  return withFileLock(() => writeMiniGameFileUnlocked(fileName, ladderData));
+}
+
+async function writeMiniGameFileUnlocked(
 	fileName: string,
 	ladderData: LadderData
 ): Promise<{ identityUpdates: PlayerData[]; miniGameWritten: boolean }> {
@@ -255,6 +274,10 @@ export async function writeMiniGameFile(
  * correct player data from the club ladder.
  */
 export async function reconcileMiniGameWithClubLadder(fileName: string): Promise<void> {
+	return withFileLock(() => reconcileMiniGameWithClubLadderUnlocked(fileName));
+}
+
+async function reconcileMiniGameWithClubLadderUnlocked(fileName: string): Promise<void> {
 	const clubLadderPath = path.join(path.dirname(getMiniGameFilePath(fileName)), 'ladder.tab');
 	let clubLadder: LadderData | null = null;
 	try {
@@ -410,8 +433,14 @@ export async function exportTournamentFiles(): Promise<{ success: boolean; messa
   }
 }
 
-// Add a player to all existing mini-game files
+// Add a player to all existing mini-game files (single transaction over all files)
 export async function addPlayerToAllMiniGames(newPlayer: PlayerData): Promise<void> {
+  await withFileLock(async () => {
+    await addPlayerToAllMiniGamesUnlocked(newPlayer);
+  });
+}
+
+async function addPlayerToAllMiniGamesUnlocked(newPlayer: PlayerData): Promise<void> {
   const existingFiles = await getExistingMiniGameFiles();
   
   for (const fileName of existingFiles) {
@@ -458,6 +487,12 @@ function removePlayerAndClearRefs(ladderData: LadderData, key: string): { remove
 }
 
 export async function removePlayerFromAll(lastName: string, firstName: string): Promise<void> {
+  await withFileLock(async () => {
+    await removePlayerFromAllUnlocked(lastName, firstName);
+  });
+}
+
+async function removePlayerFromAllUnlocked(lastName: string, firstName: string): Promise<void> {
   const key = lastName.toLowerCase() + '|' + firstName.toLowerCase();
 
   const ladderData = await readLadderFile();
@@ -481,6 +516,17 @@ export async function removePlayerFromAll(lastName: string, firstName: string): 
 }
 
 export async function updatePlayerInAll(
+  rank: number,
+  originalLastName: string,
+  originalFirstName: string,
+  updates: Partial<PlayerData>
+): Promise<void> {
+  await withFileLock(async () => {
+    await updatePlayerInAllUnlocked(rank, originalLastName, originalFirstName, updates);
+  });
+}
+
+async function updatePlayerInAllUnlocked(
   rank: number,
   originalLastName: string,
   originalFirstName: string,
@@ -621,7 +667,8 @@ export const tournamentStore: MiniGameStore = {
       if (normFileName === 'ladder.tab') {
         try {
           const targetPath = process.env.TAB_FILE_PATH || path.join(__dirname, '../../data/ladder.tab');
-          await fs.writeFile(targetPath, fileContent + '\n', 'utf-8');
+          // Atomic write under file lock; this import already took its own backup
+          await writeLadderFileRaw(targetPath, fileContent + '\n', { backup: false });
           imported.push(normFileName);
           loggerLog('[TOURNAMENT]', `Imported ${normFileName}`);
         } catch (err) {
@@ -689,7 +736,8 @@ export const tournamentStore: MiniGameStore = {
           loggerLog('[TOURNAMENT]', `${normFileName}: removed ${beforeDedup - deduped.length} duplicate players`);
         }
         const filePath = path.join(dataDir, normFileName);
-        await fs.writeFile(filePath, generateTabContent(deduped) + '\n', 'utf-8');
+        // Atomic write under file lock; this import already took its own backup
+        await writeLadderFileRaw(filePath, generateTabContent(deduped) + '\n', { backup: false });
         // Post-import reconciliation: align player identity with ladder.tab
         miniGameCache.delete(getMiniGameFilePath(normFileName));
         await reconcileMiniGameWithClubLadder(normFileName);

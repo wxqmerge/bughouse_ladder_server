@@ -3,7 +3,7 @@ import { requireUserKey } from '../middleware/auth.middleware.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { writeLimiter } from '../middleware/rateLimit.middleware.js';
 import { AppError } from '../middleware/errorHandler.js';
-import { readLadderFile, writeLadderFile, PlayerData, withTiming } from '../services/dataService.js';
+import { readLadderFile, writeLadderFile, withFileLock, PlayerData, withTiming } from '../services/dataService.js';
 import { broadcastSSEEvent } from '../services/sseService.js';
 import { NUM_ROUNDS } from '../../../shared/utils/constants.js';
 import { DEFAULT_GAME_RESULTS } from '../../../shared/types/index.js';
@@ -47,27 +47,30 @@ router.post('/', requireUserKey, writeLimiter, asyncHandler(async (req: Request,
     throw new AppError('Invalid result format', 400);
   }
 
-  const ladderData = await readLadderFile();
-  const playerIndex = ladderData.players.findIndex((p: PlayerData) => p.rank === playerRank);
+  // Read-modify-write as one transaction so concurrent writers can't lose updates
+  await withFileLock(async () => {
+    const ladderData = await readLadderFile();
+    const playerIndex = ladderData.players.findIndex((p: PlayerData) => p.rank === playerRank);
 
-  if (playerIndex === -1) {
-    throw new AppError('Player not found', 404);
-  }
+    if (playerIndex === -1) {
+      throw new AppError('Player not found', 404);
+    }
 
-  // Ensure gameResults array exists and has enough slots
-  const player = ladderData.players[playerIndex];
-  if (!player.gameResults) {
-    player.gameResults = [...DEFAULT_GAME_RESULTS];
-  }
-  while (player.gameResults.length <= round) {
-    player.gameResults.push(null);
-  }
+    // Ensure gameResults array exists and has enough slots
+    const player = ladderData.players[playerIndex];
+    if (!player.gameResults) {
+      player.gameResults = [...DEFAULT_GAME_RESULTS];
+    }
+    while (player.gameResults.length <= round) {
+      player.gameResults.push(null);
+    }
 
-  // Store the result
-  player.gameResults[round] = result;
-  ladderData.players[playerIndex] = player;
+    // Store the result
+    player.gameResults[round] = result;
+    ladderData.players[playerIndex] = player;
 
-  await writeLadderFile(ladderData);
+    await writeLadderFile(ladderData);
+  });
 
   broadcastSSEEvent('gameSubmitted', { playerRank, round, result, type: 'gameSubmit' });
 
@@ -91,36 +94,40 @@ router.post('/batch', requireUserKey, writeLimiter, asyncHandler(async (req: Req
     throw new AppError(`Games at index(es) ${invalidGames.join(', ')} missing required fields`, 400);
   }
 
-  const ladderData = await withTiming(`readLadderFile(batch)`, readLadderFile);
-  const results: Array<{ playerRank: number; round: number; success: boolean } | { playerRank: number; error: string }> = [];
+  // Read-apply-write as one transaction so concurrent writers can't lose updates
+  const results = await withFileLock(async () => {
+    const ladderData = await withTiming(`readLadderFile(batch)`, readLadderFile);
+    const results: Array<{ playerRank: number; round: number; success: boolean } | { playerRank: number; error: string }> = [];
 
-  for (const game of games as GameResult[]) {
-    if (game.playerRank <= 0 || game.round < 0 || game.round >= NUM_ROUNDS) {
-      results.push({ playerRank: game.playerRank, error: 'Invalid playerRank or round' });
-      continue;
+    for (const game of games as GameResult[]) {
+      if (game.playerRank <= 0 || game.round < 0 || game.round >= NUM_ROUNDS) {
+        results.push({ playerRank: game.playerRank, error: 'Invalid playerRank or round' });
+        continue;
+      }
+
+      const playerIndex = ladderData.players.findIndex((p: PlayerData) => p.rank === game.playerRank);
+
+      if (playerIndex === -1) {
+        results.push({ playerRank: game.playerRank, error: 'Player not found' });
+        continue;
+      }
+
+      const player = ladderData.players[playerIndex];
+      if (!player.gameResults) {
+        player.gameResults = [...DEFAULT_GAME_RESULTS];
+      }
+      while (player.gameResults.length <= game.round) {
+        player.gameResults.push(null);
+      }
+
+      player.gameResults[game.round] = game.result;
+      ladderData.players[playerIndex] = player;
+      results.push({ playerRank: game.playerRank, round: game.round, success: true });
     }
 
-    const playerIndex = ladderData.players.findIndex((p: PlayerData) => p.rank === game.playerRank);
-
-    if (playerIndex === -1) {
-      results.push({ playerRank: game.playerRank, error: 'Player not found' });
-      continue;
-    }
-
-    const player = ladderData.players[playerIndex];
-    if (!player.gameResults) {
-      player.gameResults = [...DEFAULT_GAME_RESULTS];
-    }
-    while (player.gameResults.length <= game.round) {
-      player.gameResults.push(null);
-    }
-
-    player.gameResults[game.round] = game.result;
-    ladderData.players[playerIndex] = player;
-    results.push({ playerRank: game.playerRank, round: game.round, success: true });
-  }
-
-  await withTiming(`writeLadderFile(batch-${games.length})`, () => writeLadderFile(ladderData));
+    await withTiming(`writeLadderFile(batch-${games.length})`, () => writeLadderFile(ladderData));
+    return results;
+  });
 
   broadcastSSEEvent('gamesSubmitted', { type: 'batchGameSubmit', count: games.length });
 
