@@ -64,6 +64,10 @@ class DataService {
   private pollConsecutiveFailures = 0;
   private hashInitialized = false;
   private lastDataHash: string | null = null;
+  // Which dataset lastDataHash describes (club ladder vs a specific mini-game).
+  // Hashes across datasets are not comparable — mixing them caused constant
+  // false "data changed" notifications when switching views.
+  private lastHashScope: string | null = null;
   private currentMiniGameFile: string | null = null;
   private subscribers: Set<() => void> = new Set();
   private isPolling = false;
@@ -200,8 +204,10 @@ class DataService {
       } catch { /* ignore parse errors on connected event */ }
     });
 
+    // Names must match broadcastSSEEvent() call sites in server routes/services
     const sseEventNames = [
       'playerUpdated',
+      'playerRemoved',
       'cellCleared',
       'ladderUpdated',
       'deltasSubmitted',
@@ -288,9 +294,36 @@ class DataService {
     return hash.toString();
   }
 
+  private hashScope(): string {
+    return this.currentMiniGameFile ?? 'club-ladder';
+  }
+
+  // Fetch the player list for the currently active dataset (mini-game file
+  // or the club ladder). All hash comparisons must go through this so the
+  // hash always describes the same dataset as lastHashScope.
+  private async fetchCurrentDataset(): Promise<PlayerData[]> {
+    const url = this.currentMiniGameFile
+      ? `${this.getApiUrl()}/api/admin/tournament/read-mini-game?fileName=${encodeURIComponent(this.currentMiniGameFile)}`
+      : `${this.getApiUrl()}/api/ladder`;
+    const response = await gatedFetch(url, { headers: this.getAuthHeaders() });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status} for ${this.currentMiniGameFile ?? 'club-ladder'}`);
+    }
+    const data = await response.json();
+    return data.data?.players || [];
+  }
+
   // Sync hash from fetched players. Returns true if data changed (or initialized).
   private syncHashFromServer(serverPlayers: PlayerData[]): boolean {
     const newHash = this.computeHash(serverPlayers);
+    const scope = this.hashScope();
+    // Dataset switch: re-initialize the hash for the new scope instead of
+    // reporting a bogus change against the previous dataset's hash.
+    if (scope !== this.lastHashScope) {
+      this.lastHashScope = scope;
+      this.lastDataHash = serverPlayers.length > 0 ? newHash : null;
+      return false;
+    }
     // Initialize hash on first fetch
     if (this.lastDataHash === null && serverPlayers.length > 0) {
       this.lastDataHash = newHash;
@@ -314,6 +347,7 @@ class DataService {
     const localPlayers = await this.getLocalPlayers();
     if (localPlayers.length > 0) {
       this.lastDataHash = this.computeHash(localPlayers);
+      this.lastHashScope = this.hashScope();
       this.hashInitialized = true;
       return;
     }
@@ -327,6 +361,7 @@ class DataService {
           const data = await response.json();
           const serverPlayers = data.data?.players || [];
           this.lastDataHash = this.computeHash(serverPlayers);
+          this.lastHashScope = this.hashScope();
           this.hashInitialized = true;
         }
       } catch (error) {
@@ -338,6 +373,7 @@ class DataService {
   public setHash(players: PlayerData[]): void {
     if (!this.hashInitialized) {
       this.lastDataHash = this.computeHash(players);
+      this.lastHashScope = this.hashScope();
       this.hashInitialized = true;
     }
   }
@@ -349,19 +385,15 @@ class DataService {
      }
      
      try {
-       const response = await gatedFetch(`${this.getApiUrl()}/api/ladder`, {
-        headers: this.getAuthHeaders(),
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        const serverPlayers = data.data?.players || [];
+        // Must hash the same dataset the user just saved to (a mini-game save
+        // reset against club-ladder data would poison the hash)
+        const serverPlayers = await this.fetchCurrentDataset();
         this.lastDataHash = this.computeHash(serverPlayers);
+        this.lastHashScope = this.hashScope();
         console.debug('[DataService] Reset hash after save');
+      } catch (error) {
+        console.error('[DataService] Failed to reset hash:', error);
       }
-    } catch (error) {
-      console.error('[DataService] Failed to reset hash:', error);
-    }
   }
 
   // Expose resetHash publicly
@@ -403,28 +435,9 @@ class DataService {
       return false;
     } else {
       try {
-        // Fetch fresh data from server (or mini-game file)
-        let response: Response;
-        let serverPlayers: PlayerData[];
-        
-        if (this.currentMiniGameFile) {
-          response = await gatedFetch(
-            `${this.getApiUrl()}/api/admin/tournament/read-mini-game?fileName=${this.currentMiniGameFile}`,
-            { headers: this.getAuthHeaders() }
-          );
-        } else {
-          response = await gatedFetch(`${this.getApiUrl()}/api/ladder`, {
-            headers: this.getAuthHeaders(),
-          });
-        }
-        
-        if (!response.ok) {
-          console.error(`[DataService] Polling failed: ${response.status}`);
-          return false;
-        }
-
-        const data = await response.json();
-        serverPlayers = data.data?.players || [];
+        // Fetch fresh data for the currently active dataset (mini-game file
+        // or club ladder) — same scope rule as hash sync
+        const serverPlayers = await this.fetchCurrentDataset();
 
         // Check if data actually changed
         if (this.syncHashFromServer(serverPlayers)) {

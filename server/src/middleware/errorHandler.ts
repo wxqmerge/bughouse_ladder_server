@@ -1,11 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
 
-export interface ApiError {
-  statusCode: number;
-  message: string;
-  isOperational?: boolean;
-}
-
 export class AppError extends Error {
   public readonly statusCode: number;
   public readonly isOperational: boolean;

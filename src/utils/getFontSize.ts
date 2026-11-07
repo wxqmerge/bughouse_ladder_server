@@ -18,7 +18,7 @@ export function getFontSize(zoomLevel: string): string {
   return FONT_SIZE_MAP[zoomLevel] || "0.875rem";
 }
 
-export function getZoomScale(zoomLevel: string): number {
+function getZoomScale(zoomLevel: string): number {
   return ZOOM_SCALE_MAP[zoomLevel] || 1;
 }
 

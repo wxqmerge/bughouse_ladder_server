@@ -540,7 +540,7 @@ async function updatePlayerInAllUnlocked(
     const player = ladderData.players[targetIdx];
     Object.assign(player, updates);
     await writeLadderFile(ladderData);
-    loggerLog('[TOURNAMENT]', 'Updated player ' + originalFirstName + ' ' + originalLastName + ' (rank ' + rank + ') in club ladder');
+    loggerLog('[TOURNAMENT]', 'Updated player ' + JSON.stringify(originalFirstName) + ' ' + JSON.stringify(originalLastName) + ' (rank ' + rank + ') in club ladder');
   }
 
   const existingFiles = await getExistingMiniGameFiles();
@@ -555,7 +555,7 @@ async function updatePlayerInAllUnlocked(
       const player = miniGameData.players[idx];
       Object.assign(player, updates);
       await writeMiniGameFile(fileName, miniGameData);
-      loggerLog('[TOURNAMENT]', 'Updated player ' + originalFirstName + ' ' + originalLastName + ' (rank ' + player.rank + ') in ' + fileName);
+      loggerLog('[TOURNAMENT]', 'Updated player ' + JSON.stringify(originalFirstName) + ' ' + JSON.stringify(originalLastName) + ' (rank ' + player.rank + ') in ' + fileName);
     }
   }
 }

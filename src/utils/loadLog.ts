@@ -23,21 +23,6 @@ export function stopCapture(): string {
   return buffer.join('\n');
 }
 
-/** Return the current log content without stopping capture. */
-export function getLog(): string {
-  return buffer.join('\n');
-}
-
-/** Check if capture is currently active. */
-export function isCapturing(): boolean {
-  return active;
-}
-
-/** Clear the buffer. */
-export function clear(): void {
-  buffer.length = 0;
-}
-
 /** Capture a message directly (not from console). */
 export function capture(message: string): void {
   buffer.push(`[${getTimestamp()}] ${message}`);

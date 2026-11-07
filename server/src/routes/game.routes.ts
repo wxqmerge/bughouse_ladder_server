@@ -30,6 +30,12 @@ function isValidDelta(obj: unknown): obj is { playerRank: number; round: number;
   return isValidGameResult(obj);
 }
 
+// Shared result-format check (POST / and POST /batch use the same rules)
+const VALID_RESULT_PATTERNS = [/^\d[LDW]\d(_)?$/, /^\d:\d[LDW][LDW]?\d:\d(_)?$/];
+function isValidResultFormat(result: string): boolean {
+  return VALID_RESULT_PATTERNS.some(re => re.test(result));
+}
+
 // Submit a single game result (requires user or admin API key)
 router.post('/', requireUserKey, writeLimiter, asyncHandler(async (req: Request, res: Response) => {
   const body = req.body as unknown;
@@ -43,7 +49,7 @@ router.post('/', requireUserKey, writeLimiter, asyncHandler(async (req: Request,
   }
 
   // Basic validation for result format
-  if (!/^\d[LDW]\d(_)?$/.test(result) && !/^\d:\d[LDW][LDW]?\d:\d(_)?$/.test(result)) {
+  if (!isValidResultFormat(result)) {
     throw new AppError('Invalid result format', 400);
   }
 
@@ -102,6 +108,12 @@ router.post('/batch', requireUserKey, writeLimiter, asyncHandler(async (req: Req
     for (const game of games as GameResult[]) {
       if (game.playerRank <= 0 || game.round < 0 || game.round >= NUM_ROUNDS) {
         results.push({ playerRank: game.playerRank, error: 'Invalid playerRank or round' });
+        continue;
+      }
+
+      // Same format rules as POST / — previously /batch accepted any string
+      if (!isValidResultFormat(game.result)) {
+        results.push({ playerRank: game.playerRank, error: 'Invalid result format' });
         continue;
       }
 

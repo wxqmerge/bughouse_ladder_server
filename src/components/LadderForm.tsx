@@ -27,7 +27,8 @@ import { shouldLog, debugClick, debugInput } from "../utils/debug";
 import { useTooltips } from "../hooks/useTooltips";
 import { getVersionString, isServerDownMode, getProgramMode, testServerConnection, isValidServerUrl } from "../utils/mode";
 import { log } from "../utils/log";
-import { gatedFetch } from "../utils/requestGate";
+import { gatedFetch, apiKeyHeaders } from "../utils/requestGate";
+import { fetchHealth } from "../utils/healthCheck";
 import { downloadBlob } from "../utils/downloadBlob";
 import { getFontSize, getScaledPadding, getScaledGap } from "../utils/getFontSize";
 import { startCapture, stopCapture, capture, captureError, saveLogToFile, showErrorWithLog } from "../utils/loadLog";
@@ -733,7 +734,7 @@ export default function LadderForm({
             }
             
             const response = await gatedFetch(apiUrl, {
-              headers: splashApiKey ? { 'X-API-Key': splashApiKey } : {},
+              headers: apiKeyHeaders(splashApiKey),
             });
             
             if (response.ok) {
@@ -1238,10 +1239,7 @@ export default function LadderForm({
       formData.append('file', pendingImport.file);
 
       const userSettings = loadUserSettings();
-      const headers: Record<string, string> = {};
-      if (userSettings.apiKey && userSettings.apiKey.trim()) {
-        headers['X-API-Key'] = userSettings.apiKey.trim();
-      }
+      const headers: Record<string, string> = { ...apiKeyHeaders(userSettings.apiKey) };
 
       const response = await gatedFetch(`${serverUrl}/api/admin/upload`, {
         method: 'POST',
@@ -1320,10 +1318,7 @@ export default function LadderForm({
       
       if (serverUrl) {
         // Restore the backup on server first
-        const headers: Record<string, string> = { "Content-Type": "application/json" };
-        if (userSettings.apiKey?.trim()) {
-          headers['X-API-Key'] = userSettings.apiKey.trim();
-        }
+        const headers: Record<string, string> = { "Content-Type": "application/json", ...apiKeyHeaders(userSettings.apiKey) };
         const restoreResponse = await gatedFetch(`${serverUrl}/api/admin/backups/restore/${encodeURIComponent(filename)}`, {
           method: "POST",
           headers,
@@ -4357,20 +4352,12 @@ const handleDeleteConfirm = () => {
     if (!serverUrl) return true;
     
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000);
       // Key header unlocks full write-health detail (lastError is hidden from
       // anonymous /health callers)
-      const healthKey = loadUserSettings().apiKey;
-      const response = await gatedFetch(`${serverUrl}/health`, {
-        signal: controller.signal,
-        headers: healthKey?.trim() ? { 'X-API-Key': healthKey.trim() } : undefined,
-      });
-      clearTimeout(timeoutId);
+      const data = await fetchHealth(serverUrl, loadUserSettings().apiKey, 3000);
       
-      if (!response.ok) return true;
+      if (!data) return true;
       
-      const data = await response.json();
       const clientVersion = import.meta.env.PACKAGE_VERSION;
       setServerVersion(data.version || '');
       

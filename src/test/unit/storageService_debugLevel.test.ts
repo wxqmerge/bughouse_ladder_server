@@ -46,12 +46,16 @@ vi.mock('../../../src/services/userSettingsStorage', () => ({
   normalizeServerUrl: vi.fn((url: string) => url),
 }));
 
-// Mock gatedFetch to avoid rate limiting
-vi.mock('../../../src/utils/requestGate', () => ({
-  gatedFetch: vi.fn().mockImplementation((url: string, init?: RequestInit) => {
-    return global.fetch(url, init);
-  }),
-}));
+// Mock gatedFetch to avoid rate limiting (keep the real apiKeyHeaders)
+vi.mock('../../../src/utils/requestGate', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../src/utils/requestGate')>();
+  return {
+    ...actual,
+    gatedFetch: vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      return global.fetch(url, init);
+    }),
+  };
+});
 
 // Mock shouldLog to disable verbose logging
 vi.mock('../../../shared/utils/debugUtils', () => ({

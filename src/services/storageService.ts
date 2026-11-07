@@ -7,7 +7,7 @@
  * This is a transitional layer to help migrate from direct localStorage usage.
  */
 
-import { PlayerData, DeltaOperation, DEFAULT_GAME_RESULTS } from '../../shared/types';
+import { PlayerData, DeltaOperation } from '../../shared/types';
 import { normalizeGrades } from '../../shared/utils/dedupUtils';
 import { log } from '../utils/log';
 import { shouldLog } from '../../shared/utils/debugUtils';
@@ -15,7 +15,7 @@ import { getDebugLevel } from '../utils/debug';
 import { dataService, DataServiceMode } from './dataService';
 import { loadUserSettings, normalizeServerUrl } from './userSettingsStorage';
 import { isValidServerUrl } from '../utils/mode';
-import { gatedFetch } from '../utils/requestGate';
+import { gatedFetch, apiKeyHeaders } from '../utils/requestGate';
 
 // ==================== UTILITIES ====================
 
@@ -138,10 +138,6 @@ export function markCellAsSaved(playerRank: number, round: number): void {
   saveStatusMap.set(getSaveStatusKey(playerRank, round), true);
 }
 
-export function markCellAsUnsaved(playerRank: number, round: number): void {
-  saveStatusMap.set(getSaveStatusKey(playerRank, round), false);
-}
-
 export function clearAllSaveStatus(): void {
   saveStatusMap.clear();
 }
@@ -166,60 +162,6 @@ export function clearLocalChangesFlag(): void {
   log('[STORAGE]', 'Local changes synced to server');
 }
 
-// ==================== PENDING SYNC QUEUE ====================
-
-interface PendingSyncEntry {
-  playerRank: number;
-  round: number;
-  result: string;
-  timestamp: number;
-}
-
-let pendingSyncQueue: PendingSyncEntry[] = [];
-
-function loadPendingSyncQueue(): void {
-  const stored = getJsonArray<PendingSyncEntry>('ladder_pending_sync');
-  if (stored.length > 0) {
-    pendingSyncQueue = stored;
-    log('[STORAGE]', 'Loaded ' + pendingSyncQueue.length + ' pending sync entries');
-  }
-}
-
-function savePendingSyncQueue(): void {
-  setJson('ladder_pending_sync', pendingSyncQueue);
-}
-
-function addPendingSync(playerRank: number, round: number, result: string): void {
-  const existingIndex = pendingSyncQueue.findIndex(
-    e => e.playerRank === playerRank && e.round === round
-  );
-  if (existingIndex >= 0) {
-    pendingSyncQueue[existingIndex] = { playerRank, round, result, timestamp: Date.now() };
-  } else {
-    pendingSyncQueue.push({ playerRank, round, result, timestamp: Date.now() });
-  }
-  savePendingSyncQueue();
-}
-
-export function clearPendingSyncQueue(): void {
-  pendingSyncQueue = [];
-  savePendingSyncQueue();
-}
-
-function getPendingSyncQueue(): PendingSyncEntry[] {
-  return [...pendingSyncQueue];
-}
-
-function hasPendingSync(): boolean {
-  return pendingSyncQueue.length > 0;
-}
-
-function getPendingSyncCount(): number {
-  return pendingSyncQueue.length;
-}
-
-loadPendingSyncQueue();
-
 // ==================== DELTA QUEUE (Buffered Sync) ====================
 
 let deltaQueue: DeltaOperation[] = [];
@@ -228,12 +170,35 @@ let deltaFlushFailures = 0;
 const MAX_DELTA_FAILURES = 5;
 const MAX_DELTA_QUEUE_SIZE = 500;
 
+// The queue lives in memory; mirror it to localStorage so queued cell edits
+// survive reloads / tab closes instead of being silently dropped (bug #3).
+const DELTA_QUEUE_KEY = 'ladder_delta_queue';
+
+function persistDeltaQueue(): void {
+  if (deltaQueue.length === 0) {
+    removeJson(DELTA_QUEUE_KEY);
+  } else {
+    setJson(DELTA_QUEUE_KEY, deltaQueue);
+  }
+}
+
 export function addDelta(op: DeltaOperation): void {
   if (deltaQueue.length >= MAX_DELTA_QUEUE_SIZE) {
     console.error('[STORAGE] Delta queue full (' + MAX_DELTA_QUEUE_SIZE + '). Dropping oldest entry. Server may be unreachable.');
     deltaQueue.shift();
   }
   deltaQueue.push(op);
+  persistDeltaQueue();
+}
+
+// Restore deltas that a previous session never got to send (bounded like the
+// live queue; the flush loop below will pick them up on its first tick)
+if (typeof window !== 'undefined') {
+  const restoredDeltas = getJsonArray<DeltaOperation>(DELTA_QUEUE_KEY);
+  if (restoredDeltas.length > 0) {
+    deltaQueue = restoredDeltas.slice(-MAX_DELTA_QUEUE_SIZE);
+    console.warn(`[STORAGE] Restored ${deltaQueue.length} unsent delta(s) from a previous session`);
+  }
 }
 
 let lastFlushFailureAt = 0;
@@ -256,6 +221,7 @@ async function flushDeltas(): Promise<void> {
     // here would discard deltas typed during the network round-trip.
     const sent = new Set(batch);
     deltaQueue = deltaQueue.filter(op => !sent.has(op));
+    persistDeltaQueue();
     deltaFlushFailures = 0;
   } catch (error: any) {
     deltaFlushFailures++;
@@ -269,15 +235,18 @@ if (typeof window !== 'undefined') {
   window.addEventListener('beforeunload', stopDeltaFlushing);
 }
 
-export function getPendingDeltaCount(): number {
-  return deltaQueue.length;
-}
-
 export function stopDeltaFlushing(): void {
   if (flushInterval) {
     clearInterval(flushInterval);
     flushInterval = null;
   }
+}
+
+// Test-only: module-level queue state leaks between test files/cases otherwise
+export function _resetDeltaStateForTesting(): void {
+  deltaQueue.length = 0;
+  deltaFlushFailures = 0;
+  removeJson(DELTA_QUEUE_KEY);
 }
 
 // ==================== PENDING DELETES TRACKING ====================
@@ -296,7 +265,7 @@ function queueDelete(playerRank: number, round: number): void {
       if (serverUrl) {
         const res = await gatedFetch(`${serverUrl}/api/ladder/${playerRank}/round/${round}`, {
           method: 'DELETE',
-          headers: userSettings.apiKey ? { 'X-API-Key': userSettings.apiKey.trim() } : undefined,
+          headers: apiKeyHeaders(userSettings.apiKey),
         });
         // Only drop the queued delete once the server confirmed it — a 401
         // would otherwise silently resurrect the cleared cell on next sync
@@ -326,7 +295,7 @@ export async function replayPendingDeletes(): Promise<void> {
   const userSettings = loadUserSettings();
   const serverUrl = userSettings.server?.trim();
   if (!serverUrl) return;
-  const headers = userSettings.apiKey ? { 'X-API-Key': userSettings.apiKey.trim() } : undefined;
+  const headers = apiKeyHeaders(userSettings.apiKey);
   const remaining = new Set(deletes);
   for (const key of deletes) {
     const [rankStr, roundStr] = key.split(':');
@@ -423,10 +392,11 @@ export async function savePlayers(players: PlayerData[], waitForServer = false, 
   const mode = dataService.getMode();
   const userSettings = loadUserSettings();
   const serverUrl = userSettings.server?.trim() || '';
-  const headers: Record<string, string> = { 'Content-Type': 'application/json', 'X-Debug-Level': String(getDebugLevel()) };
-  if (userSettings.apiKey && userSettings.apiKey.trim()) {
-    headers['X-API-Key'] = userSettings.apiKey.trim();
-  }
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'X-Debug-Level': String(getDebugLevel()),
+    ...apiKeyHeaders(userSettings.apiKey)
+  };
 
   // Log game results being sent to server (threshold 4: only when explicitly verbose)
   if (shouldLog(4)) {
@@ -558,63 +528,6 @@ export async function savePlayers(players: PlayerData[], waitForServer = false, 
   }
 }
 
-export async function getPlayer(rank: number): Promise<PlayerData | undefined> {
-  const players = await getPlayers();
-  return players.find(p => p.rank === rank);
-}
-
-export async function updatePlayer(player: PlayerData): Promise<void> {
-  const players = isInBatch() ? getCurrentPlayers() : await getPlayers();
-  const index = players.findIndex(p => p.rank === player.rank);
-  if (index !== -1) {
-    players[index] = player;
-    if (dataService.getMode() === DataServiceMode.LOCAL) {
-      await savePlayers(players);
-    } else {
-      await savePlayers(players, false, true);
-      addDelta({ type: 'PLAYER_UPDATE', player });
-    }
-  }
-}
-
-function ensureGameResults(player: PlayerData): void {
-  if (!player.gameResults) player.gameResults = [...DEFAULT_GAME_RESULTS];
-}
-
-export async function clearPlayerCell(playerRank: number, roundIndex: number): Promise<void> {
-  const players = isInBatch() ? getCurrentPlayers() : await getPlayers();
-  const player = players.find(p => p.rank === playerRank);
-  if (player) {
-    ensureGameResults(player);
-    player.gameResults[roundIndex] = null;
-    if (dataService.getMode() === DataServiceMode.LOCAL) {
-      await savePlayers(players);
-      markCellAsSaved(playerRank, roundIndex);
-    } else {
-      await savePlayers(players, false, true);
-      markCellAsUnsaved(playerRank, roundIndex);
-      addDelta({ type: 'CLEAR_CELL', playerRank, round: roundIndex });
-    }
-  }
-}
-
-export async function submitGameResult(playerRank: number, round: number, result: string): Promise<void> {
-  const players = isInBatch() ? getCurrentPlayers() : await getPlayers();
-  const player = players.find(p => p.rank === playerRank);
-  if (player) {
-    ensureGameResults(player);
-    player.gameResults[round] = result;
-    if (dataService.getMode() === DataServiceMode.LOCAL) {
-      await savePlayers(players);
-      markCellAsSaved(playerRank, round);
-    } else {
-      await savePlayers(players, false, true);
-      markCellAsUnsaved(playerRank, round);
-      addDelta({ type: 'GAME_RESULT', playerRank, round, result });
-    }
-  }
-}
-
 // ==================== SETTINGS ====================
 
 export function getSettings(): any { return getJson('ladder_settings') || {}; }
@@ -623,26 +536,6 @@ export function getProjectName(): string { return getJson<string>('ladder_projec
 export function setProjectName(name: string): void { setJson('ladder_project_name', name); }
 export function getZoomLevel(): number { return getJson<number>('ladder_zoom') ?? 100; }
 export function setZoomLevel(level: number): void { setJson('ladder_zoom', level); }
-
-// ==================== UTILITY ====================
-
-async function clearAllData(): Promise<void> {
-  removeJson('ladder_players');
-  removeJson('ladder_settings');
-  removeJson('ladder_project_name');
-  removeJson('ladder_zoom');
-}
-
-async function saveToServer(): Promise<{ success: boolean; error?: string }> {
-  const players = await getPlayers();
-  if (dataService.getMode() === DataServiceMode.LOCAL) return { success: true };
-  try {
-    const url = dataService.getConfigServerUrl();
-    if (!url) return { success: false, error: 'No server URL' };
-    const res = await gatedFetch(`${url}/api/ladder`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ players }) });
-    return res.ok ? { success: true } : { success: false, error: res.statusText };
-  } catch (e: any) { return { success: false, error: e.message }; }
-}
 
 // ==================== ADMIN LOCK MANAGEMENT ====================
 
@@ -669,10 +562,7 @@ export async function tryAcquireAdminLock(clientName?: string): Promise<boolean>
   const id = getClientId();
   const name = clientName || getClientName(id);
   const settings = loadUserSettings();
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (settings.apiKey && settings.apiKey.trim()) {
-    headers['X-API-Key'] = settings.apiKey.trim();
-  }
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', ...apiKeyHeaders(settings.apiKey) };
   try {
     const res = await gatedFetch(`${url}/api/admin-lock/acquire`, { method: 'POST', headers, body: JSON.stringify({ clientId: id, clientName: name }) });
     if (!res.ok) {
@@ -693,10 +583,7 @@ export async function forceAcquireAdminLock(clientName?: string): Promise<boolea
   const id = getClientId();
   const name = clientName || getClientName(id);
   const settings = loadUserSettings();
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (settings.apiKey && settings.apiKey.trim()) {
-    headers['X-API-Key'] = settings.apiKey.trim();
-  }
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', ...apiKeyHeaders(settings.apiKey) };
   try {
     const res = await gatedFetch(`${url}/api/admin-lock/force`, { method: 'POST', headers, body: JSON.stringify({ clientId: id, clientName: name }) });
     if (!res.ok) {
@@ -715,32 +602,15 @@ export async function releaseAdminLock(): Promise<void> {
   const url = getServerUrl();
   if (!url) return;
   const settings = loadUserSettings();
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (settings.apiKey && settings.apiKey.trim()) {
-    headers['X-API-Key'] = settings.apiKey.trim();
-  }
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', ...apiKeyHeaders(settings.apiKey) };
   try { await gatedFetch(`${url}/api/admin-lock/release`, { method: 'POST', headers, body: JSON.stringify({ clientId: getClientId() }) }); } catch (e) { console.error('[STORAGE] Failed to release admin lock (lock may be orphaned on server):', e); }
-}
-
-export async function refreshAdminLock(): Promise<void> {
-  const url = getServerUrl();
-  if (!url) return;
-  const settings = loadUserSettings();
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (settings.apiKey && settings.apiKey.trim()) {
-    headers['X-API-Key'] = settings.apiKey.trim();
-  }
-  try { await gatedFetch(`${url}/api/admin-lock/refresh`, { method: 'POST', headers, body: JSON.stringify({ clientId: getClientId() }) }); } catch (e) { console.error('[STORAGE] Failed to refresh admin lock (lock may expire and orphan):', e); }
 }
 
 export async function getAdminLockInfo(): Promise<{ locked: boolean; holderId?: string; holderName?: string; expiresAt?: number; serverReachable?: boolean; adminBlocked?: boolean }> {
   const url = getServerUrl();
   if (!url) return { locked: false, serverReachable: true };
   const settings = loadUserSettings();
-  const headers: Record<string, string> = {};
-  if (settings.apiKey && settings.apiKey.trim()) {
-    headers['X-API-Key'] = settings.apiKey.trim();
-  }
+  const headers = apiKeyHeaders(settings.apiKey);
   try {
     const res = await gatedFetch(`${url}/api/admin-lock/status`, { headers });
     if (res.status === 401 || res.status === 403) {
@@ -752,11 +622,6 @@ export async function getAdminLockInfo(): Promise<{ locked: boolean; holderId?: 
     const data = await res.json();
     return data.locked ? { locked: true, holderId: data.lock?.clientId, holderName: data.lock?.clientName, expiresAt: data.expiresAt, serverReachable: true } : { locked: false, serverReachable: true };
   } catch { return { locked: false, serverReachable: false }; }
-}
-
-async function isAdminLocked(): Promise<boolean> {
-  const info = await getAdminLockInfo();
-  return info.locked;
 }
 
 export async function checkWritePermission(): Promise<boolean> {

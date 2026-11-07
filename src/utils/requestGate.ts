@@ -40,6 +40,15 @@ function readClientDebugLevel(): number | undefined {
 }
 
 /**
+ * Build the X-API-Key header from a possibly-blank stored key.
+ * Returns undefined when there is no key so fetch() omits the header entirely.
+ */
+export function apiKeyHeaders(apiKey?: string | null): Record<string, string> | undefined {
+  const key = apiKey?.trim();
+  return key ? { 'X-API-Key': key } : undefined;
+}
+
+/**
  * Fetch with global cooldown. Waits up to 150ms for the gate to open, then fires.
  * Logs every request with [REQ-GATE] prefix.
  * Injects x-debug-level header from client settings.

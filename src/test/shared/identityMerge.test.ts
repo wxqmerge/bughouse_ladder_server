@@ -1,25 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { mergeIdentityFromClubLadder, splitIdentityChanges, IDENTITY_FIELDS, isIdentityField } from '../../../shared/utils/identityMerge';
+import { mergeIdentityFromClubLadder, splitIdentityChanges, IDENTITY_FIELDS } from '../../../shared/utils/identityMerge';
 import { PlayerData } from '../../../shared/types';
 import { createTestPlayer } from '../shared/factories';
 
 function makePlayer(overrides: Partial<PlayerData>): PlayerData {
   return createTestPlayer(overrides);
 }
-
-describe('isIdentityField', () => {
-  it('returns true for all identity fields', () => {
-    for (const field of IDENTITY_FIELDS) {
-      expect(isIdentityField(field)).toBe(true);
-    }
-  });
-
-  it('returns false for non-identity fields', () => {
-    expect(isIdentityField('nRating')).toBe(false);
-    expect(isIdentityField('gameResults')).toBe(false);
-    expect(isIdentityField('foo')).toBe(false);
-  });
-});
 
 describe('mergeIdentityFromClubLadder', () => {
   it('replaces identity fields from club ladder', () => {

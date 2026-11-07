@@ -8,10 +8,6 @@ export const IDENTITY_FIELDS = [
 
 export type IdentityField = (typeof IDENTITY_FIELDS)[number];
 
-export function isIdentityField(field: string): field is IdentityField {
-	return IDENTITY_FIELDS.includes(field as IdentityField);
-}
-
 /**
  * For each mini-game player, replace identity fields with club ladder identity.
  * nRating and gameResults are preserved from the mini-game file.

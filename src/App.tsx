@@ -50,7 +50,8 @@ import {
 } from "./services/storageService";
 import { mergeServerWithLocal } from "./utils/mergeUtils";
 import { getDebugLevel } from "./utils/debug";
-import { gatedFetch } from "./utils/requestGate";
+import { gatedFetch, apiKeyHeaders } from "./utils/requestGate";
+import { fetchHealth } from "./utils/healthCheck";
 import "./css/index.css";
 
 // Global status tracking
@@ -207,15 +208,11 @@ const [miniGamesHaveResults, setMiniGamesHaveResults] = useState(false);
 
                 // Send the stored key so the server returns full write-health
                 // detail (lastError is hidden from anonymous /health callers)
-                const response = await gatedFetch(`${serverUrl}/health`, {
-                  headers: userSettings.apiKey?.trim() ? { 'X-API-Key': userSettings.apiKey.trim() } : undefined,
-                });
-                if (!response.ok) {
+                const data = await fetchHealth(serverUrl, userSettings.apiKey);
+                if (!data) {
                   scheduleHealthCheck();
                   return;
                 }
-
-                const data = await response.json();
 
                 // Check version mismatch
                 if (data.version) {
@@ -665,7 +662,7 @@ const [miniGamesHaveResults, setMiniGamesHaveResults] = useState(false);
       if (serverUrl) {
         // Send the key so PII-stripped anonymous views never become the merge base
         const response = await gatedFetch(`${serverUrl}/api/ladder`, {
-          headers: userSettings.apiKey ? { 'X-API-Key': userSettings.apiKey.trim() } : undefined,
+          headers: apiKeyHeaders(userSettings.apiKey),
         });
         if (response.ok) {
           const data = await response.json();
@@ -730,9 +727,7 @@ const [miniGamesHaveResults, setMiniGamesHaveResults] = useState(false);
         return;
       }
       
-      const authHeaders: Record<string, string> = userSettings.apiKey
-        ? { 'X-API-Key': userSettings.apiKey.trim() }
-        : {};
+      const authHeaders: Record<string, string> | undefined = apiKeyHeaders(userSettings.apiKey);
 
       const serverResponse = await gatedFetch(`${serverUrl}/api/ladder`, { headers: authHeaders });
       if (!serverResponse.ok) {
@@ -909,7 +904,7 @@ async function runPostImportSanityCheck(miniGameFile: string, serverUrl: string,
   } catch (_e) {}
   try {
     const mgResp = await gatedFetch(`${serverUrl}/api/admin/tournament/read-mini-game?fileName=${encodeURIComponent(miniGameFile)}`, {
-      headers: { ...(apiKey ? { 'X-API-Key': apiKey } : {}) },
+      headers: apiKeyHeaders(apiKey),
     });
     if (mgResp.ok) mgPlayers = (await mgResp.json()).data?.players || [];
   } catch (_e) {}

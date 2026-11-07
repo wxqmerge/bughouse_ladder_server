@@ -103,7 +103,7 @@ router.put('/:rank', requireUserKey, writeLimiter, asyncHandler(async (req: Requ
     const body = req.body as Record<string, unknown>;
     for (const [key, value] of Object.entries(body)) {
       if (key === 'gameResults') {
-        if (Array.isArray(value) && value.every((v: unknown) => v === null || typeof v === 'string')) {
+        if (Array.isArray(value) && value.length <= NUM_ROUNDS && value.every((v: unknown) => v === null || typeof v === 'string')) {
           updatedPlayer.gameResults = value as (string | null)[];
         }
         continue;
@@ -213,6 +213,19 @@ router.put('/', requireUserKey, writeLimiter, asyncHandler(async (req: Request, 
     throw new AppError(`Players at index(es) ${invalidIndices.join(', ')} missing required fields`, 400);
   }
 
+  // Shape guard: gameResults must be null|string arrays bounded by NUM_ROUNDS
+  // (isValidPlayerData only proves it is an array). Without this, a crafted
+  // client grows every .tab row with extra columns.
+  const shapeViolations = (players as unknown as Array<Record<string, unknown>>)
+    .map((p, i) => {
+      const gr = p.gameResults;
+      return (Array.isArray(gr) && gr.length <= NUM_ROUNDS && gr.every(v => v === null || typeof v === 'string')) ? -1 : i;
+    })
+    .filter(i => i !== -1);
+  if (shapeViolations.length > 0) {
+    throw new AppError(`Players at index(es) ${shapeViolations.join(', ')} have invalid gameResults (null|string array, max ${NUM_ROUNDS} entries)`, 400);
+  }
+
   const typedPlayers = players as PlayerData[];
 
   // Debug: log ALL game results when debugLevel <= 5
@@ -319,6 +332,12 @@ router.post('/batch', requireUserKey, writeLimiter, asyncHandler(async (req: Req
       }
       if (delta.round < 0 || delta.round >= NUM_ROUNDS) {
         results.push({ playerRank: delta.playerRank, error: 'Round out of range' });
+        continue;
+      }
+      // Content guard: cell values are short display strings — reject control
+      // chars (log forging / .tab corruption attempts) and oversized payloads.
+      if (delta.result.length > 64 || /[\u0000-\u001f\u007f]/.test(delta.result)) {
+        results.push({ playerRank: delta.playerRank, error: 'Invalid result content' });
         continue;
       }
       while (player.gameResults.length <= delta.round) {

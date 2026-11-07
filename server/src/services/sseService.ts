@@ -2,7 +2,6 @@ import { Response } from 'express';
 
 interface SSEClient {
   res: Response;
-  lastEventId: string;
 }
 
 let clients: SSEClient[] = [];
@@ -24,7 +23,7 @@ export function addSSEClient(res: Response): boolean {
     return false;
   }
 
-  const client: SSEClient = { res, lastEventId: '0' };
+  const client: SSEClient = { res };
   clients.push(client);
   
   res.setHeader('Content-Type', 'text/event-stream');
@@ -55,13 +54,6 @@ export function startHeartbeat(intervalMs: number = 30000): void {
   }, intervalMs);
 }
 
-function stopHeartbeat(): void {
-  if (heartbeatInterval) {
-    clearInterval(heartbeatInterval);
-    heartbeatInterval = null;
-  }
-}
-
 export function broadcastSSEEvent(event: string, data: unknown, filterClientId?: string): void {
   try {
     eventCounter++;
@@ -82,9 +74,11 @@ export function broadcastSSEEvent(event: string, data: unknown, filterClientId?:
         }
 
         client.res.write(message);
-        client.lastEventId = id;
       } catch {
-        // Client disconnected, skip (cleanup happens in 'close' handler)
+        // Write failed — the socket is dead. 'close' may not fire promptly
+        // for half-open connections, so evict immediately.
+        clients = clients.filter(c => c.res !== client.res);
+        try { client.res.end(); } catch { /* already closed */ }
       }
     }
   } catch (error) {
@@ -94,9 +88,4 @@ export function broadcastSSEEvent(event: string, data: unknown, filterClientId?:
 
 export function getSSEClientCount(): number {
   return clients.length;
-}
-
-function stopSSEClient(res: Response): void {
-  clients = clients.filter(c => c.res !== res);
-  res.end();
 }

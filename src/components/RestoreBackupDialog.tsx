@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { AlertTriangle, Check, Trash2, Loader2 } from "lucide-react";
 import { loadUserSettings } from "../services/userSettingsStorage";
-import { gatedFetch } from "../utils/requestGate";
+import { gatedFetch, apiKeyHeaders } from "../utils/requestGate";
 import { parseTabContent } from "../services/miniGameLocalStorage";
 
 interface PlayerData {
@@ -55,10 +55,7 @@ export default function RestoreBackupDialog({
       const userSettings = loadUserSettings();
       const serverUrl = (userSettings.server || "").trim();
 
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (userSettings.apiKey?.trim()) {
-        headers['X-API-Key'] = userSettings.apiKey.trim();
-      }
+      const headers: Record<string, string> = { "Content-Type": "application/json", ...apiKeyHeaders(userSettings.apiKey) };
       const response = await gatedFetch(`${serverUrl}/api/admin/backups/preview/${encodeURIComponent(filename)}`, {
         headers,
       });
@@ -95,10 +92,7 @@ export default function RestoreBackupDialog({
       const ladderPrefix = ladderFile ? ladderFile.replace('.tab', '') : undefined;
       const ladderParam = ladderPrefix ? `?ladder=${encodeURIComponent(ladderPrefix)}` : '';
       console.log('[RESTORE BACKUP] ladderFile:', ladderFile, 'ladderPrefix:', ladderPrefix, 'ladderParam:', ladderParam);
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (userSettings.apiKey?.trim()) {
-        headers['X-API-Key'] = userSettings.apiKey.trim();
-      }
+      const headers: Record<string, string> = { "Content-Type": "application/json", ...apiKeyHeaders(userSettings.apiKey) };
       const response = await gatedFetch(`${serverUrl}/api/admin/backups${ladderParam}`, {
         headers,
       });
@@ -144,10 +138,7 @@ export default function RestoreBackupDialog({
       const userSettings = loadUserSettings();
       const serverUrl = (userSettings.server || "").trim();
 
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (userSettings.apiKey?.trim()) {
-        headers['X-API-Key'] = userSettings.apiKey.trim();
-      }
+      const headers: Record<string, string> = { "Content-Type": "application/json", ...apiKeyHeaders(userSettings.apiKey) };
       const response = await gatedFetch(`${serverUrl}/api/admin/backups/${filename}`, {
         method: "DELETE",
         headers,

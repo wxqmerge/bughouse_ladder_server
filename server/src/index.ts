@@ -332,5 +332,3 @@ const isMainModule = process.argv[1] && (path.basename(process.argv[1]).endsWith
 if (isMainModule) {
   startServer();
 }
-
-export default app;

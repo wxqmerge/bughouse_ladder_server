@@ -66,10 +66,6 @@ export function saveLayouts(layouts: PrintLabelLayout[]): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(layouts));
 }
 
-export function getDefaultLayoutsCopy(): PrintLabelLayout[] {
-  return getDefaultLayouts();
-}
-
 export function exportLayouts(layouts?: PrintLabelLayout[]): string {
   const data = layouts || loadLayouts();
   return JSON.stringify(data, null, 2);

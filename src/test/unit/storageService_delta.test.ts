@@ -1,17 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import {
-  addDelta,
-  submitGameResult,
-  updatePlayer,
-  clearPlayerCell,
-  getPendingDeltaCount,
-  clearPendingSyncQueue
-} from '../../services/storageService';
-import { dataService, DataServiceMode } from '../../services/dataService';
+import { addDelta, getKeyPrefix, _resetDeltaStateForTesting } from '../../services/storageService';
 
-import { PlayerData, DeltaOperation, DEFAULT_GAME_RESULTS } from '../../../shared/types';
+import { DeltaOperation } from '../../../shared/types';
 
-// Mock dataService
+// Mock dataService (storageService flushes through it on a timer)
 vi.mock('../../services/dataService', () => ({
   dataService: {
     getMode: vi.fn().mockReturnValue('SERVER'),
@@ -40,60 +32,40 @@ const localStorageMock = (() => {
 Object.defineProperty(window, 'localStorage', { value: localStorageMock });
 Object.defineProperty(window, 'location', { value: { hostname: 'localhost', pathname: '/' }, writable: true });
 
-describe('storageService Delta Queue', () => {
-  const mockPlayer: PlayerData = {
-    rank: 1,
-    group: 'A',
-    lastName: 'Test',
-    firstName: 'User',
-    rating: 1200,
-    nRating: 1200,
-    trophyEligible: true,
-    grade: 'A',
-    num_games: 0,
-    attendance: 0,
-    info: '',
-    phone: '',
-    school: '',
-    room: '',
-    gameResults: [...DEFAULT_GAME_RESULTS],
-  };
+function readPersistedQueue(): DeltaOperation[] {
+  const raw = localStorage.getItem(getKeyPrefix() + 'ladder_delta_queue');
+  return raw ? (JSON.parse(raw) as DeltaOperation[]) : [];
+}
 
+describe('storageService Delta Queue persistence', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
-    // We need to reset the internal deltaQueue in storageService. 
-    // Since it's a module-level variable, we might need to reload the module or 
-    // use a helper if provided. For now, we'll assume it's clean or use what we have.
+    _resetDeltaStateForTesting();
   });
 
-  it('should add a delta to the queue', () => {
+  it('persists a delta to localStorage when one is queued', () => {
     const op: DeltaOperation = { type: 'GAME_RESULT', playerRank: 1, round: 5, result: 'W' };
     addDelta(op);
-    expect(getPendingDeltaCount()).toBe(1);
+    expect(readPersistedQueue()).toEqual([op]);
   });
 
-  it('should queue a delta when submitting a game result', async () => {
-    // Note: submitGameResult also calls savePlayers, which we might need to mock
-    // For simplicity, we are testing the addDelta call within it.
-    const op: DeltaOperation = { type: 'GAME_RESULT', playerRank: 1, round: 5, result: 'W' };
-    
-    // We need to mock savePlayers because submitGameResult calls it
-    // But since we are testing the side effect of addDelta, we can just check the queue
-    await submitGameResult(1, 5, 'W');
-    
-    // Check if the delta was added (it should be, even if savePlayers is called)
-    // Note: submitGameResult calls addDelta if mode is not LOCAL.
-    expect(getPendingDeltaCount()).toBeGreaterThan(0);
+  it('persists deltas in queue order', () => {
+    const op1: DeltaOperation = { type: 'GAME_RESULT', playerRank: 1, round: 5, result: 'W' };
+    const op2: DeltaOperation = { type: 'CLEAR_CELL', playerRank: 2, round: 3 };
+    addDelta(op1);
+    addDelta(op2);
+    expect(readPersistedQueue()).toEqual([op1, op2]);
   });
 
-  it('should queue a delta when updating a player', async () => {
-    await updatePlayer(mockPlayer);
-    expect(getPendingDeltaCount()).toBeGreaterThan(0);
-  });
-
-  it('should queue a delta when clearing a cell', async () => {
-    await clearPlayerCell(1, 5);
-    expect(getPendingDeltaCount()).toBeGreaterThan(0);
+  it('drops the oldest entry from persistence when the queue cap is exceeded', () => {
+    // Fill past MAX_DELTA_QUEUE_SIZE (500)
+    for (let i = 0; i < 505; i++) {
+      addDelta({ type: 'GAME_RESULT', playerRank: i + 1, round: 0, result: 'W' });
+    }
+    const persisted = readPersistedQueue();
+    expect(persisted.length).toBe(500);
+    // Oldest 5 (ranks 1-5) were dropped
+    expect((persisted[0] as Extract<DeltaOperation, { type: 'GAME_RESULT' }>).playerRank).toBe(6);
   });
 });
