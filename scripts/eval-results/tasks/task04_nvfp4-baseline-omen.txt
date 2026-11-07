@@ -1,0 +1,19 @@
+export function isValidLadderName(name: string): boolean {
+  if (name.length < 1 || name.length > 20) {
+    return false;
+  }
+
+  if (!/^[A-Za-z0-9 _-]+$/.test(name)) {
+    return false;
+  }
+
+  if (name.trim().length === 0) {
+    return false;
+  }
+
+  if (name.startsWith(" ") || name.endsWith(" ")) {
+    return false;
+  }
+
+  return true;
+}

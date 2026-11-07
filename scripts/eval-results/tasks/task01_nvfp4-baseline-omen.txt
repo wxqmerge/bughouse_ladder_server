@@ -1,0 +1,31 @@
+```ts
+export function parseGameResult(input: string): { players: number[]; scores: number[] } | null {
+  if (typeof input !== 'string') return null;
+
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+
+  const halves = trimmed.split('-');
+  if (halves.length !== 2) return null;
+
+  const numeric = /^\d+(?:\.\d+)?$/;
+
+  const toNumbers = (part: string): number[] | null => {
+    const tokens = part.split(':');
+    const values: number[] = [];
+    for (const token of tokens) {
+      if (!numeric.test(token)) return null;
+      values.push(Number(token));
+    }
+    return values;
+  };
+
+  const players = toNumbers(halves[0]);
+  const scores = toNumbers(halves[1]);
+
+  if (!players || !scores) return null;
+  if (players.length < 2 || scores.length < 1) return null;
+
+  return { players, scores };
+}
+```

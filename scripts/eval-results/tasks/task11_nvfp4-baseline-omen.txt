@@ -1,0 +1,18 @@
+```typescript
+export function resolveMergeConflict<T>(options: {
+  localUnconfirmed: T | null;
+  serverConfirmed: T | null;
+  serverDefault: T | null;
+}): T | null {
+  if (options.localUnconfirmed !== null) {
+    return options.localUnconfirmed;
+  }
+  if (options.serverConfirmed !== null) {
+    return options.serverConfirmed;
+  }
+  if (options.serverDefault !== null) {
+    return options.serverDefault;
+  }
+  return null;
+}
+```

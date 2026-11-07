@@ -1,0 +1,48 @@
+export function calculatePlayerStats(player: { gameResults: string[] | null }): { wins: number; losses: number; draws: number; winRate: number; totalGames: number } {
+  let wins = 0;
+  let losses = 0;
+  let draws = 0;
+  let totalGames = 0;
+
+  if (!player || !Array.isArray(player.gameResults)) {
+    return { wins, losses, draws, winRate: 0, totalGames };
+  }
+
+  for (const result of player.gameResults) {
+    if (!result || typeof result !== "string") {
+      continue;
+    }
+
+    const separatorIndex = result.lastIndexOf("-");
+    if (separatorIndex === -1) {
+      continue;
+    }
+
+    const scorePart = result.slice(separatorIndex + 1);
+    const scores = scorePart.split(":");
+    if (scores.length < 2) {
+      continue;
+    }
+
+    const player1Score = Number(scores[0]);
+    const player2Score = Number(scores[1]);
+
+    if (!Number.isFinite(player1Score) || !Number.isFinite(player2Score)) {
+      continue;
+    }
+
+    totalGames++;
+
+    if (player1Score > player2Score) {
+      wins++;
+    } else if (player1Score < player2Score) {
+      losses++;
+    } else {
+      draws++;
+    }
+  }
+
+  const winRate = totalGames === 0 ? 0 : Math.round((wins / totalGames) * 10000) / 10000;
+
+  return { wins, losses, draws, winRate, totalGames };
+}

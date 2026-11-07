@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync, unlinkSync, readdirSync } from 'fs';
-import { join, dirname } from 'path';
+import { join, dirname, resolve } from 'path';
 import { spawn, execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 
@@ -7,7 +7,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const config = JSON.parse(readFileSync(join(__dirname, 'eval-config.json'), 'utf8'));
 const taskDir = join(__dirname, config.task_dir);
 const outputDir = join(__dirname, config.output_dir);
-const projectRoot = config.project_root;
+const projectRoot = existsSync(config.project_root) ? config.project_root : join(__dirname, '..');
 const llamaDir = config.llama_dir || 'D:\\llama.cpp.b9464';
 const apiKey = config.apiKey || 'sk-123';
 const tempDir = join(projectRoot, 'src', 'temp');
@@ -25,7 +25,7 @@ function cleanupTemp() {
   } catch {}
 }
 
-function loadTasks() {
+export function loadTasks() {
   cleanupTemp();
   const tasks = [];
   for (let i = 1; i <= 15; i++) {
@@ -200,7 +200,7 @@ async function callModel(port, task) {
   };
 }
 
-function extractCode(content) {
+export function extractCode(content) {
   const codeBlockMatch = content.match(/```(?:typescript|tsx|js|jsx)?\n([\s\S]*?)```/);
   if (codeBlockMatch) {
     return codeBlockMatch[1].trim();
@@ -348,7 +348,7 @@ function runTests(task, code) {
   }
 }
 
-function verifyTaskFull(task, code) {
+export function verifyTaskFull(task, code) {
   const tscResult = verifyTask(task, code);
   let testResult = { passed: true, output: '' };
 
@@ -648,7 +648,10 @@ function generateMarkdown(results) {
   return md;
 }
 
-main().catch(err => {
-  console.error('Evaluation failed:', err);
-  process.exit(1);
-});
+// only self-run when executed directly, so eval-external.mjs can import the verifiers
+if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+  main().catch(err => {
+    console.error('Evaluation failed:', err);
+    process.exit(1);
+  });
+}

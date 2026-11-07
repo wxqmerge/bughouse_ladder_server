@@ -1,0 +1,14 @@
+```typescript
+export function createApiKeyAuth(validKey: string): (req: any, res: any, next: () => void) => void {
+  return (req: any, res: any, next: () => void): void => {
+    const apiKey = req.headers['x-api-key'];
+
+    if (apiKey === validKey) {
+      next();
+      return;
+    }
+
+    res.status(401).json({ error: 'Unauthorized' });
+  };
+}
+```

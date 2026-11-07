@@ -1,0 +1,71 @@
+```typescript
+export function deepClone<T>(obj: T): T {
+  const seen = new WeakMap<object, unknown>();
+
+  const cloneValue = <U>(value: U): U => {
+    if (value === null || value === undefined) {
+      return value;
+    }
+
+    if (typeof value !== "object") {
+      return value;
+    }
+
+    const source = value as unknown as object;
+
+    if (seen.has(source)) {
+      return {} as U;
+    }
+
+    if (value instanceof Date) {
+      return new Date(value.getTime()) as unknown as U;
+    }
+
+    if (value instanceof RegExp) {
+      return new RegExp(value.source, value.flags) as unknown as U;
+    }
+
+    if (Array.isArray(value)) {
+      const copy: unknown[] = [];
+      seen.set(source, copy);
+      for (const item of value) {
+        copy.push(cloneValue(item));
+      }
+      return copy as unknown as U;
+    }
+
+    if (value instanceof Map) {
+      const copy = new Map<unknown, unknown>();
+      seen.set(source, copy);
+      value.forEach((entryValue, entryKey) => {
+        copy.set(cloneValue(entryKey), cloneValue(entryValue));
+      });
+      return copy as unknown as U;
+    }
+
+    if (value instanceof Set) {
+      const copy = new Set<unknown>();
+      seen.set(source, copy);
+      value.forEach((entryValue) => {
+        copy.add(cloneValue(entryValue));
+      });
+      return copy as unknown as U;
+    }
+
+    const copy: Record<PropertyKey, unknown> = {};
+    seen.set(source, copy);
+
+    for (const key of Reflect.ownKeys(source)) {
+      const descriptor = Object.getOwnPropertyDescriptor(source, key);
+      if (!descriptor || !descriptor.enumerable) {
+        continue;
+      }
+      copy[key] = cloneValue((source as Record<PropertyKey, unknown>)[key]);
+    }
+
+    return copy as unknown as U;
+  };
+
+  return cloneValue(obj);
+}
+```

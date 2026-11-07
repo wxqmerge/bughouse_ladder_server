@@ -1,0 +1,41 @@
+```ts
+export function createRequestQueue(maxConcurrent: number): {
+  add: (fn: () => void) => void;
+  totalExecuted: number;
+} {
+  const queue: Array<() => void> = [];
+  let running = 0;
+
+  function run(fn: () => void): void {
+    running++;
+    try {
+      fn();
+      state.totalExecuted++;
+    } finally {
+      running--;
+      drain();
+    }
+  }
+
+  function drain(): void {
+    while (running < maxConcurrent && queue.length > 0) {
+      run(queue.shift() as () => void);
+    }
+  }
+
+  function add(fn: () => void): void {
+    if (running < maxConcurrent) {
+      run(fn);
+    } else {
+      queue.push(fn);
+    }
+  }
+
+  const state: { add: (fn: () => void) => void; totalExecuted: number } = {
+    add,
+    totalExecuted: 0,
+  };
+
+  return state;
+}
+```

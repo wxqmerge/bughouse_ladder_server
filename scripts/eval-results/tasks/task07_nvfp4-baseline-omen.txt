@@ -1,0 +1,23 @@
+export function formatGameResult(result: string | null): string {
+  if (!result) return "";
+
+  const trimmed = result.trim();
+  if (!trimmed) return "";
+
+  const separatorIndex = trimmed.lastIndexOf("-");
+  if (separatorIndex <= 0 || separatorIndex === trimmed.length - 1) return "";
+
+  const playersPart = trimmed.slice(0, separatorIndex);
+  const scoresPart = trimmed.slice(separatorIndex + 1);
+
+  const players = playersPart
+    .split(":")
+    .filter(Boolean)
+    .map((_, index) => `P${index + 1}`);
+
+  const scores = scoresPart.split(":").filter(Boolean);
+
+  if (players.length === 0 || scores.length === 0) return "";
+
+  return `${players.join(" vs ")} (${scores.join("-")})`;
+}
