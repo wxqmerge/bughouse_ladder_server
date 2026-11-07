@@ -4359,7 +4359,13 @@ const handleDeleteConfirm = () => {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 3000);
-      const response = await gatedFetch(`${serverUrl}/health`, { signal: controller.signal });
+      // Key header unlocks full write-health detail (lastError is hidden from
+      // anonymous /health callers)
+      const healthKey = loadUserSettings().apiKey;
+      const response = await gatedFetch(`${serverUrl}/health`, {
+        signal: controller.signal,
+        headers: healthKey?.trim() ? { 'X-API-Key': healthKey.trim() } : undefined,
+      });
       clearTimeout(timeoutId);
       
       if (!response.ok) return true;

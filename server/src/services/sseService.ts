@@ -9,7 +9,21 @@ let clients: SSEClient[] = [];
 let eventCounter = 0;
 let heartbeatInterval: NodeJS.Timeout | null = null;
 
-export function addSSEClient(res: Response): void {
+/**
+ * Register an SSE connection. Returns false (after sending 503) when the
+ * global connection cap is hit — the stream is unauthenticated, so it needs
+ * a hard cap against held-open connection exhaustion.
+ */
+export function addSSEClient(res: Response): boolean {
+  const maxClients = parseInt(process.env.MAX_SSE_CLIENTS || '200', 10) || 200;
+  if (clients.length >= maxClients) {
+    res.status(503).json({
+      success: false,
+      error: { message: 'Event-stream capacity reached. Retry later.' },
+    });
+    return false;
+  }
+
   const client: SSEClient = { res, lastEventId: '0' };
   clients.push(client);
   
@@ -23,6 +37,7 @@ export function addSSEClient(res: Response): void {
   res.on('close', () => {
     clients = clients.filter(c => c.res !== res);
   });
+  return true;
 }
 
 export function startHeartbeat(intervalMs: number = 30000): void {

@@ -246,6 +246,29 @@ else
     exit 1
 fi
 
+# 3.2. Environment precedence guard: systemd EnvironmentFile= entries OVERRIDE
+# Environment= lines in the unit file (systemd >= 240). A stale NODE_ENV in
+# server/.env would silently run the instance in development mode with the
+# production fail-fast guards disabled, while everything still looks healthy.
+echo "[3.2/10] Checking .env does not override systemd environment..."
+ENV_NODE_ENV=$(ladder_read_env_value NODE_ENV "$ENV_FILE" || true)
+if [ -n "$ENV_NODE_ENV" ] && [ "$ENV_NODE_ENV" != "production" ]; then
+    echo "  ERROR: $ENV_FILE sets NODE_ENV=$ENV_NODE_ENV."
+    echo "  EnvironmentFile in the systemd unit overrides Environment=NODE_ENV=production,"
+    echo "  so the instance would run with production guards DISABLED."
+    echo "  Remove the NODE_ENV line from $ENV_FILE (the service unit owns it) and re-run."
+    exit 1
+elif [ -n "$ENV_NODE_ENV" ]; then
+    echo "  NODE_ENV in $ENV_FILE is 'production' (matches unit default)."
+else
+    echo "  NODE_ENV not set in $ENV_FILE — systemd unit controls it."
+fi
+ENV_CORS=$(ladder_read_env_value CORS_ORIGINS "$ENV_FILE" || true)
+if [ "$ENV_CORS" = "*" ]; then
+    echo "  WARNING: CORS_ORIGINS=* in $ENV_FILE — set explicit https:// origins for"
+    echo "  any instance reachable from outside the local network."
+fi
+
 # 3.5. Scan lockfile for newly published packages (supply chain protection)
 echo "[3.5/10] Scanning lockfile for newly published packages..."
 new_packages_found=false

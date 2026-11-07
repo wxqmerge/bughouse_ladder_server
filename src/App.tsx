@@ -205,7 +205,11 @@ const [miniGamesHaveResults, setMiniGamesHaveResults] = useState(false);
                   return;
                 }
 
-                const response = await gatedFetch(`${serverUrl}/health`);
+                // Send the stored key so the server returns full write-health
+                // detail (lastError is hidden from anonymous /health callers)
+                const response = await gatedFetch(`${serverUrl}/health`, {
+                  headers: userSettings.apiKey?.trim() ? { 'X-API-Key': userSettings.apiKey.trim() } : undefined,
+                });
                 if (!response.ok) {
                   scheduleHealthCheck();
                   return;

@@ -3,7 +3,7 @@ import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs/promises';
-import archiver from 'archiver';
+import { ZipArchive } from 'archiver';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -126,13 +126,21 @@ router.get('/export', asyncHandler(async (_req: Request, res: Response): Promise
 router.get('/backups', asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const ladderName = req.query.ladder as string | undefined;
     const backups = await getBackupList(ladderName);
-    
+
+    // Absolute server paths are internal detail — never ship them to clients
+    const publicBackups = backups.map(({ version, filename, timestamp, date }) => ({
+      version,
+      filename,
+      timestamp,
+      date,
+    }));
+
     res.json({
       success: true,
       data: {
-        count: backups.length,
+        count: publicBackups.length,
         maxBackups: 20,
-        backups,
+        backups: publicBackups,
       },
     });
   }
@@ -330,11 +338,11 @@ router.post('/tournament/copy-players', asyncHandler(async (req: Request, res: R
       });
     });
     
-    broadcastSSEEvent('playersCopied', { fileName, type: 'playersCopy' });
+    broadcastSSEEvent('playersCopied', { fileName: normFileName, type: 'playersCopy' });
     
     res.json({
       success: true,
-      data: { message: `Copied players to ${fileName}` },
+      data: { message: `Copied players to ${normFileName}` },
     });
   }
 ));
@@ -564,7 +572,8 @@ router.post('/tournament/remove-player-from-all', asyncHandler(async (req: Reque
 
     await withFileLock(() => removePlayerFromAll(lastName, firstName));
 
-    broadcastSSEEvent('playerRemoved', { type: 'playerRemovedFromAll', lastName, firstName });
+    // SSE is unauthenticated — metadata only, never names or player fields
+    broadcastSSEEvent('playerRemoved', { type: 'playerRemovedFromAll' });
 
     res.json({
       success: true,
@@ -583,7 +592,8 @@ router.put('/tournament/update-player-in-all', asyncHandler(async (req: Request,
 
     await withFileLock(() => updatePlayerInAll(rank, originalLastName, originalFirstName, updates));
 
-    broadcastSSEEvent('playerUpdated', { type: 'playerUpdatedInAll', rank, originalLastName, originalFirstName, updates });
+    // SSE is unauthenticated — metadata only, never identity fields or PII
+    broadcastSSEEvent('playerUpdated', { type: 'playerUpdatedInAll', rank });
 
     res.json({
       success: true,
@@ -603,10 +613,10 @@ router.get('/tournament/check-mini-games', asyncHandler(async (_req: Request, re
   }
 ));
 
-// Helper function to create ZIP buffer
+// Helper function to create ZIP buffer (archiver v8 class API)
 async function createZipBuffer(files: ZipEntry[]): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const archive = archiver('zip', { zlib: { level: 9 } });
+    const archive = new ZipArchive({ zlib: { level: 9 } });
     const chunks: Buffer[] = [];
     
     archive.on('data', (chunk) => chunks.push(chunk));

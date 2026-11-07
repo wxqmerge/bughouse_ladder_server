@@ -41,6 +41,7 @@ import { initializeDefaultLadder } from './services/dataService.js';
 
 import { getWriteHealth } from './services/dataService.js';
 import { addSSEClient, getSSEClientCount, startHeartbeat } from './services/sseService.js';
+import { hasValidKey } from './middleware/auth.middleware.js';
 
 const app: Application = express();
 
@@ -53,8 +54,14 @@ console.log('  - PORT:', process.env.PORT);
 console.log('  - CORS_ORIGINS:', process.env.CORS_ORIGINS || '(not set)');
 console.log('  - ADMIN_API_KEY:', process.env.ADMIN_API_KEY ? 'Set' : 'NOT SET');
 
-// Trust proxy for proper IP handling behind reverse proxy
-app.set('trust proxy', 1);
+// Trust proxy for proper IP handling behind reverse proxy (nginx sets
+// X-Forwarded-For). Set TRUST_PROXY=0/false if this port is ever exposed
+// directly: otherwise clients can spoof X-Forwarded-For to pick their own
+// rate-limit bucket and forge the IPs recorded by the admin lock.
+const trustProxySetting = process.env.TRUST_PROXY === '0' || process.env.TRUST_PROXY === 'false'
+  ? false
+  : Math.max(1, parseInt(process.env.TRUST_PROXY || '1', 10) || 1);
+app.set('trust proxy', trustProxySetting);
 
 // Consolidated request logging - logs all requests in one line
 app.use((req, res, next) => {
@@ -67,7 +74,8 @@ app.use((req, res, next) => {
     const duration = Date.now() - startTime;
     const status = res.statusCode;
     const method = req.method;
-    const path = req.path;
+    // Strip control chars so a crafted URL (%0a etc.) can't forge log lines
+    const path = req.path.replace(/[\u0000-\u001f\u007f]/g, '_');
     
     // Build query string if present (redact credential-like params so keys
     // never end up in journald/console logs)
@@ -93,9 +101,25 @@ app.use((req, res, next) => {
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 5000, // ~167 req/min, supports ~100 concurrent clients
+  // SSE connections are long-lived and get their own connect-rate limiter,
+  // so a client reconnect storm can't drain this shared bucket for everyone.
+  skip: (req) => req.path === '/ladder/events',
   message: {
     success: false,
     error: { message: 'Too many requests. Please slow down.' },
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// SSE connect-rate limiter: each EventSource connection counts once against
+// this bucket (connections stay open and are NOT counted while open).
+const sseLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: parseInt(process.env.SSE_MAX_CONNECTS_PER_IP || '120', 10) || 120,
+  message: {
+    success: false,
+    error: { message: 'Too many event-stream connections. Please slow down.' },
   },
   standardHeaders: true,
   legacyHeaders: false,
@@ -169,37 +193,49 @@ app.use('/api/*', (req, _res, next) => {
   const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
   const userAgent = req.headers['user-agent']?.substring(0, 50) || 'unknown';
   
-  // Log suspicious patterns
+  // Log suspicious patterns (path sanitized against control-char log forging)
   if (req.path.includes('..') || req.path.includes('<script')) {
-    console.log(`[SECURITY] Suspicious request from ${clientIp}: ${req.method} ${req.path}`);
-    console.log(`[SECURITY] User-Agent: ${userAgent}`);
+    console.log(`[SECURITY] Suspicious request from ${clientIp}: ${req.method} ${JSON.stringify(req.path)}`);
+    console.log(`[SECURITY] User-Agent: ${JSON.stringify(userAgent)}`);
   }
   
   next();
 });
 
-// Health check endpoint
-app.get('/health', (_req: Request, res: Response) => {
+// Health check endpoint. `env` lets deploy/verify.sh assert the instance is
+// really running in production mode (systemd EnvironmentFile can otherwise
+// silently override the unit's Environment=NODE_ENV=production).
+// lastError details (which can contain filesystem paths / driver messages)
+// are only returned to key-holding clients; anonymous clients get presence +
+// counts only.
+app.get('/health', (req: Request, res: Response) => {
   const wh = getWriteHealth();
+  const detailed = hasValidKey(req);
   res.json({
     status: 'ok',
     version: serverVersion,
+    env: process.env.NODE_ENV === 'production' ? 'production' : (process.env.NODE_ENV || 'development'),
     timestamp: new Date().toISOString(),
     writeHealth: {
       lastWriteTime: wh.lastWriteTime,
       lastWriteSuccess: wh.lastWriteSuccess,
-      lastError: wh.lastError,
+      lastError: wh.lastError ? (detailed ? wh.lastError : '(details hidden — requires API key)') : null,
       lastErrorTime: wh.lastErrorTime,
       consecutiveFailures: wh.consecutiveFailures,
     },
   });
 });
 
-// SSE endpoint for real-time data updates
-app.get('/api/ladder/events', (req: Request, res: Response) => {
+// SSE endpoint for real-time data updates (metadata-only payloads).
+// Per-IP connect limit + global connection cap (see sseService) so the
+// unauthenticated stream can't be used for connection-count exhaustion.
+app.get('/api/ladder/events', sseLimiter, (req: Request, res: Response) => {
   const lastEventId = req.headers['last-event-id'] as string | undefined;
-  console.log(`[SSE] New client connected${lastEventId ? ` (lastEventId: ${lastEventId})` : ''}, total clients: ${getSSEClientCount() + 1}`);
-  addSSEClient(res);
+  if (!addSSEClient(res)) {
+    console.warn(`[SSE] Connection refused (over capacity) from ${req.ip}`);
+    return;
+  }
+  console.log(`[SSE] New client connected${lastEventId ? ` (lastEventId: ${lastEventId})` : ''}, total clients: ${getSSEClientCount()}`);
   
   // Send initial connection event
   res.write(`id: init\nevent: connected\ndata: {"message":"SSE connected"}\n\n`);
@@ -214,6 +250,9 @@ app.use('/api/*', (req, _res, next) => {
     const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
     const prev = clientDebugLevels.get(clientIp);
     if (!isNaN(val) && val !== prev) {
+      // Bound the tracker so spoofed X-Forwarded-For values can't grow it
+      // without limit (log noise / memory).
+      if (clientDebugLevels.size > 1000) clientDebugLevels.clear();
       clientDebugLevels.set(clientIp, val);
       console.log(`[DEBUG-LEVEL] ${clientIp} → ${val}`);
     }
@@ -258,7 +297,7 @@ async function startServer() {
       console.log(`✓ CORS Origins: ${process.env.CORS_ORIGINS || '*'}`);
       const adminKeySet = !!process.env.ADMIN_API_KEY;
       console.log(`✓ Admin API Key: ${adminKeySet ? 'Enabled' : '⚠️  NOT SET (endpoints unprotected)'}`);
-      console.log(`✓ Rate Limit: 5000 req/15min (general API)`);
+      console.log(`✓ Rate Limit: 5000 req/15min (general API), 500 req/15min (writes), 120 SSE connects/15min/IP`);
       console.log('');
       
       // Connection instructions for clients

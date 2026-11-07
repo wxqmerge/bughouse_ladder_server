@@ -519,6 +519,37 @@ if [ $LOG_LEAKS -eq 0 ] && [ $LOGS_CHECKED -gt 0 ]; then
 fi
 echo ""
 
+# --- Runtime Environment (NODE_ENV precedence) ---
+# systemd EnvironmentFile= overrides Environment= in the unit file: a stale
+# NODE_ENV=development in server/.env silently disables production guards.
+echo "20. Runtime Environment"
+ENV_NODE_ENV=$(grep '^NODE_ENV=' server/.env 2>/dev/null | cut -d= -f2 | tr -d ' \r\n')
+if [ -n "$ENV_NODE_ENV" ] && [ "$ENV_NODE_ENV" != "production" ]; then
+    echo "  [FAIL] server/.env sets NODE_ENV=$ENV_NODE_ENV — overrides the unit's Environment=NODE_ENV=production"
+    echo "  [FIX] Remove the NODE_ENV line from server/.env (systemd owns it)"
+    FAIL=$((FAIL + 1))
+else
+    echo "  [PASS] server/.env does not downgrade NODE_ENV"
+    PASS=$((PASS + 1))
+fi
+RUNTIME_PORT=$(systemctl show "$PROJECT_NAME" -p Environment --no-pager 2>/dev/null | tr ' ' '\n' | grep '^PORT=' | cut -d= -f2)
+[ -n "$RUNTIME_PORT" ] || RUNTIME_PORT=$(grep '^PORT=' server/.env 2>/dev/null | cut -d= -f2 | tr -d ' \r\n')
+[ -n "$RUNTIME_PORT" ] || RUNTIME_PORT=3000
+HEALTH_JSON=$(curl -s --max-time 3 "http://127.0.0.1:${RUNTIME_PORT}/health" 2>/dev/null || true)
+if [ -n "$HEALTH_JSON" ]; then
+    if echo "$HEALTH_JSON" | grep -q '"env":"production"'; then
+        echo "  [PASS] Runtime reports env=production (port $RUNTIME_PORT)"
+        PASS=$((PASS + 1))
+    else
+        echo "  [FAIL] Runtime is NOT in production mode: $HEALTH_JSON"
+        echo "  [FIX] Check EnvironmentFile precedence — the unit sets Environment=NODE_ENV=production"
+        FAIL=$((FAIL + 1))
+    fi
+else
+    warn "Server not reachable at 127.0.0.1:${RUNTIME_PORT} — runtime env check skipped"
+fi
+echo ""
+
 # --- Suggestions ---
 if [ $FAIL -gt 0 ]; then
     echo "SUGGESTIONS:"

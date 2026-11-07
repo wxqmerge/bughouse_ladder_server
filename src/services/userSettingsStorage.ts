@@ -296,6 +296,9 @@ export async function loadConfigFromUrl(): Promise<boolean> {
         },
       })
         .then(async (res) => {
+          if (res.status === 401 || res.status === 403) {
+            throw new Error(`HTTP ${res.status} — clearing all results requires the ADMIN key (the stored key must be an admin key)`);
+          }
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const data = await res.json();
           if (data.success) {

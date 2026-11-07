@@ -462,7 +462,7 @@ async function addPlayerToAllMiniGamesUnlocked(newPlayer: PlayerData): Promise<v
       // Invalidate cache before write to ensure fresh state
       miniGameCache.delete(getMiniGameFilePath(fileName));
       await writeMiniGameFile(fileName, miniGameData);
-      loggerLog('[TOURNAMENT]', `Added player ${newPlayer.firstName} ${newPlayer.lastName} to ${fileName}`);
+      loggerLog('[TOURNAMENT]', `Added player ${JSON.stringify(newPlayer.firstName)} ${JSON.stringify(newPlayer.lastName)} to ${fileName}`);
     }
   }
 }
@@ -499,7 +499,7 @@ async function removePlayerFromAllUnlocked(lastName: string, firstName: string):
   const ladderResult = removePlayerAndClearRefs(ladderData, key);
   if (ladderResult.removed) {
     await writeLadderFile(ladderData);
-    loggerLog('[TOURNAMENT]', 'Removed player ' + firstName + ' ' + lastName + ' (rank ' + ladderResult.deletedRank + ') from club ladder');
+    loggerLog('[TOURNAMENT]', 'Removed player ' + JSON.stringify(firstName) + ' ' + JSON.stringify(lastName) + ' (rank ' + ladderResult.deletedRank + ') from club ladder');
   }
 
   const existingFiles = await getExistingMiniGameFiles();
@@ -510,7 +510,7 @@ async function removePlayerFromAllUnlocked(lastName: string, firstName: string):
     const result = removePlayerAndClearRefs(miniGameData, key);
     if (result.removed) {
       await writeMiniGameFile(fileName, miniGameData);
-      loggerLog('[TOURNAMENT]', 'Removed player ' + firstName + ' ' + lastName + ' (rank ' + result.deletedRank + ') from ' + fileName);
+      loggerLog('[TOURNAMENT]', 'Removed player ' + JSON.stringify(firstName) + ' ' + JSON.stringify(lastName) + ' (rank ' + result.deletedRank + ') from ' + fileName);
     }
   }
 }

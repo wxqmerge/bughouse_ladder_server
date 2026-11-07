@@ -223,7 +223,8 @@ router.put('/', requireUserKey, writeLimiter, asyncHandler(async (req: Request, 
         for (let r = 0; r < p.gameResults.length; r++) {
           const result = p.gameResults[r];
           if (result) {
-            console.log(`[SERVER_PUT] P${p.rank} R${r} = "${result}"`);
+            // JSON.stringify escapes control chars — user data can't forge log lines
+            console.log(`[SERVER_PUT] P${p.rank} R${r} = ${JSON.stringify(result)}`);
           }
         }
       }
@@ -236,7 +237,7 @@ router.put('/', requireUserKey, writeLimiter, asyncHandler(async (req: Request, 
       for (let r = 0; r < p.gameResults.length; r++) {
         const result = p.gameResults[r];
         if (result && /[\w]/i.test(result[2] || '')) {
-          console.log('[SERVER_BULK] P' + p.rank + ' R' + r + ': "' + result + '"');
+          console.log('[SERVER_BULK] P' + p.rank + ' R' + r + ': ' + JSON.stringify(result));
         }
       }
     }
@@ -255,7 +256,7 @@ router.put('/', requireUserKey, writeLimiter, asyncHandler(async (req: Request, 
             const inv = ip.gameResults[r];
             const fvl = fp.gameResults[r];
             if (inv !== fvl) {
-              console.log(`[SERVER_PUT] DIFF P${ip.rank} R${r}: incoming="${inv}" file="${fvl}"`);
+              console.log(`[SERVER_PUT] DIFF P${ip.rank} R${r}: incoming=${JSON.stringify(inv)} file=${JSON.stringify(fvl)}`);
             }
           }
         }
@@ -326,7 +327,7 @@ router.post('/batch', requireUserKey, writeLimiter, asyncHandler(async (req: Req
 
       const oldResult = player.gameResults[delta.round];
       player.gameResults[delta.round] = delta.result;
-      console.log('[SERVER_BATCH] Stored P' + delta.playerRank + ' R' + delta.round + ': "' + oldResult + '" -> "' + delta.result + '"');
+      console.log('[SERVER_BATCH] Stored P' + delta.playerRank + ' R' + delta.round + ': ' + JSON.stringify(oldResult) + ' -> ' + JSON.stringify(delta.result));
       ladderData.players[playerIndex] = player;
       results.push({ playerRank: delta.playerRank, round: delta.round, success: true });
     }

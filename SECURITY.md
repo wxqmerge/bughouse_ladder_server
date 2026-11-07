@@ -16,7 +16,16 @@
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `PORT` | Server port | `3000` |
-| `ANON_HIDE_PII` | Set to `true` to strip `phone`, `school`, `room`, and `info` from `GET /api/ladder`, `GET /api/ladder/:rank`, and `GET /api/ladder/mini-games/read` when no valid API key is sent (view-only visitors) | off |
+| `ANON_HIDE_PII` | Strip `phone`, `school`, `room`, and `info` from `GET /api/ladder`, `GET /api/ladder/:rank`, and `GET /api/ladder/mini-games/read` when no valid API key is sent (view-only visitors). **ON by default** — set to `false` only to knowingly expose contact fields | on |
+| `TRUST_PROXY` | Reverse-proxy hops trusted for `X-Forwarded-For`. Set `0` if the node port is directly exposed (prevents spoofed-IP rate-limit bypass) | `1` |
+| `MAX_SSE_CLIENTS` | Global cap on simultaneous unauthenticated SSE connections (excess gets `503`) | `200` |
+| `SSE_MAX_CONNECTS_PER_IP` | SSE connect budget per IP per 15 min | `120` |
+
+> **Environment precedence:** systemd `EnvironmentFile=` entries *override*
+> `Environment=` lines in the unit file. Never set `NODE_ENV` in a deployed
+> `server/.env` — the service unit owns it. `deploy/update.sh` [3.2/10] aborts
+> and `deploy/verify.sh` section 20 fails if `.env` would downgrade the
+> instance. `GET /health` reports the live `env` so this is checkable remotely.
 
 ### Example Production `.env`
 
@@ -99,6 +108,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 |-------|-------|
 | Write endpoints (ladder/games mini-game writes) | 500 req / 15 min |
 | General API | 5000 req / 15 min |
+| SSE connects (per IP, new connections only) | 120 / 15 min + global cap of 200 open connections |
 | Admin lock polling | 1200 req / min |
 
 ### 4. Helmet.js Security Headers
@@ -113,13 +123,16 @@ Prevents XSS attacks by restricting script sources to `'self'`. Configured `conn
 
 ## Known Limitations / Accepted Risks
 
-- **SSE endpoint (`/api/ladder/events`) is unauthenticated** and answers with `Access-Control-Allow-Origin: *`. `EventSource` cannot send custom headers, so keying it would mean `?key=` in the URL — which reintroduces the nginx access-log leak. The event stream is therefore intentionally metadata-only (ranks, counts, file names): never add PII, keys, or player data to SSE payloads.
+- **SSE endpoint (`/api/ladder/events`) is unauthenticated** and answers with `Access-Control-Allow-Origin: *`. `EventSource` cannot send custom headers, so keying it would mean `?key=` in the URL — which reintroduces the nginx access-log leak. The event stream is therefore metadata-only (ranks, counts, file names): admin broadcasts deliberately carry **no names or player fields** (enforced — see `playerRemovedFromAll`/`playerUpdatedInAll` in `server/src/routes/admin.routes.ts`). Connection-count abuse is bounded by `MAX_SSE_CLIENTS` (global, 503 over cap) and `SSE_MAX_CONNECTS_PER_IP` (per-IP connect rate); the SSE route is excluded from the general API limiter bucket so reconnect storms can't lock out other traffic.
 - **The API key is a shared club secret**, not a per-user credential. All write-key holders are mutually trusted (bulk writes replace the player list).
 - **Config shortcut URLs** (`?key=`) put the live key in bookmarks, browser history, and (until `access_log off` is applied — see `deploy/fix-dist-nolog.sh`) nginx access logs.
-- **Unauthenticated reads include PII by default** for view-only mode; set `ANON_HIDE_PII=true` to strip `phone`/`school`/`room`/`info` from keyless requests.
+- **Unauthenticated reads hide PII by default** (`ANON_HIDE_PII` is ON unless explicitly set to `false`); with a valid key, `phone`/`school`/`room`/`info` are included.
+- **`GET /health` is unauthenticated** and exposes version, runtime mode (`env`), and write-health counters. The `lastError` string (which can contain filesystem paths) is only returned to requests carrying a valid API key; clients send the stored key on health checks.
+- **`TRUST_PROXY` defaults to `1`** (behind nginx). If the node port is ever exposed directly, clients can spoof `X-Forwarded-For` to pick their own rate-limit buckets — set `TRUST_PROXY=0` or keep the firewall rule (`ufw deny 3000`) enforced. `deploy/verify.sh` checks nginx/firewall posture.
 - **Nginx log protection is deployed** (`access_log off` on dist paths via the parent-domain regex location, plus `/etc/nginx/conf.d/nolog-key.conf` map so subdomain vhosts can log with `if=$log_without_key`). Verified by `deploy/verify.sh` section 19; audit other apps with `deploy/fix-dist-nolog.sh --dry-run`.
-- **No rate limiting** on authenticated endpoints or `/api/auth/verify`. Keys are
-  32-hex (128-bit), making brute force infeasible; add `express-rate-limit` if that
+- **Auth brute-force budget:** every limiter above applies to authenticated
+  endpoints too (they all sit under `/api`). Keys are 32-64 hex (128-256 bit),
+  making brute force infeasible; add stricter per-route limiters if that
   assumption ever changes (e.g., short keys for kids' devices).
 - **Build-time-only dev advisories:** the frontend dev toolchain (vite/vitest/esbuild) carries moderate/high advisories fixable only by major upgrades (`vite@8`). They never run in production (systemd serves `node dist/index.js`; nginx serves static `dist/`), so they are accepted risk until the major is scheduled.
 
